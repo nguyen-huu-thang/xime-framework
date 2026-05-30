@@ -1,0 +1,218 @@
+# 1. Giới thiệu
+
+Xime là một framework backend Python được xây dựng nhằm đơn giản hóa việc phát triển các hệ thống theo:
+
+* Clean Architecture
+* Domain Driven Design (DDD)
+* Modular Monolith
+* Microservice
+
+Xime không cố gắng thay thế các thư viện nền tảng phổ biến của Python.
+
+Thay vào đó, Xime cung cấp một tầng kiến trúc phía trên các thư viện này để giảm boilerplate, chuẩn hóa cấu trúc dự án và tự động hóa việc quản lý dependency.
+
+---
+
+# 2. Các thành phần kế thừa
+
+Xime không viết lại các thành phần nền tảng đã được cộng đồng kiểm chứng.
+
+Framework tận dụng các thư viện hiện có:
+
+* FastAPI
+* Dependency Injector
+* Pydantic
+* SQLAlchemy (thông qua Starter)
+* grpc.aio (thông qua Adapter)
+
+---
+
+## FastAPI
+
+FastAPI chịu trách nhiệm:
+
+* HTTP Server
+* Routing
+* OpenAPI
+* Swagger UI
+* Middleware
+* Lifespan
+* Request Parsing
+* Response Serialization
+* Security Integration
+
+---
+
+## Dependency Injector
+
+Dependency Injector là nền tảng Dependency Injection của Xime.
+
+Dependency Injector chịu trách nhiệm:
+
+* Singleton Provider
+* Factory Provider
+* Resource Provider
+* Dependency Graph Runtime
+* Async Resource Management
+* Dependency Override cho Testing
+
+Ví dụ:
+
+```python
+providers.Singleton(...)
+providers.Factory(...)
+providers.Resource(...)
+```
+
+
+---
+
+## Pydantic
+
+Pydantic chịu trách nhiệm:
+
+* Validation
+* Serialization
+* Configuration Binding
+* DTO Definition
+
+---
+
+# 3. Vai trò của Xime
+
+Xime không thay thế Dependency Injector.
+
+Xime hoạt động như một tầng phía trên Dependency Injector.
+
+```text
+Application Code
+        ↓
+      Xime
+        ↓
+Dependency Injector
+        ↓
+Python Objects
+```
+
+---
+
+Xime chịu trách nhiệm:
+
+* Package Scanning
+* Dependency Discovery
+* Type Hint Resolution
+* Interface Resolution
+* Auto Registration
+* Convention System
+* Configuration System
+* Lifecycle Integration
+
+---
+
+Developer không cần viết:
+
+```python
+container.user_service()
+```
+
+hoặc:
+
+```python
+providers.Singleton(
+    UserService,
+    repository=user_repository
+)
+```
+
+Thay vào đó chỉ cần:
+
+```python
+class UserService:
+
+    def __init__(
+        self,
+        repository: UserRepository
+    ):
+        self.repository = repository
+```
+
+Xime sẽ:
+
+1. Scan package
+2. Phân tích Type Hint
+3. Xây Dependency Graph
+4. Sinh cấu hình Dependency Injector
+5. Khởi tạo đối tượng
+
+---
+
+# 4. Triết lý Dependency Injection
+
+Mục tiêu của Xime không phải tạo ra một DI Container mới.
+
+Mục tiêu là tận dụng khả năng mạnh mẽ của Dependency Injector nhưng loại bỏ phần cấu hình thủ công.
+
+Developer không cần làm việc với:
+
+```python
+providers.Singleton
+providers.Factory
+providers.Resource
+containers.DeclarativeContainer
+```
+
+trong phần lớn trường hợp.
+
+Thay vào đó chỉ cần:
+
+```python
+class UserService:
+
+    def __init__(
+        self,
+        repository: UserRepository
+    ):
+        ...
+```
+
+Framework sẽ tự động:
+
+```text
+Scan
+    ↓
+Resolve
+    ↓
+Register
+    ↓
+Instantiate
+```
+
+dựa trên:
+
+* Directory Structure
+* Type Hint
+* Framework Configuration
+* Convention
+
+---
+
+# 5. Mục tiêu cuối cùng
+
+Mục tiêu của Xime không phải tạo ra:
+
+* HTTP Framework mới
+* DI Container mới
+* ORM mới
+
+Mục tiêu là cung cấp trải nghiệm phát triển tương tự Spring Boot nhưng tận dụng tối đa hệ sinh thái Python hiện có.
+
+Xime tập trung vào:
+
+* Convention Engine
+* Dependency Injection Automation
+* Dependency Graph Validation
+* Lifecycle Management
+* Configuration System
+* Adapter Integration
+
+và để các thư viện chuyên biệt xử lý phần việc mà chúng làm tốt nhất.

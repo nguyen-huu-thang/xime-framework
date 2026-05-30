@@ -1,0 +1,32 @@
+xime/
+│
+├── core/
+│   │
+│   ├── bootstrap/
+│   ├── container/
+│   ├── metadata/
+│   ├── config/
+│   ├── lifecycle/
+│   ├── context/
+│   ├── security/
+│   ├── event/
+│   └── exception/
+│
+├── adapters/
+│   │
+│   ├── fastapi/
+│   ├── grpc/
+│   ├── websocket/
+│   └── mq/
+│
+├── starters/
+│   │
+│   ├── sqlalchemy/
+│   ├── redis/
+│   ├── jwt/
+│   ├── cache/
+│   └── scheduler/
+│
+├── testing/
+│
+└── cli/

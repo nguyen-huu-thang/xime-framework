@@ -1,0 +1,736 @@
+# XIME FRAMEWORK
+
+## 1. Giới thiệu
+
+Xime là một framework backend Python được xây dựng nhằm đơn giản hóa việc phát triển các hệ thống theo:
+
+* Clean Architecture
+* Domain Driven Design (DDD)
+* Modular Monolith
+* Microservice
+
+Xime không cố gắng thay thế FastAPI, gRPC hay SQLAlchemy.
+
+Thay vào đó, Xime cung cấp một tầng kiến trúc phía trên các thư viện này để giảm boilerplate, chuẩn hóa cấu trúc dự án và tự động hóa việc quản lý dependency.
+
+---
+
+# 2. Triết lý thiết kế
+
+## Mục tiêu
+
+Mang lại trải nghiệm phát triển tương tự Spring Boot nhưng vẫn giữ được tinh thần Python.
+
+Framework phải:
+
+* Convention Over Configuration
+* Constructor Injection
+* Type Hint Driven
+* Directory Driven
+* Fail Fast
+* Minimal Boilerplate
+* Explicit Architecture
+
+Developer tập trung viết nghiệp vụ:
+
+```python
+class UserService:
+
+    def __init__(
+        self,
+        repository: UserRepository
+    ):
+        self.repository = repository
+```
+
+Framework tự xây dựng phần còn lại.
+
+---
+
+# 3. Nguyên tắc cốt lõi
+
+## Không sử dụng Annotation
+
+Không sử dụng:
+
+```java
+@Service
+@Repository
+@Component
+@Autowired
+@Inject
+```
+
+Không sử dụng:
+
+```python
+@service
+@repository
+@inject
+```
+
+Lý do:
+
+* Annotation làm code khó đọc
+* Metadata bị phân tán
+* Python có Type Hint đủ mạnh để suy luận Dependency
+
+---
+
+## Constructor Injection
+
+Dependency chỉ được khai báo qua constructor.
+
+Ví dụ:
+
+```python
+class UserService:
+
+    def __init__(
+        self,
+        repository: UserRepository
+    ):
+        self.repository = repository
+```
+
+Framework tự động:
+
+```text
+UserService
+    ↓
+UserRepository
+```
+
+---
+
+## Type Hint Driven
+
+Type Hint là nguồn thông tin chính để xây dựng Dependency Graph.
+
+Ví dụ:
+
+```python
+class UserController:
+
+    def __init__(
+        self,
+        service: UserService
+    ):
+        ...
+```
+
+Framework đọc:
+
+```text
+UserController
+    → UserService
+```
+
+---
+
+## Directory Driven
+
+Framework sử dụng cấu trúc thư mục để xác định loại component.
+
+Ví dụ:
+
+```text
+application/service
+application/usecase
+
+infrastructure/repository
+infrastructure/client
+```
+
+Không cần annotation.
+
+---
+
+# 4. Kiến trúc tổng thể
+
+```text
+Xime Core
+      ↑
+      │
+ ┌────┴────┐
+ │         │
+HTTP     gRPC
+Adapter  Adapter
+```
+
+Tương lai:
+
+```text
+Xime Core
+    ↑
+ ┌──┼────┬─────┐
+ │  │    │     │
+HTTP gRPC MQ WebSocket
+```
+
+---
+
+## Nguyên tắc
+
+Core không phụ thuộc:
+
+* FastAPI
+* grpc.aio
+* RabbitMQ
+* Kafka
+
+Core chỉ chứa:
+
+* Dependency Injection
+* Lifecycle
+* Event Bus
+* Security
+* Configuration
+* Context
+
+---
+
+# 5. Thành phần của Core
+
+## Context
+
+Sử dụng:
+
+```python
+ContextVar
+```
+
+để lưu dữ liệu theo request.
+
+Ví dụ:
+
+```python
+current_user = ContextVar(
+    "current_user",
+    default=None
+)
+```
+
+Adapter chịu trách nhiệm thiết lập context.
+
+Business chỉ đọc:
+
+```python
+user = current_user.get()
+```
+
+---
+
+## Security
+
+Core chứa:
+
+```text
+SecurityContext
+AuthenticationManager
+AuthorizationManager
+```
+
+Không chứa:
+
+```text
+HTTP Middleware
+```
+
+---
+
+## Validation
+
+Sử dụng trực tiếp:
+
+```python
+Pydantic
+```
+
+Ví dụ:
+
+```python
+class LoginCommand(BaseModel):
+    username: str
+    password: str
+```
+
+Validation không phụ thuộc FastAPI.
+
+---
+
+## Event Bus
+
+Core quản lý:
+
+```text
+Event
+EventHandler
+Publish
+Subscribe
+```
+
+---
+
+## Lifecycle
+
+Core quản lý:
+
+```text
+Startup
+Shutdown
+PostConstruct
+PreDestroy
+```
+
+---
+
+# 6. Hai tầng cấu hình
+
+## Tầng 1: Framework Configuration
+
+Dành cho Developer.
+
+Được viết bằng Python.
+
+Ví dụ:
+
+```text
+config/
+├── dependency.py
+├── routing.py
+├── security.py
+└── module.py
+```
+
+Mục đích:
+
+* cấu hình framework
+* cấu hình scanner
+* cấu hình binding
+* cấu hình lifecycle
+* cấu hình routing
+
+Ví dụ:
+
+```python
+dependency.scan(
+    "application.service",
+    "application.usecase",
+    "infrastructure.repository"
+)
+
+dependency.exclude(
+    "domain",
+    "dto"
+)
+```
+
+---
+
+## Tầng 2: Runtime Configuration
+
+Dành cho Operator.
+
+Ví dụ:
+
+```text
+resources/
+├── application.yml
+├── application-dev.yml
+├── application-prod.yml
+└── application-test.yml
+```
+
+Ví dụ:
+
+```yaml
+server:
+  port: 8080
+
+database:
+  host: localhost
+
+redis:
+  host: localhost
+```
+
+Operator không cần biết:
+
+```text
+Dependency Graph
+Package Scanner
+Binding
+```
+
+Operator chỉ quan tâm:
+
+```text
+Host
+Port
+Secret
+Database
+Redis
+Storage
+Endpoint
+```
+
+---
+
+# 7. Package Scanning
+
+Framework quét package theo cấu hình.
+
+Ví dụ:
+
+```python
+dependency.scan(
+    "application.service",
+    "application.usecase",
+    "infrastructure.repository",
+    "infrastructure.client"
+)
+```
+
+Các package không quét:
+
+```text
+domain
+dto
+entity
+vo
+constant
+exception
+```
+
+---
+
+# 8. Quy tắc **init**.py
+
+Nếu package không có:
+
+```python
+__init__.py
+```
+
+→ Scan toàn bộ.
+
+Nếu có:
+
+```python
+__all__
+```
+
+Ví dụ:
+
+```python
+__all__ = [
+    "UserService",
+    "AuthService"
+]
+```
+
+→ Chỉ scan các class được export.
+
+---
+
+# 9. Điều kiện đăng ký Dependency
+
+Một class được đăng ký nếu:
+
+* Không phải Abstract Class
+* Không phải Protocol
+* Có constructor
+* Tất cả tham số constructor có Type Hint
+* Không thuộc danh sách loại trừ
+
+Ví dụ hợp lệ:
+
+```python
+class UserService:
+
+    def __init__(
+        self,
+        repository: UserRepository
+    ):
+        ...
+```
+
+Ví dụ không hợp lệ:
+
+```python
+class UserService:
+
+    def __init__(
+        self,
+        repository
+    ):
+        ...
+```
+
+Startup phải fail.
+
+---
+
+# 10. Dependency Graph
+
+Framework xây graph trước khi khởi tạo.
+
+Ví dụ:
+
+```text
+UserController
+    ↓
+UserService
+    ↓
+UserRepository
+```
+
+Graph được sử dụng để:
+
+* Resolve Dependency
+* Detect Cycle
+* Validate Startup
+
+---
+
+# 11. Interface Binding
+
+Ví dụ:
+
+```python
+class UserRepository(ABC):
+    ...
+```
+
+```python
+class JpaUserRepository(UserRepository):
+    ...
+```
+
+Binding:
+
+```python
+dependency.bind(
+    UserRepository,
+    JpaUserRepository
+)
+```
+
+Hoặc:
+
+```yaml
+bindings:
+
+  UserRepository:
+    JpaUserRepository
+```
+
+Nếu nhiều implementation:
+
+```text
+JpaUserRepository
+RedisUserRepository
+```
+
+mà không có binding:
+
+Startup phải fail.
+
+---
+
+# 12. Scope
+
+Hỗ trợ:
+
+```text
+Singleton
+Factory
+```
+
+Ví dụ:
+
+```yaml
+dependency:
+
+  singleton:
+    - application.service
+    - application.usecase
+
+  factory:
+    - infrastructure.persistence
+```
+
+Tương lai:
+
+```text
+Request
+Session
+```
+
+---
+
+# 13. Circular Dependency Detection
+
+Ví dụ:
+
+```text
+UserService
+    ↓
+AuthService
+    ↓
+TokenService
+    ↓
+UserService
+```
+
+Startup phải fail.
+
+Ví dụ lỗi:
+
+```text
+Circular dependency detected
+
+UserService
+ → AuthService
+ → TokenService
+ → UserService
+```
+
+---
+
+# 14. Error Reporting
+
+Framework phải báo lỗi rõ ràng.
+
+Ví dụ:
+
+```text
+Missing Type Hint
+
+Class:
+UserService
+
+Parameter:
+repository
+```
+
+---
+
+Ví dụ:
+
+```text
+No Implementation Found
+
+Interface:
+UserRepository
+```
+
+---
+
+Ví dụ:
+
+```text
+Multiple Implementations Found
+
+Interface:
+UserRepository
+
+Candidates:
+JpaUserRepository
+RedisUserRepository
+```
+
+---
+
+# 15. Lifecycle
+
+Startup:
+
+```text
+1. Load Framework Configuration
+2. Load Runtime Configuration
+3. Scan Packages
+4. Resolve Type Hints
+5. Build Dependency Graph
+6. Validate Graph
+7. Detect Cycles
+8. Create Singletons
+9. Start Adapters
+```
+
+Shutdown:
+
+```text
+1. Execute PreDestroy
+2. Dispose Resources
+3. Close Database
+4. Close Redis
+5. Close gRPC Channels
+```
+
+---
+
+# 16. Starters
+
+Starter là các thành phần có sẵn nhưng không bắt buộc.
+
+Ví dụ:
+
+```text
+SQLAlchemy Starter
+Redis Starter
+JWT Starter
+Cache Starter
+Scheduler Starter
+```
+
+Starter không thuộc Core.
+
+Starter chỉ giúp lập trình viên khởi động nhanh.
+
+Tương tự:
+
+```text
+spring-boot-starter-web
+spring-boot-starter-data-jpa
+```
+
+---
+
+# 17. Mục tiêu cuối cùng
+
+Xime không cố gắng thay thế:
+
+* FastAPI
+* grpc.aio
+* SQLAlchemy
+* Pydantic
+
+Xime chỉ cung cấp:
+
+* Convention Engine
+* Dependency Injection
+* Dependency Graph
+* Lifecycle Management
+* Configuration System
+* Adapter Integration
+
+Developer chỉ cần tập trung vào nghiệp vụ:
+
+```python
+class UserService:
+
+    def __init__(
+        self,
+        repository: UserRepository
+    ):
+        ...
+```
+
+Framework tự động xây dựng phần còn lại dựa trên:
+
+* Directory Structure
+* Type Hint
+* Convention
+* Configuration
