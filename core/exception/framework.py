@@ -86,3 +86,35 @@ class BindingValidationException(StartupException):
             f"  Missing methods:\n"
             f"  - {missing_str}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Runtime — Security
+# ---------------------------------------------------------------------------
+
+class SecurityException(XimeException):
+    """Base for security-related runtime exceptions."""
+
+    pass
+
+
+class AuthenticationException(SecurityException):
+    """
+    Raised when credentials cannot be verified.
+    Implementations of AuthenticationManager should raise this on failure.
+    """
+
+    def __init__(self, message: str = "Authentication failed"):
+        self.message = message
+        super().__init__(f"\nAuthentication Failed\n  {message}")
+
+
+class AuthorizationException(SecurityException):
+    """
+    Raised when the current identity lacks a required permission.
+    Implementations of AuthorizationManager should raise this on failure.
+    """
+
+    def __init__(self, message: str = "Access denied"):
+        self.message = message
+        super().__init__(f"\nAccess Denied\n  {message}")

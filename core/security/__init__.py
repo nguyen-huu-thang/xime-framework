@@ -1,16 +1,21 @@
+from core.security.authentication import AuthenticationManager
+from core.security.authorization import AuthorizationManager
 from core.security.context import credentials, credential_type, identity, permissions
 from core.security.enums import CredentialType
 from core.security.session import authenticate, clear_security
 
 __all__ = [
-    # Fields — đọc từng field
+    # Context fields
     "identity",
     "credentials",
     "credential_type",
     "permissions",
-    # Helpers — gán/xóa toàn bộ
+    # Helpers
     "authenticate",
     "clear_security",
-    # Enum
+    # Enums
     "CredentialType",
+    # Protocols — implement to plug custom logic
+    "AuthenticationManager",
+    "AuthorizationManager",
 ]
