@@ -1,0 +1,59 @@
+from __future__ import annotations
+
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+# Sentinel used by get() to distinguish "key not found" from value=None.
+_NOT_FOUND: Any = object()
+
+
+class ServerConfig(BaseModel):
+    """Network binding for the HTTP adapter."""
+
+    host: str = "0.0.0.0"
+    port: int = 8080
+
+
+class RuntimeConfig(BaseModel):
+    """
+    Typed view of application.yml merged with the active env override.
+
+    Framework-level keys (env, server) are parsed into typed fields.
+    Application-level keys (database, redis, …) are stored as extra fields
+    and accessible via get() with dot-notation.
+
+    Typical creation via bootstrap:
+        loader = YamlConfigLoader()
+        config = RuntimeConfig.from_dict(loader.load(env=detect_env()))
+    """
+
+    model_config = {"extra": "allow"}
+
+    env: str = "development"
+    server: ServerConfig = Field(default_factory=ServerConfig)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> RuntimeConfig:
+        """Build a RuntimeConfig from a raw dict (e.g. from YamlConfigLoader)."""
+        return cls.model_validate(data)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Access any config value by dot-notation key.
+
+        Examples:
+            config.get("env")                 # "production"
+            config.get("server.port")          # 8080
+            config.get("database.pool_size")   # app-level extra key
+            config.get("missing.key", "n/a")   # "n/a"
+        """
+        parts = key.split(".")
+        current: Any = self.model_dump()
+        for part in parts:
+            if not isinstance(current, dict):
+                return default
+            current = current.get(part, _NOT_FOUND)
+            if current is _NOT_FOUND:
+                return default
+        return current

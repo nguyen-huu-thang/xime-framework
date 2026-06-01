@@ -25,6 +25,7 @@ class XimeContainer:
         self._packages: list[str] = []
         self._bindings: dict[type, type] = {}
         self._registry: DependencyRegistry | None = None
+        self._topological_order: list[type] = []
 
     # ------------------------------------------------------------------
     # Configuration (call before build)
@@ -67,6 +68,7 @@ class XimeContainer:
         graph = DependencyGraph(resolved)
         GraphValidator().validate(resolved, graph, self._bindings, classes)
 
+        self._topological_order = graph.topological_order()
         self._registry = DependencyRegistry()
         self._registry.register(resolved, graph)
 
@@ -86,3 +88,18 @@ class XimeContainer:
                 "XimeContainer is not built yet. Call build() first."
             )
         return self._registry.get(cls)
+
+    def get_all_in_order(self) -> list[object]:
+        """
+        Force-instantiate and return all singleton instances in topological
+        order (dependencies before dependents).
+
+        Used by StartupOrchestrator to build the LifecycleManager after
+        the DI pipeline completes.
+        Raises RuntimeError if called before build().
+        """
+        if self._registry is None:
+            raise RuntimeError(
+                "XimeContainer is not built yet. Call build() first."
+            )
+        return [self.get(cls) for cls in self._topological_order]
