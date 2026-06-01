@@ -105,6 +105,45 @@ def test_contains_operator():
 
 
 # ---------------------------------------------------------------------------
+# __len__
+# ---------------------------------------------------------------------------
+
+def test_len_empty():
+    assert len(request_context) == 0
+
+
+def test_len_after_set():
+    request_context.set("a", 1)
+    request_context.set("b", 2)
+    assert len(request_context) == 2
+
+
+def test_len_after_delete():
+    request_context.set("x", 10)
+    request_context.delete("x")
+    assert len(request_context) == 0
+
+
+def test_len_after_clear():
+    request_context.set("y", 99)
+    request_context.clear()
+    assert len(request_context) == 0
+
+
+# ---------------------------------------------------------------------------
+# __repr__
+# ---------------------------------------------------------------------------
+
+def test_repr_empty():
+    assert repr(request_context) == "RequestContext({})"
+
+
+def test_repr_with_data():
+    request_context.set("trace_id", "xyz")
+    assert repr(request_context) == "RequestContext({'trace_id': 'xyz'})"
+
+
+# ---------------------------------------------------------------------------
 # Isolation giữa các async task
 # ---------------------------------------------------------------------------
 

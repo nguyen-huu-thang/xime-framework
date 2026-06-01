@@ -54,6 +54,13 @@ class _RequestContext:
         ctx = self._var.get()
         return key in ctx if ctx else False
 
+    def __len__(self) -> int:
+        ctx = self._var.get()
+        return len(ctx) if ctx else 0
+
+    def __repr__(self) -> str:
+        return f"RequestContext({self.all()!r})"
+
 
 # Module-level singleton — import this directly
 #

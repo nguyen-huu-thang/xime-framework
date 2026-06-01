@@ -43,12 +43,12 @@ def is_protocol(cls: type) -> bool:
     """
     Return True if cls is defined as a typing.Protocol.
     A Protocol itself is not instantiable and should not be registered in DI.
+
+    Uses _is_protocol (set only when Protocol appears directly in __bases__)
+    instead of issubclass(), which incorrectly returns True for concrete classes
+    that merely inherit from a Protocol interface.
     """
-    return (
-        isinstance(cls, type)
-        and issubclass(cls, typing.Protocol)  # type: ignore[arg-type]
-        and cls is not typing.Protocol
-    )
+    return bool(getattr(cls, "_is_protocol", False))
 
 
 def is_abstract(cls: type) -> bool:

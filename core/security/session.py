@@ -10,19 +10,24 @@ from core.security.context import (
     permissions as _permissions,
 )
 
+# Sentinel to distinguish "caller did not pass this argument" from "caller
+# explicitly passed None" (which clears the field).
+_UNSET: Any = object()
+
 
 def authenticate(
     *,
-    identity: Any = None,
-    credentials: Any = None,
-    credential_type: Enum | None = None,
-    permissions: set[Enum] | None = None,
+    identity: Any = _UNSET,
+    credentials: Any = _UNSET,
+    credential_type: Any = _UNSET,
+    permissions: Any = _UNSET,
 ) -> None:
     """
     Set security fields for the current async task in one call.
 
     Called by authentication middleware after verifying the request.
     Only fields explicitly provided are written — omitted fields stay as-is.
+    Passing None explicitly clears that field (sets it to None).
 
     Usage:
         authenticate(
@@ -31,13 +36,13 @@ def authenticate(
             permissions={Permission.READ, Permission.WRITE},
         )
     """
-    if identity is not None:
+    if identity is not _UNSET:
         _identity.set(identity)
-    if credentials is not None:
+    if credentials is not _UNSET:
         _credentials.set(credentials)
-    if credential_type is not None:
+    if credential_type is not _UNSET:
         _credential_type.set(credential_type)
-    if permissions is not None:
+    if permissions is not _UNSET:
         _permissions.set(permissions)
 
 
