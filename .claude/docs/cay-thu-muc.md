@@ -15,9 +15,10 @@ xime/
 │   └── exception/
 │
 ├── adapters/
-│   ├── fastapi/
+│   ├── web/
+│   │   ├── openapi/
+│   │   └── ws/
 │   ├── grpc/
-│   ├── websocket/
 │   └── mq/
 │
 ├── starters/
@@ -54,9 +55,10 @@ Nền tảng framework, không phụ thuộc vào bất kỳ adapter hay thư vi
 
 Tích hợp giao thức. Mỗi adapter chịu trách nhiệm thiết lập request `Context` và kết nối giao thức với Core.
 
-- **`fastapi/`** — HTTP server, routing, middleware, OpenAPI
+- **`web/`** — HTTP + WebSocket server qua FastAPI (ASGI)
+  - **`openapi/`** — OpenApiConfig, security schemes (JwtBearer, ApiKey...)
+  - **`ws/`** — WebSocket handler base, routing WebSocket
 - **`grpc/`** — gRPC server thông qua `grpc.aio`
-- **`websocket/`** — Hỗ trợ WebSocket
 - **`mq/`** — Tích hợp message queue
 
 ---
