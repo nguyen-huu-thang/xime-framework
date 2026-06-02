@@ -46,7 +46,7 @@ XIME lấp đầy khoảng trống đó. Nó không thay thế FastAPI hay SQLAl
 
 ## Cách hoạt động
 
-```
+```text
 Application Code
       ↓
    XIME Core          ← scanning, DI, lifecycle, config
@@ -74,12 +74,25 @@ Nếu có vấn đề, app **thất bại ngay lúc startup** với thông báo 
 ## Bắt đầu nhanh
 
 ```python
-# app/main.py
+# app/main.py — REST only
 from xime import Application
 from xime.adapters.web import WebAdapter
 
-application = Application()
-app = WebAdapter(application).build()
+app = Application()
+app.use(WebAdapter())
+app.run()
+```
+
+```python
+# app/main.py — REST + gRPC đồng thời
+from xime import Application
+from xime.adapters.web import WebAdapter
+from xime.adapters.grpc import GrpcAdapter
+
+app = Application()
+app.use(WebAdapter())
+app.use(GrpcAdapter())
+app.run()
 ```
 
 ```python
@@ -115,7 +128,7 @@ python app/main.py
 ## Tính năng
 
 | Tính năng | Mô tả |
-|---|---|
+| --- | --- |
 | **Constructor Injection** | Khai báo dependency qua tham số constructor — XIME tự kết nối |
 | **Directory-Driven DI** | Vị trí package quyết định vai trò component — không annotation |
 | **Interface Binding** | Ánh xạ `Protocol` → implementation tường minh, validate lúc startup |
@@ -135,7 +148,7 @@ python app/main.py
 Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 | Starter | Cung cấp gì |
-|---|---|
+| --- | --- |
 | `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager` |
 | `xime.starters.jwt` | JWT signing, verification, middleware |
 | `xime.starters.scheduler` | Lập lịch tác vụ kiểu cron |
@@ -178,7 +191,7 @@ Vui lòng đọc [CONTRIBUTING](docs/vn/contributing.md) trước khi mở PR.
 ## Tài liệu
 
 | Tài liệu | Mô tả |
-|---|---|
+| --- | --- |
 | [Bắt đầu nhanh](docs/vn/getting-started.md) | App đầu tiên trong 5 phút |
 | [Kiến trúc](docs/vn/architecture.md) | Cấu trúc nội bộ của XIME |
 | [Khái niệm cốt lõi](docs/vn/core-concepts.md) | DI, interface binding, scope |

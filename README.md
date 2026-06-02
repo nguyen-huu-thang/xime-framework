@@ -74,12 +74,25 @@ If anything is wrong, the app **fails immediately at startup** with a clear erro
 ## Quick Start
 
 ```python
-# app/main.py
+# app/main.py — REST only
 from xime import Application
 from xime.adapters.web import WebAdapter
 
-application = Application()
-app = WebAdapter(application).build()
+app = Application()
+app.use(WebAdapter())
+app.run()
+```
+
+```python
+# app/main.py — REST + gRPC simultaneously
+from xime import Application
+from xime.adapters.web import WebAdapter
+from xime.adapters.grpc import GrpcAdapter
+
+app = Application()
+app.use(WebAdapter())
+app.use(GrpcAdapter())
+app.run()
 ```
 
 ```python
@@ -104,6 +117,16 @@ class UserController:
     @get("/{user_id}", response_model=UserResponse)
     async def get_user(self, user_id: int) -> UserResponse:
         return await self._use_case.execute(user_id)
+```
+
+```python
+# app/main.py
+from xime import Application
+from xime.adapters.web import WebAdapter
+
+app = Application()
+app.use(WebAdapter())
+app.run()
 ```
 
 ```bash

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import grpc.aio
+from typing import TYPE_CHECKING
 
-from core.bootstrap.application import Application
-from core.config.runtime import RuntimeConfig
+import grpc.aio
 
 from ._config import GrpcServerConfig
 from .interceptors._config import grpc_interceptor_registry
@@ -14,43 +13,57 @@ from .routing._config import grpc_service_registry
 from .routing._scanner import GrpcServiceScanner
 from .tls._credentials import build_server_credentials
 
+if TYPE_CHECKING:
+    from core.bootstrap.application import Application
+
 
 class GrpcAdapter:
-    """Manages the lifecycle of a grpc.aio.Server.
+    """gRPC adapter — wraps grpc.aio.Server into the Xime adapter lifecycle.
 
-    Integrates with Xime's DI container and lifecycle system:
-      - start(): build interceptor stack, register servicers, bind port, start server
-      - stop():  graceful shutdown with a 5-second grace period
-
-    Interceptor order (outermost first):
-      1. RequestContextInterceptor  — always present, sets request_id + cleans up
-      2. ErrorMappingInterceptor    — always present, maps exceptions → StatusCode
-      3. user-declared interceptors — registered via configure_grpc_interceptors()
-
-    TLS / mTLS is configured entirely through application.yml:
-      grpc.tls.enabled = false  → insecure port (default)
-      grpc.tls.mutual  = false  → TLS (server-side only)
-      grpc.tls.mutual  = true   → mTLS (both sides authenticate)
-
-    Usage in main.py:
-        from xime.adapters.grpc import GrpcAdapter
-        from core.bootstrap.application import Application
+    Register via app.use() and start via app.run():
 
         app = Application()
-        adapter = GrpcAdapter(app)
-        # adapter.start() / adapter.stop() are called by Application.use() hooks
+        app.use(WebAdapter())
+        app.use(GrpcAdapter())
+        app.run()
+
+    Both adapters start concurrently after the DI container is fully built.
+
+    TLS / mTLS is configured entirely through application.yml:
+        grpc:
+          port: 50051
+          tls:
+            enabled: true
+            cert_file: certs/server.crt
+            key_file:  certs/server.key
+            ca_file:   certs/ca.crt   # optional — needed for mTLS
+            mutual:    true            # true = require client certificate
+
+    Interceptor order (outermost first):
+        1. RequestContextInterceptor  — always present, sets request_id + cleans up
+        2. ErrorMappingInterceptor    — always present, maps exceptions → StatusCode
+        3. user-declared interceptors — registered via configure_grpc_interceptors()
     """
 
-    def __init__(self, application: Application) -> None:
-        self._application = application
+    def __init__(self) -> None:
         self._server: grpc.aio.Server | None = None
+        self._app: "Application | None" = None
 
-    async def start(self, runtime: RuntimeConfig) -> None:
+    # ------------------------------------------------------------------
+    # Adapter protocol
+    # ------------------------------------------------------------------
+
+    async def start(self, app: "Application") -> None:
         """Build and start the gRPC server.
 
-        Called by Application after the DI container is fully built, so
-        GrpcServiceBuilder can fetch handler instances from the container.
+        Called by Application._run_async() after the DI container is fully built,
+        so GrpcServiceBuilder can fetch handler instances from the container.
+        Blocks until the server is stopped (via stop() or SIGINT).
         """
+        from core.config.runtime import RuntimeConfig
+        runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
+
+        self._app = app
         config = GrpcServerConfig.from_runtime(runtime)
         interceptors = self._build_interceptors()
 
@@ -61,7 +74,7 @@ class GrpcAdapter:
         scanner.validate_packages(*grpc_service_registry.get_packages())
 
         # Register every declared servicer with the server.
-        builder = GrpcServiceBuilder(self._application)
+        builder = GrpcServiceBuilder(app)
         builder.register_all(self._server, grpc_service_registry.get_bindings())
 
         # Bind port — TLS/mTLS or plain.
@@ -72,6 +85,7 @@ class GrpcAdapter:
             self._server.add_insecure_port(f"[::]:{config.port}")
 
         await self._server.start()
+        await self._server.wait_for_termination()
 
     async def stop(self) -> None:
         """Gracefully stop the gRPC server.

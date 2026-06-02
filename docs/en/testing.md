@@ -118,14 +118,15 @@ async def test_get_user_controller():
     assert response.name == "Alice"
 ```
 
-For HTTP-level tests (testing routing, middleware, serialization), use FastAPI's `TestClient` or `AsyncClient`:
+For HTTP-level tests (testing routing, middleware, serialization), use `WebAdapter.build_app()` to get the FastAPI instance without running uvicorn:
 
 ```python
 from httpx import AsyncClient
+from adapters.web import WebAdapter
 
 async def test_get_user_http(app):
-    web = WebAdapter(app).build()
-    async with AsyncClient(app=web, base_url="http://test") as client:
+    fastapi_app = WebAdapter().build_app(app)
+    async with AsyncClient(app=fastapi_app, base_url="http://test") as client:
         response = await client.get("/users/1")
         assert response.status_code == 200
         assert response.json()["name"] == "Alice"
@@ -157,7 +158,7 @@ Use a test database (separate URL, wiped between test runs) rather than mocking 
 ## `xime.testing` Module
 
 | Utility | Description |
-|---|---|
+| --- | --- |
 | `FakeTransactionManager` | No-op transaction for unit tests |
 | `override_binding(cls, fake)` | Temporarily replace a DI binding |
 

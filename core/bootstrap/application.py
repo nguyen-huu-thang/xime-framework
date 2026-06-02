@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import importlib
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.bootstrap.orchestrator import StartupOrchestrator
 from core.config.binding import BindingConfig
 from core.config.loader import YamlConfigLoader, detect_env
 from core.config.runtime import RuntimeConfig
+
+if TYPE_CHECKING:
+    from core.bootstrap.adapter import Adapter
 
 
 class Application:
@@ -39,8 +42,11 @@ class Application:
         finally:
             await app.stop()
 
-        # Blocking (CLI / scripts)
-        Application().run()
+        # Blocking with adapters (REST only, or REST + gRPC simultaneously)
+        app = Application()
+        app.use(WebAdapter())
+        app.use(GrpcAdapter())
+        app.run()
     """
 
     def __init__(
@@ -54,6 +60,20 @@ class Application:
         self._resources_dir = resources_dir
         self._config_module = config_module
         self._orchestrator: StartupOrchestrator | None = None
+        self._adapters: list["Adapter"] = []
+
+    # ------------------------------------------------------------------
+    # Adapter registration
+    # ------------------------------------------------------------------
+
+    def use(self, adapter: "Adapter") -> "Application":
+        """Register an adapter to run when app.run() is called.
+
+        Adapters start concurrently after the DI container is built.
+        Supports chaining: app.use(WebAdapter()).use(GrpcAdapter()).run()
+        """
+        self._adapters.append(adapter)
+        return self
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -100,16 +120,26 @@ class Application:
     # ------------------------------------------------------------------
 
     def run(self) -> None:
-        """Start the application and block until interrupted (Ctrl+C)."""
+        """Start the application and all registered adapters, block until interrupted."""
         asyncio.run(self._run_async())
 
     async def _run_async(self) -> None:
         await self.start()
         try:
-            await asyncio.sleep(float("inf"))
+            if self._adapters:
+                # Run all adapters concurrently; blocks until all adapters stop
+                # (normally via Ctrl+C → CancelledError propagates here).
+                await asyncio.gather(
+                    *[adapter.start(self) for adapter in self._adapters]
+                )
+            else:
+                await asyncio.sleep(float("inf"))
         except (KeyboardInterrupt, asyncio.CancelledError):
             pass
         finally:
+            # Shut down adapters in reverse registration order (LIFO)
+            for adapter in reversed(self._adapters):
+                await adapter.stop()
             await self.stop()
 
     # ------------------------------------------------------------------

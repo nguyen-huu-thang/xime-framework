@@ -118,14 +118,15 @@ async def test_get_user_controller():
     assert response.name == "Alice"
 ```
 
-Cho HTTP-level test (test routing, middleware, serialization), dùng `TestClient` hoặc `AsyncClient` của FastAPI:
+Cho HTTP-level test (test routing, middleware, serialization), dùng `WebAdapter.build_app()` để lấy FastAPI instance mà không chạy uvicorn:
 
 ```python
 from httpx import AsyncClient
+from adapters.web import WebAdapter
 
 async def test_get_user_http(app):
-    web = WebAdapter(app).build()
-    async with AsyncClient(app=web, base_url="http://test") as client:
+    fastapi_app = WebAdapter().build_app(app)
+    async with AsyncClient(app=fastapi_app, base_url="http://test") as client:
         response = await client.get("/users/1")
         assert response.status_code == 200
         assert response.json()["name"] == "Alice"
