@@ -127,15 +127,18 @@ class Application:
         await self.start()
         try:
             if self._adapters:
-                # Run all adapters concurrently; blocks until all adapters stop
-                # (normally via Ctrl+C → CancelledError propagates here).
-                await asyncio.gather(
-                    *[adapter.start(self) for adapter in self._adapters]
-                )
+                # TaskGroup guarantees all adapter tasks are cancelled when any
+                # one of them fails — no orphaned background tasks.
+                try:
+                    async with asyncio.TaskGroup() as tg:
+                        for adapter in self._adapters:
+                            tg.create_task(adapter.start(self))
+                except* (KeyboardInterrupt, asyncio.CancelledError):
+                    pass  # tasks raised CancelledError internally — handled below
             else:
                 await asyncio.sleep(float("inf"))
         except (KeyboardInterrupt, asyncio.CancelledError):
-            pass
+            pass  # normal shutdown via Ctrl+C or external cancellation
         finally:
             # Shut down adapters in reverse registration order (LIFO)
             for adapter in reversed(self._adapters):
@@ -170,15 +173,22 @@ class Application:
     def _discover_binding(self) -> BindingConfig:
         """
         Try to import config_module and return its `dependency` attribute.
-        Falls back to an empty BindingConfig when the module is not found.
+        Falls back to an empty BindingConfig only when the config module itself
+        does not exist. Re-raises if the module exists but has an import error
+        inside it (e.g. a missing dependency), so the error is not silently hidden.
         """
         try:
             module = importlib.import_module(self._config_module)
             cfg = getattr(module, "dependency", None)
             if isinstance(cfg, BindingConfig):
                 return cfg
-        except ImportError:
-            pass
+        except ModuleNotFoundError as exc:
+            # Only suppress when the config module itself is absent.
+            # If something *inside* the config module fails to import, re-raise
+            # so the developer sees the real error instead of a confusing
+            # "No provider registered" failure later.
+            if exc.name != self._config_module:
+                raise
         return BindingConfig()
 
     def _load_runtime(self) -> RuntimeConfig:

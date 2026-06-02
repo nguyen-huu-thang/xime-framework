@@ -100,6 +100,7 @@ class SchedulerRunner:
         """
         if self._scheduler is not None:
             await self._scheduler.stop()
+            await self._scheduler.__aexit__(None, None, None)
             self._scheduler = None
 
         if self._task is not None:

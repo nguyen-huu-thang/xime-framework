@@ -159,6 +159,12 @@ class WebAdapter:
         builder = RouteBuilder()
 
         for cls in scanner.find_controllers(*packages):
-            instance = xime_app.get(cls)
+            try:
+                instance = xime_app.get(cls)
+            except KeyError:
+                raise RuntimeError(
+                    f"Controller '{cls.__name__}' is not registered in the DI container. "
+                    f"Add its package to dependency.scan() in config/dependency.py."
+                ) from None
             router = builder.build(cls, instance)
             app.include_router(router)

@@ -62,17 +62,38 @@ def is_abstract(cls: type) -> bool:
     return inspect.isabstract(cls)
 
 
+# Attributes Python automatically injects into every class definition.
+# They are NOT part of the Protocol's declared API and must be excluded.
+_AUTO_CLASS_ATTRS = frozenset({
+    "__module__",
+    "__qualname__",
+    "__doc__",
+    "__dict__",
+    "__weakref__",
+})
+
+
 def get_protocol_methods(protocol_cls: type) -> set[str]:
     """
     Return the set of method names declared in a Protocol.
     Used by BindingValidator to verify implementation completeness.
+
+    Includes dunder methods (e.g. __call__, __aenter__, __aexit__) because
+    some Protocols — like TransactionManager — express their entire contract
+    through dunders. Skips private non-dunder names (single leading underscore)
+    and auto-injected class attributes (__module__, __qualname__, etc.).
     """
     members = {}
     for base in reversed(protocol_cls.__mro__):
         if base is object or base is typing.Protocol:  # type: ignore[comparison-overlap]
             continue
         for name, value in vars(base).items():
-            if not name.startswith("_") and callable(value):
+            if name in _AUTO_CLASS_ATTRS:
+                continue
+            # Keep dunder (__ prefix AND suffix), skip single-underscore private.
+            if name.startswith("_") and not name.endswith("__"):
+                continue
+            if callable(value):
                 members[name] = value
 
     return set(members.keys())
