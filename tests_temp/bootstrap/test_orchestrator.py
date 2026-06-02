@@ -142,9 +142,10 @@ async def test_dependency_post_construct_runs_before_dependent():
 async def test_pre_destroy_called_after_stop():
     orch = StartupOrchestrator(_binding_with_sample(), RuntimeConfig())
     await orch.start()
+    tracker = orch.get(TrackerService)   # lấy reference trước khi stop
     await orch.stop()
 
-    tracker = orch.get(TrackerService)
+    # container đã reset sau stop() → dùng reference đã lưu
     assert tracker.stopped is True
 
 
@@ -193,3 +194,53 @@ async def test_runtime_config_accessible_before_start():
     orch = StartupOrchestrator(BindingConfig(), runtime)
     # runtime phải có thể đọc cả trước khi start()
     assert orch.runtime.env == "staging"
+
+
+# ---------------------------------------------------------------------------
+# Double start guard (Issue #4)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_start_while_already_running_raises():
+    orch = StartupOrchestrator(_binding_with_sample(), RuntimeConfig())
+    await orch.start()
+    try:
+        with pytest.raises(RuntimeError, match="already running"):
+            await orch.start()
+    finally:
+        await orch.stop()
+
+
+# ---------------------------------------------------------------------------
+# Restart sau stop (Issue #4)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_restart_after_stop_works():
+    orch = StartupOrchestrator(_binding_with_sample(), RuntimeConfig())
+
+    # Lần 1
+    await orch.start()
+    tracker_1 = orch.get(TrackerService)
+    assert tracker_1.started is True
+    await orch.stop()
+
+    # get() sau stop → RuntimeError (container đã reset về None)
+    with pytest.raises(RuntimeError):
+        orch.get(TrackerService)
+
+    # Lần 2 — start lại được
+    await orch.start()
+    tracker_2 = orch.get(TrackerService)
+    assert tracker_2.started is True
+    await orch.stop()
+
+
+@pytest.mark.asyncio
+async def test_stop_resets_internal_state():
+    """Sau stop(), _container và _lifecycle phải là None."""
+    orch = StartupOrchestrator(_binding_with_sample(), RuntimeConfig())
+    await orch.start()
+    await orch.stop()
+    assert orch._container is None
+    assert orch._lifecycle is None

@@ -133,3 +133,53 @@ async def test_runtime_config_loaded_from_yaml(tmp_path):
     assert runtime.env == "production"
     assert runtime.server.port == 9000
     await app.stop()
+
+
+# ---------------------------------------------------------------------------
+# Double start guard (Issue #4)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_start_while_already_running_raises():
+    app = Application(binding=_sample_binding(), resources_dir="nonexistent")
+    await app.start()
+    try:
+        with pytest.raises(RuntimeError, match="already running"):
+            await app.start()
+    finally:
+        await app.stop()
+
+
+# ---------------------------------------------------------------------------
+# Restart sau stop (Issue #4)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_restart_after_stop_works():
+    app = Application(binding=_sample_binding(), resources_dir="nonexistent")
+
+    # Lần 1
+    await app.start()
+    tracker_1 = app.get(TrackerService)
+    assert tracker_1.started is True
+    await app.stop()
+    assert tracker_1.stopped is True
+
+    # get() sau stop → RuntimeError
+    with pytest.raises(RuntimeError):
+        app.get(TrackerService)
+
+    # Lần 2 — start lại được
+    await app.start()
+    tracker_2 = app.get(TrackerService)
+    assert tracker_2.started is True
+    await app.stop()
+
+
+@pytest.mark.asyncio
+async def test_stop_resets_state_for_restart():
+    """Sau stop(), _orchestrator phải là None để cho phép start() lại."""
+    app = Application(binding=_sample_binding(), resources_dir="nonexistent")
+    await app.start()
+    await app.stop()
+    assert app._orchestrator is None

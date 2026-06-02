@@ -65,3 +65,33 @@ def test_build_twice_raises():
     with pytest.raises(RuntimeError, match="already been called"):
         c.build()
 
+
+def test_get_unregistered_class_raises():
+    """get() với class không được scan → KeyError với tên class trong message."""
+    class UnregisteredClass:
+        pass
+
+    c = XimeContainer().scan("sample.service", "sample.repository").build()
+    with pytest.raises(KeyError, match="UnregisteredClass"):
+        c.get(UnregisteredClass)
+
+
+def test_scan_after_build_raises():
+    c = XimeContainer().scan("sample.service", "sample.repository").build()
+    with pytest.raises(RuntimeError, match="already built"):
+        c.scan("sample.service")
+
+
+def test_bind_after_build_raises():
+    from typing import Protocol
+
+    class IRepo(Protocol):
+        def find(self) -> None: ...
+
+    class ImplRepo:
+        def find(self) -> None: ...
+
+    c = XimeContainer().scan("sample.service", "sample.repository").build()
+    with pytest.raises(RuntimeError, match="already built"):
+        c.bind({IRepo: ImplRepo})
+
