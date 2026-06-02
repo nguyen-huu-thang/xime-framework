@@ -24,6 +24,7 @@ class XimeContainer:
     def __init__(self) -> None:
         self._packages: list[str] = []
         self._bindings: dict[type, type] = {}
+        self._instances: dict[type, object] = {}
         self._registry: DependencyRegistry | None = None
         self._topological_order: list[type] = []
 
@@ -42,6 +43,24 @@ class XimeContainer:
                 "Create a new XimeContainer to change scan packages."
             )
         self._packages.extend(package_names)
+        return self
+
+    def register_instance(self, cls: type, instance: object) -> "XimeContainer":
+        """
+        Register a pre-built object as a singleton available for injection.
+
+        Unlike scan(), no package path is needed — the object is registered
+        directly. Useful for framework-provided singletons (e.g. RuntimeConfig)
+        that must be injectable but are created before the DI pipeline runs.
+
+        Raises RuntimeError if called after build().
+        """
+        if self._registry is not None:
+            raise RuntimeError(
+                "XimeContainer is already built — register_instance() has no effect. "
+                "Create a new XimeContainer to change registered instances."
+            )
+        self._instances[cls] = instance
         return self
 
     def bind(self, bindings: dict[type, type]) -> "XimeContainer":
@@ -82,11 +101,11 @@ class XimeContainer:
         classes = PackageScanner().scan(*self._packages)
         resolved = TypeHintResolver().resolve(classes, self._bindings)
         graph = DependencyGraph(resolved)
-        GraphValidator().validate(resolved, graph, self._bindings, classes)
+        GraphValidator().validate(resolved, graph, self._bindings, classes, self._instances)
 
         self._topological_order = graph.topological_order()
         self._registry = DependencyRegistry()
-        self._registry.register(resolved, graph)
+        self._registry.register(resolved, graph, self._instances)
 
         return self
 

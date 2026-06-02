@@ -19,11 +19,24 @@ class DependencyRegistry:
         # Maps each class → its attribute name on the DynamicContainer
         self._provider_map: dict[type, str] = {}
 
-    def register(self, resolved: ResolvedMap, graph: DependencyGraph) -> None:
+    def register(
+        self,
+        resolved: ResolvedMap,
+        graph: DependencyGraph,
+        instances: dict[type, object] | None = None,
+    ) -> None:
         """
         Walk nodes in topological order (dependencies before dependents) so
         that every provider is created before it is referenced as a kwarg.
+
+        Pre-built instances (passed via `instances`) are registered first as
+        providers.Object so they are available when scanned classes are wired up.
         """
+        for cls, obj in (instances or {}).items():
+            provider_name = self._unique_name(cls)
+            self._provider_map[cls] = provider_name
+            setattr(self._container, provider_name, providers.Object(obj))
+
         for cls in graph.topological_order():
             provider_name = self._unique_name(cls)
             self._provider_map[cls] = provider_name

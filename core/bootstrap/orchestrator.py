@@ -48,6 +48,7 @@ class StartupOrchestrator:
 
         self._container = (
             XimeContainer()
+            .register_instance(RuntimeConfig, self._runtime)
             .scan(*self._binding.packages)
             .bind(self._binding.bindings)
             .build()

@@ -28,11 +28,12 @@ class GraphValidator:
         graph: DependencyGraph,
         bindings: dict[type, type],
         all_classes: list[type],
+        instances: dict[type, object] | None = None,
     ) -> None:
         self._check_cycles(graph)
         self._check_unresolved_protocols(resolved, all_classes)
         self._check_bindings(bindings)
-        self._check_missing_concrete_deps(resolved, all_classes)
+        self._check_missing_concrete_deps(resolved, all_classes, instances)
 
     # ------------------------------------------------------------------
     # 1. Circular dependency check
@@ -109,16 +110,17 @@ class GraphValidator:
         self,
         resolved: ResolvedMap,
         all_classes: list[type],
+        instances: dict[type, object] | None = None,
     ) -> None:
         """
         Check that every concrete (non-Protocol) dependency is present in
-        all_classes (i.e. was scanned and registered).
+        all_classes or pre-built instances.
 
         Catches the case where a class depends on a concrete type that was
         never scanned — the registry would silently skip it, causing a
         TypeError at runtime when the instance is created.
         """
-        registered = set(all_classes)
+        registered = set(all_classes) | set(instances or {})
         for cls, deps in resolved.items():
             for dep_type in deps.values():
                 if not is_protocol(dep_type) and dep_type not in registered:
