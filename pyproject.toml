@@ -1,0 +1,114 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# ---------------------------------------------------------------------------
+# Project metadata
+# ---------------------------------------------------------------------------
+
+[project]
+name = "xime"
+version = "0.1.0"
+description = "Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["framework", "dependency-injection", "fastapi", "backend"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: FastAPI",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+
+# Core dependencies — luôn được cài khi `pip install xime`
+dependencies = [
+    "fastapi>=0.110.0",
+    "dependency-injector>=4.41.0",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+]
+
+# ---------------------------------------------------------------------------
+# Optional dependencies (starters)
+# Cài theo nhu cầu:
+#   pip install xime[sqlalchemy]
+#   pip install xime[jwt]
+#   pip install xime[scheduler]
+#   pip install xime[all]          # toàn bộ starters
+# ---------------------------------------------------------------------------
+
+[project.optional-dependencies]
+sqlalchemy = [
+    "sqlalchemy[asyncio]>=2.0",
+]
+jwt = [
+    "pyjwt>=2.8",
+]
+scheduler = [
+    "apscheduler>=4.0",
+]
+all = [
+    "xime[sqlalchemy,jwt,scheduler]",
+]
+
+# Dev: chạy test, lint, type-check, ASGI server
+dev = [
+    "xime[all]",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "anyio>=4.0",
+    "uvicorn[standard]>=0.27",
+    "asyncpg>=0.29",        # driver PostgreSQL cho test SQLAlchemy
+    "aiosqlite>=0.20",      # driver SQLite cho test SQLAlchemy (nhẹ hơn asyncpg)
+    "httpx>=0.27",          # test HTTP client (dùng với FastAPI TestClient async)
+]
+
+# ---------------------------------------------------------------------------
+# Package discovery
+# Cấu trúc hiện tại: core/, adapters/, starters/, testing/ ở thư mục gốc.
+# Khi publish lên PyPI hoặc refactor sang src/xime/ layout thì cập nhật lại.
+# ---------------------------------------------------------------------------
+
+[tool.hatch.build.targets.wheel]
+packages = ["core", "adapters", "starters", "testing", "xime"]
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+testpaths = ["tests_temp"]
+
+# ---------------------------------------------------------------------------
+# Ruff (linter + formatter)
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501", # line too long — để ruff format xử lý
+]
+
+# ---------------------------------------------------------------------------
+# Mypy (type checker) — tùy chọn
+# ---------------------------------------------------------------------------
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true

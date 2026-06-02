@@ -9,6 +9,7 @@ Test StartupOrchestrator:
   - get() trước start() → RuntimeError
   - stop() trước start() → no-op
   - runtime config có thể đọc qua orchestrator.runtime
+  - pre-built instances (register_instance) cũng được gọi lifecycle hooks
 """
 import pytest
 
@@ -244,3 +245,120 @@ async def test_stop_resets_internal_state():
     await orch.stop()
     assert orch._container is None
     assert orch._lifecycle is None
+
+
+# ---------------------------------------------------------------------------
+# Pre-built instances lifecycle (Bug 2 regression guard)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_pre_built_instance_post_construct_is_called():
+    """
+    Instances đăng ký qua register_instance() phải được LifecycleManager
+    gọi post_construct() nếu chúng implement PostConstruct.
+    """
+    log: list[str] = []
+
+    class ExternalService:
+        """Pre-built object có lifecycle hook."""
+        async def post_construct(self) -> None:
+            log.append("post_construct")
+
+    class AppService:
+        def __init__(self, ext: ExternalService) -> None:
+            self.ext = ext
+
+    from core.container import XimeContainer
+    from core.lifecycle import LifecycleManager
+
+    ext = ExternalService()
+    container = (
+        XimeContainer()
+        .register_instance(ExternalService, ext)
+        .build()
+    )
+    instances = container.get_all_in_order()
+    await LifecycleManager(instances).start()
+
+    assert "post_construct" in log
+
+
+@pytest.mark.asyncio
+async def test_pre_built_instance_pre_destroy_is_called():
+    """
+    Instances đăng ký qua register_instance() phải được LifecycleManager
+    gọi pre_destroy() nếu chúng implement PreDestroy.
+    """
+    log: list[str] = []
+
+    class ExternalService:
+        async def pre_destroy(self) -> None:
+            log.append("pre_destroy")
+
+    from core.container import XimeContainer
+    from core.lifecycle import LifecycleManager
+
+    ext = ExternalService()
+    container = (
+        XimeContainer()
+        .register_instance(ExternalService, ext)
+        .build()
+    )
+    instances = container.get_all_in_order()
+    await LifecycleManager(instances).stop()
+
+    assert "pre_destroy" in log
+
+
+@pytest.mark.asyncio
+async def test_pre_built_instance_lifecycle_order():
+    """
+    Pre-built instance là dependency → post_construct chạy TRƯỚC scanned singleton,
+    pre_destroy chạy SAU (vì LifecycleManager reverse list khi stop).
+    """
+    call_order: list[str] = []
+
+    class PreBuiltDep:
+        async def post_construct(self) -> None:
+            call_order.append("pre_built:start")
+
+        async def pre_destroy(self) -> None:
+            call_order.append("pre_built:stop")
+
+    class ScannedService:
+        def __init__(self, dep: PreBuiltDep) -> None:
+            self.dep = dep
+
+        async def post_construct(self) -> None:
+            call_order.append("scanned:start")
+
+        async def pre_destroy(self) -> None:
+            call_order.append("scanned:stop")
+
+    import sys, types
+    mod_name = "test_lifecycle_order_mod_9921"
+    mod = types.ModuleType(mod_name)
+    mod.__path__ = []
+    mod.PreBuiltDep = PreBuiltDep  # type: ignore[attr-defined]
+    mod.ScannedService = ScannedService  # type: ignore[attr-defined]
+    ScannedService.__module__ = mod_name
+    sys.modules[mod_name] = mod
+
+    from core.container import XimeContainer
+    from core.lifecycle import LifecycleManager
+
+    dep = PreBuiltDep()
+    container = (
+        XimeContainer()
+        .register_instance(PreBuiltDep, dep)
+        .scan(mod_name)
+        .build()
+    )
+    instances = container.get_all_in_order()
+    manager = LifecycleManager(instances)
+
+    await manager.start()
+    assert call_order == ["pre_built:start", "scanned:start"]
+
+    await manager.stop()
+    assert call_order == ["pre_built:start", "scanned:start", "scanned:stop", "pre_built:stop"]

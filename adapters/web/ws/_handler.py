@@ -42,6 +42,8 @@ class WebSocketHandler:
         """Khi client kết nối. Mặc định: accept ngay.
 
         Override để kiểm tra auth, query params, hoặc từ chối kết nối.
+        Nếu raise exception tại đây, on_disconnect sẽ KHÔNG được gọi vì
+        kết nối chưa được thiết lập thành công.
         """
         await ws.accept()
 
@@ -52,7 +54,12 @@ class WebSocketHandler:
         """Khi nhận binary message từ client."""
 
     async def on_disconnect(self, ws: WebSocket, code: int) -> None:
-        """Khi client ngắt kết nối."""
+        """Khi kết nối kết thúc sau khi on_connect thành công.
+
+        Được gọi trong mọi trường hợp kết nối kết thúc:
+          - Client chủ động ngắt  → code từ WebSocketDisconnect
+          - Lỗi phía server       → code 1011 (Internal Error, RFC 6455)
+        """
 
     async def handle(self, ws: WebSocket) -> None:
         """Main loop — framework gọi hàm này để chạy vòng đời kết nối.
@@ -60,10 +67,17 @@ class WebSocketHandler:
         Override chỉ khi cần toàn quyền kiểm soát message loop.
         Trong trường hợp thông thường, override on_connect / on_message /
         on_bytes / on_disconnect.
+
+        Thứ tự đảm bảo:
+          - on_connect raise → on_disconnect KHÔNG gọi, exception propagate
+          - Kết nối thành công, sau đó kết thúc vì bất kỳ lý do gì
+            → on_disconnect luôn được gọi trước khi cleanup context
         """
         request_context.set("connection_id", str(uuid.uuid4()))
+        connected = False
         try:
             await self.on_connect(ws)
+            connected = True
             while True:
                 message = await ws.receive()
                 # Starlette luôn trả về cả hai key "text" và "bytes",
@@ -74,6 +88,10 @@ class WebSocketHandler:
                     await self.on_bytes(ws, message["bytes"])
         except WebSocketDisconnect as exc:
             await self.on_disconnect(ws, exc.code)
+        except Exception:
+            if connected:
+                await self.on_disconnect(ws, 1011)
+            raise
         finally:
             request_context.clear()
             clear_security()

@@ -129,6 +129,11 @@ class XimeContainer:
         Force-instantiate and return all singleton instances in topological
         order (dependencies before dependents).
 
+        Pre-built instances registered via register_instance() are included
+        first — they are leaf dependencies that other singletons rely on,
+        so their PostConstruct runs before dependents and their PreDestroy
+        runs last (LifecycleManager reverses the list on stop).
+
         Used by StartupOrchestrator to build the LifecycleManager after
         the DI pipeline completes.
         Raises RuntimeError if called before build().
@@ -137,4 +142,6 @@ class XimeContainer:
             raise RuntimeError(
                 "XimeContainer is not built yet. Call build() first."
             )
-        return [self.get(cls) for cls in self._topological_order]
+        return list(self._instances.values()) + [
+            self.get(cls) for cls in self._topological_order
+        ]

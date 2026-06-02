@@ -49,8 +49,9 @@ class WebAdapter:
         openapi_config = registry.get_openapi()
 
         @asynccontextmanager
-        async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+        async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await self._application.start()
+            self._register_controllers(app)
             yield
             await self._application.stop()
 
@@ -86,3 +87,28 @@ class WebAdapter:
                 "Run: pip install pyjwt"
             )
         app.add_middleware(JwtAuthMiddleware, config=jwt_config)
+
+    def _register_controllers(self, app: FastAPI) -> None:
+        """Discover controller classes and register their routes into the FastAPI app.
+
+        Runs after application.start() so that DI container is fully built and
+        controller instances are available via self._application.get(cls).
+
+        FastAPI accepts routes added during lifespan startup — they are available
+        before the first request arrives.
+        """
+        from .routing._config import controller_registry
+        from .routing._scanner import ControllerScanner
+        from .routing._builder import RouteBuilder
+
+        packages = controller_registry.get_packages()
+        if not packages:
+            return
+
+        scanner = ControllerScanner()
+        builder = RouteBuilder()
+
+        for cls in scanner.find_controllers(*packages):
+            instance = self._application.get(cls)
+            router = builder.build(cls, instance)
+            app.include_router(router)

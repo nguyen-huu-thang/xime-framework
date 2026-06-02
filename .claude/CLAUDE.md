@@ -15,3 +15,4 @@ Dự án Python backend framework đang trong **giai đoạn thiết kế**. Ch�
 - **Giới thiệu & triết lý:** `docs/gioi-thieu-framework.md`
 - **Cây thư mục dự án:** `docs/cay-thu-muc.md`
 - **Entry point ứng dụng (`main.py`):** `docs/app-entry-point.md`
+- **Routing layer (class-based controllers, `_make_handler`):** `docs/routing-layer.md`

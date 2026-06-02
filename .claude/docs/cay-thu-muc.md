@@ -1,7 +1,7 @@
 # Cây thư mục — Xime Framework
 
 ```text
-xime/
+xime/                        ← package root (thin re-export layer)
 │
 ├── core/
 │   ├── bootstrap/
@@ -17,6 +17,7 @@ xime/
 ├── adapters/
 │   ├── web/
 │   │   ├── openapi/
+│   │   ├── routing/         ← routing layer (class-based controllers)
 │   │   └── ws/
 │   ├── grpc/
 │   └── mq/

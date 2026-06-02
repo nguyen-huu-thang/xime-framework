@@ -12,17 +12,18 @@ class StartupException(XimeException):
 
 class MissingTypeHintException(StartupException):
     """
-    Raised when a constructor parameter has no type hint.
-    Xime cannot resolve dependencies without type hints.
+    Raised when a string annotation (forward reference) in a constructor
+    cannot be resolved at startup. Xime cannot build the dependency graph
+    without being able to evaluate all type hints.
     """
 
-    def __init__(self, class_name: str, parameter: str):
+    def __init__(self, class_name: str, detail: str):
         self.class_name = class_name
-        self.parameter = parameter
+        self.detail = detail
         super().__init__(
-            f"\nMissing Type Hint\n"
-            f"  Class    : {class_name}\n"
-            f"  Parameter: {parameter}"
+            f"\nUnresolvable Type Annotation\n"
+            f"  Class : {class_name}\n"
+            f"  Detail: {detail}"
         )
 
 
