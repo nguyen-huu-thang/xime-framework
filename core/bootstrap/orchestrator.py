@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, Callable
+
 from core.config.binding import BindingConfig
 from core.config.runtime import RuntimeConfig
 from core.container import XimeContainer
@@ -13,11 +15,13 @@ class StartupOrchestrator:
     Startup sequence:
       1. Build DI container (scan packages → resolve → validate → register)
       2. Force-instantiate all singletons in topological order
-      3. Create LifecycleManager with ordered instances
-      4. Call lifecycle.start() — invokes PostConstruct on each eligible singleton
+      3. Collect framework-managed lifecycle components (e.g. SchedulerRunner)
+      4. Create LifecycleManager with all instances (user singletons + framework components)
+      5. Call lifecycle.start() — invokes PostConstruct on each eligible instance
 
     Shutdown sequence:
       1. Call lifecycle.stop() — invokes PreDestroy in reverse order
+         (framework components shut down before user singletons)
 
     get(cls) is available after start() and delegates to the DI container.
     """
@@ -54,7 +58,13 @@ class StartupOrchestrator:
             .build()
         )
 
+        # User singletons in topological order, followed by framework-managed
+        # components that need the DI container (e.g. SchedulerRunner).
+        # Appending last ensures framework components start after all user
+        # singletons and stop before them (LifecycleManager reverses on stop).
         instances = self._container.get_all_in_order()
+        instances.extend(self._build_framework_components(self._container.get))
+
         self._lifecycle = LifecycleManager(instances)
         await self._lifecycle.start()
 
@@ -79,3 +89,40 @@ class StartupOrchestrator:
                 "StartupOrchestrator has not started. Call start() first."
             )
         return self._container.get(cls)
+
+    # ------------------------------------------------------------------
+    # Framework-managed lifecycle components
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_framework_components(resolver: Callable[[type], Any]) -> list[object]:
+        """
+        Collect lifecycle-aware components provided by starters that cannot be
+        registered as ordinary DI singletons because they need the container's
+        resolver to function (e.g. SchedulerRunner resolves job classes from DI).
+
+        Each starter is checked via lazy import so that missing optional packages
+        do not cause startup errors when the starter is not configured.
+
+        New starters that need lifecycle integration should add a block here.
+        """
+        components: list[object] = []
+
+        # ── Scheduler starter ──────────────────────────────────────────────
+        try:
+            from starters.scheduler._config import scheduler_registry
+            config = scheduler_registry.get()
+            if config is not None:
+                try:
+                    from starters.scheduler._runner import SchedulerRunner
+                except ImportError:
+                    raise RuntimeError(
+                        "Scheduler is configured via configure_scheduler() but "
+                        "'apscheduler' is not installed. "
+                        "Run: pip install 'apscheduler>=4.0'"
+                    )
+                components.append(SchedulerRunner(config, resolver))
+        except ImportError:
+            pass  # starters/scheduler not present — skip silently
+
+        return components
