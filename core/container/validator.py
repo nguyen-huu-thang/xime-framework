@@ -31,7 +31,7 @@ class GraphValidator:
         instances: dict[type, object] | None = None,
     ) -> None:
         self._check_cycles(graph)
-        self._check_unresolved_protocols(resolved, all_classes)
+        self._check_unresolved_protocols(resolved, all_classes, instances)
         self._check_bindings(bindings)
         self._check_missing_concrete_deps(resolved, all_classes, instances)
 
@@ -54,13 +54,18 @@ class GraphValidator:
         self,
         resolved: ResolvedMap,
         all_classes: list[type],
+        instances: dict[type, object] | None = None,
     ) -> None:
         """
         After resolution, any dependency that is still a Protocol means
         no explicit binding was declared for it. Find out why and fail fast.
+
+        Protocols that have a pre-built instance registered (via register_instance)
+        are treated as satisfied and skipped — the registry will wire them directly.
         """
         # Deduplicate: one error per unresolved Protocol is enough.
         already_reported: set[type] = set()
+        pre_built: set[type] = set(instances or {})
 
         for _cls, deps in resolved.items():
             for _param, dep_type in deps.items():
@@ -68,6 +73,8 @@ class GraphValidator:
                     continue
                 if dep_type in already_reported:
                     continue
+                if dep_type in pre_built:
+                    continue  # pre-built instance satisfies this Protocol
 
                 already_reported.add(dep_type)
                 candidates = self._find_candidates(dep_type, all_classes)
