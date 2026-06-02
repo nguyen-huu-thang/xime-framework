@@ -3,11 +3,14 @@ Test ControllerScanner:
   - _is_controller: True khi class có ít nhất một method @get/@post/@put/@patch/@delete
   - _is_controller: False khi class không có route marker
   - _is_controller: True kể cả khi kế thừa route marker từ parent
-  - find_controllers: tìm đúng class controller trong sample package
+  - find_controllers: tìm đúng class controller trong ctrl_sample package
   - find_controllers: loại bỏ class không có route marker
   - find_controllers: trả về type (class), không phải instance
   - find_controllers: không trả về duplicate khi scan cùng package nhiều lần
   - find_controllers: raise ImportError rõ ràng khi package không tồn tại
+
+Dùng 'ctrl_sample' (không phải 'sample') để tránh trùng tên với tests_temp/DI/sample/
+khi chạy toàn bộ test suite — cả hai conftest.py đều add thư mục của chúng vào sys.path.
 """
 import pytest
 
@@ -95,27 +98,27 @@ class TestIsController:
 
 class TestFindControllers:
     def test_finds_user_controller(self):
-        controllers = ControllerScanner().find_controllers("sample")
+        controllers = ControllerScanner().find_controllers("ctrl_sample")
         names = {cls.__name__ for cls in controllers}
         assert "UserController" in names
 
     def test_finds_product_controller(self):
-        controllers = ControllerScanner().find_controllers("sample")
+        controllers = ControllerScanner().find_controllers("ctrl_sample")
         names = {cls.__name__ for cls in controllers}
         assert "ProductController" in names
 
     def test_excludes_class_without_route_marker(self):
-        controllers = ControllerScanner().find_controllers("sample")
+        controllers = ControllerScanner().find_controllers("ctrl_sample")
         names = {cls.__name__ for cls in controllers}
         assert "NotAController" not in names
 
     def test_returns_types_not_instances(self):
-        controllers = ControllerScanner().find_controllers("sample")
+        controllers = ControllerScanner().find_controllers("ctrl_sample")
         for cls in controllers:
             assert isinstance(cls, type), f"{cls} phải là class, không phải instance"
 
     def test_no_duplicates_when_scanning_same_package_twice(self):
-        controllers = ControllerScanner().find_controllers("sample", "sample")
+        controllers = ControllerScanner().find_controllers("ctrl_sample", "ctrl_sample")
         names = [cls.__name__ for cls in controllers]
         assert len(names) == len(set(names))
 
@@ -133,9 +136,8 @@ class TestFindControllers:
 
     def test_scan_multiple_distinct_packages(self):
         """Scan hai package riêng biệt → kết quả là union, không duplicate."""
-        # sample chứa UserController + ProductController
-        # sample.user_controller chứa UserController (submodule của sample)
-        controllers = ControllerScanner().find_controllers("sample")
+        # ctrl_sample chứa UserController + ProductController
+        controllers = ControllerScanner().find_controllers("ctrl_sample")
         names = {cls.__name__ for cls in controllers}
         # Cả hai controller phải tìm thấy
         assert len(names) >= 2
