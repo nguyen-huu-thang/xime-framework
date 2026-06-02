@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 # Sentinel used by get() to distinguish "key not found" from value=None.
 _NOT_FOUND: Any = object()
@@ -33,6 +33,13 @@ class RuntimeConfig(BaseModel):
     env: str = "development"
     server: ServerConfig = Field(default_factory=ServerConfig)
 
+    # Cached flat dict built once in model_post_init.
+    # Avoids re-running model_dump() on every get() call.
+    _dump: dict[str, Any] = PrivateAttr(default_factory=dict)
+
+    def model_post_init(self, __context: Any) -> None:
+        self._dump = self.model_dump()
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RuntimeConfig:
         """Build a RuntimeConfig from a raw dict (e.g. from YamlConfigLoader)."""
@@ -49,7 +56,7 @@ class RuntimeConfig(BaseModel):
             config.get("missing.key", "n/a")   # "n/a"
         """
         parts = key.split(".")
-        current: Any = self.model_dump()
+        current: Any = self._dump
         for part in parts:
             if not isinstance(current, dict):
                 return default

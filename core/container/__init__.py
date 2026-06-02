@@ -32,12 +32,28 @@ class XimeContainer:
     # ------------------------------------------------------------------
 
     def scan(self, *package_names: str) -> "XimeContainer":
-        """Register one or more package paths to scan for DI candidates."""
+        """
+        Register one or more package paths to scan for DI candidates.
+        Raises RuntimeError if called after build().
+        """
+        if self._registry is not None:
+            raise RuntimeError(
+                "XimeContainer is already built — scan() has no effect. "
+                "Create a new XimeContainer to change scan packages."
+            )
         self._packages.extend(package_names)
         return self
 
     def bind(self, bindings: dict[type, type]) -> "XimeContainer":
-        """Declare explicit Protocol → Implementation mappings."""
+        """
+        Declare explicit Protocol → Implementation mappings.
+        Raises RuntimeError if called after build().
+        """
+        if self._registry is not None:
+            raise RuntimeError(
+                "XimeContainer is already built — bind() has no effect. "
+                "Create a new XimeContainer to change bindings."
+            )
         self._bindings.update(bindings)
         return self
 

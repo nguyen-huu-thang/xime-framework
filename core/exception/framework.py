@@ -39,6 +39,42 @@ class MissingImplementationException(StartupException):
         )
 
 
+class UnregisteredDependencyException(StartupException):
+    """
+    Raised when a class depends on a concrete type that was never scanned.
+    Unlike MissingImplementationException (for Protocols), this targets
+    plain classes that are simply absent from all scanned packages.
+    """
+
+    def __init__(self, dependent_name: str, dependency_name: str):
+        self.dependent_name = dependent_name
+        self.dependency_name = dependency_name
+        super().__init__(
+            f"\nUnregistered Dependency\n"
+            f"  Class     : {dependent_name}\n"
+            f"  Dependency: {dependency_name}\n"
+            f"  Hint      : add the package containing '{dependency_name}' to dependency.scan()"
+        )
+
+
+class MissingBindingException(StartupException):
+    """
+    Raised when a Protocol has exactly one structural candidate but no
+    explicit binding was declared. The implementation exists — the developer
+    only needs to add dependency.bind({Interface: Implementation}).
+    """
+
+    def __init__(self, interface_name: str, candidate_name: str):
+        self.interface_name = interface_name
+        self.candidate_name = candidate_name
+        super().__init__(
+            f"\nMissing Explicit Binding\n"
+            f"  Interface : {interface_name}\n"
+            f"  Candidate : {candidate_name}\n"
+            f"  Hint      : add dependency.bind({{{interface_name}: {candidate_name}}}) in config/dependency.py"
+        )
+
+
 class MultipleImplementationException(StartupException):
     """
     Raised when an interface has multiple candidates but no explicit binding.

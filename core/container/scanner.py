@@ -2,6 +2,7 @@ import importlib
 import inspect
 import pkgutil
 
+from core.exception.framework import MissingTypeHintException
 from core.metadata.type_utils import (
     get_init_parameters,
     is_abstract,
@@ -76,6 +77,12 @@ class PackageScanner:
         classes = []
         package_path = getattr(package, "__path__", [])
 
+        # Scan classes defined directly in the package root (__init__.py).
+        # pkgutil.walk_packages only yields sub-modules, so the root is handled here.
+        for _name, cls in inspect.getmembers(package, inspect.isclass):
+            if cls.__module__ == package_name and self._is_eligible(cls):
+                classes.append(cls)
+
         for _finder, module_name, _is_pkg in pkgutil.walk_packages(
             path=package_path,
             prefix=package_name + ".",
@@ -114,6 +121,13 @@ class PackageScanner:
             # No dependencies — singleton with no constructor args, valid.
             return True
 
-        hints = resolve_constructor_hints(cls)
+        try:
+            hints = resolve_constructor_hints(cls)
+        except NameError as exc:
+            # A string annotation (forward reference) could not be resolved.
+            # This is a developer mistake — fail fast with a clear message
+            # rather than silently dropping the class from DI.
+            raise MissingTypeHintException(cls.__name__, str(exc)) from exc
+
         # Any parameter without a type hint → silently skip this class.
         return all(param in hints for param in params)

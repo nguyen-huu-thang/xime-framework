@@ -60,16 +60,29 @@ class Application:
     # ------------------------------------------------------------------
 
     async def start(self) -> None:
-        """Load config and run the full startup pipeline."""
+        """
+        Load config and run the full startup pipeline.
+        Raises RuntimeError if called while already running — call stop() first.
+        """
+        if self._orchestrator is not None:
+            raise RuntimeError(
+                "Application is already running. "
+                "Call stop() before starting again."
+            )
+
         binding = self._resolve_binding()
         runtime = self._load_runtime()
         self._orchestrator = StartupOrchestrator(binding, runtime)
         await self._orchestrator.start()
 
     async def stop(self) -> None:
-        """Shut down the application. No-op if start() was never called."""
+        """
+        Shut down the application. No-op if start() was never called.
+        Resets internal state so start() can be called again.
+        """
         if self._orchestrator is not None:
             await self._orchestrator.stop()
+            self._orchestrator = None
 
     # ------------------------------------------------------------------
     # Async context manager

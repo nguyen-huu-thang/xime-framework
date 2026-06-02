@@ -52,30 +52,46 @@ class DependencyGraph:
         Each cycle is a list of types forming the loop, e.g.:
           [UserService, AuthService, TokenService, UserService]
         Returns an empty list when the graph is acyclic.
+
+        Uses iterative DFS with an explicit call stack to avoid hitting
+        Python's recursion limit on large dependency graphs.
+        Each stack frame is (node, iterator_over_neighbors): when the
+        iterator is exhausted the node is finished (BLACK) and popped.
         """
         WHITE, GRAY, BLACK = 0, 1, 2
         color: dict[type, int] = {n: WHITE for n in self._nodes}
-        stack: list[type] = []
+        path: list[type] = []   # current DFS path, mirrors the call stack
         cycles: list[list[type]] = []
 
-        def dfs(node: type) -> None:
-            color[node] = GRAY
-            stack.append(node)
+        for start in self._nodes:
+            if color[start] != WHITE:
+                continue
 
-            for neighbor in self._edges.get(node, set()):
-                if color[neighbor] == GRAY:
-                    # Back-edge found → extract the cycle from the current stack
-                    cycle_start = stack.index(neighbor)
-                    cycles.append(stack[cycle_start:] + [neighbor])
-                elif color[neighbor] == WHITE:
-                    dfs(neighbor)
+            color[start] = GRAY
+            path.append(start)
+            call_stack: list[tuple[type, object]] = [
+                (start, iter(self._edges.get(start, set())))
+            ]
 
-            stack.pop()
-            color[node] = BLACK
-
-        for node in self._nodes:
-            if color[node] == WHITE:
-                dfs(node)
+            while call_stack:
+                node, neighbors = call_stack[-1]
+                try:
+                    neighbor = next(neighbors)  # type: ignore[call-overload]
+                    if color[neighbor] == GRAY:
+                        # Back-edge → extract cycle from current path
+                        cycle_start = path.index(neighbor)
+                        cycles.append(path[cycle_start:] + [neighbor])
+                    elif color[neighbor] == WHITE:
+                        color[neighbor] = GRAY
+                        path.append(neighbor)
+                        call_stack.append(
+                            (neighbor, iter(self._edges.get(neighbor, set())))
+                        )
+                except StopIteration:
+                    # All neighbors processed — finish this node
+                    call_stack.pop()
+                    path.pop()
+                    color[node] = BLACK
 
         return cycles
 

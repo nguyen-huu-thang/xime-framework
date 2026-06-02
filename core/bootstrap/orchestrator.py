@@ -36,9 +36,16 @@ class StartupOrchestrator:
     async def start(self) -> None:
         """
         Execute the full startup pipeline.
+        Raises RuntimeError if called while already running — call stop() first.
         Raises StartupException (or subclass) on DI validation errors.
         Raises on the first PostConstruct failure (fail-fast).
         """
+        if self._container is not None:
+            raise RuntimeError(
+                "StartupOrchestrator is already running. "
+                "Call stop() before starting again."
+            )
+
         self._container = (
             XimeContainer()
             .scan(*self._binding.packages)
@@ -54,9 +61,12 @@ class StartupOrchestrator:
         """
         Execute shutdown. No-op if start() was never called.
         Raises ExceptionGroup if any PreDestroy hook fails.
+        Resets internal state so start() can be called again.
         """
         if self._lifecycle is not None:
             await self._lifecycle.stop()
+        self._lifecycle = None
+        self._container = None
 
     def get(self, cls: type) -> object:
         """

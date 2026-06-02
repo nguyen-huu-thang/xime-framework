@@ -21,12 +21,17 @@ class _RequestContext:
         )
 
     def set(self, key: str, value: Any) -> None:
-        """Insert or overwrite a value for the given key."""
-        ctx = self._var.get()
-        if ctx is None:
-            ctx = {}
-            self._var.set(ctx)
+        """
+        Insert or overwrite a value for the given key.
+
+        Always creates a new dict and calls _var.set() so the ContextVar
+        binding is updated in the current async context only. This prevents
+        child tasks (created via asyncio.create_task) from sharing the same
+        dict object and accidentally mutating the parent's context.
+        """
+        ctx = dict(self._var.get() or {})
         ctx[key] = value
+        self._var.set(ctx)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Return the value for key, or default if not set."""
@@ -36,10 +41,17 @@ class _RequestContext:
         return ctx.get(key, default)
 
     def delete(self, key: str) -> None:
-        """Remove a key. No-op if the key does not exist."""
+        """
+        Remove a key. No-op if the key does not exist.
+
+        Creates a new dict (same isolation reason as set()).
+        """
         ctx = self._var.get()
-        if ctx is not None:
-            ctx.pop(key, None)
+        if ctx is None or key not in ctx:
+            return
+        new_ctx = dict(ctx)
+        del new_ctx[key]
+        self._var.set(new_ctx)
 
     def clear(self) -> None:
         """Remove all keys for the current async task."""

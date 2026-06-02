@@ -3,8 +3,10 @@ from core.container.resolver import ResolvedMap
 from core.exception import (
     BindingValidationException,
     CircularDependencyException,
+    MissingBindingException,
     MissingImplementationException,
     MultipleImplementationException,
+    UnregisteredDependencyException,
 )
 from core.metadata.type_utils import get_protocol_methods, is_protocol
 
@@ -15,8 +17,9 @@ class GraphValidator:
 
     Checks run in this order (fail fast on first error found):
       1. Circular dependencies
-      2. Unresolved Protocol dependencies (missing or ambiguous)
+      2. Unresolved Protocol dependencies (missing, ambiguous, or missing binding)
       3. Binding correctness (impl must satisfy Protocol)
+      4. Unregistered concrete dependencies (concrete dep not in scanned packages)
     """
 
     def validate(
@@ -68,10 +71,11 @@ class GraphValidator:
                 already_reported.add(dep_type)
                 candidates = self._find_candidates(dep_type, all_classes)
 
-                if len(candidates) <= 1:
-                    # 0 candidates → truly missing.
-                    # 1 candidate → user forgot to add an explicit binding.
+                if len(candidates) == 0:
                     raise MissingImplementationException(dep_type.__name__)
+                elif len(candidates) == 1:
+                    # Implementation exists structurally but binding was not declared.
+                    raise MissingBindingException(dep_type.__name__, candidates[0].__name__)
                 else:
                     raise MultipleImplementationException(
                         dep_type.__name__,
@@ -118,7 +122,7 @@ class GraphValidator:
         for cls, deps in resolved.items():
             for dep_type in deps.values():
                 if not is_protocol(dep_type) and dep_type not in registered:
-                    raise MissingImplementationException(dep_type.__name__)
+                    raise UnregisteredDependencyException(cls.__name__, dep_type.__name__)
 
     # ------------------------------------------------------------------
     # 4. Binding correctness check

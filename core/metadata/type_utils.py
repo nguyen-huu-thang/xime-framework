@@ -7,13 +7,16 @@ def resolve_constructor_hints(cls: type) -> dict[str, type]:
     Read type hints from __init__ parameters, excluding 'self'.
     Returns empty dict if class has no __init__ or no parameters.
 
-    Raise KeyError if a hint uses a string annotation that cannot be resolved —
-    callers should handle this as a MissingTypeHintException.
+    Raises NameError if a string annotation (forward reference) cannot be
+    resolved — callers that scan packages should surface this as a startup
+    error rather than silently skipping the class.
     """
     try:
         hints = typing.get_type_hints(cls.__init__)
-    except Exception:
-        hints = {}
+    except TypeError:
+        # cls.__init__ is a built-in slot wrapper (e.g. object.__init__)
+        # that get_type_hints cannot inspect — treat as no hints.
+        return {}
 
     hints.pop("return", None)
     return hints
