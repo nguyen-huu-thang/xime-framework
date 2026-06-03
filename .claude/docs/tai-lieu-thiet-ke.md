@@ -132,6 +132,37 @@ dependency.scan("application.service", "application.usecase")
 dependency.exclude("domain", "dto")
 ```
 
+#### Đăng ký thủ công (tương đương `@Bean` bên Spring Boot)
+
+Package `domain` bị loại trừ khỏi auto-scan, nhưng một số class domain vẫn cần vào DI (domain factory, domain service). Dùng hai cơ chế sau trong `config/dependency.py`:
+
+**`register()` — class đơn giản, framework tự inject:**
+
+```python
+from domain.sharedkernel.factory import IdFactory
+from domain.authentication.factory import CredentialAuthenticationFactory
+
+dependency.register(
+    IdFactory,
+    CredentialAuthenticationFactory,
+)
+```
+
+**`configure()` — cần logic khởi tạo tùy chỉnh (đọc config, gọi factory method):**
+
+```python
+class DomainConfig:
+    def credential_factory(self) -> CredentialAuthenticationFactory:
+        return CredentialAuthenticationFactory()
+
+    def key_service(self, cfg: AppConfig) -> KeyEncryptionService:
+        return AesKeyEncryptionService(cfg.secret_key)
+
+dependency.configure(DomainConfig)
+```
+
+Quy tắc `configure()`: mỗi public method có return type → tạo một singleton; tham số method → được inject bởi container; config class không được có tham số constructor.
+
 ### Runtime Configuration (Operator)
 
 ```text

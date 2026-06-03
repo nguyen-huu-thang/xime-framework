@@ -142,7 +142,10 @@ class Application:
         finally:
             # Shut down adapters in reverse registration order (LIFO)
             for adapter in reversed(self._adapters):
-                await adapter.stop()
+                try:
+                    await adapter.stop()
+                except (asyncio.CancelledError, Exception):
+                    pass
             await self.stop()
 
     # ------------------------------------------------------------------
