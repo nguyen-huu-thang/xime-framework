@@ -1,5 +1,5 @@
 import conftest
-from core.container import XimeContainer
+from xime.core.container import XimeContainer
 import test_01_scanner
 import test_02_happy_path
 import test_03_protocol

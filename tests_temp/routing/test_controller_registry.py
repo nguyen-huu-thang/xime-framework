@@ -8,7 +8,7 @@ Test _ControllerRegistry và configure_controllers():
 """
 import pytest
 
-from adapters.web.routing._config import (
+from xime.adapters.web.routing._config import (
     _ControllerRegistry,
     configure_controllers,
     controller_registry,

@@ -1,6 +1,6 @@
 import pytest
 
-from starters.scheduler._config import scheduler_registry
+from xime.starters.scheduler._config import scheduler_registry
 
 
 @pytest.fixture(autouse=True)

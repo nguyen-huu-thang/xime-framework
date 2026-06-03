@@ -17,8 +17,8 @@ import inspect
 import pytest
 from fastapi import APIRouter
 
-from adapters.web.routing._builder import RouteBuilder, _make_handler
-from adapters.web.routing._decorators import delete, get, post, put
+from xime.adapters.web.routing._builder import RouteBuilder, _make_handler
+from xime.adapters.web.routing._decorators import delete, get, post, put
 
 
 # ---------------------------------------------------------------------------

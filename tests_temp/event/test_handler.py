@@ -4,7 +4,7 @@ Test EventHandler Protocol:
   - class thiếu handle() bị từ chối
   - giới hạn @runtime_checkable (chỉ kiểm tra sự tồn tại, không kiểm tra callability)
 """
-from core.event import EventHandler
+from xime.core.event import EventHandler
 
 
 class ValidHandler:

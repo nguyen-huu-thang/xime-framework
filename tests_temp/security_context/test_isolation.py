@@ -9,8 +9,8 @@ from enum import Enum
 
 import pytest
 
-from core.security import authenticate, clear_security, credential_type, identity, permissions
-from core.security import CredentialType
+from xime.core.security import authenticate, clear_security, credential_type, identity, permissions
+from xime.core.security import CredentialType
 
 
 class Permission(Enum):

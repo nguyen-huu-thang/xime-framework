@@ -16,7 +16,7 @@ Test _GrpcServiceRegistry và configure_grpc_services():
 """
 import pytest
 
-from adapters.grpc.routing._config import (
+from xime.adapters.grpc.routing._config import (
     _GrpcServiceRegistry,
     configure_grpc_services,
     grpc_service_registry,

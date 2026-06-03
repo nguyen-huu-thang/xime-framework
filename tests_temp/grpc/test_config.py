@@ -17,8 +17,8 @@ Test GrpcTlsConfig và GrpcServerConfig:
 """
 import pytest
 
-from adapters.grpc._config import GrpcServerConfig, GrpcTlsConfig
-from core.config.runtime import RuntimeConfig
+from xime.adapters.grpc._config import GrpcServerConfig, GrpcTlsConfig
+from xime.core.config.runtime import RuntimeConfig
 
 
 # ---------------------------------------------------------------------------

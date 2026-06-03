@@ -5,7 +5,7 @@ Test PostConstruct và PreDestroy Protocol:
   - một class có thể implement cả hai cùng lúc
   - @runtime_checkable cho phép kiểm tra structural typing tại runtime
 """
-from core.lifecycle import PostConstruct, PreDestroy
+from xime.core.lifecycle import PostConstruct, PreDestroy
 
 
 # ---------------------------------------------------------------------------

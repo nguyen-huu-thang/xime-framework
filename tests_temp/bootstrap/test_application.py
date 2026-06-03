@@ -11,8 +11,8 @@ Test Application:
 import pytest
 
 from bootstrap_sample.service.tracker import TrackerService
-from core.bootstrap import Application
-from core.config import BindingConfig, RuntimeConfig
+from xime.core.bootstrap import Application
+from xime.core.config import BindingConfig, RuntimeConfig
 
 
 def _sample_binding() -> BindingConfig:

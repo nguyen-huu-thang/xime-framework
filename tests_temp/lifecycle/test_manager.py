@@ -9,7 +9,7 @@ Test LifecycleManager:
 """
 import pytest
 
-from core.lifecycle import LifecycleManager
+from xime.core.lifecycle import LifecycleManager
 
 
 # ---------------------------------------------------------------------------

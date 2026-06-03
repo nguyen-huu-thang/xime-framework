@@ -5,7 +5,7 @@ Test XimeContainer full pipeline — happy path:
   - class không có dependency cũng được đăng ký
 """
 import pytest
-from core.container import XimeContainer
+from xime.core.container import XimeContainer
 from sample.service.user_service import UserService
 from sample.service.config_service import ConfigService
 from sample.repository.user_repository import UserRepository

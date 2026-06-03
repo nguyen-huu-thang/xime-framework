@@ -6,7 +6,7 @@ Test ScheduledJob Protocol:
   - Sync def run() cũng thoả isinstance (structural check, không kiểm tra async)
   - Protocol là runtime_checkable → isinstance dùng được
 """
-from starters.scheduler._job import ScheduledJob
+from xime.starters.scheduler._job import ScheduledJob
 
 
 class TestScheduledJobProtocol:

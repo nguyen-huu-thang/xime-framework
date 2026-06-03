@@ -6,7 +6,7 @@ Test authenticate():
 """
 from enum import Enum
 
-from core.security import (
+from xime.core.security import (
     CredentialType,
     authenticate,
     credential_type,

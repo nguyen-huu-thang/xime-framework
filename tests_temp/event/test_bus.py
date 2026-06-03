@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from core.event import EventBus
+from xime.core.event import EventBus
 
 
 # ---------------------------------------------------------------------------

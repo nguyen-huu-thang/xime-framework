@@ -23,12 +23,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from core.security.context import credential_type as _credential_type
-from core.security.context import identity as _identity
-from core.security.enums import CredentialType
-from starters.jwt._config import JwtMiddlewareConfig
-from starters.jwt._key_context import KeyContext
-from starters.jwt._middleware import JwtAuthMiddleware
+from xime.core.security.context import credential_type as _credential_type
+from xime.core.security.context import identity as _identity
+from xime.core.security.enums import CredentialType
+from xime.starters.jwt._config import JwtMiddlewareConfig
+from xime.starters.jwt._key_context import KeyContext
+from xime.starters.jwt._middleware import JwtAuthMiddleware
 
 UTC = timezone.utc
 MW_SECRET = "middleware-test-secret-long-enough-for-hs256-32bytes"

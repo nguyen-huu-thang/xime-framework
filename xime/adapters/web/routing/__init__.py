@@ -1,11 +1,13 @@
 """
-xime.adapters.web.routing — HTTP route decorators and controller registration.
+Controller routing layer for Xime Framework.
+
+Provides HTTP route decorators and the configure_controllers() function.
+Follows the same explicit-call pattern as configure_openapi() and configure_jwt().
 
 Usage:
-    from xime.adapters.web.routing import get, post, put, patch, delete
-    from xime.adapters.web.routing import configure_controllers
+    # api/rest/user_controller.py
+    from xime.adapters.web.routing import get, post, delete
 
-Example:
     class UserController:
         prefix = "/users"
         tags = ["users"]
@@ -16,16 +18,14 @@ Example:
         @get("/{user_id}", response_model=UserResponse)
         async def get_user(self, user_id: int) -> UserResponse:
             return await self._use_case.get(user_id)
+
+    # config/routing.py
+    from xime.adapters.web.routing import configure_controllers
+    configure_controllers("api.rest")
 """
 
-from adapters.web.routing import (
-    configure_controllers,
-    delete,
-    get,
-    patch,
-    post,
-    put,
-)
+from ._config import configure_controllers
+from ._decorators import delete, get, patch, post, put
 
 __all__ = [
     "get",

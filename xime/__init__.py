@@ -12,6 +12,6 @@ Sub-packages:
     xime.starters.scheduler  — Task scheduling (APScheduler)
 """
 
-from core.bootstrap.application import Application
+from xime.core.bootstrap.application import Application
 
 __all__ = ["Application"]

@@ -1,6 +1,6 @@
 import pytest
 
-from core.security import clear_security
+from xime.core.security import clear_security
 
 
 @pytest.fixture(autouse=True)

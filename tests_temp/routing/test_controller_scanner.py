@@ -14,8 +14,8 @@ khi chạy toàn bộ test suite — cả hai conftest.py đều add thư mục 
 """
 import pytest
 
-from adapters.web.routing._decorators import delete, get, post
-from adapters.web.routing._scanner import ControllerScanner
+from xime.adapters.web.routing._decorators import delete, get, post
+from xime.adapters.web.routing._scanner import ControllerScanner
 
 
 # ---------------------------------------------------------------------------

@@ -1,30 +1,20 @@
-"""
-xime.starters.sqlalchemy — Async SQLAlchemy integration.
+from xime.starters.sqlalchemy.base import Base, TimestampMixin
+from xime.starters.sqlalchemy.engine import AsyncEngineProvider
+from xime.starters.sqlalchemy.session import AsyncSessionFactory
+from xime.starters.sqlalchemy.transaction import SqlAlchemyTransactionContext, SqlAlchemyTransactionManager
 
-Usage:
-    from xime.starters.sqlalchemy import Base, TimestampMixin
-    from xime.starters.sqlalchemy import SqlAlchemyTransactionManager
-    from xime.starters.sqlalchemy import AsyncEngineProvider, AsyncSessionFactory
-
-Typical setup in config/dependency.py:
-    dependency.scan("starters.sqlalchemy", ...)
-    dependency.bind({TransactionManager: SqlAlchemyTransactionManager})
-"""
-
-from starters.sqlalchemy import (
-    AsyncEngineProvider,
-    AsyncSessionFactory,
-    Base,
-    SqlAlchemyTransactionContext,
-    SqlAlchemyTransactionManager,
-    TimestampMixin,
-)
-
+# __all__ controls which classes the DI scanner registers when the user calls
+# dependency.scan("xime.starters.sqlalchemy"). Only DI-managed singletons appear here.
+#
+# Base, TimestampMixin, SqlAlchemyTransactionContext are intentionally excluded:
+#   - Base / TimestampMixin  : model base classes, not injectable services
+#   - SqlAlchemyTransactionContext : per-transaction object created by __call__(),
+#     not a singleton — its AsyncSession dep is never in the DI container
+#
+# All classes are still importable directly:
+#   from xime.starters.sqlalchemy import Base, SqlAlchemyTransactionContext
 __all__ = [
-    "Base",
-    "TimestampMixin",
     "AsyncEngineProvider",
     "AsyncSessionFactory",
     "SqlAlchemyTransactionManager",
-    "SqlAlchemyTransactionContext",
 ]

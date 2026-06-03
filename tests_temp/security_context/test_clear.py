@@ -8,7 +8,7 @@ from enum import Enum
 
 import pytest
 
-from core.security import (
+from xime.core.security import (
     CredentialType,
     authenticate,
     clear_security,

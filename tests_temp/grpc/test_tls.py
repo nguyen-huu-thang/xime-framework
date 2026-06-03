@@ -16,8 +16,8 @@ from unittest.mock import MagicMock, call, patch
 import grpc
 import pytest
 
-from adapters.grpc._config import GrpcTlsConfig
-from adapters.grpc.tls._credentials import build_server_credentials
+from xime.adapters.grpc._config import GrpcTlsConfig
+from xime.adapters.grpc.tls._credentials import build_server_credentials
 
 
 # ---------------------------------------------------------------------------

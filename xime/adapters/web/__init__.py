@@ -1,23 +1,15 @@
 """
-xime.adapters.web — HTTP + WebSocket adapter.
+Web adapter — HTTP + WebSocket qua FastAPI (ASGI).
 
-Usage:
-    from xime.adapters.web import WebAdapter
-    from xime.adapters.web import WebSocketHandler
-    from xime.adapters.web import get, post, put, patch, delete
-    from xime.adapters.web import configure_controllers
+Public API:
+    from xime.adapters.web import WebAdapter, WebSocketHandler
+    from xime.adapters.web import get, post, put, patch, delete, configure_controllers
+    from xime.adapters.web.openapi import configure_openapi, OpenApiConfig, JwtBearer, ApiKey
 """
 
-from adapters.web import (
-    WebAdapter,
-    WebSocketHandler,
-    configure_controllers,
-    delete,
-    get,
-    patch,
-    post,
-    put,
-)
+from ._adapter import WebAdapter
+from .routing import configure_controllers, delete, get, patch, post, put
+from .ws import WebSocketHandler
 
 __all__ = [
     "WebAdapter",

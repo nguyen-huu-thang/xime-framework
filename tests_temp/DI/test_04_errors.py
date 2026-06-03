@@ -11,9 +11,9 @@ from typing import Protocol
 
 import pytest
 
-from core.container.graph import DependencyGraph
-from core.container.validator import GraphValidator
-from core.exception import (
+from xime.core.container.graph import DependencyGraph
+from xime.core.container.validator import GraphValidator
+from xime.core.exception import (
     BindingValidationException,
     CircularDependencyException,
     MissingBindingException,

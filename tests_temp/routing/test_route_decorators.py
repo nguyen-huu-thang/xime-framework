@@ -9,7 +9,7 @@ Test route decorators — @get, @post, @put, @patch, @delete:
 """
 import pytest
 
-from adapters.web.routing._decorators import (
+from xime.adapters.web.routing._decorators import (
     ROUTE_ATTR,
     RouteInfo,
     delete,

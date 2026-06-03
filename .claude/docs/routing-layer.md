@@ -61,7 +61,7 @@ configure_controllers("api.rest")
 
 # main.py
 from xime.adapters.web import WebAdapter
-from core.bootstrap import Application
+from xime.core.bootstrap import Application
 
 application = Application()
 app = WebAdapter(application).build()

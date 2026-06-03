@@ -14,8 +14,8 @@ Test StartupOrchestrator:
 import pytest
 
 from bootstrap_sample.service.tracker import GreeterService, TrackerService
-from core.bootstrap import StartupOrchestrator
-from core.config import BindingConfig, RuntimeConfig
+from xime.core.bootstrap import StartupOrchestrator
+from xime.core.config import BindingConfig, RuntimeConfig
 
 
 def _binding_with_sample() -> BindingConfig:
@@ -126,7 +126,7 @@ async def test_dependency_post_construct_runs_before_dependent():
             call_order.append("greeter")
 
     # Test trực tiếp trên LifecycleManager với thứ tự [tracker, greeter]
-    from core.lifecycle import LifecycleManager
+    from xime.core.lifecycle import LifecycleManager
     t = OrderTrackingTracker()
     g = OrderTrackingGreeter(tracker=t)
     manager = LifecycleManager([t, g])
@@ -168,7 +168,7 @@ async def test_pre_destroy_runs_in_reverse_order():
         async def pre_destroy(self) -> None:
             call_order.append("B")
 
-    from core.lifecycle import LifecycleManager
+    from xime.core.lifecycle import LifecycleManager
     a = ServiceA()
     b = ServiceB(a=a)
     manager = LifecycleManager([a, b])   # topological order: a trước b
@@ -268,8 +268,8 @@ async def test_pre_built_instance_post_construct_is_called():
         def __init__(self, ext: ExternalService) -> None:
             self.ext = ext
 
-    from core.container import XimeContainer
-    from core.lifecycle import LifecycleManager
+    from xime.core.container import XimeContainer
+    from xime.core.lifecycle import LifecycleManager
 
     ext = ExternalService()
     container = (
@@ -295,8 +295,8 @@ async def test_pre_built_instance_pre_destroy_is_called():
         async def pre_destroy(self) -> None:
             log.append("pre_destroy")
 
-    from core.container import XimeContainer
-    from core.lifecycle import LifecycleManager
+    from xime.core.container import XimeContainer
+    from xime.core.lifecycle import LifecycleManager
 
     ext = ExternalService()
     container = (
@@ -344,8 +344,8 @@ async def test_pre_built_instance_lifecycle_order():
     ScannedService.__module__ = mod_name
     sys.modules[mod_name] = mod
 
-    from core.container import XimeContainer
-    from core.lifecycle import LifecycleManager
+    from xime.core.container import XimeContainer
+    from xime.core.lifecycle import LifecycleManager
 
     dep = PreBuiltDep()
     container = (

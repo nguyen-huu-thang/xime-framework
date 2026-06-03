@@ -1,6 +1,6 @@
 import pytest
 
-from core.context import request_context
+from xime.core.context import request_context
 
 
 @pytest.fixture(autouse=True)

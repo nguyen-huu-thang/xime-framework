@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, call
 import grpc.aio
 import pytest
 
-from adapters.grpc.routing._builder import GrpcServiceBuilder
+from xime.adapters.grpc.routing._builder import GrpcServiceBuilder
 
 
 # ---------------------------------------------------------------------------

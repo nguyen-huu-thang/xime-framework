@@ -1,35 +1,18 @@
-"""
-xime.starters.jwt — JWT authentication starter.
+from ._config import JwtMiddlewareConfig, configure_jwt
+from ._key_context import KeyContext
+from ._signer import JwtTokenSigner, PyJwtTokenSigner
+from ._verifier import JwtTokenVerifier, PyJwtTokenVerifier
 
-Usage:
-    from xime.starters.jwt import configure_jwt, JwtMiddlewareConfig, KeyContext
-    from xime.starters.jwt import JwtTokenSigner, JwtTokenVerifier
-    from xime.starters.jwt import PyJwtTokenSigner, PyJwtTokenVerifier
-
-Example:
-    configure_jwt(JwtMiddlewareConfig(
-        key_context=KeyContext(algorithm="RS256", public_key_pem=os.environ["JWT_PUBLIC_KEY"]),
-        identity_claim="sub",
-        public_paths=["/auth/login", "/health"],
-    ))
-"""
-
-from starters.jwt import (
-    JwtMiddlewareConfig,
-    JwtTokenSigner,
-    JwtTokenVerifier,
-    KeyContext,
-    PyJwtTokenSigner,
-    PyJwtTokenVerifier,
-    configure_jwt,
-)
-
+# __all__ controls which classes DI scanner registers from dependency.scan("xime.starters.jwt").
+# Only stateless singleton services appear here — config/data objects are excluded.
+#
+# PyJwtTokenSigner  : no constructor deps, injectable as JwtTokenSigner implementation
+# PyJwtTokenVerifier: no constructor deps, injectable as JwtTokenVerifier implementation
+#
+# KeyContext, JwtMiddlewareConfig, configure_jwt: config objects — not DI-managed,
+# but still importable directly:
+#   from xime.starters.jwt import KeyContext, JwtMiddlewareConfig, configure_jwt
 __all__ = [
-    "configure_jwt",
-    "JwtMiddlewareConfig",
-    "KeyContext",
-    "JwtTokenSigner",
-    "JwtTokenVerifier",
     "PyJwtTokenSigner",
     "PyJwtTokenVerifier",
 ]

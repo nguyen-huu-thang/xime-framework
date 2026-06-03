@@ -1,4 +1,4 @@
-from adapters.web.routing import delete, get
+from xime.adapters.web.routing import delete, get
 
 
 class ProductController:

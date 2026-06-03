@@ -10,8 +10,8 @@ Test JwtMiddlewareConfig và configure_jwt() / jwt_registry:
 """
 import pytest
 
-from starters.jwt._config import JwtMiddlewareConfig, configure_jwt, jwt_registry
-from starters.jwt._key_context import KeyContext
+from xime.starters.jwt._config import JwtMiddlewareConfig, configure_jwt, jwt_registry
+from xime.starters.jwt._key_context import KeyContext
 
 
 @pytest.fixture(autouse=True)

@@ -1,4 +1,4 @@
-from adapters.web.routing import get, post
+from xime.adapters.web.routing import get, post
 
 
 class UserController:

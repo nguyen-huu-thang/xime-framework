@@ -8,10 +8,10 @@ from typing import Protocol
 
 import pytest
 
-from core.container.graph import DependencyGraph
-from core.container.registry import DependencyRegistry
-from core.container.resolver import TypeHintResolver
-from core.container.validator import GraphValidator
+from xime.core.container.graph import DependencyGraph
+from xime.core.container.registry import DependencyRegistry
+from xime.core.container.resolver import TypeHintResolver
+from xime.core.container.validator import GraphValidator
 
 
 # ---------------------------------------------------------------------------

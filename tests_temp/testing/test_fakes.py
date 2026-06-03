@@ -17,8 +17,8 @@ Test FakeTransactionManager:
 """
 import pytest
 
-from testing import FakeTransactionManager
-from testing._fakes import _FakeTransactionContext
+from xime.testing import FakeTransactionManager
+from xime.testing._fakes import _FakeTransactionContext
 
 
 class TestFakeTransactionManagerCall:

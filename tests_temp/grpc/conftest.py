@@ -1,6 +1,6 @@
 import pytest
 
-from adapters.grpc.routing._config import grpc_service_registry
+from xime.adapters.grpc.routing._config import grpc_service_registry
 
 
 @pytest.fixture(autouse=True)

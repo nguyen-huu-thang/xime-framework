@@ -7,7 +7,7 @@ Test KeyContext:
   - cấu hình sign-only (chỉ private_key_pem)
   - key_id được lưu đúng
 """
-from starters.jwt._key_context import KeyContext
+from xime.starters.jwt._key_context import KeyContext
 
 
 class TestKeyContextDefaults:

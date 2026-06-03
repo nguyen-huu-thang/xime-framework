@@ -1,31 +1,16 @@
-"""
-xime.starters.scheduler — Task scheduling via APScheduler.
+from ._config import CronJob, IntervalJob, SchedulerConfig, configure_scheduler
+from ._job import ScheduledJob
 
-Usage:
-    from xime.starters.scheduler import configure_scheduler, SchedulerConfig
-    from xime.starters.scheduler import CronJob, IntervalJob, ScheduledJob
-
-Example:
-    configure_scheduler(SchedulerConfig(
-        jobs=[
-            CronJob(job_class=ReportJob, cron="0 8 * * *"),
-            IntervalJob(job_class=SyncJob, seconds=60),
-        ]
-    ))
-"""
-
-from starters.scheduler import (
-    CronJob,
-    IntervalJob,
-    ScheduledJob,
-    SchedulerConfig,
-    configure_scheduler,
-)
-
-__all__ = [
-    "configure_scheduler",
-    "SchedulerConfig",
-    "CronJob",
-    "IntervalJob",
-    "ScheduledJob",
-]
+# __all__ controls which classes DI scanner registers from dependency.scan("xime.starters.scheduler").
+# Empty list → scanner finds nothing to register — correct, because:
+#
+#   SchedulerRunner   : framework-internal, created by StartupOrchestrator with a resolver
+#                       callback after DI is built. NOT imported here — it has a top-level
+#                       apscheduler import that would fail if apscheduler is not installed.
+#   ScheduledJob      : Protocol — scanner skips all Protocols automatically.
+#   CronJob / IntervalJob / SchedulerConfig : dataclasses / config objects, not services.
+#   configure_scheduler : function, not a class.
+#
+# All public types are still importable directly:
+#   from xime.starters.scheduler import configure_scheduler, SchedulerConfig, CronJob, ScheduledJob
+__all__: list[str] = []

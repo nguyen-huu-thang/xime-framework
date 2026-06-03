@@ -16,9 +16,9 @@ from datetime import datetime, timedelta, timezone
 import jwt as pyjwt
 import pytest
 
-from core.exception.framework import AuthenticationException
-from starters.jwt._key_context import KeyContext
-from starters.jwt._verifier import PyJwtTokenVerifier
+from xime.core.exception.framework import AuthenticationException
+from xime.starters.jwt._key_context import KeyContext
+from xime.starters.jwt._verifier import PyJwtTokenVerifier
 
 UTC = timezone.utc
 TEST_SECRET = "verifier-test-secret-long-enough-for-hs256-min-32bytes"
@@ -147,7 +147,7 @@ class TestPyJwtTokenVerifierHs256Errors:
 
 class TestPyJwtTokenVerifierRoundTrip:
     def test_sign_then_verify_preserves_sub(self):
-        from starters.jwt._signer import PyJwtTokenSigner
+        from xime.starters.jwt._signer import PyJwtTokenSigner
 
         ctx = KeyContext(algorithm="HS256", secret="round-trip-secret-long-enough-for-hs256-32bytes")
         now = datetime.now(UTC)
@@ -162,7 +162,7 @@ class TestPyJwtTokenVerifierRoundTrip:
         assert claims["sub"] == "round_trip_user"
 
     def test_sign_then_verify_preserves_custom_claims(self):
-        from starters.jwt._signer import PyJwtTokenSigner
+        from xime.starters.jwt._signer import PyJwtTokenSigner
 
         ctx = KeyContext(algorithm="HS256", secret="round-trip-secret-long-enough-for-hs256-32bytes")
         now = datetime.now(UTC)
@@ -186,7 +186,7 @@ class TestPyJwtTokenVerifierRoundTrip:
 
 class TestPyJwtTokenVerifierRs256:
     def test_verify_rs256_token_returns_correct_claims(self, rs256_contexts):
-        from starters.jwt._signer import PyJwtTokenSigner
+        from xime.starters.jwt._signer import PyJwtTokenSigner
 
         signing_ctx, verifying_ctx = rs256_contexts
         now = datetime.now(UTC)

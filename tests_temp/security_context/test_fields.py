@@ -7,7 +7,7 @@ from enum import Enum
 
 import pytest
 
-from core.security import CredentialType, credential_type, credentials, identity, permissions
+from xime.core.security import CredentialType, credential_type, credentials, identity, permissions
 
 
 # ---------------------------------------------------------------------------

@@ -14,8 +14,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from adapters.web.routing._builder import RouteBuilder
-from adapters.web.routing._decorators import delete, get, post, put
+from xime.adapters.web.routing._builder import RouteBuilder
+from xime.adapters.web.routing._decorators import delete, get, post, put
 
 
 def _build_app(*controller_classes: type) -> FastAPI:

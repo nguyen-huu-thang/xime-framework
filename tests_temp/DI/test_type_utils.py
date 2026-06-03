@@ -28,7 +28,7 @@ from typing import Protocol
 
 import pytest
 
-from core.metadata.type_utils import (
+from xime.core.metadata.type_utils import (
     get_init_parameters,
     get_protocol_methods,
     is_protocol,

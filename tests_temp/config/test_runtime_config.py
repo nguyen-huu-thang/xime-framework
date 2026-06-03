@@ -7,7 +7,7 @@ Test RuntimeConfig và ServerConfig:
 """
 import pytest
 
-from core.config import RuntimeConfig, ServerConfig
+from xime.core.config import RuntimeConfig, ServerConfig
 
 
 # ---------------------------------------------------------------------------

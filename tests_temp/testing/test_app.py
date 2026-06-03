@@ -25,9 +25,9 @@ Test TestApplication:
 """
 import pytest
 
-from core.config.binding import BindingConfig
-from core.config.runtime import RuntimeConfig
-from testing import TestApplication
+from xime.core.config.binding import BindingConfig
+from xime.core.config.runtime import RuntimeConfig
+from xime.testing import TestApplication
 
 from tsvc.service import SampleService, StoragePort
 

@@ -11,8 +11,8 @@ import types
 
 import pytest
 
-from core.container.scanner import PackageScanner
-from core.exception.framework import MissingTypeHintException
+from xime.core.container.scanner import PackageScanner
+from xime.core.exception.framework import MissingTypeHintException
 
 
 def test_scanner_finds_concrete_classes():
@@ -31,7 +31,7 @@ def test_scanner_excludes_protocols():
     classes = PackageScanner().scan("sample.service", "sample.repository")
     for cls in classes:
         # is_protocol import trực tiếp để kiểm tra
-        from core.metadata.type_utils import is_protocol
+        from xime.core.metadata.type_utils import is_protocol
         assert not is_protocol(cls), f"{cls.__name__} là Protocol, không được đăng ký DI"
 
 

@@ -41,9 +41,9 @@ apscheduler = pytest.importorskip("apscheduler", reason="pip install 'apschedule
 from apscheduler.triggers.cron import CronTrigger       # noqa: E402
 from apscheduler.triggers.interval import IntervalTrigger  # noqa: E402
 
-from starters.scheduler._config import CronJob, IntervalJob, SchedulerConfig  # noqa: E402
-from starters.scheduler._job import ScheduledJob        # noqa: E402
-from starters.scheduler._runner import SchedulerRunner  # noqa: E402
+from xime.starters.scheduler._config import CronJob, IntervalJob, SchedulerConfig  # noqa: E402
+from xime.starters.scheduler._job import ScheduledJob        # noqa: E402
+from xime.starters.scheduler._runner import SchedulerRunner  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -78,7 +78,7 @@ def mock_apscheduler():
 @pytest.fixture
 def patch_async_scheduler(mock_apscheduler):
     """Patch AsyncScheduler trong _runner module bằng mock_apscheduler."""
-    with patch("starters.scheduler._runner.AsyncScheduler", return_value=mock_apscheduler):
+    with patch("xime.starters.scheduler._runner.AsyncScheduler", return_value=mock_apscheduler):
         yield mock_apscheduler
 
 

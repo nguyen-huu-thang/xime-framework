@@ -11,7 +11,7 @@ import os
 
 import pytest
 
-from core.config import YamlConfigLoader, detect_env
+from xime.core.config import YamlConfigLoader, detect_env
 
 
 # ---------------------------------------------------------------------------

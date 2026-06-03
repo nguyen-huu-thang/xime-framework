@@ -42,16 +42,16 @@ import grpc.aio
 import pytest
 import pytest_asyncio
 
-from adapters.grpc.interceptors._config import (
+from xime.adapters.grpc.interceptors._config import (
     _GrpcInterceptorRegistry,
     configure_grpc_error_mappings,
     configure_grpc_interceptors,
     grpc_interceptor_registry,
 )
-from adapters.grpc.interceptors._context import RequestContextInterceptor
-from adapters.grpc.interceptors._error import ErrorMappingInterceptor
-from core.context import request_context
-from core.security import clear_security
+from xime.adapters.grpc.interceptors._context import RequestContextInterceptor
+from xime.adapters.grpc.interceptors._error import ErrorMappingInterceptor
+from xime.core.context import request_context
+from xime.core.security import clear_security
 
 
 # ---------------------------------------------------------------------------

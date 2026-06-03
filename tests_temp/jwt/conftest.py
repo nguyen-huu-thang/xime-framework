@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, timezone
 import jwt as pyjwt
 import pytest
 
-from core.security import clear_security
-from starters.jwt._key_context import KeyContext
+from xime.core.security import clear_security
+from xime.starters.jwt._key_context import KeyContext
 
 UTC = timezone.utc
 TEST_SECRET = "xime-unit-test-secret-do-not-use-in-production"

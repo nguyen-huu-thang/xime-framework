@@ -11,7 +11,7 @@ Test GrpcServiceScanner.validate_packages():
 import sys
 import pytest
 
-from adapters.grpc.routing._scanner import GrpcServiceScanner
+from xime.adapters.grpc.routing._scanner import GrpcServiceScanner
 
 
 # ---------------------------------------------------------------------------

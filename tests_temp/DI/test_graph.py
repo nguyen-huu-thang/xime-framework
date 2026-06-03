@@ -14,8 +14,8 @@ Test DependencyGraph:
 """
 import pytest
 
-from core.container.graph import DependencyGraph
-from core.container.resolver import ResolvedMap
+from xime.core.container.graph import DependencyGraph
+from xime.core.container.resolver import ResolvedMap
 
 
 # ---------------------------------------------------------------------------

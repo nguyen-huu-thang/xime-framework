@@ -13,9 +13,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from starlette.websockets import WebSocketDisconnect
 
-from adapters.web.ws._handler import WebSocketHandler
-from core.context import request_context
-from core.security.context import identity
+from xime.adapters.web.ws._handler import WebSocketHandler
+from xime.core.context import request_context
+from xime.core.security.context import identity
 
 
 def _make_ws() -> MagicMock:

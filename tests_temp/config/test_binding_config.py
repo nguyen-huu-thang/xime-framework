@@ -7,7 +7,7 @@ Test BindingConfig:
 """
 from typing import Protocol
 
-from core.config import BindingConfig
+from xime.core.config import BindingConfig
 
 
 # ---------------------------------------------------------------------------

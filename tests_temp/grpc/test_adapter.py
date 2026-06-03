@@ -27,13 +27,13 @@ import grpc
 import grpc.aio
 import pytest
 
-from adapters.grpc._adapter import GrpcAdapter
-from adapters.grpc._config import GrpcServerConfig, GrpcTlsConfig
-from adapters.grpc.interceptors._config import grpc_interceptor_registry
-from adapters.grpc.interceptors._context import RequestContextInterceptor
-from adapters.grpc.interceptors._error import ErrorMappingInterceptor
-from adapters.grpc.routing._config import grpc_service_registry
-from core.config.runtime import RuntimeConfig
+from xime.adapters.grpc._adapter import GrpcAdapter
+from xime.adapters.grpc._config import GrpcServerConfig, GrpcTlsConfig
+from xime.adapters.grpc.interceptors._config import grpc_interceptor_registry
+from xime.adapters.grpc.interceptors._context import RequestContextInterceptor
+from xime.adapters.grpc.interceptors._error import ErrorMappingInterceptor
+from xime.adapters.grpc.routing._config import grpc_service_registry
+from xime.core.config.runtime import RuntimeConfig
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +187,7 @@ class TestGrpcAdapterStartTls:
 
         with patch("grpc.aio.server", return_value=mock_grpc_server):
             with patch(
-                "adapters.grpc._adapter.build_server_credentials",
+                "xime.adapters.grpc._adapter.build_server_credentials",
                 return_value=fake_credentials,
             ):
                 adapter = GrpcAdapter()
@@ -217,7 +217,7 @@ class TestGrpcAdapterStartServicers:
         )
 
         with patch("grpc.aio.server", return_value=mock_grpc_server):
-            with patch("adapters.grpc._adapter.GrpcServiceBuilder") as MockBuilder:
+            with patch("xime.adapters.grpc._adapter.GrpcServiceBuilder") as MockBuilder:
                 mock_builder_instance = MagicMock()
                 MockBuilder.return_value = mock_builder_instance
 
@@ -234,7 +234,7 @@ class TestGrpcAdapterStartServicers:
         grpc_service_registry.register(["api.grpc"], {})
 
         with patch("grpc.aio.server", return_value=mock_grpc_server):
-            with patch("adapters.grpc._adapter.GrpcServiceScanner") as MockScanner:
+            with patch("xime.adapters.grpc._adapter.GrpcServiceScanner") as MockScanner:
                 mock_scanner_instance = MagicMock()
                 MockScanner.return_value = mock_scanner_instance
 

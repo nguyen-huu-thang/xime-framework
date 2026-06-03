@@ -15,8 +15,8 @@ from datetime import datetime, timedelta, timezone
 import jwt as pyjwt
 import pytest
 
-from starters.jwt._key_context import KeyContext
-from starters.jwt._signer import PyJwtTokenSigner
+from xime.starters.jwt._key_context import KeyContext
+from xime.starters.jwt._signer import PyJwtTokenSigner
 
 UTC = timezone.utc
 

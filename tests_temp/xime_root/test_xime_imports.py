@@ -28,7 +28,7 @@ def test_import_application_from_xime():
 def test_application_is_same_object_as_implementation():
     """xime.Application phải là cùng class với core.bootstrap.application.Application."""
     from xime import Application
-    from core.bootstrap.application import Application as _Impl
+    from xime.core.bootstrap.application import Application as _Impl
     assert Application is _Impl
 
 
@@ -48,7 +48,7 @@ def test_import_web_adapter():
 
 def test_web_adapter_is_correct_class():
     from xime.adapters.web import WebAdapter
-    from adapters.web._adapter import WebAdapter as _Impl
+    from xime.adapters.web._adapter import WebAdapter as _Impl
     assert WebAdapter is _Impl
 
 
@@ -125,7 +125,7 @@ def test_import_security_scheme():
 
 def test_openapi_symbols_match_implementation():
     from xime.adapters.web.openapi import OpenApiConfig, configure_openapi
-    from adapters.web.openapi import OpenApiConfig as _Cfg, configure_openapi as _fn
+    from xime.adapters.web.openapi import OpenApiConfig as _Cfg, configure_openapi as _fn
     assert OpenApiConfig is _Cfg
     assert configure_openapi is _fn
 
@@ -169,7 +169,7 @@ def test_import_jwt_pyjwt_implementations():
 def test_jwt_symbols_match_implementation():
     pytest.importorskip("jwt", reason="PyJWT not installed")
     from xime.starters.jwt import configure_jwt as xime_fn
-    from starters.jwt import configure_jwt as impl_fn
+    from xime.starters.jwt import configure_jwt as impl_fn
     assert xime_fn is impl_fn
 
 
@@ -230,5 +230,5 @@ def test_import_scheduled_job_protocol():
 def test_scheduler_symbols_match_implementation():
     pytest.importorskip("apscheduler", reason="APScheduler not installed")
     from xime.starters.scheduler import configure_scheduler as xime_fn
-    from starters.scheduler import configure_scheduler as impl_fn
+    from xime.starters.scheduler import configure_scheduler as impl_fn
     assert xime_fn is impl_fn

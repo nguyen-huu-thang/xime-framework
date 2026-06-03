@@ -28,7 +28,7 @@ Test CronJob, IntervalJob, SchedulerConfig, scheduler_registry, configure_schedu
 """
 import pytest
 
-from starters.scheduler._config import (
+from xime.starters.scheduler._config import (
     CronJob,
     IntervalJob,
     SchedulerConfig,

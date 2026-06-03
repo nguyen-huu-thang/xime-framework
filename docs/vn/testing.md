@@ -122,7 +122,7 @@ Cho HTTP-level test (test routing, middleware, serialization), dùng `WebAdapter
 
 ```python
 from httpx import AsyncClient
-from adapters.web import WebAdapter
+from xime.adapters.web import WebAdapter
 
 async def test_get_user_http(app):
     fastapi_app = WebAdapter().build_app(app)
