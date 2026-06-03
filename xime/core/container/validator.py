@@ -29,11 +29,12 @@ class GraphValidator:
         bindings: dict[type, type],
         all_classes: list[type],
         instances: dict[type, object] | None = None,
+        factory_provided: list[type] | None = None,
     ) -> None:
         self._check_cycles(graph)
-        self._check_unresolved_protocols(resolved, all_classes, instances)
+        self._check_unresolved_protocols(resolved, all_classes, instances, factory_provided)
         self._check_bindings(bindings)
-        self._check_missing_concrete_deps(resolved, all_classes, instances)
+        self._check_missing_concrete_deps(resolved, all_classes, instances, factory_provided)
 
     # ------------------------------------------------------------------
     # 1. Circular dependency check
@@ -55,17 +56,18 @@ class GraphValidator:
         resolved: ResolvedMap,
         all_classes: list[type],
         instances: dict[type, object] | None = None,
+        factory_provided: list[type] | None = None,
     ) -> None:
         """
         After resolution, any dependency that is still a Protocol means
         no explicit binding was declared for it. Find out why and fail fast.
 
-        Protocols that have a pre-built instance registered (via register_instance)
-        are treated as satisfied and skipped — the registry will wire them directly.
+        Protocols satisfied by a pre-built instance (register_instance) or a
+        factory-provided type (configure) are treated as satisfied and skipped.
         """
         # Deduplicate: one error per unresolved Protocol is enough.
         already_reported: set[type] = set()
-        pre_built: set[type] = set(instances or {})
+        pre_built: set[type] = set(instances or {}) | set(factory_provided or {})
 
         for _cls, deps in resolved.items():
             for _param, dep_type in deps.items():
@@ -118,16 +120,17 @@ class GraphValidator:
         resolved: ResolvedMap,
         all_classes: list[type],
         instances: dict[type, object] | None = None,
+        factory_provided: list[type] | None = None,
     ) -> None:
         """
         Check that every concrete (non-Protocol) dependency is present in
-        all_classes or pre-built instances.
+        all_classes, pre-built instances, or factory-provided types.
 
         Catches the case where a class depends on a concrete type that was
         never scanned — the registry would silently skip it, causing a
         TypeError at runtime when the instance is created.
         """
-        registered = set(all_classes) | set(instances or {})
+        registered = set(all_classes) | set(instances or {}) | set(factory_provided or {})
         for cls, deps in resolved.items():
             for dep_type in deps.values():
                 if not is_protocol(dep_type) and dep_type not in registered:

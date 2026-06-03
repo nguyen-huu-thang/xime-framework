@@ -2,6 +2,7 @@ import re
 
 from dependency_injector import containers, providers
 
+from xime.core.container.config_loader import FactoryEntry
 from xime.core.container.graph import DependencyGraph
 from xime.core.container.resolver import ResolvedMap
 
@@ -24,6 +25,7 @@ class DependencyRegistry:
         resolved: ResolvedMap,
         graph: DependencyGraph,
         instances: dict[type, object] | None = None,
+        factory_entries: list[FactoryEntry] | None = None,
     ) -> None:
         """
         Walk nodes in topological order (dependencies before dependents) so
@@ -31,18 +33,31 @@ class DependencyRegistry:
 
         Pre-built instances (passed via `instances`) are registered first as
         providers.Object so they are available when scanned classes are wired up.
+
+        Factory entries (from configure()) are registered using their bound
+        method as the callable instead of the class constructor.
         """
         for cls, obj in (instances or {}).items():
             provider_name = self._unique_name(cls)
             self._provider_map[cls] = provider_name
             setattr(self._container, provider_name, providers.Object(obj))
 
+        factory_map: dict[type, FactoryEntry] = {
+            e.provided_type: e for e in (factory_entries or [])
+        }
+
         for cls in graph.topological_order():
             provider_name = self._unique_name(cls)
             self._provider_map[cls] = provider_name
-
             kwargs = self._build_kwargs(resolved.get(cls, {}))
-            setattr(self._container, provider_name, providers.Singleton(cls, **kwargs))
+
+            if cls in factory_map:
+                # Factory-provided: call the bound method, not the constructor.
+                callable_ = factory_map[cls].factory_fn
+            else:
+                callable_ = cls
+
+            setattr(self._container, provider_name, providers.Singleton(callable_, **kwargs))
 
     def get(self, cls: type) -> object:
         """Return the singleton instance for the given class."""
