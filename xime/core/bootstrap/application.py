@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import sys
 from typing import TYPE_CHECKING, Any
 
 from xime.core.bootstrap.orchestrator import StartupOrchestrator
@@ -23,30 +24,30 @@ class Application:
 
     Config loading (in order of precedence):
       1. binding= passed directly → used as-is, auto-discovery skipped
-      2. Auto-discovery: import config_module, read its `dependency` attribute
-      3. Fallback: empty BindingConfig (no packages scanned)
+      2. config_module= explicit path → import that module, read its `dependency`
+      3. Auto-discovery (config_module=None, the default):
+           a. {main_package}.config.dependency  (detected from __main__.__spec__)
+           b. config.dependency                 (fallback for root-level main.py)
+      4. Fallback: empty BindingConfig (no packages scanned)
+
+    Auto-discovery example:
+        Running "python -m app.main"  → tries app.config.dependency first.
+        Running "python main.py"      → tries config.dependency.
 
     Runtime config is always loaded from resources/{application.yml} merged
     with resources/application-{env}.yml (env from XIME_ENV or APP_ENV).
 
     Typical usage:
-        # As async context manager (recommended)
+        # Blocking with adapters — config auto-detected from package
+        app = Application()
+        app.use(WebAdapter()).use(GrpcAdapter()).run()
+
+        # Explicit config module
+        app = Application(config_module="app.config.dependency")
+
+        # As async context manager
         async with Application() as app:
             ...
-
-        # Manual lifecycle
-        app = Application()
-        await app.start()
-        try:
-            ...
-        finally:
-            await app.stop()
-
-        # Blocking with adapters (REST only, or REST + gRPC simultaneously)
-        app = Application()
-        app.use(WebAdapter())
-        app.use(GrpcAdapter())
-        app.run()
     """
 
     def __init__(
@@ -54,7 +55,7 @@ class Application:
         *,
         binding: BindingConfig | None = None,
         resources_dir: str = "resources",
-        config_module: str = "config.dependency",
+        config_module: str | None = None,
     ) -> None:
         self._binding = binding
         self._resources_dir = resources_dir
@@ -124,8 +125,10 @@ class Application:
         asyncio.run(self._run_async())
 
     async def _run_async(self) -> None:
-        await self.start()
+        # Include start() inside try so that the finally cleanup block always
+        # runs even when a PostConstruct hook raises during startup.
         try:
+            await self.start()
             if self._adapters:
                 # TaskGroup guarantees all adapter tasks are cancelled when any
                 # one of them fails — no orphaned background tasks.
@@ -175,23 +178,67 @@ class Application:
 
     def _discover_binding(self) -> BindingConfig:
         """
-        Try to import config_module and return its `dependency` attribute.
-        Falls back to an empty BindingConfig only when the config module itself
-        does not exist. Re-raises if the module exists but has an import error
-        inside it (e.g. a missing dependency), so the error is not silently hidden.
+        Try each candidate config module in order and return the first
+        `dependency` (BindingConfig) found.
+
+        Falls back to empty BindingConfig only when none of the candidates
+        exist. Re-raises if a candidate module exists but fails to import
+        (e.g. a broken dependency inside it), so the error is not hidden.
+        """
+        for module_path in self._config_module_candidates():
+            result = self._try_load_config(module_path)
+            if result is not None:
+                return result
+        return BindingConfig()
+
+    def _config_module_candidates(self) -> list[str]:
+        """
+        Return the ordered list of module paths to probe for BindingConfig.
+
+        When config_module is explicit → only that path is tried.
+        When config_module is None    → auto-detect from __main__ package,
+                                        then fall back to "config.dependency".
+        """
+        if self._config_module is not None:
+            return [self._config_module]
+
+        candidates: list[str] = []
+
+        # Detect the package of the running entry-point.
+        # "python -m app.main"  → __spec__.parent = "app"  → try app.config.dependency
+        # "python main.py"      → __spec__ is None or parent = "" → skip to fallback
+        main = sys.modules.get("__main__")
+        if main is not None:
+            spec = getattr(main, "__spec__", None)
+            if spec is not None and spec.parent:
+                candidates.append(f"{spec.parent}.config.dependency")
+
+        candidates.append("config.dependency")
+        return candidates
+
+    def _try_load_config(self, module_path: str) -> BindingConfig | None:
+        """
+        Import module_path and return its `dependency` attribute if it is a
+        BindingConfig instance.  Returns None when the module does not exist.
+        Re-raises ModuleNotFoundError when the error originates from inside the
+        module (a missing transitive dependency), not from the module itself.
         """
         try:
-            module = importlib.import_module(self._config_module)
+            module = importlib.import_module(module_path)
             cfg = getattr(module, "dependency", None)
-            if isinstance(cfg, BindingConfig):
-                return cfg
+            return cfg if isinstance(cfg, BindingConfig) else None
         except ModuleNotFoundError as exc:
-            # Only suppress when the config module (or a parent package in its
-            # dotted path) is absent. Re-raise if something *inside* an existing
-            # module fails to import, so the developer sees the real error.
-            if exc.name is None or not self._config_module.startswith(exc.name):
+            # Only suppress when the config module (or a true dotted-path parent)
+            # is absent. Re-raise if something *inside* an existing module fails
+            # to import, so the developer sees the real error.
+            # Use split-based comparison instead of startswith() to avoid
+            # "myapp" matching "myapp_service" across a package boundary.
+            missing = exc.name or ""
+            config_parts = module_path.split(".")
+            missing_parts = missing.split(".")
+            if config_parts[: len(missing_parts)] != missing_parts:
                 raise
-        return BindingConfig()
+            return None
 
     def _load_runtime(self) -> RuntimeConfig:
         loader = YamlConfigLoader(self._resources_dir)

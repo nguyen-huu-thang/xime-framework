@@ -157,13 +157,13 @@ python app/main.py
 
 Optional modules, similar to `spring-boot-starter-*`:
 
-| Starter | What it provides |
-|---|---|
-| `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager` |
-| `xime.starters.jwt` | JWT signing, verification, middleware |
-| `xime.starters.scheduler` | Cron-style task scheduling |
-| `xime.starters.redis` | Redis client integration |
-| `xime.starters.cache` | Cache abstraction layer |
+| Starter | What it provides | Status |
+|---|---|---|
+| `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager` | ✅ Implemented |
+| `xime.starters.jwt` | JWT signing, verification, middleware | ✅ Implemented |
+| `xime.starters.scheduler` | Cron-style task scheduling | ✅ Implemented |
+| `xime.starters.redis` | Redis client integration | 🔲 Planned |
+| `xime.starters.cache` | Cache abstraction layer | 🔲 Planned |
 
 ---
 
@@ -179,13 +179,13 @@ Optional modules, similar to `spring-boot-starter-*`:
 
 ## Project Status
 
-XIME is in **active development**. Core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, and the Web adapter routing layer are implemented. The framework is not yet published to PyPI.
+XIME is in **active development**. The following are implemented: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, Web adapter (FastAPI + routing), and gRPC adapter. WebSocket support is partial. Redis and Cache starters are planned. The framework is not yet published to PyPI.
 
 ---
 
 ## Contributing
 
-XIME is a solo project that needs community help to grow. There is a lot of ground to cover: gRPC adapter, WebSocket support, Redis/Cache starters, CLI scaffolding, documentation, testing utilities, and more.
+XIME is a solo project that needs community help to grow. There is still ground to cover: completing WebSocket support, Redis/Cache starters, CLI scaffolding, testing utilities, and more.
 
 **Ways to contribute:**
 
@@ -208,7 +208,7 @@ Please read [CONTRIBUTING](docs/en/contributing.md) before opening a PR.
 | [Configuration](docs/en/configuration.md) | Framework config + runtime YAML |
 | [Routing](docs/en/routing.md) | Class-based controllers, route decorators |
 | [Transaction](docs/en/transaction.md) | Explicit transaction management |
-| [Starters](docs/en/starters.md) | SQLAlchemy, JWT, Scheduler, Redis |
+| [Starters](docs/en/starters.md) | SQLAlchemy, JWT, Scheduler |
 | [Testing](docs/en/testing.md) | DI overrides, fakes, test utilities |
 | [Contributing](docs/en/contributing.md) | How to contribute, roadmap |
 

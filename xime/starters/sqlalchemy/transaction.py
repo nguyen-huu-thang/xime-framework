@@ -25,7 +25,14 @@ class SqlAlchemyTransactionContext:
 
     async def __aenter__(self) -> "SqlAlchemyTransactionContext":
         self._token = _current_session.set(self._session)
-        await self._session.begin()
+        try:
+            await self._session.begin()
+        except BaseException:
+            # begin() raised before the transaction opened — __aexit__ will NOT
+            # be called, so we must restore the ContextVar manually here.
+            _current_session.reset(self._token)
+            self._token = None
+            raise
         return self
 
     async def __aexit__(

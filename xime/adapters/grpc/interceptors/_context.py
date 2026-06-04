@@ -21,6 +21,12 @@ class RequestContextInterceptor(grpc.aio.ServerInterceptor):
 
     Always runs as the outermost interceptor so that every other interceptor
     and handler downstream can read request_context safely.
+
+    Implementation note: intercept_service() wraps the *handler function*
+    returned by continuation(), not the continuation() call itself.
+    With grpc.aio, continuation() only returns an RpcMethodHandler descriptor
+    — the actual RPC invocation happens later.  Wrapping at the handler level
+    ensures the context is set and cleared around each real invocation.
     """
 
     async def intercept_service(
@@ -28,9 +34,45 @@ class RequestContextInterceptor(grpc.aio.ServerInterceptor):
         continuation: Callable[..., Coroutine[Any, Any, Any]],
         handler_call_details: grpc.HandlerCallDetails,
     ) -> grpc.RpcMethodHandler:
-        request_context.set("request_id", str(uuid.uuid4()))
-        try:
-            return await continuation(handler_call_details)
-        finally:
-            request_context.clear()
-            clear_security()
+        handler = await continuation(handler_call_details)
+        if handler is None:
+            return handler
+        return self._wrap_handler(handler)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _wrap_handler(self, handler: grpc.RpcMethodHandler) -> grpc.RpcMethodHandler:
+        """Return a new RpcMethodHandler whose invocation function sets/clears context."""
+        if handler.request_streaming and handler.response_streaming:
+            return handler._replace(
+                stream_stream=self._wrap_fn(handler.stream_stream)
+            )
+        elif handler.request_streaming:
+            return handler._replace(
+                stream_unary=self._wrap_fn(handler.stream_unary)
+            )
+        elif handler.response_streaming:
+            return handler._replace(
+                unary_stream=self._wrap_fn(handler.unary_stream)
+            )
+        else:
+            return handler._replace(
+                unary_unary=self._wrap_fn(handler.unary_unary)
+            )
+
+    @staticmethod
+    def _wrap_fn(fn: Callable[..., Any] | None) -> Callable[..., Any] | None:
+        if fn is None:
+            return fn
+
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            request_context.set("request_id", str(uuid.uuid4()))
+            try:
+                return await fn(*args, **kwargs)
+            finally:
+                request_context.clear()
+                clear_security()
+
+        return wrapper

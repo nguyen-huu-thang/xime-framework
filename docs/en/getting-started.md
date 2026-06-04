@@ -2,6 +2,10 @@
 
 **English** | [Tiếng Việt](../vn/getting-started.md)
 
+**1/9 — Getting Started** · [Core Concepts →](core-concepts.md)
+
+---
+
 This guide walks you through creating your first XIME application.
 
 ---
@@ -19,7 +23,7 @@ This guide walks you through creating your first XIME application.
 XIME is not yet on PyPI. Install from source:
 
 ```bash
-git clone https://github.com/your-org/xime-framework
+git clone https://github.com/nguyen-huu-thang/xime-framework
 cd xime-framework
 pip install -e .
 ```
@@ -28,13 +32,22 @@ pip install -e .
 
 ## Project Structure
 
-A minimal XIME application needs two directories:
+A minimal XIME application needs just one file:
 
 ```
 my-service/
-├── app/
-│   └── main.py
-└── test/
+└── app/
+    └── main.py
+```
+
+It is recommended to add `config/` for DI configuration and `test/` for tests:
+
+```
+my-service/
+└── app/
+    ├── main.py
+    └── config/
+        └── dependency.py
 ```
 
 The recommended full structure for a microservice:
@@ -213,12 +226,19 @@ server:
 from xime import Application
 from xime.adapters.web import WebAdapter
 
-application = Application()
-app = WebAdapter(application).build()
+app = Application()
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)
+    app.use(WebAdapter()).run()
+```
+
+`Application()` auto-detects `app.config.dependency` because this file lives inside
+the `app` package (run via `python -m app.main`). No explicit `config_module` needed.
+
+To be explicit instead:
+
+```python
+app = Application(config_module="app.config.dependency")
 ```
 
 ---
@@ -279,7 +299,9 @@ Missing Type Hint
 
 ## Next Steps
 
-- [Core Concepts](core-concepts.md) — understand DI, interface binding, scopes
-- [Routing](routing.md) — advanced controller patterns
-- [Transaction](transaction.md) — database transactions
-- [Starters](starters.md) — add SQLAlchemy, JWT, Scheduler
+Follow the link below to continue reading.
+
+
+---
+
+**1/9 — Getting Started** · [Core Concepts →](core-concepts.md)

@@ -2,6 +2,10 @@
 
 [English](../en/contributing.md) | **Tiếng Việt**
 
+[← Kiến trúc](architecture.md) · **9/9 — Đóng góp**
+
+---
+
 Cảm ơn bạn đã cân nhắc đóng góp cho XIME. Đây là dự án cá nhân và sự giúp đỡ của cộng đồng là thiết yếu để nó phát triển.
 
 ---
@@ -115,3 +119,8 @@ Các quy tắc này không thể thương lượng cho đóng góp chạm vào C
 ## Câu hỏi?
 
 Mở issue với nhãn `question`. Không có câu hỏi nào là ngớ ngẩn — thiết kế này cố tình khác phần lớn Python framework và xứng đáng được thảo luận.
+
+
+---
+
+[← Kiến trúc](architecture.md) · **9/9 — Đóng góp**

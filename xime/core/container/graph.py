@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import deque
+
 from xime.core.container.resolver import ResolvedMap
 
 # {cls: set of classes it directly depends on}
@@ -104,11 +106,11 @@ class DependencyGraph:
         call detect_cycles() first and fail before reaching this method.
         """
         dep_count = {n: len(self._edges[n]) for n in self._nodes}
-        queue = [n for n in self._nodes if dep_count[n] == 0]
+        queue: deque[type] = deque(n for n in self._nodes if dep_count[n] == 0)
         result: list[type] = []
 
         while queue:
-            node = queue.pop(0)
+            node = queue.popleft()
             result.append(node)
             for dependent in self._dependents[node]:
                 dep_count[dependent] -= 1

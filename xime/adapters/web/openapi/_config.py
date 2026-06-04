@@ -70,3 +70,4 @@ class OpenApiConfig(BaseModel):
     docs_url: str | None = "/docs"
     redoc_url: str | None = "/redoc"
     openapi_url: str | None = "/openapi.json"
+    swagger_ui_title: str | None = None

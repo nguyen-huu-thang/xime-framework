@@ -2,6 +2,8 @@
 
 [English](../en/transaction.md) | **Tiếng Việt**
 
+[← Routing](routing.md) · **5/9 — Transaction** · [Starters →](starters.md)
+
 ---
 
 ## Triết lý
@@ -124,3 +126,8 @@ async with self.transaction(isolation="SERIALIZABLE"):
 - Testing khó hơn (phải test qua proxy)
 
 Cách tiếp cận `async with self.transaction():` làm boundary rõ ràng, stack trace sạch và test đơn giản.
+
+
+---
+
+[← Routing](routing.md) · **5/9 — Transaction** · [Starters →](starters.md)

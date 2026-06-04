@@ -2,6 +2,8 @@
 
 [English](../en/architecture.md) | **Tiếng Việt**
 
+[← Testing](testing.md) · **8/9 — Kiến trúc** · [Đóng góp →](contributing.md)
+
 ---
 
 ## Tổng quan tầng
@@ -197,3 +199,8 @@ dependency.bind({UserRepository: FakeUserRepository})
 - Không tạo ORM, HTTP server hay gRPC runtime mới
 
 XIME điều phối các công cụ này. Nó không thay thế chúng.
+
+
+---
+
+[← Testing](testing.md) · **8/9 — Kiến trúc** · [Đóng góp →](contributing.md)

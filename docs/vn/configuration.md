@@ -2,6 +2,10 @@
 
 [English](../en/configuration.md) | **Tiếng Việt**
 
+[← Khái niệm cốt lõi](core-concepts.md) · **3/9 — Cấu hình** · [Routing →](routing.md)
+
+---
+
 XIME dùng mô hình cấu hình hai tầng được thiết kế cho hai đối tượng khác nhau: developer và operator.
 
 ---
@@ -21,7 +25,7 @@ config/
 
 ### `config/dependency.py`
 
-File cấu hình DI trung tâm. XIME tự tìm nó lúc startup từ `config.dependency`.
+File cấu hình DI trung tâm. XIME tự tìm nó lúc startup theo thứ tự: `{main_package}.config.dependency` trước (ví dụ `app.config.dependency` khi chạy `python -m app.main`), rồi fallback về `config.dependency`.
 
 ```python
 from xime import BindingConfig
@@ -194,6 +198,11 @@ Thư mục resources hoặc config module tùy chỉnh:
 ```python
 app = Application(
     resources_dir="conf",              # mặc định: "resources"
-    config_module="infra.di_config",   # mặc định: "config.dependency"
+    config_module="infra.di_config",   # mặc định: None (tự detect từ package của __main__)
 )
 ```
+
+
+---
+
+[← Khái niệm cốt lõi](core-concepts.md) · **3/9 — Cấu hình** · [Routing →](routing.md)

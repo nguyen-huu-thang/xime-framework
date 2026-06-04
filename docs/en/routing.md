@@ -2,6 +2,10 @@
 
 **English** | [Tiếng Việt](../vn/routing.md)
 
+[← Configuration](configuration.md) · **4/9 — Routing** · [Transaction →](transaction.md)
+
+---
+
 XIME uses class-based controllers. A controller is a DI singleton whose methods are automatically registered as FastAPI routes.
 
 ---
@@ -215,3 +219,8 @@ async def get_user(self, user_id: int) -> UserResponse: ...
 - **Exception → HTTP status mapping** — unhandled exceptions return 500; custom error mapping is not yet built in
 - **`__all__` not respected by controller scanner** — all controller classes in the package are found regardless of `__all__`
 - **WebSocket and gRPC routing** — not yet in scope for class-based controllers
+
+
+---
+
+[← Configuration](configuration.md) · **4/9 — Routing** · [Transaction →](transaction.md)

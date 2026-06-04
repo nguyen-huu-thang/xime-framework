@@ -2,6 +2,10 @@
 
 [English](../en/getting-started.md) | **Tiếng Việt**
 
+**1/9 — Bắt đầu nhanh** · [Khái niệm cốt lõi →](core-concepts.md)
+
+---
+
 Hướng dẫn này giúp bạn tạo ứng dụng XIME đầu tiên.
 
 ---
@@ -19,7 +23,7 @@ Hướng dẫn này giúp bạn tạo ứng dụng XIME đầu tiên.
 XIME chưa có trên PyPI. Cài từ source:
 
 ```bash
-git clone https://github.com/your-org/xime-framework
+git clone https://github.com/nguyen-huu-thang/xime-framework
 cd xime-framework
 pip install -e .
 ```
@@ -28,13 +32,22 @@ pip install -e .
 
 ## Cấu trúc dự án
 
-Một ứng dụng XIME tối thiểu chỉ cần hai thư mục:
+Một ứng dụng XIME tối thiểu chỉ cần một file:
 
 ```
 my-service/
-├── app/
-│   └── main.py
-└── test/
+└── app/
+    └── main.py
+```
+
+Nên có thêm `config/` để cấu hình DI và `test/` để kiểm thử:
+
+```
+my-service/
+└── app/
+    ├── main.py
+    └── config/
+        └── dependency.py
 ```
 
 Cấu trúc đầy đủ khuyến nghị cho microservice:
@@ -213,12 +226,19 @@ server:
 from xime import Application
 from xime.adapters.web import WebAdapter
 
-application = Application()
-app = WebAdapter(application).build()
+app = Application()
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)
+    app.use(WebAdapter()).run()
+```
+
+`Application()` tự động phát hiện `app.config.dependency` vì file này nằm trong package `app`
+(chạy bằng `python -m app.main`). Không cần khai báo `config_module` tường minh.
+
+Nếu muốn khai báo tường minh:
+
+```python
+app = Application(config_module="app.config.dependency")
 ```
 
 ---
@@ -279,7 +299,9 @@ Missing Type Hint
 
 ## Bước tiếp theo
 
-- [Khái niệm cốt lõi](core-concepts.md) — hiểu DI, interface binding, scope
-- [Routing](routing.md) — các pattern controller nâng cao
-- [Transaction](transaction.md) — quản lý transaction database
-- [Starters](starters.md) — thêm SQLAlchemy, JWT, Scheduler
+Nhấn link bên dưới để đọc trang tiếp theo.
+
+
+---
+
+**1/9 — Bắt đầu nhanh** · [Khái niệm cốt lõi →](core-concepts.md)

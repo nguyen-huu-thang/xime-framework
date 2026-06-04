@@ -1,3 +1,4 @@
+import hashlib
 import re
 
 from dependency_injector import containers, providers
@@ -91,7 +92,14 @@ class DependencyRegistry:
         Prefix with module path to avoid collisions when two classes
         share the same __name__ but live in different modules.
 
-        e.g. app.service.user_service.UserService → app_service_user_service_user_service
+        A 6-char hash suffix guards against the edge case where two
+        different dotted paths produce the same slug after regex substitution
+        (e.g. "app.service.user" and "app.service_user" both become
+        "app_service_user" after replacing [^a-z0-9] with "_").
+
+        e.g. app.service.user_service.UserService → app_service_user_service_user_service_a1b2c3
         """
         full = f"{cls.__module__}.{cls.__name__}"
-        return re.sub(r"[^a-z0-9]", "_", full.lower())
+        slug = re.sub(r"[^a-z0-9]", "_", full.lower())
+        suffix = hashlib.md5(full.encode()).hexdigest()[:6]
+        return f"{slug}_{suffix}"

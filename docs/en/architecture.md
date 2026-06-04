@@ -2,6 +2,8 @@
 
 **English** | [Tiếng Việt](../vn/architecture.md)
 
+[← Testing](testing.md) · **8/9 — Architecture** · [Contributing →](contributing.md)
+
 ---
 
 ## Layered Overview
@@ -197,3 +199,8 @@ dependency.bind({UserRepository: FakeUserRepository})
 - Does not create a new ORM, HTTP server, or gRPC runtime
 
 XIME orchestrates these tools. It does not replace them.
+
+
+---
+
+[← Testing](testing.md) · **8/9 — Architecture** · [Contributing →](contributing.md)

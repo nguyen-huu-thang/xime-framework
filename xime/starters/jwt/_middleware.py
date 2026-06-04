@@ -35,10 +35,12 @@ class JwtAuthMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._config = config
         self._verifier = PyJwtTokenVerifier()
-        self._public = frozenset(config.public_paths)
+        # Normalize configured paths: strip trailing slashes so "/auth/login"
+        # and "/auth/login/" are treated as the same entry.
+        self._public = frozenset(self._normalize(p) for p in config.public_paths)
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        if request.url.path in self._public:
+        if self._normalize(request.url.path) in self._public:
             return await call_next(request)
 
         token = self._extract_bearer_token(request)
@@ -66,6 +68,11 @@ class JwtAuthMiddleware(BaseHTTPMiddleware):
         )
 
         return await call_next(request)
+
+    @staticmethod
+    def _normalize(path: str) -> str:
+        """Strip trailing slash, but keep bare '/' intact."""
+        return path.rstrip("/") or "/"
 
     def _extract_bearer_token(self, request: Request) -> str | None:
         auth_header = request.headers.get("Authorization", "")

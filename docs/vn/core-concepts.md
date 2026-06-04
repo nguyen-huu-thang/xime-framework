@@ -2,6 +2,8 @@
 
 [English](../en/core-concepts.md) | **Tiếng Việt**
 
+[← Bắt đầu nhanh](getting-started.md) · **2/9 — Khái niệm cốt lõi** · [Cấu hình →](configuration.md)
+
 ---
 
 ## 1. Constructor Injection
@@ -250,3 +252,8 @@ class AuditService:
 ```
 
 Vì `ContextVar` an toàn với async, mỗi request đồng thời có context được cô lập riêng.
+
+
+---
+
+[← Bắt đầu nhanh](getting-started.md) · **2/9 — Khái niệm cốt lõi** · [Cấu hình →](configuration.md)

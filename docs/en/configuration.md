@@ -2,6 +2,10 @@
 
 **English** | [Tiếng Việt](../vn/configuration.md)
 
+[← Core Concepts](core-concepts.md) · **3/9 — Configuration** · [Routing →](routing.md)
+
+---
+
 XIME has a two-layer configuration model designed around two distinct audiences: the developer and the operator.
 
 ---
@@ -21,7 +25,7 @@ config/
 
 ### `config/dependency.py`
 
-The central DI config file. XIME auto-discovers it at startup from `config.dependency`.
+The central DI config file. XIME auto-discovers it at startup: tries `{main_package}.config.dependency` first (e.g. `app.config.dependency` when running `python -m app.main`), then falls back to `config.dependency`.
 
 ```python
 from xime import BindingConfig
@@ -194,6 +198,11 @@ Custom resources directory or config module:
 ```python
 app = Application(
     resources_dir="conf",              # default: "resources"
-    config_module="infra.di_config",   # default: "config.dependency"
+    config_module="infra.di_config",   # default: None (auto-detected from __main__ package)
 )
 ```
+
+
+---
+
+[← Core Concepts](core-concepts.md) · **3/9 — Configuration** · [Routing →](routing.md)

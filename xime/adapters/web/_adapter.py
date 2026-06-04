@@ -3,7 +3,6 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, AsyncGenerator
 
-import uvicorn
 from fastapi import FastAPI
 
 from ._registry import registry
@@ -11,6 +10,7 @@ from .middleware import RequestContextMiddleware
 from .openapi._builder import build_custom_openapi
 
 if TYPE_CHECKING:
+    import uvicorn
     from xime.core.bootstrap.application import Application
 
 
@@ -62,6 +62,14 @@ class WebAdapter:
         Blocks until the server is stopped (via stop() or SIGINT).
         Called by Application._run_async() after DI is fully built.
         """
+        try:
+            import uvicorn
+        except ImportError:
+            raise RuntimeError(
+                "WebAdapter requires uvicorn. "
+                "Run: pip install 'uvicorn[standard]' or pip install 'xime[web]'"
+            ) from None
+
         from xime.core.config.runtime import RuntimeConfig
         runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
 
@@ -96,6 +104,9 @@ class WebAdapter:
         build_app() is invoked so that the DI container is available.
         """
         openapi_config = registry.get_openapi()
+        has_custom_swagger_title = (
+            openapi_config is not None and openapi_config.swagger_ui_title is not None
+        )
 
         @asynccontextmanager
         async def lifespan(fastapi_app: FastAPI) -> AsyncGenerator[None, None]:
@@ -105,7 +116,8 @@ class WebAdapter:
 
         fastapi_app = FastAPI(
             lifespan=lifespan,
-            docs_url=openapi_config.docs_url if openapi_config else "/docs",
+            # Disable default Swagger UI when custom title is set — we add our own route below.
+            docs_url=None if has_custom_swagger_title else (openapi_config.docs_url if openapi_config else "/docs"),
             redoc_url=openapi_config.redoc_url if openapi_config else "/redoc",
             openapi_url=openapi_config.openapi_url if openapi_config else "/openapi.json",
         )
@@ -119,11 +131,26 @@ class WebAdapter:
         if openapi_config is not None:
             fastapi_app.openapi = build_custom_openapi(fastapi_app, openapi_config)
 
+        if has_custom_swagger_title:
+            self._add_custom_swagger_ui(fastapi_app, openapi_config)
+
         return fastapi_app
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _add_custom_swagger_ui(app: FastAPI, config) -> None:
+        from fastapi.openapi.docs import get_swagger_ui_html
+
+        docs_url = config.docs_url or "/docs"
+        openapi_url = config.openapi_url or "/openapi.json"
+        title = config.swagger_ui_title
+
+        @app.get(docs_url, include_in_schema=False)
+        async def _swagger_ui_html():
+            return get_swagger_ui_html(openapi_url=openapi_url, title=title)
 
     @staticmethod
     def _add_jwt_middleware(app: FastAPI) -> None:

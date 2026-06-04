@@ -2,6 +2,8 @@
 
 **English** | [Tiếng Việt](../vn/core-concepts.md)
 
+[← Getting Started](getting-started.md) · **2/9 — Core Concepts** · [Configuration →](configuration.md)
+
 ---
 
 ## 1. Constructor Injection
@@ -250,3 +252,8 @@ class AuditService:
 ```
 
 Because `ContextVar` is async-safe, each concurrent request has its own isolated context.
+
+
+---
+
+[← Getting Started](getting-started.md) · **2/9 — Core Concepts** · [Configuration →](configuration.md)

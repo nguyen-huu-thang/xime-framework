@@ -2,6 +2,10 @@
 
 **English** | [Tiếng Việt](../vn/contributing.md)
 
+[← Architecture](architecture.md) · **9/9 — Contributing**
+
+---
+
 Thank you for considering contributing to XIME. This is a solo project and community help is essential for it to grow.
 
 ---
@@ -115,3 +119,8 @@ These rules are non-negotiable for contributions that touch Core or adapters:
 ## Questions?
 
 Open an issue labeled `question`. There are no stupid questions — the design is intentionally different from most Python frameworks and deserves discussion.
+
+
+---
+
+[← Architecture](architecture.md) · **9/9 — Contributing**

@@ -42,6 +42,9 @@ dependencies = [
 # ---------------------------------------------------------------------------
 
 [project.optional-dependencies]
+web = [
+    "uvicorn[standard]>=0.27",
+]
 sqlalchemy = [
     "sqlalchemy[asyncio]>=2.0",
 ]
@@ -52,7 +55,7 @@ scheduler = [
     "apscheduler>=4.0",
 ]
 all = [
-    "xime[sqlalchemy,jwt,scheduler]",
+    "xime[web,sqlalchemy,jwt,scheduler]",
 ]
 
 # Dev: chạy test, lint, type-check, ASGI server
@@ -61,7 +64,6 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "anyio>=4.0",
-    "uvicorn[standard]>=0.27",
     "asyncpg>=0.29",        # driver PostgreSQL cho test SQLAlchemy
     "aiosqlite>=0.20",      # driver SQLite cho test SQLAlchemy (nhẹ hơn asyncpg)
     "httpx>=0.27",          # test HTTP client (dùng với FastAPI TestClient async)
@@ -74,7 +76,7 @@ dev = [
 # ---------------------------------------------------------------------------
 
 [tool.hatch.build.targets.wheel]
-packages = ["core", "adapters", "starters", "testing", "xime"]
+packages = ["xime"]
 
 # ---------------------------------------------------------------------------
 # Pytest

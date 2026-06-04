@@ -2,6 +2,8 @@
 
 [English](../en/testing.md) | **Tiếng Việt**
 
+[← Starters](starters.md) · **7/9 — Testing** · [Kiến trúc →](architecture.md)
+
 ---
 
 ## Triết lý
@@ -163,3 +165,8 @@ Dùng test database (URL riêng, xóa sạch giữa các lần chạy test) thay
 | `override_binding(cls, fake)` | Tạm thời thay thế DI binding |
 
 Thêm testing utility sẽ được bổ sung khi framework trưởng thành.
+
+
+---
+
+[← Starters](starters.md) · **7/9 — Testing** · [Kiến trúc →](architecture.md)

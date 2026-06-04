@@ -2,6 +2,10 @@
 
 [English](../en/routing.md) | **Tiếng Việt**
 
+[← Cấu hình](configuration.md) · **4/9 — Routing** · [Transaction →](transaction.md)
+
+---
+
 XIME dùng class-based controller. Controller là DI singleton có các method được tự động đăng ký thành FastAPI route.
 
 ---
@@ -215,3 +219,8 @@ async def get_user(self, user_id: int) -> UserResponse: ...
 - **Exception → HTTP status mapping** — exception chưa được xử lý sẽ trả về 500; chưa có cơ chế map lỗi tùy chỉnh
 - **`__all__` không được controller scanner tôn trọng** — tất cả controller class trong package đều được tìm bất kể `__all__`
 - **WebSocket và gRPC routing** — chưa trong scope của class-based controller
+
+
+---
+
+[← Cấu hình](configuration.md) · **4/9 — Routing** · [Transaction →](transaction.md)

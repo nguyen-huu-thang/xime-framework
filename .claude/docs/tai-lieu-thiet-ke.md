@@ -214,11 +214,11 @@ class UserService:
         ...
 ```
 
-Không hợp lệ (thiếu type hint → startup fail):
+Class bị bỏ qua khi scan (thiếu type hint → không đưa vào DI, không có lỗi):
 
 ```python
 class UserService:
-    def __init__(self, repository):  # ← thiếu type hint
+    def __init__(self, repository):  # ← thiếu type hint → class bình thường, không inject
         ...
 ```
 

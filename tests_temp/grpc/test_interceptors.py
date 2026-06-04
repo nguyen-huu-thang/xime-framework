@@ -175,53 +175,94 @@ class TestConfigureFunctions:
 # ---------------------------------------------------------------------------
 
 class TestRequestContextInterceptor:
+    """
+    Behaviour: context được set/clear quanh việc gọi handler thật, không phải
+    quanh continuation().  intercept_service() trả về một RpcMethodHandler mới
+    (wrapped) — handler gốc được gọi bên trong wrapper.
+    """
+
     @pytest.mark.asyncio
-    async def test_sets_request_id_before_continuation(self):
+    async def test_sets_request_id_when_handler_is_invoked(self):
+        """request_id phải có mặt khi handler thật chạy, không phải khi continuation() chạy."""
         captured_id = None
 
-        async def continuation(details):
+        async def handler_fn(request, context):
             nonlocal captured_id
             captured_id = request_context.get("request_id")
-            return MagicMock(spec=grpc.RpcMethodHandler)
+            return None
+
+        real_handler = grpc.unary_unary_rpc_method_handler(handler_fn)
+
+        async def continuation(details):
+            return real_handler
 
         interceptor = RequestContextInterceptor()
-        await interceptor.intercept_service(continuation, MagicMock())
+        wrapped = await interceptor.intercept_service(continuation, MagicMock())
+
+        # Context chưa set trong lúc continuation() chạy
+        assert request_context.get("request_id") is None
+
+        # Gọi handler thật → context phải được set
+        await wrapped.unary_unary(None, None)
         assert captured_id is not None
-        assert len(captured_id) == 36   # UUID4 format
+        assert len(captured_id) == 36  # UUID4
 
     @pytest.mark.asyncio
-    async def test_clears_request_context_after_continuation(self):
-        async def continuation(details):
-            return MagicMock(spec=grpc.RpcMethodHandler)
+    async def test_clears_request_context_after_handler_completes(self):
+        """Context phải được clear sau khi handler hoàn thành bình thường."""
+        async def handler_fn(request, context):
+            return None
 
-        request_context.set("request_id", "pre-existing")
+        real_handler = grpc.unary_unary_rpc_method_handler(handler_fn)
+
+        async def continuation(details):
+            return real_handler
+
         interceptor = RequestContextInterceptor()
-        await interceptor.intercept_service(continuation, MagicMock())
+        wrapped = await interceptor.intercept_service(continuation, MagicMock())
+        await wrapped.unary_unary(None, None)
+
         assert request_context.get("request_id") is None
 
     @pytest.mark.asyncio
-    async def test_clears_context_even_when_continuation_raises(self):
-        async def continuation(details):
-            raise RuntimeError("continuation failed")
+    async def test_clears_context_even_when_handler_raises(self):
+        """Context phải được clear kể cả khi handler raise exception."""
+        async def handler_fn(request, context):
+            raise RuntimeError("handler failed")
 
-        request_context.set("request_id", "some-id")
+        real_handler = grpc.unary_unary_rpc_method_handler(handler_fn)
+
+        async def continuation(details):
+            return real_handler
+
         interceptor = RequestContextInterceptor()
+        wrapped = await interceptor.intercept_service(continuation, MagicMock())
 
         with pytest.raises(RuntimeError):
-            await interceptor.intercept_service(continuation, MagicMock())
+            await wrapped.unary_unary(None, None)
 
         assert request_context.get("request_id") is None
 
     @pytest.mark.asyncio
-    async def test_returns_result_of_continuation(self):
-        expected_handler = MagicMock(spec=grpc.RpcMethodHandler)
+    async def test_returns_wrapped_handler_that_delegates_to_original(self):
+        """intercept_service() trả về handler mới (không phải object gốc) nhưng vẫn gọi đúng handler gốc."""
+        call_count = 0
+
+        async def handler_fn(request, context):
+            nonlocal call_count
+            call_count += 1
+
+        real_handler = grpc.unary_unary_rpc_method_handler(handler_fn)
 
         async def continuation(details):
-            return expected_handler
+            return real_handler
 
         interceptor = RequestContextInterceptor()
         result = await interceptor.intercept_service(continuation, MagicMock())
-        assert result is expected_handler
+
+        assert result is not real_handler  # wrapped, không phải object gốc
+        await result.unary_unary(None, None)
+        assert call_count == 1  # handler gốc được gọi đúng 1 lần
 
 
 # ---------------------------------------------------------------------------

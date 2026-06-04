@@ -147,13 +147,13 @@ python app/main.py
 
 Module tùy chọn, tương tự `spring-boot-starter-*`:
 
-| Starter | Cung cấp gì |
-| --- | --- |
-| `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager` |
-| `xime.starters.jwt` | JWT signing, verification, middleware |
-| `xime.starters.scheduler` | Lập lịch tác vụ kiểu cron |
-| `xime.starters.redis` | Tích hợp Redis client |
-| `xime.starters.cache` | Abstraction layer cho caching |
+| Starter | Cung cấp gì | Trạng thái |
+| --- | --- | --- |
+| `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager` | ✅ Đã implement |
+| `xime.starters.jwt` | JWT signing, verification, middleware | ✅ Đã implement |
+| `xime.starters.scheduler` | Lập lịch tác vụ kiểu cron | ✅ Đã implement |
+| `xime.starters.redis` | Tích hợp Redis client | 🔲 Đang kế hoạch |
+| `xime.starters.cache` | Abstraction layer cho caching | 🔲 Đang kế hoạch |
 
 ---
 
@@ -169,13 +169,13 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 ## Trạng thái dự án
 
-XIME đang trong **giai đoạn phát triển tích cực**. Core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter và routing layer của Web adapter đã được triển khai. Framework chưa được publish lên PyPI.
+XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, Web adapter (FastAPI + routing) và gRPC adapter. WebSocket đang hoàn thiện. Redis và Cache starter đang được kế hoạch. Framework chưa được publish lên PyPI.
 
 ---
 
 ## Đóng góp
 
-XIME là dự án cá nhân cần sự giúp đỡ của cộng đồng để phát triển. Còn rất nhiều việc cần làm: gRPC adapter, WebSocket, Redis/Cache starter, CLI scaffolding, tài liệu, testing utilities và nhiều hơn nữa.
+XIME là dự án cá nhân cần sự giúp đỡ của cộng đồng để phát triển. Còn việc cần làm: hoàn thiện WebSocket, Redis/Cache starter, CLI scaffolding, testing utilities và nhiều hơn nữa.
 
 **Cách đóng góp:**
 
@@ -198,7 +198,7 @@ Vui lòng đọc [CONTRIBUTING](docs/vn/contributing.md) trước khi mở PR.
 | [Cấu hình](docs/vn/configuration.md) | Framework config + runtime YAML |
 | [Routing](docs/vn/routing.md) | Class-based controller, route decorator |
 | [Transaction](docs/vn/transaction.md) | Quản lý transaction tường minh |
-| [Starters](docs/vn/starters.md) | SQLAlchemy, JWT, Scheduler, Redis |
+| [Starters](docs/vn/starters.md) | SQLAlchemy, JWT, Scheduler |
 | [Testing](docs/vn/testing.md) | DI override, fake, test utilities |
 | [Đóng góp](docs/vn/contributing.md) | Cách đóng góp, roadmap |
 

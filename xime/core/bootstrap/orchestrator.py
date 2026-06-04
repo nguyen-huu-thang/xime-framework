@@ -5,6 +5,7 @@ from typing import Any, Callable
 from xime.core.config.binding import BindingConfig
 from xime.core.config.runtime import RuntimeConfig
 from xime.core.container import XimeContainer
+from xime.core.event.bus import EventBus
 from xime.core.lifecycle.manager import LifecycleManager
 
 
@@ -50,13 +51,18 @@ class StartupOrchestrator:
                 "Call stop() before starting again."
             )
 
-        self._container = (
+        event_bus = EventBus()
+        container = (
             XimeContainer()
             .register_instance(RuntimeConfig, self._runtime)
+            .register_instance(EventBus, event_bus)
             .scan(*self._binding.packages)
             .bind(self._binding.bindings)
-            .build()
+            .register(*self._binding.explicit_classes)
         )
+        for config_cls in self._binding.config_classes:
+            container.configure(config_cls)
+        self._container = container.build()
 
         # User singletons in topological order, followed by framework-managed
         # components that need the DI container (e.g. SchedulerRunner).
@@ -101,28 +107,32 @@ class StartupOrchestrator:
         registered as ordinary DI singletons because they need the container's
         resolver to function (e.g. SchedulerRunner resolves job classes from DI).
 
-        Each starter is checked via lazy import so that missing optional packages
-        do not cause startup errors when the starter is not configured.
-
-        New starters that need lifecycle integration should add a block here.
+        Each starter has its own _try_build_* method below.  To integrate a new
+        starter: add a private static method _try_build_<name> and call it here.
         """
-        components: list[object] = []
+        builders = [
+            StartupOrchestrator._try_build_scheduler,
+        ]
+        return [c for b in builders if (c := b(resolver)) is not None]
 
-        # ── Scheduler starter ──────────────────────────────────────────────
+    @staticmethod
+    def _try_build_scheduler(resolver: Callable[[type], Any]) -> object | None:
+        """Return a SchedulerRunner if the scheduler starter is configured, else None."""
         try:
             from xime.starters.scheduler._config import scheduler_registry
-            config = scheduler_registry.get()
-            if config is not None:
-                try:
-                    from xime.starters.scheduler._runner import SchedulerRunner
-                except ImportError:
-                    raise RuntimeError(
-                        "Scheduler is configured via configure_scheduler() but "
-                        "'apscheduler' is not installed. "
-                        "Run: pip install 'apscheduler>=4.0'"
-                    )
-                components.append(SchedulerRunner(config, resolver))
         except ImportError:
-            pass  # starters/scheduler not present — skip silently
+            return None  # starter not installed — skip silently
 
-        return components
+        config = scheduler_registry.get()
+        if config is None:
+            return None
+
+        try:
+            from xime.starters.scheduler._runner import SchedulerRunner
+        except ImportError:
+            raise RuntimeError(
+                "Scheduler is configured via configure_scheduler() but "
+                "'apscheduler' is not installed. "
+                "Run: pip install 'apscheduler>=4.0'"
+            )
+        return SchedulerRunner(config, resolver)

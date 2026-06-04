@@ -2,7 +2,7 @@
 Xime Framework — Python backend framework inspired by Spring Boot.
 
 Entry-point for application code:
-    from xime import Application
+    from xime import Application, BindingConfig
 
 Sub-packages:
     xime.adapters.web        — HTTP adapter (FastAPI), WebSocket, route decorators
@@ -13,5 +13,6 @@ Sub-packages:
 """
 
 from xime.core.bootstrap.application import Application
+from xime.core.config.binding import BindingConfig
 
-__all__ = ["Application"]
+__all__ = ["Application", "BindingConfig"]
