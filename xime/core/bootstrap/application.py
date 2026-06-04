@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import pkgutil
 import sys
 from typing import TYPE_CHECKING, Any
 
@@ -181,6 +182,10 @@ class Application:
         Try each candidate config module in order and return the first
         `dependency` (BindingConfig) found.
 
+        After finding the dependency module, imports all sibling modules in the
+        same config package so their configure_*() side effects take effect
+        (e.g. configure_controllers(), configure_openapi(), configure_grpc()).
+
         Falls back to empty BindingConfig only when none of the candidates
         exist. Re-raises if a candidate module exists but fails to import
         (e.g. a broken dependency inside it), so the error is not hidden.
@@ -188,6 +193,7 @@ class Application:
         for module_path in self._config_module_candidates():
             result = self._try_load_config(module_path)
             if result is not None:
+                self._import_config_siblings(module_path)
                 return result
         return BindingConfig()
 
@@ -239,6 +245,37 @@ class Application:
             if config_parts[: len(missing_parts)] != missing_parts:
                 raise
             return None
+
+    @staticmethod
+    def _import_config_siblings(dependency_module_path: str) -> None:
+        """
+        Import every module in the same config package except `dependency` itself.
+
+        e.g. finding "app.config.dependency" → imports "app.config.web",
+        "app.config.grpc", etc. so their configure_*() calls register into the
+        framework registries before adapters start.
+
+        Errors inside sibling modules propagate normally — a broken config file
+        should not be silently ignored.
+        """
+        parts = dependency_module_path.rsplit(".", 1)
+        if len(parts) < 2:
+            return
+        config_package = parts[0]  # "app.config.dependency" → "app.config"
+
+        try:
+            pkg = importlib.import_module(config_package)
+        except ImportError:
+            return
+
+        pkg_path = getattr(pkg, "__path__", None)
+        if pkg_path is None:
+            return
+
+        for _, name, _ in pkgutil.iter_modules(pkg_path):
+            if name == "dependency":
+                continue  # already imported by _try_load_config
+            importlib.import_module(f"{config_package}.{name}")
 
     def _load_runtime(self) -> RuntimeConfig:
         loader = YamlConfigLoader(self._resources_dir)
