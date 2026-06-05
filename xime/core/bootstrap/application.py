@@ -73,7 +73,20 @@ class Application:
 
         Adapters start concurrently after the DI container is built.
         Supports chaining: app.use(WebAdapter()).use(GrpcAdapter()).run()
+
+        Raises ValueError nếu đã có adapter cùng loại với cùng server_id.
         """
+        new_id = getattr(adapter, "_server_id", None)
+        if new_id is not None:
+            adapter_type = type(adapter)
+            for existing in self._adapters:
+                if type(existing) is adapter_type:
+                    existing_id = getattr(existing, "_server_id", None)
+                    if existing_id == new_id:
+                        raise ValueError(
+                            f"Duplicate {adapter_type.__name__} id: \"{new_id}\"\n"
+                            f"Each {adapter_type.__name__} must have a unique server_id."
+                        )
         self._adapters.append(adapter)
         return self
 

@@ -27,9 +27,25 @@ class GrpcAdapter:
         app.use(GrpcAdapter())
         app.run()
 
-    Both adapters start concurrently after the DI container is fully built.
+    Hỗ trợ nhiều server gRPC trên các port khác nhau:
 
-    TLS / mTLS is configured entirely through application.yml:
+        app.use(GrpcAdapter())                                  # server_id="default"
+        app.use(GrpcAdapter("internal", "0.0.0.0", 50052))     # server_id="internal"
+
+    Quy tắc:
+    - server_id="default" (mặc định): port đọc từ application.yml (grpc.port).
+    - server_id khác "default": port bắt buộc phải truyền vào constructor.
+    - Không được có hai GrpcAdapter cùng server_id — Application.use() sẽ báo lỗi.
+
+    Servicer thuộc server nào khai báo qua class variable server_id:
+
+        class InternalUserServicer:
+            server_id = "internal"   # chỉ đăng ký vào GrpcAdapter("internal", ...)
+
+        class ExternalUserServicer:
+            # không khai báo → mặc định "default"
+
+    TLS / mTLS chỉ áp dụng cho server default, cấu hình qua application.yml:
         grpc:
           port: 50051
           tls:
@@ -45,7 +61,20 @@ class GrpcAdapter:
         3. user-declared interceptors — registered via configure_grpc_interceptors()
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        server_id: str = "default",
+        host: str | None = None,
+        port: int | None = None,
+    ) -> None:
+        if server_id != "default" and port is None:
+            raise ValueError(
+                f"GrpcAdapter(server_id='{server_id}'): "
+                "port is required for non-default servers."
+            )
+        self._server_id = server_id
+        self._host_override = host
+        self._port_override = port
         self._server: grpc.aio.Server | None = None
         self._app: "Application | None" = None
 
@@ -64,7 +93,15 @@ class GrpcAdapter:
         runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
 
         self._app = app
-        config = GrpcServerConfig.from_runtime(runtime)
+
+        # Default server reads full config from application.yml (port, TLS, etc.).
+        # Non-default servers use constructor-provided port; TLS is not supported.
+        if self._server_id == "default":
+            config = GrpcServerConfig.from_runtime(runtime)
+        else:
+            config = GrpcServerConfig(port=self._port_override)  # type: ignore[arg-type]
+
+        bind_host = self._host_override or "[::]"
         interceptors = self._build_interceptors()
 
         self._server = grpc.aio.server(interceptors=interceptors)
@@ -73,16 +110,16 @@ class GrpcAdapter:
         scanner = GrpcServiceScanner()
         scanner.validate_packages(*grpc_service_registry.get_packages())
 
-        # Register every declared servicer with the server.
-        builder = GrpcServiceBuilder(app)
+        # Register only servicers whose server_id matches this adapter.
+        builder = GrpcServiceBuilder(app, self._server_id)
         builder.register_all(self._server, grpc_service_registry.get_bindings())
 
-        # Bind port — TLS/mTLS or plain.
-        if config.tls.enabled:
+        # Bind port — TLS/mTLS only for default server.
+        if self._server_id == "default" and config.tls.enabled:
             credentials = build_server_credentials(config.tls)
-            self._server.add_secure_port(f"[::]:{config.port}", credentials)
+            self._server.add_secure_port(f"{bind_host}:{config.port}", credentials)
         else:
-            self._server.add_insecure_port(f"[::]:{config.port}")
+            self._server.add_insecure_port(f"{bind_host}:{config.port}")
 
         await self._server.start()
         await self._server.wait_for_termination()

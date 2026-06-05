@@ -8,13 +8,13 @@ if TYPE_CHECKING:
 
 class _WebRegistry:
     def __init__(self) -> None:
-        self._openapi: OpenApiConfig | None = None
+        self._openapi: dict[str, "OpenApiConfig"] = {}
 
-    def set_openapi(self, config: OpenApiConfig) -> None:
-        self._openapi = config
+    def set_openapi(self, config: "OpenApiConfig", server_id: str = "default") -> None:
+        self._openapi[server_id] = config
 
-    def get_openapi(self) -> OpenApiConfig | None:
-        return self._openapi
+    def get_openapi(self, server_id: str = "default") -> "OpenApiConfig | None":
+        return self._openapi.get(server_id)
 
 
 registry = _WebRegistry()

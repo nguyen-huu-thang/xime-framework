@@ -23,8 +23,25 @@ class WebAdapter:
         app.use(WebAdapter())
         app.run()
 
-    Constructor accepts optional host/port overrides. When omitted, values
-    are read from runtime config (server.host / server.port in application.yml).
+    Hỗ trợ nhiều server trên các port khác nhau:
+
+        app.use(WebAdapter())                              # server_id="default"
+        app.use(WebAdapter("admin", "0.0.0.0", 8081))     # server_id="admin"
+
+    Quy tắc:
+    - server_id="default" (mặc định): host/port đọc từ application.yml khi không truyền.
+    - server_id khác "default": host và port bắt buộc phải truyền vào constructor.
+    - Không được có hai WebAdapter cùng server_id — Application.use() sẽ báo lỗi.
+
+    Controller thuộc server nào khai báo qua class variable server_id:
+
+        class AdminController:
+            prefix = "/admin"
+            server_id = "admin"   # chỉ đăng ký vào WebAdapter("admin", ...)
+
+        class PublicController:
+            prefix = "/api/v1"
+            # không khai báo → mặc định "default"
 
     Startup order (driven by Application._run_async):
         1. Application.start()       — DI container fully built
@@ -45,9 +62,16 @@ class WebAdapter:
 
     def __init__(
         self,
+        server_id: str = "default",
         host: str | None = None,
         port: int | None = None,
     ) -> None:
+        if server_id != "default" and (host is None or port is None):
+            raise ValueError(
+                f"WebAdapter(server_id='{server_id}'): "
+                "host and port are required for non-default servers."
+            )
+        self._server_id = server_id
         self._host_override = host
         self._port_override = port
         self._server: uvicorn.Server | None = None
@@ -73,8 +97,12 @@ class WebAdapter:
         from xime.core.config.runtime import RuntimeConfig
         runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
 
-        host = self._host_override or runtime.server.host
-        port = self._port_override or runtime.server.port
+        if self._server_id == "default":
+            host = self._host_override or runtime.server.host
+            port = self._port_override or runtime.server.port
+        else:
+            host = self._host_override  # type: ignore[assignment]  # validated in __init__
+            port = self._port_override  # type: ignore[assignment]
 
         fastapi_app = self.build_app(app)
         config = uvicorn.Config(fastapi_app, host=host, port=port)
@@ -103,7 +131,7 @@ class WebAdapter:
         The Application must be started (app.start() called) before
         build_app() is invoked so that the DI container is available.
         """
-        openapi_config = registry.get_openapi()
+        openapi_config = registry.get_openapi(self._server_id)
         has_custom_swagger_title = (
             openapi_config is not None and openapi_config.swagger_ui_title is not None
         )
@@ -111,7 +139,7 @@ class WebAdapter:
         @asynccontextmanager
         async def lifespan(fastapi_app: FastAPI) -> AsyncGenerator[None, None]:
             # DI container already built by Application.start() — only register routes.
-            self._register_controllers(fastapi_app, xime_app)
+            self._register_controllers(fastapi_app, xime_app, self._server_id)
             yield
 
         fastapi_app = FastAPI(
@@ -168,8 +196,15 @@ class WebAdapter:
         app.add_middleware(JwtAuthMiddleware, config=jwt_config)
 
     @staticmethod
-    def _register_controllers(app: FastAPI, xime_app: "Application") -> None:
+    def _register_controllers(
+        app: FastAPI,
+        xime_app: "Application",
+        server_id: str = "default",
+    ) -> None:
         """Discover controller classes and register their routes into the FastAPI app.
+
+        Only controllers whose server_id class variable matches the given server_id
+        are registered. Controllers without server_id default to "default".
 
         Runs after application.start() so that the DI container is fully built
         and controller instances are available via xime_app.get(cls).
@@ -186,6 +221,8 @@ class WebAdapter:
         builder = RouteBuilder()
 
         for cls in scanner.find_controllers(*packages):
+            if getattr(cls, "server_id", "default") != server_id:
+                continue
             try:
                 instance = xime_app.get(cls)
             except KeyError:
