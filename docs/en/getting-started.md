@@ -20,7 +20,13 @@ This guide walks you through creating your first XIME application.
 
 ## Installation
 
-XIME is not yet on PyPI. Install from source:
+**Stable (recommended):**
+
+```bash
+pip install xime
+```
+
+**Latest from source** (may be slightly ahead of the PyPI release):
 
 ```bash
 git clone https://github.com/nguyen-huu-thang/xime-framework

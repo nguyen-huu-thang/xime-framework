@@ -20,7 +20,13 @@ Hướng dẫn này giúp bạn tạo ứng dụng XIME đầu tiên.
 
 ## Cài đặt
 
-XIME chưa có trên PyPI. Cài từ source:
+**Ổn định (khuyến nghị):**
+
+```bash
+pip install xime
+```
+
+**Mới nhất từ source** (có thể mới hơn phiên bản trên PyPI một chút):
 
 ```bash
 git clone https://github.com/nguyen-huu-thang/xime-framework
