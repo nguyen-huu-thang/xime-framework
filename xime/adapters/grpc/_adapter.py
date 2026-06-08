@@ -114,6 +114,10 @@ class GrpcAdapter:
         builder = GrpcServiceBuilder(app, self._server_id)
         builder.register_all(self._server, grpc_service_registry.get_bindings())
 
+        # Register code-first controllers (@command/@stream) for this server, if any.
+        # Đăng ký controller code-first cho server này (nếu có).
+        self._register_codefirst(app)
+
         # Bind port — TLS/mTLS only for default server.
         if self._server_id == "default" and config.tls.enabled:
             credentials = build_server_credentials(config.tls)
@@ -137,6 +141,41 @@ class GrpcAdapter:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _register_codefirst(self, app: "Application") -> None:
+        """Build + register code-first controllers for this server, if configured.
+
+        No-op when configure_grpc_codefirst() was never called. Imports the
+        code-first modules lazily so projects that don't use it (and may not have
+        protobuf/grpc-tools artifacts) are unaffected.
+        Không làm gì nếu chưa configure_grpc_codefirst(). Import lười phần code-first.
+        """
+        from xime.adapters.grpc.codefirst._config import codefirst_registry
+
+        packages = codefirst_registry.get_packages()
+        if not packages:
+            return
+
+        from xime.core.contract import ControllerScanner
+        from xime.adapters.grpc.codefirst._builder import ContractBuilder
+        from xime.adapters.grpc.codefirst._lock import LockFile
+        from xime.adapters.grpc.codefirst._pb2_loader import load_message_classes
+        from xime.adapters.grpc.codefirst._service_builder import CodeFirstGrpcBuilder
+
+        controllers = ControllerScanner().find_controllers(*packages)
+        # Only build/serve when at least one controller targets this server.
+        # Chỉ build/serve khi có ít nhất một controller thuộc server này.
+        if not any(getattr(c, "server_id", "default") == self._server_id for c in controllers):
+            return
+
+        output_dir = codefirst_registry.output_dir()
+        lock = LockFile.load(codefirst_registry.lock_file())
+        model = ContractBuilder(self._server_id, lock).build(controllers)
+        if not model.services:
+            return
+
+        messages = load_message_classes(output_dir, self._server_id)
+        CodeFirstGrpcBuilder(app, model, messages).register_all(self._server)
 
     def _build_interceptors(self) -> list[grpc.aio.ServerInterceptor]:
         """Compose the full interceptor stack.

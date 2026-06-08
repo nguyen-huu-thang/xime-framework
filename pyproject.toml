@@ -32,6 +32,10 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
+# CLI entry point: `xime grpc generate`, `xime grpc check`
+[project.scripts]
+xime = "xime.cli._main:main"
+
 # ---------------------------------------------------------------------------
 # Optional dependencies (starters)
 # Cài theo nhu cầu:
@@ -54,8 +58,16 @@ jwt = [
 scheduler = [
     "apscheduler>=4.0",
 ]
+socket = [
+    "msgpack>=1.0",
+]
+grpc = [
+    "grpcio>=1.60",
+    "grpcio-tools>=1.60",
+    "protobuf>=4.25",
+]
 all = [
-    "xime[web,sqlalchemy,jwt,scheduler]",
+    "xime[web,sqlalchemy,jwt,scheduler,socket,grpc]",
 ]
 
 # Dev: chạy test, lint, type-check, ASGI server

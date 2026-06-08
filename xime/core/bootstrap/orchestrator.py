@@ -62,6 +62,8 @@ class StartupOrchestrator:
         )
         for config_cls in self._binding.config_classes:
             container.configure(config_cls)
+        if self._binding.order_rules:
+            container.order(*self._binding.order_rules)
         self._container = container.build()
 
         # User singletons in topological order, followed by framework-managed

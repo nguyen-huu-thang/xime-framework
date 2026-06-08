@@ -253,6 +253,83 @@ class AuditService:
 
 Because `ContextVar` is async-safe, each concurrent request has its own isolated context.
 
+---
+
+## 11. Multi-Server Support
+
+A single XIME process can run multiple `WebAdapter` and `GrpcAdapter` instances simultaneously — each on a different port with its own set of controllers or servicers.
+
+```python
+# app/main.py
+from xime import Application
+from xime.adapters.web import WebAdapter
+from xime.adapters.grpc import GrpcAdapter
+
+app = Application()
+app.use(WebAdapter())                               # server_id="default", port from application.yml
+app.use(WebAdapter("admin", "127.0.0.1", 8081))    # server_id="admin", explicit host + port
+app.use(GrpcAdapter())                              # server_id="default", port from application.yml
+app.use(GrpcAdapter("internal", port=50052))        # server_id="internal", explicit port
+app.run()
+```
+
+**Assigning controllers to a server** — declare a `server_id` class variable:
+
+```python
+class PublicController:
+    prefix = "/api/v1"
+    # no server_id → defaults to "default"
+
+class AdminController:
+    prefix = "/admin"
+    server_id = "admin"   # only registered on WebAdapter("admin", ...)
+```
+
+**Rules:**
+
+- `server_id` defaults to `"default"` when omitted on both adapters and controllers/servicers.
+- Non-default adapters **must** provide explicit `host` and `port` in the constructor — no config file reading for them.
+- Two adapters of the same type with the same `server_id` → `ValueError` at `app.use()`.
+- All adapters share the same DI container singletons — no duplication of business objects.
+- TLS/mTLS is only supported for the `"default"` gRPC adapter.
+- Per-server OpenAPI config: `configure_openapi(config, server_id="admin")`.
+
+---
+
+## 12. Initialization Order (`dependency.order`)
+
+By default, `post_construct()` hooks run in topological dependency order — classes that are depended on first. When two classes have no constructor dependency on each other but one's `post_construct()` must complete before the other's, use `dependency.order()`:
+
+```python
+# app/config/dependency.py
+dependency.order(
+    [TrustSelfCertificateLoader, GrpcExternalCredentialsProvider],
+    [DatabasePool, UserRepository, UserService],
+)
+```
+
+This is equivalent to `@DependsOn` in Spring Boot, but declared centrally in the config file.
+
+**Syntax:** each positional argument is an ordered list. `[A, B, C]` means:
+
+- `A.post_construct()` completes before `B.post_construct()` starts
+- `B.post_construct()` completes before `C.post_construct()` starts
+
+Multiple lists can be passed; the framework merges them into a single ordering graph.
+
+**Fail fast at startup:**
+
+```text
+Initialization Order Error
+  Classes not found in DI container: UnknownClass
+  Every class in dependency.order() must be registered.
+
+Initialization Order Conflict
+  A cycle was detected in the combined dependency and order rules:
+  ServiceA → ServiceB → ServiceA
+```
+
+**What it does NOT affect:** constructor injection order. `dependency.order()` only controls the sequence in which `post_construct()` hooks are called after all singletons are created.
 
 ---
 

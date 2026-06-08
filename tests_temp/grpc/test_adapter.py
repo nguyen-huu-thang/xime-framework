@@ -224,7 +224,7 @@ class TestGrpcAdapterStartServicers:
                 adapter = GrpcAdapter()
                 await adapter.start(app)
 
-                MockBuilder.assert_called_once_with(app)
+                MockBuilder.assert_called_once_with(app, "default")
                 mock_builder_instance.register_all.assert_called_once_with(
                     mock_grpc_server, {_Handler: _add_fn}
                 )

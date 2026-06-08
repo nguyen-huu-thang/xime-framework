@@ -113,3 +113,63 @@ def test_bindings_copy_does_not_affect_original():
     copy = cfg.bindings
     copy[IRepo] = ImplB            # mutate bản sao
     assert cfg.bindings[IRepo] is ImplA   # original không đổi
+
+
+# ---------------------------------------------------------------------------
+# order()
+# ---------------------------------------------------------------------------
+
+def test_order_single_rule_list():
+    class A: pass
+    class B: pass
+
+    cfg = BindingConfig()
+    cfg.order([A, B])
+    assert cfg.order_rules == ([A, B],)
+
+
+def test_order_multiple_lists_in_one_call():
+    class A: pass
+    class B: pass
+    class C: pass
+
+    cfg = BindingConfig()
+    cfg.order([A, B], [B, C])
+    assert cfg.order_rules == ([A, B], [B, C])
+
+
+def test_order_called_multiple_times_accumulates():
+    class A: pass
+    class B: pass
+    class C: pass
+
+    cfg = BindingConfig()
+    cfg.order([A, B])
+    cfg.order([B, C])
+    assert cfg.order_rules == ([A, B], [B, C])
+
+
+def test_order_rules_empty_by_default():
+    cfg = BindingConfig()
+    assert cfg.order_rules == ()
+
+
+def test_order_rules_is_immutable_tuple():
+    class A: pass
+    class B: pass
+
+    cfg = BindingConfig()
+    cfg.order([A, B])
+    assert isinstance(cfg.order_rules, tuple)
+
+
+def test_order_rules_preserves_list_identity_in_tuple():
+    """Mỗi rule list trong tuple giữ đúng thứ tự class."""
+    class X: pass
+    class Y: pass
+    class Z: pass
+
+    cfg = BindingConfig()
+    cfg.order([X, Y, Z])
+    rule = cfg.order_rules[0]
+    assert rule == [X, Y, Z]

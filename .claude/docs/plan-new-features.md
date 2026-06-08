@@ -144,7 +144,7 @@ Validate: non-default mà thiếu port → raise `ValueError`.
 
 Trong `start()`: default đọc port từ `GrpcServerConfig.from_runtime()`; non-default dùng port từ constructor.
 
-**Trạng thái:** `[ ]`
+**Trạng thái:** `[x]`
 
 ---
 
@@ -162,7 +162,7 @@ if cls_server_id != self._server_id:
 
 `GrpcServiceBuilder` cần nhận `server_id` từ `GrpcAdapter` khi được tạo.
 
-**Trạng thái:** `[ ]`
+**Trạng thái:** `[x]`
 
 ---
 
@@ -180,7 +180,7 @@ Already registered: WebAdapter(server_id="default")
 
 - Port conflict: nếu `host` và `port` được truyền tường minh (non-default) thì kiểm tra trùng port ngay tại `use()`. Port của default adapter không kiểm tra được lúc này (chưa load config) — bỏ qua.
 
-**Trạng thái:** `[ ]`
+**Trạng thái:** `[x]`
 
 ---
 
@@ -194,7 +194,7 @@ Kiểm tra:
 - Duplicate `server_id` → lỗi rõ ràng tại `app.use()`
 - Non-default adapter không truyền port → lỗi rõ ràng
 
-**Trạng thái:** `[ ]`
+**Trạng thái:** `[x]`
 
 ---
 
@@ -266,7 +266,7 @@ def order_rules(self) -> tuple[list[type], ...]:
     return tuple(self._order_rules)
 ```
 
-**Trạng thái:** `[ ]`
+**Trạng thái:** `[x]`
 
 ---
 
@@ -299,7 +299,7 @@ Declared rule creates a cycle:
 Check dependency.order() in config/dependency.py
 ```
 
-**Trạng thái:** `[ ]`
+**Trạng thái:** `[x]`
 
 ---
 
@@ -327,7 +327,7 @@ self._topological_order = graph.topological_order()
 self._topological_order = graph.topological_order_with_rules(self._order_rules)
 ```
 
-**Trạng thái:** `[ ]`
+**Trạng thái:** `[x]`
 
 ---
 
@@ -349,7 +349,7 @@ if self._binding.order_rules:
 self._container = container.build()
 ```
 
-**Trạng thái:** `[ ]`
+**Trạng thái:** `[x]`
 
 ---
 
@@ -362,7 +362,7 @@ Kiểm tra:
 - Conflict với constructor dep (A phụ thuộc B trong constructor, rule khai báo [A, B] → hợp lệ; rule khai báo [B, A] khi B phụ thuộc A → cycle → lỗi)
 - Nhiều list rules không xung đột → chạy đúng thứ tự
 
-**Trạng thái:** `[ ]`
+**Trạng thái:** `[x]`
 
 ---
 

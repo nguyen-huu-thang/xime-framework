@@ -96,6 +96,17 @@ app.run()
 ```
 
 ```python
+# app/main.py — Multiple servers (public API + internal admin)
+from xime import Application
+from xime.adapters.web import WebAdapter
+
+app = Application()
+app.use(WebAdapter())                              # server_id="default", port from application.yml
+app.use(WebAdapter("admin", "127.0.0.1", 8081))   # server_id="admin", explicit host/port
+app.run()
+```
+
+```python
 # app/config/dependency.py
 from xime import BindingConfig
 
@@ -144,12 +155,16 @@ python app/main.py
 | **Interface Binding** | Explicit `Protocol` → implementation mapping, validated at startup |
 | **Fail Fast** | Circular deps, missing implementations, ambiguous bindings → startup error |
 | **Lifecycle Hooks** | `PostConstruct`, `PreDestroy` for managed startup/shutdown |
+| **Initialization Order** | `dependency.order([A, B, C])` — control `post_construct()` execution order across independent classes |
+| **Multi-Server** | Multiple `WebAdapter` / `GrpcAdapter` / `SocketAdapter` per process, each with its own `server_id` |
 | **Event Bus** | Internal pub/sub for decoupled domain events |
 | **Request Context** | Per-request data via `ContextVar`, set by adapters |
 | **Security Context** | `AuthenticationManager`, `AuthorizationManager` in core |
 | **Two-Layer Config** | Framework config (Python) + Runtime config (YAML) |
 | **Transaction API** | Explicit `async with self.transaction():` — no hidden AOP |
 | **Class-Based Controllers** | Controllers are DI singletons, methods map to routes |
+| **Code-First gRPC** | Write Python DTOs, XIME generates `.proto` + stubs; field-number stability via lock file |
+| **Socket Adapter** | Unix Domain Socket IPC for same-host Native Engine calls (Linux); `@command` / `@stream` |
 
 ---
 
@@ -179,7 +194,7 @@ Optional modules, similar to `spring-boot-starter-*`:
 
 ## Project Status
 
-XIME is in **active development**. The following are implemented: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, Web adapter (FastAPI + routing), and gRPC adapter. WebSocket support is partial. Redis and Cache starters are planned. The framework is not yet published to PyPI.
+XIME is in **active development**. The following are implemented: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing), gRPC adapter (proto-first + **code-first**), **Socket adapter** (Unix Domain Socket IPC), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial. Redis and Cache starters are planned. The framework is not yet published to PyPI.
 
 ---
 
@@ -208,6 +223,8 @@ Please read [CONTRIBUTING](docs/en/contributing.md) before opening a PR.
 | [Configuration](docs/en/configuration.md) | Framework config + runtime YAML |
 | [Routing](docs/en/routing.md) | Class-based controllers, route decorators |
 | [Transaction](docs/en/transaction.md) | Explicit transaction management |
+| [Code-First gRPC](docs/en/grpc-codefirst.md) | Generate `.proto` from Python DTOs; field-number stability; `xime grpc generate/check` |
+| [Socket Adapter](docs/en/socket-adapter.md) | Unix Domain Socket IPC for same-host Native Engine calls |
 | [Starters](docs/en/starters.md) | SQLAlchemy, JWT, Scheduler |
 | [Testing](docs/en/testing.md) | DI overrides, fakes, test utilities |
 | [Contributing](docs/en/contributing.md) | How to contribute, roadmap |

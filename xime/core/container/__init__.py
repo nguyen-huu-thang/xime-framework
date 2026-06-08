@@ -31,6 +31,7 @@ class XimeContainer:
         self._instances: dict[type, object] = {}
         self._explicit_classes: list[type] = []
         self._config_classes: list[type] = []
+        self._order_rules: list[list[type]] = []
         self._registry: DependencyRegistry | None = None
         self._topological_order: list[type] = []
 
@@ -88,6 +89,19 @@ class XimeContainer:
         self._config_classes.append(config_class)
         return self
 
+    def order(self, *rules: list[type]) -> "XimeContainer":
+        """
+        Declare post_construct() execution order for classes with no direct
+        constructor dependency relationship.
+
+        [A, B, C] → A.post_construct() completes before B, B before C.
+
+        See BindingConfig.order() for full documentation.
+        """
+        self._guard_not_built("order")
+        self._order_rules.extend(rules)
+        return self
+
     # ------------------------------------------------------------------
     # Build (runs the full pipeline)
     # ------------------------------------------------------------------
@@ -138,7 +152,11 @@ class XimeContainer:
         )
 
         # 7. Register
-        self._topological_order = graph.topological_order()
+        self._topological_order = (
+            graph.topological_order_with_rules(self._order_rules)
+            if self._order_rules
+            else graph.topological_order()
+        )
         self._registry = DependencyRegistry()
         self._registry.register(resolved, graph, self._instances, factory_entries)
 

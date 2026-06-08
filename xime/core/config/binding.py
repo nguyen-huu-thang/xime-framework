@@ -23,6 +23,7 @@ class BindingConfig:
         self._bindings: dict[type, type] = {}
         self._explicit_classes: list[type] = []
         self._config_classes: list[type] = []
+        self._order_rules: list[list[type]] = []
 
     def scan(self, *package_names: str) -> None:
         """Register one or more package paths to scan for DI candidates."""
@@ -46,6 +47,35 @@ class BindingConfig:
         have a type hint.
         """
         self._explicit_classes.extend(classes)
+
+    def order(self, *rules: list[type]) -> None:
+        """
+        Declare post_construct() execution order for classes that have no
+        direct constructor dependency relationship.
+
+        Equivalent to @DependsOn in Spring Boot, but declared centrally in
+        the config file instead of as an annotation on individual classes.
+
+        Each list is an ordered chain — [A, B, C] means:
+            A.post_construct() completes before B starts,
+            B.post_construct() completes before C starts.
+
+        Multiple chains can be passed in one call or across multiple calls:
+
+            dependency.order(
+                [TrustSelfCertificateLoader, GrpcExternalCredentialsProvider],
+                [DatabasePool, UserRepository, UserService],
+            )
+
+        Framework validates at startup (fail fast):
+        - Every class must be registered in the DI container.
+        - No cycles, including combined with constructor dependency order.
+
+        Typical use case: A.post_construct() writes to a shared resource that
+        B.post_construct() reads, but A and B have no constructor dependency
+        on each other.
+        """
+        self._order_rules.extend(rules)
 
     def configure(self, config_class: type) -> None:
         """
@@ -91,3 +121,8 @@ class BindingConfig:
     def config_classes(self) -> tuple[type, ...]:
         """Immutable snapshot of registered config classes."""
         return tuple(self._config_classes)
+
+    @property
+    def order_rules(self) -> tuple[list[type], ...]:
+        """Immutable snapshot of post_construct() ordering rules."""
+        return tuple(self._order_rules)

@@ -96,6 +96,17 @@ app.run()
 ```
 
 ```python
+# app/main.py — Nhiều server (public API + internal admin)
+from xime import Application
+from xime.adapters.web import WebAdapter
+
+app = Application()
+app.use(WebAdapter())                              # server_id="default", port từ application.yml
+app.use(WebAdapter("admin", "127.0.0.1", 8081))   # server_id="admin", host/port tường minh
+app.run()
+```
+
+```python
 # app/config/dependency.py
 from xime import BindingConfig
 
@@ -134,12 +145,16 @@ python app/main.py
 | **Interface Binding** | Ánh xạ `Protocol` → implementation tường minh, validate lúc startup |
 | **Fail Fast** | Vòng lặp, thiếu implementation, binding mơ hồ → lỗi startup |
 | **Lifecycle Hooks** | `PostConstruct`, `PreDestroy` cho startup/shutdown được quản lý |
+| **Thứ tự khởi tạo** | `dependency.order([A, B, C])` — kiểm soát thứ tự chạy `post_construct()` giữa các class độc lập |
+| **Multi-Server** | Nhiều `WebAdapter` / `GrpcAdapter` / `SocketAdapter` cùng tiến trình, mỗi cái có `server_id` riêng |
 | **Event Bus** | Pub/sub nội bộ cho domain event |
 | **Request Context** | Dữ liệu theo request qua `ContextVar`, được thiết lập bởi adapter |
 | **Security Context** | `AuthenticationManager`, `AuthorizationManager` trong core |
 | **Two-Layer Config** | Framework config (Python) + Runtime config (YAML) |
 | **Transaction API** | `async with self.transaction():` tường minh — không có AOP ẩn |
 | **Class-Based Controllers** | Controller là DI singleton, method ánh xạ thành route |
+| **Code-First gRPC** | Viết Python DTO, XIME sinh `.proto` + stub; ổn định field number qua lock file |
+| **Socket Adapter** | IPC qua Unix Domain Socket cho Native Engine cùng máy (Linux); `@command` / `@stream` |
 
 ---
 
@@ -169,7 +184,7 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 ## Trạng thái dự án
 
-XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, Web adapter (FastAPI + routing) và gRPC adapter. WebSocket đang hoàn thiện. Redis và Cache starter đang được kế hoạch. Framework chưa được publish lên PyPI.
+XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing), gRPC adapter (proto-first + **code-first**), **Socket adapter** (Unix Domain Socket IPC), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện. Redis và Cache starter đang được kế hoạch. Framework chưa được publish lên PyPI.
 
 ---
 
@@ -198,6 +213,8 @@ Vui lòng đọc [CONTRIBUTING](docs/vn/contributing.md) trước khi mở PR.
 | [Cấu hình](docs/vn/configuration.md) | Framework config + runtime YAML |
 | [Routing](docs/vn/routing.md) | Class-based controller, route decorator |
 | [Transaction](docs/vn/transaction.md) | Quản lý transaction tường minh |
+| [Code-First gRPC](docs/vn/grpc-codefirst.md) | Sinh `.proto` từ Python DTO; ổn định field number; `xime grpc generate/check` |
+| [Socket Adapter](docs/vn/socket-adapter.md) | IPC qua Unix Domain Socket cho Native Engine cùng máy |
 | [Starters](docs/vn/starters.md) | SQLAlchemy, JWT, Scheduler |
 | [Testing](docs/vn/testing.md) | DI override, fake, test utilities |
 | [Đóng góp](docs/vn/contributing.md) | Cách đóng góp, roadmap |

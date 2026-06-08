@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import deque
 
 from xime.core.container.resolver import ResolvedMap
+from xime.core.exception.framework import InvalidOrderRuleException, OrderRuleCycleException
 
 # {cls: set of classes it directly depends on}
 AdjacencyMap = dict[type, set[type]]
@@ -118,3 +119,118 @@ class DependencyGraph:
                     queue.append(dependent)
 
         return result
+
+    def topological_order_with_rules(
+        self,
+        rules: list[list[type]],
+    ) -> list[type]:
+        """
+        Return topological order respecting both constructor dependencies and
+        explicit post_construct() ordering rules from dependency.order().
+
+        Rule semantics: [A, B, C] means A.post_construct() completes before
+        B starts, B completes before C starts.
+
+        In graph terms, rule (A before B) adds edge B→A, meaning B "depends
+        on" A for ordering purposes — the same convention as constructor deps.
+
+        Raises InvalidOrderRuleException if any class in the rules is not
+        registered in the DI container.
+
+        Raises OrderRuleCycleException if the combined constraints (constructor
+        deps + order rules) form a cycle.
+        """
+        # Validate: every class in rules must be a known node
+        unknown = [
+            cls
+            for rule in rules
+            for cls in rule
+            if cls not in self._nodes
+        ]
+        if unknown:
+            names = ", ".join(f"'{c.__name__}'" for c in dict.fromkeys(unknown))
+            raise InvalidOrderRuleException(names)
+
+        # Build extra edges from rules.
+        # Rule [A, B, C] yields pairs (A, B) and (B, C) meaning "A before B", "B before C".
+        # To enforce "A before B" in topological order, B must "depend on" A,
+        # so we add A to B's dependency set.
+        combined: AdjacencyMap = {n: set(self._edges[n]) for n in self._nodes}
+        for rule in rules:
+            for i in range(len(rule) - 1):
+                before, after = rule[i], rule[i + 1]
+                combined[after].add(before)
+
+        # Rebuild reverse map (dep → dependents) for the combined graph
+        dependents: dict[type, list[type]] = {n: [] for n in self._nodes}
+        for cls, deps in combined.items():
+            for dep in deps:
+                dependents[dep].append(cls)
+
+        # Kahn's algorithm on combined graph
+        dep_count = {n: len(combined[n]) for n in self._nodes}
+        queue: deque[type] = deque(n for n in self._nodes if dep_count[n] == 0)
+        result: list[type] = []
+
+        while queue:
+            node = queue.popleft()
+            result.append(node)
+            for dependent in dependents[node]:
+                dep_count[dependent] -= 1
+                if dep_count[dependent] == 0:
+                    queue.append(dependent)
+
+        if len(result) == len(self._nodes):
+            return result
+
+        # Not all nodes were processed → cycle in combined graph
+        in_cycle = self._nodes - set(result)
+        cycle = self._find_cycle(combined, in_cycle)
+        raise OrderRuleCycleException(cycle)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _find_cycle(edges: AdjacencyMap, nodes: set[type]) -> list[str]:
+        """Find and return one cycle among the given nodes using iterative DFS.
+
+        Returns a list of class names forming the cycle, e.g.:
+            ["A", "B", "C", "A"]
+        Returns an empty list if no cycle is found (should not happen when
+        called after Kahn's detects an incomplete result).
+        """
+        WHITE, GRAY, BLACK = 0, 1, 2
+        color: dict[type, int] = {n: WHITE for n in nodes}
+        path: list[type] = []
+
+        for start in nodes:
+            if color[start] != WHITE:
+                continue
+
+            color[start] = GRAY
+            path.append(start)
+            call_stack: list[tuple[type, object]] = [
+                (start, iter(edges.get(start, set()) & nodes))
+            ]
+
+            while call_stack:
+                node, neighbors = call_stack[-1]
+                try:
+                    neighbor = next(neighbors)  # type: ignore[call-overload]
+                    if color[neighbor] == GRAY:
+                        idx = path.index(neighbor)
+                        return [c.__name__ for c in path[idx:]] + [neighbor.__name__]
+                    if color[neighbor] == WHITE:
+                        color[neighbor] = GRAY
+                        path.append(neighbor)
+                        call_stack.append(
+                            (neighbor, iter(edges.get(neighbor, set()) & nodes))
+                        )
+                except StopIteration:
+                    call_stack.pop()
+                    path.pop()
+                    color[node] = BLACK
+
+        return []

@@ -8,9 +8,16 @@ from xime.core.exception.framework import (
     MultipleImplementationException,
     CircularDependencyException,
     BindingValidationException,
+    InvalidOrderRuleException,
+    OrderRuleCycleException,
     SecurityException,
     AuthenticationException,
     AuthorizationException,
+    SocketException,
+    ProtocolError,
+    EndpointNotFound,
+    SessionTimeout,
+    SocketCommandError,
 )
 
 __all__ = [
@@ -25,8 +32,16 @@ __all__ = [
     "MultipleImplementationException",
     "CircularDependencyException",
     "BindingValidationException",
+    "InvalidOrderRuleException",
+    "OrderRuleCycleException",
     # Security runtime
     "SecurityException",
     "AuthenticationException",
     "AuthorizationException",
+    # Socket runtime
+    "SocketException",
+    "ProtocolError",
+    "EndpointNotFound",
+    "SessionTimeout",
+    "SocketCommandError",
 ]

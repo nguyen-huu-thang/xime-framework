@@ -253,6 +253,83 @@ class AuditService:
 
 Vì `ContextVar` an toàn với async, mỗi request đồng thời có context được cô lập riêng.
 
+---
+
+## 11. Multi-Server
+
+Một tiến trình XIME có thể chạy nhiều `WebAdapter` và `GrpcAdapter` cùng lúc — mỗi cái trên một port khác nhau với bộ controller/servicer riêng.
+
+```python
+# app/main.py
+from xime import Application
+from xime.adapters.web import WebAdapter
+from xime.adapters.grpc import GrpcAdapter
+
+app = Application()
+app.use(WebAdapter())                               # server_id="default", port từ application.yml
+app.use(WebAdapter("admin", "127.0.0.1", 8081))    # server_id="admin", host + port tường minh
+app.use(GrpcAdapter())                              # server_id="default", port từ application.yml
+app.use(GrpcAdapter("internal", port=50052))        # server_id="internal", port tường minh
+app.run()
+```
+
+**Gán controller cho server** — khai báo class variable `server_id`:
+
+```python
+class PublicController:
+    prefix = "/api/v1"
+    # không có server_id → mặc định "default"
+
+class AdminController:
+    prefix = "/admin"
+    server_id = "admin"   # chỉ đăng ký vào WebAdapter("admin", ...)
+```
+
+**Quy tắc:**
+
+- `server_id` mặc định là `"default"` khi bỏ qua trên cả adapter lẫn controller/servicer.
+- Adapter non-default **bắt buộc** truyền `host` và `port` vào constructor — không đọc từ config.
+- Hai adapter cùng loại với cùng `server_id` → `ValueError` tại `app.use()`.
+- Tất cả adapter dùng chung DI container — singleton không bị nhân đôi.
+- TLS/mTLS chỉ hỗ trợ cho gRPC adapter `"default"`.
+- OpenAPI theo server: `configure_openapi(config, server_id="admin")`.
+
+---
+
+## 12. Thứ tự khởi tạo (`dependency.order`)
+
+Mặc định, `post_construct()` chạy theo thứ tự topological — class được phụ thuộc chạy trước. Khi hai class không có constructor dependency với nhau nhưng `post_construct()` của class này phải chạy xong trước class kia, dùng `dependency.order()`:
+
+```python
+# app/config/dependency.py
+dependency.order(
+    [TrustSelfCertificateLoader, GrpcExternalCredentialsProvider],
+    [DatabasePool, UserRepository, UserService],
+)
+```
+
+Tương đương `@DependsOn` trong Spring Boot, nhưng khai báo tập trung trong config file.
+
+**Cú pháp:** mỗi đối số là một danh sách thứ tự. `[A, B, C]` nghĩa là:
+
+- `A.post_construct()` hoàn thành trước khi `B.post_construct()` bắt đầu
+- `B.post_construct()` hoàn thành trước khi `C.post_construct()` bắt đầu
+
+Nhiều danh sách có thể truyền cùng lúc; framework gộp thành một đồ thị thứ tự duy nhất.
+
+**Fail fast khi startup:**
+
+```text
+Initialization Order Error
+  Classes not found in DI container: UnknownClass
+  Every class in dependency.order() must be registered.
+
+Initialization Order Conflict
+  A cycle was detected in the combined dependency and order rules:
+  ServiceA → ServiceB → ServiceA
+```
+
+**Không ảnh hưởng đến:** thứ tự constructor injection. `dependency.order()` chỉ kiểm soát thứ tự gọi `post_construct()` sau khi tất cả singleton đã được tạo.
 
 ---
 

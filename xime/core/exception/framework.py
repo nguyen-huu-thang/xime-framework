@@ -125,6 +125,39 @@ class BindingValidationException(StartupException):
         )
 
 
+class InvalidOrderRuleException(StartupException):
+    """
+    Raised when a class passed to dependency.order() is not registered
+    in the DI container.
+    """
+
+    def __init__(self, unknown_classes: str):
+        self.unknown_classes = unknown_classes
+        super().__init__(
+            f"\nInitialization Order Error\n"
+            f"  Classes not found in DI container: {unknown_classes}\n"
+            f"  Every class in dependency.order() must be registered.\n"
+            f"  Check dependency.order() in config/dependency.py"
+        )
+
+
+class OrderRuleCycleException(StartupException):
+    """
+    Raised when dependency.order() rules create a cycle, either within
+    the declared rules or in combination with constructor dependency order.
+    """
+
+    def __init__(self, cycle: list[str]):
+        self.cycle = cycle
+        cycle_str = " → ".join(cycle)
+        super().__init__(
+            f"\nInitialization Order Conflict\n"
+            f"  A cycle was detected in the combined dependency and order rules:\n"
+            f"  {cycle_str}\n"
+            f"  Check dependency.order() in config/dependency.py"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Runtime — Security
 # ---------------------------------------------------------------------------
@@ -155,3 +188,59 @@ class AuthorizationException(SecurityException):
     def __init__(self, message: str = "Access denied"):
         self.message = message
         super().__init__(f"\nAccess Denied\n  {message}")
+
+
+# ---------------------------------------------------------------------------
+# Runtime — Socket adapter
+# ---------------------------------------------------------------------------
+
+class SocketException(XimeException):
+    """Base for Socket-adapter runtime exceptions."""
+
+    pass
+
+
+class ProtocolError(SocketException):
+    """
+    Raised when a frame on the wire is malformed — bad magic bytes or an
+    unsupported protocol version. Indicates the peer is not speaking the
+    Xime socket protocol (or a version mismatch).
+    Frame sai định dạng (magic/version) — peer không nói đúng protocol Xime.
+    """
+
+    pass
+
+
+class EndpointNotFound(SocketException):
+    """Raised when a client invokes an endpoint name that is not registered."""
+
+    def __init__(self, endpoint: str):
+        self.endpoint = endpoint
+        super().__init__(f"Socket endpoint '{endpoint}' not found")
+
+
+class SessionTimeout(SocketException):
+    """Raised inside a stream handler when its session exceeds the idle timeout.
+
+    Surfaced through UploadStream so the handler unwinds cleanly instead of
+    hanging forever when the peer disappears without sending STREAM_END.
+    Đẩy vào UploadStream để handler thoát sạch khi peer biến mất giữa chừng.
+    """
+
+    def __init__(self, session_id: int):
+        self.session_id = session_id
+        super().__init__(f"Socket session {session_id} timed out")
+
+
+class SocketCommandError(SocketException):
+    """Raised on the client side when the server returns an ERROR frame.
+
+    Carries the server-supplied error code (from configure_socket_error_mappings)
+    and message so the caller can branch on it.
+    Mang theo code lỗi server gửi về để client phân nhánh xử lý.
+    """
+
+    def __init__(self, code: str, message: str):
+        self.code = code
+        self.error_message = message
+        super().__init__(f"[{code}] {message}")
