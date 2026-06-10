@@ -24,6 +24,7 @@ class UserService:
 XIME đọc type hint, giải quyết từng dependency và tạo object — bạn không bao giờ phải gọi `UserService(...)` thủ công.
 
 **Quy tắc:**
+
 - Mỗi tham số phải có type hint. Thiếu hint đồng nghĩa XIME không thể giải quyết nó, class đó được coi là nằm ngoài DI system.
 - Không `@inject`, không `@autowired`, không field injection.
 
@@ -34,7 +35,7 @@ XIME đọc type hint, giải quyết từng dependency và tạo object — b�
 Phát hiện dựa trên annotation (`@Service`, `@Component`) được thay bằng phát hiện dựa trên thư mục:
 
 | Thư mục | Vai trò |
-|---|---|
+| --- | --- |
 | `application/usecase/` | Use case layer |
 | `application/service/` | Application service layer |
 | `infrastructure/repository/` | Repository layer |
@@ -105,7 +106,7 @@ dependency.bind({
 
 XIME validate lúc startup rằng `JpaUserRepository` implement đủ mọi method được khai báo trong `UserRepository`. Nếu thiếu method, startup thất bại:
 
-```
+```text
 Binding Validation Failed
   Protocol: UserRepository
   Implementation: JpaUserRepository
@@ -122,7 +123,7 @@ Binding Validation Failed
 ## 5. Dependency Scope
 
 | Scope | Mô tả | Mặc định |
-|---|---|---|
+| --- | --- | --- |
 | `Singleton` | Một instance cho toàn bộ vòng đời ứng dụng | Có |
 | `Factory` | Instance mới mỗi lần gọi | Không |
 
@@ -135,14 +136,16 @@ Tất cả service, use case và repository là singleton theo mặc định. Fa
 XIME validate toàn bộ dependency graph trước khi tạo bất kỳ object nào. Startup thất bại ngay với lỗi mô tả rõ ràng cho:
 
 **Thiếu implementation:**
-```
+
+```text
 No Implementation Found
   Interface: UserRepository
   Hint: add dependency.bind({UserRepository: YourImpl}) in config/dependency.py
 ```
 
 **Implementation mơ hồ** (nhiều candidate, không có binding tường minh):
-```
+
+```text
 Multiple Implementations Found
   Interface: UserRepository
   Candidates: JpaUserRepository, RedisUserRepository
@@ -150,13 +153,15 @@ Multiple Implementations Found
 ```
 
 **Circular dependency:**
-```
+
+```text
 Circular dependency detected:
   UserService → AuthService → TokenService → UserService
 ```
 
 **Thiếu type hint:**
-```
+
+```text
 Missing Type Hint
   Class: UserService
   Parameter: repository

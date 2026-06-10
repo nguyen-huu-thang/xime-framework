@@ -13,7 +13,7 @@ Socket Adapter thêm hỗ trợ **Unix Domain Socket (UDS)** cho XIME — một 
 gọi một worker nặng về tính toán (mã hoá, nén, xử lý video, hashing) mà không cần
 overhead của TCP.
 
-```
+```text
 Python Service  ──UDS──►  Native Engine (C++/Rust/Go)
                   nhanh      tính toán nặng
 ```
@@ -26,7 +26,7 @@ Python Service  ──UDS──►  Native Engine (C++/Rust/Go)
 ## Khi nào dùng
 
 | Dùng UDS (Socket Adapter) | Dùng gRPC hoặc HTTP |
-|---|---|
+| --- | --- |
 | IPC cùng máy, cùng host | Giao tiếp service-to-service qua mạng |
 | Native Engine (C++/Rust/Go) như local worker | Giao tiếp microservice chuẩn |
 | Streaming file / nhị phân (mã hoá, video) | Public API |
@@ -268,7 +268,7 @@ pip install "xime[socket]"   # thêm msgpack
 
 Protocol dùng **header cố định 16 byte + payload**:
 
-```
+```text
 ┌────────┬─────────┬──────────┬──────────────┬─────────────┬───────────────┐
 │ MAGIC  │ VERSION │ MSG_TYPE │  SESSION_ID  │ PAYLOAD_LEN │   PAYLOAD     │
 │  "XM"  │  0x01   │  1 byte  │  8-byte u64  │  4-byte u32 │  variable     │

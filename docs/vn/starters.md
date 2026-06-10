@@ -249,7 +249,6 @@ configure_controllers("api.rest")
 configure_scheduler()
 ```
 
-
 ---
 
 [← Transaction](transaction.md) · **6/9 — Starters** · [Testing →](testing.md)

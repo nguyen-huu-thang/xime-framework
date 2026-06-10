@@ -55,7 +55,7 @@ class UserController:
 ## Route Decorators
 
 | Decorator | HTTP Method |
-|---|---|
+| --- | --- |
 | `@get(path, ...)` | GET |
 | `@post(path, ...)` | POST |
 | `@put(path, ...)` | PUT |
@@ -117,7 +117,7 @@ There is no `@Controller` annotation. The decorators on methods are the signal.
 
 XIME registers routes **after** all singletons are created, inside the FastAPI lifespan:
 
-```
+```text
 WebAdapter.build() → creates FastAPI app with lifespan
 [uvicorn starts]
   lifespan begins
@@ -219,7 +219,6 @@ async def get_user(self, user_id: int) -> UserResponse: ...
 - **Exception → HTTP status mapping** — unhandled exceptions return 500; custom error mapping is not yet built in
 - **`__all__` not respected by controller scanner** — all controller classes in the package are found regardless of `__all__`
 - **WebSocket and gRPC routing** — not yet in scope for class-based controllers
-
 
 ---
 

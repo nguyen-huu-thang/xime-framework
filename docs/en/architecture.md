@@ -8,7 +8,7 @@
 
 ## Layered Overview
 
-```
+```text
 Application Code   ← your business logic, controllers, use cases
       ↓
    XIME Core       ← scanning, DI, lifecycle, config, event, security
@@ -24,7 +24,7 @@ XIME sits between your application code and the DI runtime. It automates everyth
 
 ## Core Modules
 
-```
+```text
 core/
 ├── bootstrap/    ← Application entry point, startup orchestration
 ├── container/    ← Package scanning, type resolution, dependency graph
@@ -51,7 +51,7 @@ Adapters translate between protocols and XIME Core. Each adapter:
 3. Calls the appropriate handler (controller, service handler)
 4. Tears down context after the call
 
-```
+```text
 adapters/
 ├── web/           ← HTTP + WebSocket via FastAPI (ASGI)
 │   ├── openapi/   ← OpenAPI config, security schemes
@@ -68,7 +68,7 @@ adapters/
 
 Optional integration modules, similar to `spring-boot-starter-*`.
 
-```
+```text
 starters/
 ├── sqlalchemy/   ← AsyncSession, SqlAlchemyTransactionManager
 ├── redis/        ← Redis client
@@ -83,7 +83,7 @@ Starters depend on Core but are not required. They register their components int
 
 ## Startup Pipeline
 
-```
+```text
 Application.start()
   │
   ├─ 1. Load BindingConfig     (from config/dependency.py)
@@ -107,13 +107,14 @@ Step 6 is the key differentiator — validation happens **before** any singleton
 
 The graph is a directed acyclic graph (DAG) of constructor dependencies.
 
-```
+```text
 UserController → GetUserUseCase → UserRepository (Protocol)
                                         ↓ (binding)
                                JpaUserRepository
 ```
 
 XIME builds this graph by:
+
 1. Inspecting `__init__` signature of each scanned class
 2. Reading type hints of each parameter
 3. Resolving Protocol → concrete class via the binding registry
@@ -126,7 +127,7 @@ XIME builds this graph by:
 XIME uses a two-layer config model:
 
 | Layer | Who writes it | Format | Purpose |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Framework config | Developer | Python | DI scan, bindings, routing, security |
 | Runtime config | Operator | YAML | host, port, DB URL, secrets |
 
@@ -199,7 +200,6 @@ dependency.bind({UserRepository: FakeUserRepository})
 - Does not create a new ORM, HTTP server, or gRPC runtime
 
 XIME orchestrates these tools. It does not replace them.
-
 
 ---
 

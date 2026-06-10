@@ -55,7 +55,7 @@ class UserController:
 ## Route Decorator
 
 | Decorator | HTTP Method |
-|---|---|
+| --- | --- |
 | `@get(path, ...)` | GET |
 | `@post(path, ...)` | POST |
 | `@put(path, ...)` | PUT |
@@ -117,7 +117,7 @@ Không có annotation `@Controller`. Decorator trên method là tín hiệu.
 
 XIME đăng ký route **sau** khi tất cả singleton được tạo, bên trong FastAPI lifespan:
 
-```
+```text
 WebAdapter.build() → tạo FastAPI app với lifespan
 [uvicorn khởi động]
   lifespan bắt đầu
@@ -219,7 +219,6 @@ async def get_user(self, user_id: int) -> UserResponse: ...
 - **Exception → HTTP status mapping** — exception chưa được xử lý sẽ trả về 500; chưa có cơ chế map lỗi tùy chỉnh
 - **`__all__` không được controller scanner tôn trọng** — tất cả controller class trong package đều được tìm bất kể `__all__`
 - **WebSocket và gRPC routing** — chưa trong scope của class-based controller
-
 
 ---
 

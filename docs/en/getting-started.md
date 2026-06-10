@@ -40,7 +40,7 @@ pip install -e .
 
 A minimal XIME application needs just one file:
 
-```
+```text
 my-service/
 └── app/
     └── main.py
@@ -48,7 +48,7 @@ my-service/
 
 It is recommended to add `config/` for DI configuration and `test/` for tests:
 
-```
+```text
 my-service/
 └── app/
     ├── main.py
@@ -58,7 +58,7 @@ my-service/
 
 The recommended full structure for a microservice:
 
-```
+```text
 my-service/
 ├── app/
 │   ├── main.py
@@ -279,7 +279,7 @@ All this happens before the first request. If anything is misconfigured, you get
 
 Missing implementation binding:
 
-```
+```text
 No Implementation Found
   Interface: UserRepository
   Hint: declare dependency.bind({UserRepository: YourImpl}) in config/dependency.py
@@ -287,14 +287,14 @@ No Implementation Found
 
 Circular dependency:
 
-```
+```text
 Circular dependency detected:
   UserService → AuthService → TokenService → UserService
 ```
 
 Missing type hint:
 
-```
+```text
 Missing Type Hint
   Class: GetUserUseCase
   Parameter: repository
@@ -306,7 +306,6 @@ Missing Type Hint
 ## Next Steps
 
 Follow the link below to continue reading.
-
 
 ---
 

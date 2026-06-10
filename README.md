@@ -46,7 +46,7 @@ XIME fills that gap. It does not replace FastAPI or SQLAlchemy — it makes them
 
 ## How It Works
 
-```
+```text
 Application Code
       ↓
    XIME Core          ← scanning, DI, lifecycle, config
@@ -149,7 +149,7 @@ python app/main.py
 ## Features
 
 | Feature | Description |
-|---|---|
+| --- | --- |
 | **Constructor Injection** | Declare dependencies as constructor params — XIME wires them |
 | **Directory-Driven DI** | Package location determines component role — no annotations |
 | **Interface Binding** | Explicit `Protocol` → implementation mapping, validated at startup |
@@ -173,7 +173,7 @@ python app/main.py
 Optional modules, similar to `spring-boot-starter-*`:
 
 | Starter | What it provides | Status |
-|---|---|---|
+| --- | --- | --- |
 | `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager` | ✅ Implemented |
 | `xime.starters.jwt` | JWT signing, verification, middleware | ✅ Implemented |
 | `xime.starters.scheduler` | Cron-style task scheduling | ✅ Implemented |
@@ -194,7 +194,7 @@ Optional modules, similar to `spring-boot-starter-*`:
 
 ## Project Status
 
-XIME is in **active development**. The following are implemented: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing), gRPC adapter (proto-first + **code-first**), **Socket adapter** (Unix Domain Socket IPC), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial. Redis and Cache starters are planned. The framework is not yet published to PyPI.
+XIME is in **active development**. The following are implemented: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing), gRPC adapter (proto-first + **code-first**), **Socket adapter** (Unix Domain Socket IPC), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial. Redis and Cache starters are planned.
 
 ---
 
@@ -216,7 +216,7 @@ Please read [CONTRIBUTING](docs/en/contributing.md) before opening a PR.
 ## Documentation
 
 | Document | Description |
-|---|---|
+| --- | --- |
 | [Getting Started](docs/en/getting-started.md) | First app in 5 minutes |
 | [Architecture](docs/en/architecture.md) | How XIME is structured internally |
 | [Core Concepts](docs/en/core-concepts.md) | DI, interface binding, scopes |

@@ -14,7 +14,7 @@ XIME hỗ trợ hai chế độ phát triển gRPC:
 Với Code-First, Python code là **nguồn chân lý duy nhất**. Bạn không bao giờ phải viết
 hay duy trì file `.proto` thủ công.
 
-```
+```text
 Controller + DTO  →  xime grpc generate  →  .proto + Python stubs
                                               ↓
                                          GrpcAdapter phục vụ
@@ -102,7 +102,7 @@ xime grpc generate
 
 Lệnh này tạo ra:
 
-```
+```text
 generated/
 └── public/
     ├── crypto.proto
@@ -215,6 +215,7 @@ XIME giải quyết bằng `proto.lock.json`:
 ```
 
 **Quy tắc:**
+
 - Field đã có trong lock giữ số cũ mãi mãi.
 - Field mới nhận số kế tiếp, bỏ qua số đã reserved.
 - Field bị xoá trở thành `reserved` — số đó không bao giờ được tái dùng.
@@ -237,7 +238,7 @@ message UserResponse {
 ## Ánh xạ kiểu
 
 | Python | Proto | Ghi chú |
-|---|---|---|
+| --- | --- | --- |
 | `str` | `string` | |
 | `bytes` | `bytes` | |
 | `bool` | `bool` | |
@@ -272,7 +273,7 @@ Kiểu không hỗ trợ raise `UnsupportedTypeError` lúc generate, không ph�
 Khi một DTO được dùng bởi hai controller trở lên cùng `server_id`, XIME tự động đặt
 nó vào `common.proto`:
 
-```
+```text
 generated/public/
 ├── crypto.proto     # import common.proto
 ├── user.proto       # import common.proto
@@ -299,7 +300,7 @@ xime grpc check
 So sánh proto *sẽ được sinh* với proto đang có trên đĩa. Trả exit code 1 nếu có sự
 khác biệt. Dùng làm CI gate để bắt "DTO đã sửa nhưng chưa generate lại":
 
-```
+```text
 Proto Out Of Date
   File: generated/public/crypto.proto
   Hint: chạy `xime grpc generate`

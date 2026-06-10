@@ -10,7 +10,7 @@ The Socket Adapter adds **Unix Domain Socket (UDS)** support to XIME — a low-o
 
 This is not a replacement for the HTTP or gRPC adapters. It solves a specific problem: calling a compute-intensive local worker (encryption, compression, video transcoding, hashing) without the network stack overhead of TCP.
 
-```
+```text
 Python Service  ──UDS──►  Native Engine (C++/Rust/Go)
                   fast        cpu-intensive
 ```
@@ -22,7 +22,7 @@ Python Service  ──UDS──►  Native Engine (C++/Rust/Go)
 ## When to Use
 
 | Use UDS (Socket Adapter) | Use gRPC or HTTP |
-|---|---|
+| --- | --- |
 | Same-machine, same-host IPC | Service-to-service across hosts |
 | Native Engine (C++/Rust/Go) as a local worker | Standard microservice communication |
 | File / binary streaming (encryption, video) | Public APIs |
@@ -254,7 +254,7 @@ pip install "xime[socket]"   # adds msgpack
 
 The protocol uses a **16-byte fixed header + payload**:
 
-```
+```text
 ┌────────┬─────────┬──────────┬──────────────┬─────────────┬───────────────┐
 │ MAGIC  │ VERSION │ MSG_TYPE │  SESSION_ID  │ PAYLOAD_LEN │   PAYLOAD     │
 │  "XM"  │  0x01   │  1 byte  │  8-byte u64  │  4-byte u32 │  variable     │

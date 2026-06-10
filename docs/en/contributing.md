@@ -23,6 +23,7 @@ Thank you for considering contributing to XIME. This is a solo project and commu
 ### Report a Bug
 
 Open an issue with:
+
 - What you expected
 - What actually happened
 - A minimal reproducible example (code + error message)
@@ -30,6 +31,7 @@ Open an issue with:
 ### Suggest a Feature
 
 Open an issue describing:
+
 - The problem you want to solve
 - How you imagine the API would look
 - Why it fits XIME's philosophy (explicit, fail-fast, no magic)
@@ -62,7 +64,7 @@ Areas that need work, roughly in priority order:
 ### High Priority
 
 | Area | Description | Difficulty |
-|---|---|---|
+| --- | --- | --- |
 | **gRPC Adapter** | Class-based gRPC service handlers, similar to controller pattern | Medium |
 | **WebSocket support** | WebSocket routing and context management | Medium |
 | **Exception → HTTP mapping** | Map domain exceptions to HTTP status codes automatically | Low |
@@ -71,7 +73,7 @@ Areas that need work, roughly in priority order:
 ### Medium Priority
 
 | Area | Description | Difficulty |
-|---|---|---|
+| --- | --- | --- |
 | **Redis starter** | Redis client integration with config binding | Low |
 | **Cache starter** | Cache abstraction backed by Redis or in-memory | Medium |
 | **Request scope** | `Request`-scoped DI instances (one per HTTP request) | High |
@@ -81,7 +83,7 @@ Areas that need work, roughly in priority order:
 ### Lower Priority
 
 | Area | Description | Difficulty |
-|---|---|---|
+| --- | --- | --- |
 | **MQ adapter** | RabbitMQ / Kafka integration | High |
 | **Savepoints (nested transactions)** | True nested transaction support | High |
 | **`@job` registration improvements** | Better ergonomics for scheduler jobs | Low |
@@ -92,7 +94,7 @@ Areas that need work, roughly in priority order:
 
 ## Project Structure
 
-```
+```text
 core/           ← No external dependencies except python-dependency-injector
 adapters/       ← Protocol-specific integration (FastAPI, gRPC, ...)
 starters/       ← Optional integrations (SQLAlchemy, JWT, ...)
@@ -119,7 +121,6 @@ These rules are non-negotiable for contributions that touch Core or adapters:
 ## Questions?
 
 Open an issue labeled `question`. There are no stupid questions — the design is intentionally different from most Python frameworks and deserves discussion.
-
 
 ---
 

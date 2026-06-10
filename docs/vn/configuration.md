@@ -16,7 +16,7 @@ Framework configuration được viết bằng Python. Nó khai báo cách XIME 
 
 Vị trí: `app/config/`
 
-```
+```text
 config/
 ├── dependency.py   ← DI: scan + bind
 ├── routing.py      ← đăng ký controller
@@ -79,7 +79,7 @@ Runtime configuration là YAML. Nó chứa giá trị theo môi trường: host,
 
 Vị trí: `app/resources/`
 
-```
+```text
 resources/
 ├── application.yml          ← base config (luôn được nạp)
 ├── application-dev.yml      ← override cho dev (khi XIME_ENV=dev)
@@ -201,7 +201,6 @@ app = Application(
     config_module="infra.di_config",   # mặc định: None (tự detect từ package của __main__)
 )
 ```
-
 
 ---
 

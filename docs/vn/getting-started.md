@@ -40,7 +40,7 @@ pip install -e .
 
 Một ứng dụng XIME tối thiểu chỉ cần một file:
 
-```
+```text
 my-service/
 └── app/
     └── main.py
@@ -48,7 +48,7 @@ my-service/
 
 Nên có thêm `config/` để cấu hình DI và `test/` để kiểm thử:
 
-```
+```text
 my-service/
 └── app/
     ├── main.py
@@ -58,7 +58,7 @@ my-service/
 
 Cấu trúc đầy đủ khuyến nghị cho microservice:
 
-```
+```text
 my-service/
 ├── app/
 │   ├── main.py
@@ -279,7 +279,7 @@ Tất cả điều này xảy ra trước request đầu tiên. Nếu có gì sa
 
 Thiếu implementation binding:
 
-```
+```text
 No Implementation Found
   Interface: UserRepository
   Hint: declare dependency.bind({UserRepository: YourImpl}) in config/dependency.py
@@ -287,14 +287,14 @@ No Implementation Found
 
 Circular dependency:
 
-```
+```text
 Circular dependency detected:
   UserService → AuthService → TokenService → UserService
 ```
 
 Thiếu type hint:
 
-```
+```text
 Missing Type Hint
   Class: GetUserUseCase
   Parameter: repository
@@ -306,7 +306,6 @@ Missing Type Hint
 ## Bước tiếp theo
 
 Nhấn link bên dưới để đọc trang tiếp theo.
-
 
 ---
 

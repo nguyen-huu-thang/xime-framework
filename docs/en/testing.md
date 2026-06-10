@@ -166,7 +166,6 @@ Use a test database (separate URL, wiped between test runs) rather than mocking 
 
 More testing utilities will be added as the framework matures.
 
-
 ---
 
 [← Starters](starters.md) · **7/9 — Testing** · [Architecture →](architecture.md)

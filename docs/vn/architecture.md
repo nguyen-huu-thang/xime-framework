@@ -8,7 +8,7 @@
 
 ## Tổng quan tầng
 
-```
+```text
 Application Code   ← nghiệp vụ, controller, use case của bạn
       ↓
    XIME Core       ← scanning, DI, lifecycle, config, event, security
@@ -24,7 +24,7 @@ XIME nằm giữa code ứng dụng và DI runtime. Nó tự động hóa mọi 
 
 ## Core Modules
 
-```
+```text
 core/
 ├── bootstrap/    ← Entry point ứng dụng, điều phối startup
 ├── container/    ← Package scanning, type resolution, dependency graph
@@ -51,7 +51,7 @@ Adapter dịch giữa giao thức và XIME Core. Mỗi adapter:
 3. Gọi handler tương ứng (controller, service handler)
 4. Dọn dẹp context sau khi xử lý xong
 
-```
+```text
 adapters/
 ├── web/           ← HTTP + WebSocket qua FastAPI (ASGI)
 │   ├── openapi/   ← Cấu hình OpenAPI, security scheme
@@ -68,7 +68,7 @@ adapters/
 
 Module tích hợp tùy chọn, tương tự `spring-boot-starter-*` trong Spring Boot.
 
-```
+```text
 starters/
 ├── sqlalchemy/   ← AsyncSession, SqlAlchemyTransactionManager
 ├── redis/        ← Redis client
@@ -83,7 +83,7 @@ Starter phụ thuộc vào Core nhưng không bắt buộc. Chúng đăng ký co
 
 ## Trình tự Startup
 
-```
+```text
 Application.start()
   │
   ├─ 1. Load BindingConfig     (từ config/dependency.py)
@@ -107,13 +107,14 @@ Bước 6 là điểm khác biệt chính — validation xảy ra **trước** k
 
 Graph là directed acyclic graph (DAG) của các dependency constructor.
 
-```
+```text
 UserController → GetUserUseCase → UserRepository (Protocol)
                                         ↓ (binding)
                                JpaUserRepository
 ```
 
 XIME xây dựng graph bằng cách:
+
 1. Inspect signature `__init__` của mỗi class được scan
 2. Đọc type hint của mỗi tham số
 3. Giải quyết Protocol → concrete class qua binding registry
@@ -126,7 +127,7 @@ XIME xây dựng graph bằng cách:
 XIME dùng mô hình config hai tầng:
 
 | Tầng | Người viết | Định dạng | Mục đích |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Framework config | Developer | Python | DI scan, binding, routing, security |
 | Runtime config | Operator | YAML | host, port, DB URL, secret |
 
@@ -199,7 +200,6 @@ dependency.bind({UserRepository: FakeUserRepository})
 - Không tạo ORM, HTTP server hay gRPC runtime mới
 
 XIME điều phối các công cụ này. Nó không thay thế chúng.
-
 
 ---
 

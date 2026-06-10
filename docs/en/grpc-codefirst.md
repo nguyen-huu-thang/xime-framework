@@ -13,7 +13,7 @@ XIME supports two gRPC development modes:
 
 With Code-First, your Python code is the **single source of truth**. You never write or maintain `.proto` files manually.
 
-```
+```text
 Controller + DTO  →  xime grpc generate  →  .proto + Python stubs
                                               ↓
                                          GrpcAdapter serves it
@@ -98,7 +98,7 @@ xime grpc generate
 
 This produces:
 
-```
+```text
 generated/
 └── public/
     ├── crypto.proto
@@ -207,6 +207,7 @@ XIME solves this with `proto.lock.json`:
 ```
 
 **Rules:**
+
 - Fields already in the lock keep their number forever.
 - New fields get the next available number, skipping reserved ones.
 - Deleted fields become `reserved` — their number is never reused.
@@ -229,7 +230,7 @@ message UserResponse {
 ## Type Mapping
 
 | Python | Proto | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `str` | `string` | |
 | `bytes` | `bytes` | |
 | `bool` | `bool` | |
@@ -263,7 +264,7 @@ Unsupported types raise `UnsupportedTypeError` at generate time, not at runtime.
 
 When a DTO is used by two or more controllers in the same `server_id`, XIME places it in `common.proto` automatically:
 
-```
+```text
 generated/public/
 ├── crypto.proto     # imports common.proto
 ├── user.proto       # imports common.proto
@@ -289,7 +290,7 @@ xime grpc check
 
 Compares the proto that *would* be generated against what is on disk. Exits with code 1 if anything differs. Use this as a CI gate to catch "DTO changed but proto not regenerated":
 
-```
+```text
 Proto Out Of Date
   File: generated/public/crypto.proto
   Hint: run `xime grpc generate`

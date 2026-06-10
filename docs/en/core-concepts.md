@@ -24,6 +24,7 @@ class UserService:
 XIME reads the type hints, resolves each dependency, and creates the object — you never call `UserService(...)` yourself.
 
 **Rules:**
+
 - Every parameter must have a type hint. A missing hint means XIME cannot resolve it, and the class is treated as outside the DI system.
 - No `@inject`, no `@autowired`, no field injection.
 
@@ -34,7 +35,7 @@ XIME reads the type hints, resolves each dependency, and creates the object — 
 Annotation-based discovery (`@Service`, `@Component`) is replaced by directory-based discovery:
 
 | Directory | Role |
-|---|---|
+| --- | --- |
 | `application/usecase/` | Use case layer |
 | `application/service/` | Application service layer |
 | `infrastructure/repository/` | Repository layer |
@@ -105,7 +106,7 @@ dependency.bind({
 
 XIME validates at startup that `JpaUserRepository` implements all methods declared in `UserRepository`. If a method is missing, startup fails:
 
-```
+```text
 Binding Validation Failed
   Protocol: UserRepository
   Implementation: JpaUserRepository
@@ -122,7 +123,7 @@ Binding Validation Failed
 ## 5. Dependency Scopes
 
 | Scope | Description | Default |
-|---|---|---|
+| --- | --- | --- |
 | `Singleton` | One instance for the entire application lifetime | Yes |
 | `Factory` | New instance on every call | No |
 
@@ -135,14 +136,16 @@ All services, use cases, and repositories are singletons by default. Factory sco
 XIME validates the entire dependency graph before creating any object. Startup fails immediately with a descriptive error for:
 
 **Missing implementation:**
-```
+
+```text
 No Implementation Found
   Interface: UserRepository
   Hint: add dependency.bind({UserRepository: YourImpl}) in config/dependency.py
 ```
 
 **Ambiguous implementation** (multiple candidates, no explicit binding):
-```
+
+```text
 Multiple Implementations Found
   Interface: UserRepository
   Candidates: JpaUserRepository, RedisUserRepository
@@ -150,13 +153,15 @@ Multiple Implementations Found
 ```
 
 **Circular dependency:**
-```
+
+```text
 Circular dependency detected:
   UserService → AuthService → TokenService → UserService
 ```
 
 **Missing type hint:**
-```
+
+```text
 Missing Type Hint
   Class: UserService
   Parameter: repository

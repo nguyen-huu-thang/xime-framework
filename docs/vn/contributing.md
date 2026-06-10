@@ -23,6 +23,7 @@ Cảm ơn bạn đã cân nhắc đóng góp cho XIME. Đây là dự án cá nh
 ### Báo cáo Bug
 
 Mở issue với:
+
 - Bạn mong đợi điều gì
 - Điều gì thực sự xảy ra
 - Ví dụ tối giản có thể tái tạo (code + thông báo lỗi)
@@ -30,6 +31,7 @@ Mở issue với:
 ### Đề xuất tính năng
 
 Mở issue mô tả:
+
 - Vấn đề bạn muốn giải quyết
 - Bạn tưởng tượng API trông như thế nào
 - Tại sao nó phù hợp triết lý XIME (explicit, fail-fast, no magic)
@@ -62,7 +64,7 @@ Các mảng cần làm, theo thứ tự ưu tiên:
 ### Ưu tiên cao
 
 | Mảng | Mô tả | Độ khó |
-|---|---|---|
+| --- | --- | --- |
 | **gRPC Adapter** | Class-based gRPC service handler, tương tự pattern controller | Trung bình |
 | **WebSocket support** | WebSocket routing và context management | Trung bình |
 | **Exception → HTTP mapping** | Map domain exception đến HTTP status code tự động | Thấp |
@@ -71,7 +73,7 @@ Các mảng cần làm, theo thứ tự ưu tiên:
 ### Ưu tiên trung bình
 
 | Mảng | Mô tả | Độ khó |
-|---|---|---|
+| --- | --- | --- |
 | **Redis starter** | Redis client tích hợp với config binding | Thấp |
 | **Cache starter** | Cache abstraction backed by Redis hoặc in-memory | Trung bình |
 | **Request scope** | DI instance theo `Request`-scope (một per HTTP request) | Cao |
@@ -81,7 +83,7 @@ Các mảng cần làm, theo thứ tự ưu tiên:
 ### Ưu tiên thấp hơn
 
 | Mảng | Mô tả | Độ khó |
-|---|---|---|
+| --- | --- | --- |
 | **MQ adapter** | Tích hợp RabbitMQ / Kafka | Cao |
 | **Savepoint (nested transaction)** | Hỗ trợ nested transaction thực sự | Cao |
 | **Cải thiện `@job`** | Ergonomics tốt hơn cho scheduler job | Thấp |
@@ -92,7 +94,7 @@ Các mảng cần làm, theo thứ tự ưu tiên:
 
 ## Cấu trúc dự án
 
-```
+```text
 core/           ← Không có external dependency ngoài python-dependency-injector
 adapters/       ← Tích hợp theo giao thức (FastAPI, gRPC, ...)
 starters/       ← Tích hợp tùy chọn (SQLAlchemy, JWT, ...)
@@ -119,7 +121,6 @@ Các quy tắc này không thể thương lượng cho đóng góp chạm vào C
 ## Câu hỏi?
 
 Mở issue với nhãn `question`. Không có câu hỏi nào là ngớ ngẩn — thiết kế này cố tình khác phần lớn Python framework và xứng đáng được thảo luận.
-
 
 ---
 

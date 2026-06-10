@@ -16,7 +16,7 @@ Framework configuration is written in Python. It declares how XIME should behave
 
 Location: `app/config/`
 
-```
+```text
 config/
 ├── dependency.py   ← DI: scan + bind
 ├── routing.py      ← controller registration
@@ -79,7 +79,7 @@ Runtime configuration is YAML. It contains environment-specific values: hosts, p
 
 Location: `app/resources/`
 
-```
+```text
 resources/
 ├── application.yml          ← base config (always loaded)
 ├── application-dev.yml      ← dev overrides (loaded when XIME_ENV=dev)
@@ -201,7 +201,6 @@ app = Application(
     config_module="infra.di_config",   # default: None (auto-detected from __main__ package)
 )
 ```
-
 
 ---
 

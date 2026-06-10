@@ -127,7 +127,6 @@ Spring's `@transactional` works via AOP bytecode proxies — a mechanism that do
 
 The `async with self.transaction():` approach makes the boundary obvious, the stack trace clean, and the test straightforward.
 
-
 ---
 
 [← Routing](routing.md) · **5/9 — Transaction** · [Starters →](starters.md)

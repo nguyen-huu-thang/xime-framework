@@ -127,7 +127,6 @@ async with self.transaction(isolation="SERIALIZABLE"):
 
 Cách tiếp cận `async with self.transaction():` làm boundary rõ ràng, stack trace sạch và test đơn giản.
 
-
 ---
 
 [← Routing](routing.md) · **5/9 — Transaction** · [Starters →](starters.md)

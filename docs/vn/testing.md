@@ -160,12 +160,11 @@ Dùng test database (URL riêng, xóa sạch giữa các lần chạy test) thay
 ## Module `xime.testing`
 
 | Tiện ích | Mô tả |
-|---|---|
+| --- | --- |
 | `FakeTransactionManager` | Transaction no-op cho unit test |
 | `override_binding(cls, fake)` | Tạm thời thay thế DI binding |
 
 Thêm testing utility sẽ được bổ sung khi framework trưởng thành.
-
 
 ---
 
