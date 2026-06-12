@@ -10,7 +10,9 @@
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://pypi.org/project/xime/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[English](README.md) · [Tiếng Việt](README-vn.md) · [Tài liệu](docs/vn/getting-started.md) · [Ví dụ](#-dự-án-ví-dụ)
+[English](README.md) | **Tiếng Việt**
+
+[Tài liệu](docs/vn/getting-started.md) · [Ví dụ](#-dự-án-ví-dụ)
 
 </div>
 
