@@ -208,7 +208,9 @@ PreDestroy.register(DatabasePool, "on_stop")
 
 ## 9. Event Bus
 
-The internal event bus decouples components that should not directly depend on each other:
+The internal event bus decouples components that should not directly depend on each other.
+`publish()` is **fire and forget** — it schedules every handler as an independent background
+task and returns immediately without waiting for them to complete.
 
 ```python
 from xime.event import EventBus, EventHandler
@@ -217,12 +219,12 @@ class UserCreatedEvent:
     def __init__(self, user_id: int) -> None:
         self.user_id = user_id
 
-class NotificationHandler(EventHandler[UserCreatedEvent]):
+class NotificationHandler:
     async def handle(self, event: UserCreatedEvent) -> None:
         await send_welcome_email(event.user_id)
 ```
 
-Publish from a use case:
+Publish from a use case — the caller is not blocked:
 
 ```python
 class CreateUserUseCase:
@@ -233,7 +235,26 @@ class CreateUserUseCase:
     async def execute(self, command: CreateUserCommand) -> User:
         user = await self._repository.save(User(...))
         await self._bus.publish(UserCreatedEvent(user.id))
+        # returns here — handlers run in the background
         return user
+```
+
+Multiple handlers for the same event run concurrently. If a handler raises, the exception
+is logged and does not affect other handlers or the publisher.
+
+Register handlers explicitly, typically in a `PostConstruct` hook:
+
+```python
+event_bus.subscribe(UserCreatedEvent, notification_handler)
+event_bus.subscribe(UserCreatedEvent, audit_handler)
+```
+
+**Testing** — use `drain()` to wait for all in-flight handlers before asserting:
+
+```python
+await use_case.execute(command)
+await event_bus.drain()
+assert notification_mock.called
 ```
 
 ---

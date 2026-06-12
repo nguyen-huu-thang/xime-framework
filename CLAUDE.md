@@ -4,7 +4,7 @@ File này cung cấp hướng dẫn cho Claude Code khi làm việc với dự �
 
 ## Tổng quan dự án
 
-**XIME** là một Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot nhưng vẫn tôn trọng triết lý Python. Dự án hiện đang trong **giai đoạn thiết kế/lên kế hoạch** — cấu trúc thư mục đã có nhưng các file triển khai chưa được viết.
+**XIME** là một Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot nhưng vẫn tôn trọng triết lý Python. Framework đã **hoàn thiện ~95%** — toàn bộ core, các adapter chính và starters đã được triển khai đầy đủ.
 
 XIME không thay thế FastAPI, SQLAlchemy hay gRPC. Nó cung cấp một tầng kiến trúc phía trên các thư viện này để tự động hóa dependency injection, chuẩn hóa cấu trúc dự án và quản lý vòng đời component.
 
@@ -17,37 +17,36 @@ Application Code
         ↓
       Xime Core
         ↓
-Dependency Injector (python-dependency-injector)
+  DI Container (core/container)
         ↓
 Python Objects
 ```
 
 **Core** (`core/`) — Nền tảng framework, không phụ thuộc vào adapter:
 
-- `container/` — Quét package, phân giải type hint, xây dựng và kiểm tra dependency graph
-- `context/` — Dữ liệu theo phạm vi request thông qua `ContextVar`
-- `lifecycle/` — Hook khởi động/tắt (`PostConstruct`, `PreDestroy`)
-- `event/` — Event bus nội bộ
-- `security/` — `SecurityContext`, `AuthenticationManager`, `AuthorizationManager`
-- `config/` — Hệ thống cấu hình hai tầng
 - `bootstrap/` — Điểm khởi động ứng dụng và điều phối startup
-- `metadata/` — Tiện ích type metadata
+- `container/` — Logic DI tự viết: quét package, phân giải type hint, xây dựng và kiểm tra dependency graph (lớp lưu trữ/khởi tạo singleton bên dưới dùng `dependency-injector`)
+- `config/` — Hệ thống cấu hình hai tầng (YAML + env vars)
+- `context/` — Dữ liệu theo phạm vi request thông qua `ContextVar`
+- `contract/` — Định nghĩa endpoint contract dùng chung cho Socket và gRPC code-first
+- `lifecycle/` — Hook khởi động/tắt (`PostConstruct`, `PreDestroy`)
+- `event/` — Event bus nội bộ (fire and forget, async background tasks)
+- `security/` — `SecurityContext`, `AuthenticationManager`, `AuthorizationManager`
+- `transaction/` — `TransactionManager`, `TransactionContext`
+- `metadata/` — Tiện ích type metadata và reflection
 - `exception/` — Hệ thống phân cấp exception của framework
 
 **Adapters** (`adapters/`) — Tích hợp giao thức, mỗi adapter thiết lập request `Context`:
 
-- `fastapi/` — HTTP server, routing, middleware, OpenAPI
-- `grpc/` — gRPC server thông qua `grpc.aio`
-- `mq/` — Tích hợp message queue
-- `websocket/` — Hỗ trợ WebSocket
+- `web/` — HTTP server (FastAPI), routing decorators (`@get`, `@post`, `@ws`), middleware, OpenAPI/Swagger, WebSocket
+- `grpc/` — gRPC server thông qua `grpc.aio`, code-first proto generation, TLS/mTLS, interceptors
+- `socket/` — Unix domain socket RPC, frame protocol, peer authentication (Linux SO_PEERCRED)
 
 **Starters** (`starters/`) — Module quickstart tùy chọn, tương tự `spring-boot-starter-*`:
 
-- `sqlalchemy/` — Async DB session, `SqlAlchemyTransactionManager`
-- `redis/` — Redis client
-- `jwt/` — Xác thực JWT
-- `cache/` — Abstraction caching
-- `scheduler/` — Lập lịch tác vụ
+- `sqlalchemy/` — Async DB session, `TransactionProvider`, `@transactional`
+- `jwt/` — Xác thực JWT (RSA / HS256), middleware tự động
+- `scheduler/` — Lập lịch tác vụ (APScheduler), cron và interval jobs
 
 **Testing** (`testing/`) — Tiện ích test và DI overrides.
 
@@ -73,10 +72,14 @@ Python Objects
 XIME xây dựng trên (không viết lại):
 
 - **FastAPI** — HTTP, routing, OpenAPI, middleware, lifespan
-- **python-dependency-injector** — `Singleton`, `Factory`, `Resource` providers lúc runtime
 - **Pydantic** — Validation, serialization, định nghĩa DTO/command, config binding
 - **SQLAlchemy** (qua starter) — `AsyncSession`, ORM
 - **grpc.aio** (qua adapter) — gRPC server
+- **PyJWT** (qua starter) — JWT signing và verification
+- **APScheduler** (qua starter) — Task scheduling
+- **dependency-injector** — chỉ làm lớp lưu trữ provider bên dưới (xem ghi chú phía dưới)
+
+> **Về DI container:** Toàn bộ *logic* DI (quét package, phân giải type hint, dựng/kiểm tra dependency graph, topological sort, phát hiện circular dependency) được **tự viết** trong `core/container/`. Framework chỉ dùng thư viện `dependency-injector` ở một điểm duy nhất — `core/container/registry.py` — làm lớp lưu trữ/khởi tạo singleton bên dưới (`DynamicContainer` + `providers.Singleton`/`providers.Object`). Các tính năng đặc trưng của thư viện (wiring `@inject`/`Provide`, `Configuration`/`Resource`/`Factory` provider, declarative container) **không** được sử dụng, và lớp backend này có thể thay bằng một dict singleton tự viết mà không ảnh hưởng kiến trúc.
 
 ---
 

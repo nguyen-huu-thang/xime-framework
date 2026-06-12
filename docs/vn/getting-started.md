@@ -252,7 +252,7 @@ app = Application(config_module="app.config.dependency")
 ## Bước 10 — Chạy ứng dụng
 
 ```bash
-python app/main.py
+python -m app.main
 ```
 
 Vào `http://localhost:8080/docs` để xem Swagger UI được tạo tự động.

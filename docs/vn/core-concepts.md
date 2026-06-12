@@ -208,7 +208,9 @@ PreDestroy.register(DatabasePool, "on_stop")
 
 ## 9. Event Bus
 
-Event bus nội bộ tách biệt các component không nên phụ thuộc trực tiếp vào nhau:
+Event bus nội bộ tách biệt các component không nên phụ thuộc trực tiếp vào nhau.
+`publish()` hoạt động theo kiểu **fire and forget** — mỗi handler được schedule như một
+background task độc lập, publisher trả về ngay mà không chờ handler hoàn thành.
 
 ```python
 from xime.event import EventBus, EventHandler
@@ -217,12 +219,12 @@ class UserCreatedEvent:
     def __init__(self, user_id: int) -> None:
         self.user_id = user_id
 
-class NotificationHandler(EventHandler[UserCreatedEvent]):
+class NotificationHandler:
     async def handle(self, event: UserCreatedEvent) -> None:
         await send_welcome_email(event.user_id)
 ```
 
-Publish từ use case:
+Publish từ use case — caller không bị block:
 
 ```python
 class CreateUserUseCase:
@@ -233,7 +235,26 @@ class CreateUserUseCase:
     async def execute(self, command: CreateUserCommand) -> User:
         user = await self._repository.save(User(...))
         await self._bus.publish(UserCreatedEvent(user.id))
+        # trả về ngay — handler chạy ở background
         return user
+```
+
+Nhiều handler cho cùng một event chạy đồng thời. Nếu handler nào raise exception,
+lỗi được log lại và không ảnh hưởng đến handler khác hay publisher.
+
+Đăng ký handler tường minh, thường trong `PostConstruct` hook:
+
+```python
+event_bus.subscribe(UserCreatedEvent, notification_handler)
+event_bus.subscribe(UserCreatedEvent, audit_handler)
+```
+
+**Testing** — dùng `drain()` để chờ tất cả handler chạy xong trước khi assert:
+
+```python
+await use_case.execute(command)
+await event_bus.drain()
+assert notification_mock.called
 ```
 
 ---

@@ -11,7 +11,7 @@ name = "xime"
 version = "0.1.0"
 description = "Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { file = "LICENSE" }
 authors = [
     { name = "Nguyễn Hữu Thắng", email = "nguyen-huu-thang@outlook.com" },
@@ -21,9 +21,9 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Framework :: FastAPI",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
@@ -113,7 +113,7 @@ addopts = "--import-mode=importlib"
 # ---------------------------------------------------------------------------
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
@@ -133,6 +133,6 @@ ignore = [
 # ---------------------------------------------------------------------------
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = false
 ignore_missing_imports = true

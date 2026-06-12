@@ -166,67 +166,19 @@ Job class là DI singleton — chúng nhận dependency qua constructor giống 
 
 ---
 
-## Redis Starter
+## Redis Starter *(Đang kế hoạch)*
 
 `xime.starters.redis`
 
-Cung cấp Redis client đã được cấu hình.
-
-### Thiết lập
-
-```yaml
-# resources/application.yml
-redis:
-  host: localhost
-  port: 6379
-  db: 0
-  password: ${REDIS_PASSWORD}
-```
-
-```python
-from xime.starters.redis import RedisClient
-
-class SessionRepository:
-    def __init__(self, redis: RedisClient) -> None:
-        self._redis = redis
-
-    async def set_session(self, key: str, data: dict, ttl: int) -> None:
-        await self._redis.set(key, json.dumps(data), ex=ttl)
-
-    async def get_session(self, key: str) -> dict | None:
-        raw = await self._redis.get(key)
-        return json.loads(raw) if raw else None
-```
+> **Chưa implement.** Dự kiến: async Redis client được cấu hình sẵn và đăng ký vào DI container.
 
 ---
 
-## Cache Starter
+## Cache Starter *(Đang kế hoạch)*
 
 `xime.starters.cache`
 
-Cung cấp cache abstraction layer. Backing implementation (Redis, in-memory, v.v.) có thể hoán đổi mà không cần thay đổi business code.
-
-```python
-from xime.starters.cache import CacheManager
-
-class ProductService:
-    def __init__(
-        self,
-        cache: CacheManager,
-        repository: ProductRepository,
-    ) -> None:
-        self._cache = cache
-        self._repository = repository
-
-    async def get_product(self, product_id: int) -> Product:
-        cached = await self._cache.get(f"product:{product_id}")
-        if cached:
-            return cached
-
-        product = await self._repository.find_by_id(product_id)
-        await self._cache.set(f"product:{product_id}", product, ttl=300)
-        return product
-```
+> **Chưa implement.** Dự kiến: cache abstraction layer với backend có thể hoán đổi (Redis, in-memory, v.v.) để business code không phụ thuộc vào implementation cache cụ thể.
 
 ---
 

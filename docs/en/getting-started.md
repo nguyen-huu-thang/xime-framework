@@ -252,7 +252,7 @@ app = Application(config_module="app.config.dependency")
 ## Step 10 — Run It
 
 ```bash
-python app/main.py
+python -m app.main
 ```
 
 Visit `http://localhost:8080/docs` for the auto-generated Swagger UI.

@@ -166,67 +166,19 @@ Job classes are DI singletons — they receive their dependencies via the constr
 
 ---
 
-## Redis Starter
+## Redis Starter *(Planned)*
 
 `xime.starters.redis`
 
-Provides a configured Redis client.
-
-### Setup
-
-```yaml
-# resources/application.yml
-redis:
-  host: localhost
-  port: 6379
-  db: 0
-  password: ${REDIS_PASSWORD}
-```
-
-```python
-from xime.starters.redis import RedisClient
-
-class SessionRepository:
-    def __init__(self, redis: RedisClient) -> None:
-        self._redis = redis
-
-    async def set_session(self, key: str, data: dict, ttl: int) -> None:
-        await self._redis.set(key, json.dumps(data), ex=ttl)
-
-    async def get_session(self, key: str) -> dict | None:
-        raw = await self._redis.get(key)
-        return json.loads(raw) if raw else None
-```
+> **Not yet implemented.** Planned: a configured async Redis client registered into the DI container.
 
 ---
 
-## Cache Starter
+## Cache Starter *(Planned)*
 
 `xime.starters.cache`
 
-Provides a cache abstraction layer. The backing implementation (Redis, in-memory, etc.) is swappable without changing business code.
-
-```python
-from xime.starters.cache import CacheManager
-
-class ProductService:
-    def __init__(
-        self,
-        cache: CacheManager,
-        repository: ProductRepository,
-    ) -> None:
-        self._cache = cache
-        self._repository = repository
-
-    async def get_product(self, product_id: int) -> Product:
-        cached = await self._cache.get(f"product:{product_id}")
-        if cached:
-            return cached
-
-        product = await self._repository.find_by_id(product_id)
-        await self._cache.set(f"product:{product_id}", product, ttl=300)
-        return product
-```
+> **Not yet implemented.** Planned: a cache abstraction layer with swappable backends (Redis, in-memory, etc.) so business code never depends on a specific cache implementation.
 
 ---
 

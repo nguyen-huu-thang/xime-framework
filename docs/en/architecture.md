@@ -13,12 +13,12 @@ Application Code   ← your business logic, controllers, use cases
       ↓
    XIME Core       ← scanning, DI, lifecycle, config, event, security
       ↓
-Dependency Injector ← runtime DI engine (python-dependency-injector)
+  DI Container     ← core/container, built-in
       ↓
 Python Objects
 ```
 
-XIME sits between your application code and the DI runtime. It automates everything above `Dependency Injector` so you never write `providers.Singleton(...)` by hand.
+XIME sits between your application code and the DI container. It automates scanning, graph building, and wiring so you never write `providers.Singleton(...)` by hand.
 
 ---
 
@@ -32,8 +32,9 @@ core/
 ├── config/       ← Two-layer config system
 ├── lifecycle/    ← PostConstruct / PreDestroy hooks
 ├── context/      ← Per-request data via ContextVar
+├── contract/     ← Shared endpoint contracts for Socket and gRPC code-first
 ├── security/     ← SecurityContext, AuthenticationManager, AuthorizationManager
-├── event/        ← Internal event bus
+├── event/        ← Internal event bus (fire and forget, background tasks)
 ├── transaction/  ← TransactionManager interface, TransactionContext
 └── exception/    ← Framework exception hierarchy
 ```
@@ -58,8 +59,8 @@ adapters/
 │   ├── routing/   ← Class-based controller registration
 │   ├── middleware/ ← Context middleware
 │   └── ws/        ← WebSocket support
-├── grpc/          ← gRPC server via grpc.aio
-└── mq/            ← Message queue integration
+├── grpc/          ← gRPC server via grpc.aio, code-first proto generation, TLS/mTLS
+└── socket/        ← Unix Domain Socket IPC, frame protocol, peer authentication (Linux)
 ```
 
 ---
@@ -70,11 +71,11 @@ Optional integration modules, similar to `spring-boot-starter-*`.
 
 ```text
 starters/
-├── sqlalchemy/   ← AsyncSession, SqlAlchemyTransactionManager
-├── redis/        ← Redis client
-├── jwt/          ← JWT sign/verify, middleware
-├── cache/        ← Cache abstraction
-└── scheduler/    ← Cron-style task runner
+├── sqlalchemy/   ← AsyncSession, TransactionProvider         ✅ implemented
+├── jwt/          ← JWT sign/verify (PyJWT), middleware        ✅ implemented
+├── scheduler/    ← Cron-style task runner (APScheduler)      ✅ implemented
+├── redis/        ← Redis client                              🔲 planned
+└── cache/        ← Cache abstraction                         🔲 planned
 ```
 
 Starters depend on Core but are not required. They register their components into the DI container just like any other user-defined class.
@@ -95,7 +96,7 @@ Application.start()
   │       ├─ detect cycles
   │       ├─ find missing bindings
   │       └─ validate Protocol implementations
-  ├─ 7. Create singletons      (python-dependency-injector)
+  ├─ 7. Create singletons      (core/container)
   └─ 8. Start adapters         (WebAdapter, GrpcAdapter, ...)
 ```
 
@@ -196,7 +197,7 @@ dependency.bind({UserRepository: FakeUserRepository})
 
 - Does not implement HTTP routing logic (FastAPI does)
 - Does not implement SQL queries (SQLAlchemy does)
-- Does not implement JWT cryptography (python-jose does)
+- Does not implement JWT cryptography (PyJWT does)
 - Does not create a new ORM, HTTP server, or gRPC runtime
 
 XIME orchestrates these tools. It does not replace them.

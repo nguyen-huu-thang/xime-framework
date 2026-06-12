@@ -13,12 +13,12 @@ Application Code   ← nghiệp vụ, controller, use case của bạn
       ↓
    XIME Core       ← scanning, DI, lifecycle, config, event, security
       ↓
-Dependency Injector ← DI engine runtime (python-dependency-injector)
+  DI Container     ← core/container, tích hợp sẵn
       ↓
 Python Objects
 ```
 
-XIME nằm giữa code ứng dụng và DI runtime. Nó tự động hóa mọi thứ phía trên `Dependency Injector` để bạn không bao giờ phải viết `providers.Singleton(...)` thủ công.
+XIME nằm giữa code ứng dụng và DI container. Nó tự động hóa scanning, xây dựng graph và kết nối dependency để bạn không bao giờ phải viết `providers.Singleton(...)` thủ công.
 
 ---
 
@@ -32,8 +32,9 @@ core/
 ├── config/       ← Hệ thống config hai tầng
 ├── lifecycle/    ← PostConstruct / PreDestroy hook
 ├── context/      ← Dữ liệu theo request qua ContextVar
+├── contract/     ← Endpoint contract dùng chung cho Socket và gRPC code-first
 ├── security/     ← SecurityContext, AuthenticationManager, AuthorizationManager
-├── event/        ← Internal event bus
+├── event/        ← Internal event bus (fire and forget, background task)
 ├── transaction/  ← TransactionManager interface, TransactionContext
 └── exception/    ← Hệ thống exception của framework
 ```
@@ -58,8 +59,8 @@ adapters/
 │   ├── routing/   ← Đăng ký class-based controller
 │   ├── middleware/ ← Context middleware
 │   └── ws/        ← WebSocket support
-├── grpc/          ← gRPC server qua grpc.aio
-└── mq/            ← Tích hợp message queue
+├── grpc/          ← gRPC server qua grpc.aio, code-first proto generation, TLS/mTLS
+└── socket/        ← IPC qua Unix Domain Socket, frame protocol, peer auth (Linux)
 ```
 
 ---
@@ -70,11 +71,11 @@ Module tích hợp tùy chọn, tương tự `spring-boot-starter-*` trong Sprin
 
 ```text
 starters/
-├── sqlalchemy/   ← AsyncSession, SqlAlchemyTransactionManager
-├── redis/        ← Redis client
-├── jwt/          ← JWT sign/verify, middleware
-├── cache/        ← Cache abstraction
-└── scheduler/    ← Cron-style task runner
+├── sqlalchemy/   ← AsyncSession, TransactionProvider         ✅ đã implement
+├── jwt/          ← JWT sign/verify (PyJWT), middleware        ✅ đã implement
+├── scheduler/    ← Cron-style task runner (APScheduler)      ✅ đã implement
+├── redis/        ← Redis client                              🔲 đang kế hoạch
+└── cache/        ← Cache abstraction                         🔲 đang kế hoạch
 ```
 
 Starter phụ thuộc vào Core nhưng không bắt buộc. Chúng đăng ký component vào DI container giống như bất kỳ class nào khác.
@@ -95,7 +96,7 @@ Application.start()
   │       ├─ phát hiện circular dependency
   │       ├─ tìm binding thiếu
   │       └─ validate Protocol implementation
-  ├─ 7. Tạo singleton          (python-dependency-injector)
+  ├─ 7. Tạo singleton          (core/container)
   └─ 8. Khởi động adapter      (WebAdapter, GrpcAdapter, ...)
 ```
 
@@ -196,7 +197,7 @@ dependency.bind({UserRepository: FakeUserRepository})
 
 - Không implement HTTP routing logic (FastAPI làm)
 - Không implement SQL query (SQLAlchemy làm)
-- Không implement JWT cryptography (python-jose làm)
+- Không implement JWT cryptography (PyJWT làm)
 - Không tạo ORM, HTTP server hay gRPC runtime mới
 
 XIME điều phối các công cụ này. Nó không thay thế chúng.
