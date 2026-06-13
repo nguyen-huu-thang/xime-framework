@@ -60,11 +60,24 @@ class StartupOrchestrator:
             .bind(self._binding.bindings)
             .register(*self._binding.explicit_classes)
         )
+        # Framework-contributed instances (e.g. generated gRPC clients) are
+        # pre-registered before build so user classes can depend on their types.
+        # Instance do framework đóng góp (vd gRPC client sinh ra) được
+        # pre-register trước khi build để class user phụ thuộc được vào chúng.
+        for cls, instance in self._collect_framework_instances().items():
+            container.register_instance(cls, instance)
         for config_cls in self._binding.config_classes:
             container.configure(config_cls)
         if self._binding.order_rules:
             container.order(*self._binding.order_rules)
         self._container = container.build()
+
+        # Post-build wiring: connect framework instances to DI singletons they
+        # could not see before the container existed (e.g. dynamic-TLS channels
+        # to the certificate provider).
+        # Nối dây sau build: gắn instance của framework với singleton DI mà
+        # trước khi build chưa tồn tại (vd channel TLS động với cert provider).
+        self._wire_framework_instances(self._container.get)
 
         # User singletons in topological order, followed by framework-managed
         # components that need the DI container (e.g. SchedulerRunner).
@@ -97,6 +110,70 @@ class StartupOrchestrator:
                 "StartupOrchestrator has not started. Call start() first."
             )
         return self._container.get(cls)
+
+    # ------------------------------------------------------------------
+    # Framework-contributed instances (pre-registered before container build)
+    # ------------------------------------------------------------------
+
+    def _collect_framework_instances(self) -> dict[type, object]:
+        """
+        Collect pre-built instances contributed by adapters/starters that must
+        exist BEFORE the DI graph is built, because user classes depend on
+        their types (e.g. generated gRPC client classes).
+
+        Mirrors _build_framework_components, but for the pre-build side of the
+        pipeline. To integrate a new contributor: add a _try_build_* method
+        returning dict[type, object] | None and call it here.
+        """
+        contributors = [
+            self._try_build_grpc_clients,
+        ]
+        instances: dict[type, object] = {}
+        for contributor in contributors:
+            instances.update(contributor() or {})
+        return instances
+
+    def _try_build_grpc_clients(self) -> dict[type, object] | None:
+        """Build gRPC client instances if configure_grpc_clients() was called."""
+        try:
+            from xime.adapters.grpc.client._config import (
+                build_client_instances,
+                grpc_clients_registry,
+            )
+        except ImportError:
+            return None  # grpc extra not installed — skip silently
+
+        if not grpc_clients_registry.items():
+            return None
+        return build_client_instances(self._runtime)
+
+    @staticmethod
+    def _wire_framework_instances(resolver: Callable[[type], Any]) -> None:
+        """
+        Post-build wiring step for framework instances that depend on DI
+        singletons created during build. Mirrors _build_framework_components;
+        to integrate a new wirer: add a _try_wire_* method and call it here.
+        """
+        wirers = [
+            StartupOrchestrator._try_wire_grpc_client_tls,
+        ]
+        for wirer in wirers:
+            wirer(resolver)
+
+    @staticmethod
+    def _try_wire_grpc_client_tls(resolver: Callable[[type], Any]) -> None:
+        """Attach the certificate provider to dynamic-TLS client channels."""
+        try:
+            from xime.adapters.grpc.client._config import (
+                grpc_clients_registry,
+                wire_dynamic_certificates,
+            )
+        except ImportError:
+            return  # grpc extra not installed — skip silently
+
+        if not grpc_clients_registry.items():
+            return
+        wire_dynamic_certificates(resolver)
 
     # ------------------------------------------------------------------
     # Framework-managed lifecycle components

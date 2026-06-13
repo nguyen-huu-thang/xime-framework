@@ -130,6 +130,24 @@ APP_ENV=prod python app/main.py
 
 XIME kiểm tra `XIME_ENV` trước, sau đó fallback về `APP_ENV`. Mặc định là `dev` nếu không set.
 
+### Logging
+
+Python mặc định để root logger ở mức `WARNING` và không gắn handler, nên mọi log `INFO` (kể cả thông điệp startup của chính framework) đều bị nuốt - app chạy đúng nhưng im lặng, dễ tưởng bị treo.
+
+Để tránh điều này, XIME tự cấu hình root logger lúc bootstrap, đọc khối `logging:` (tùy chọn) trong `application.yml`:
+
+```yaml
+logging:
+  enabled: true        # đặt false để framework không đụng tới logging
+  level: INFO          # DEBUG / INFO / WARNING / ERROR ... (không phân biệt hoa thường)
+  format: "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+  datefmt: "%H:%M:%S"
+```
+
+Toàn bộ khối là tùy chọn - không khai báo thì dùng mặc định ở trên (enabled, `INFO`).
+
+**Quy tắc an toàn:** framework **chỉ** cấu hình khi `enabled: true` **và** root logger chưa có handler nào. Nếu app tự gọi `logging.basicConfig`/`dictConfig` (hoặc chạy dưới một harness đã cấu hình logging như pytest), framework **không** ghi đè - setup của app luôn được ưu tiên. Muốn tự lo hoàn toàn thì đặt `enabled: false`.
+
 ---
 
 ## Truy cập Runtime Config trong Code

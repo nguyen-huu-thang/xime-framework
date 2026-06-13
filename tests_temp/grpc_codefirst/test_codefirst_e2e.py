@@ -11,6 +11,7 @@ over TCP so this works on any OS (unlike the Unix-socket adapter).
 from __future__ import annotations
 
 import importlib
+import sys
 
 import pytest
 
@@ -94,42 +95,51 @@ async def test_codefirst_serves_over_grpc(tmp_path):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
 
-    # 2) protoc → *_pb2 / *_pb2_grpc.
+    # 2) protoc → *_pb2 / *_pb2_grpc + descriptor set.
     _run_protoc(str(out), files)
 
-    # 3) Load generated message classes + the client stub module.
-    messages = load_message_classes(str(out), "e2e")          # also puts dir on sys.path
-    pb2 = importlib.import_module("e2e_crypto_pb2")
-    pb2_grpc = importlib.import_module("e2e_crypto_pb2_grpc")
-
-    # 4) Start a real grpc.aio server serving the code-first controller.
-    controller = E2eCryptoController()
-    server = grpc.aio.server()
-    CodeFirstGrpcBuilder(
-        FakeApp({E2eCryptoController: controller}), model, messages
-    ).register_all(server)
-    port = server.add_insecure_port("127.0.0.1:0")
-    await server.start()
-
+    # 3) Server loads message classes from the descriptor set (no sys.path/
+    #    sys.modules side effects). The test acts as a CLIENT using the pb2
+    #    stubs, so it puts the dir on sys.path itself.
+    messages = load_message_classes(str(out), "e2e")
+    sdk_dir = str(out / "e2e")
+    sys.path.insert(0, sdk_dir)
     try:
-        async with grpc.aio.insecure_channel(f"127.0.0.1:{port}") as channel:
-            stub = pb2_grpc.E2eCryptoControllerStub(channel)
+        pb2 = importlib.import_module("e2e_crypto_pb2")
+        pb2_grpc = importlib.import_module("e2e_crypto_pb2_grpc")
 
-            # command (unary)
-            resp = await stub.Hash(pb2.HashRequest(file_id="f1"))
-            assert resp.digest == "h:f1"
+        # 4) Start a real grpc.aio server serving the code-first controller.
+        controller = E2eCryptoController()
+        server = grpc.aio.server()
+        CodeFirstGrpcBuilder(
+            FakeApp({E2eCryptoController: controller}), model, messages
+        ).register_all(server)
+        port = server.add_insecure_port("127.0.0.1:0")
+        await server.start()
 
-            # upload (client streaming) — first message metadata, rest chunks
-            async def chunks():
-                yield pb2.EncryptChunk(metadata=pb2.EncryptRequest(name="a"))
-                yield pb2.EncryptChunk(chunk=b"12345")
-                yield pb2.EncryptChunk(chunk=b"678")
+        try:
+            async with grpc.aio.insecure_channel(f"127.0.0.1:{port}") as channel:
+                stub = pb2_grpc.E2eCryptoControllerStub(channel)
 
-            enc = await stub.Encrypt(chunks())
-            assert enc.total == 8
+                # command (unary)
+                resp = await stub.Hash(pb2.HashRequest(file_id="f1"))
+                assert resp.digest == "h:f1"
 
-            # download (server streaming)
-            got = [c.chunk async for c in stub.Download(pb2.DownloadRequest(parts=3))]
-            assert got == [b"part0", b"part1", b"part2"]
+                # upload (client streaming) — first message metadata, rest chunks
+                async def chunks():
+                    yield pb2.EncryptChunk(metadata=pb2.EncryptRequest(name="a"))
+                    yield pb2.EncryptChunk(chunk=b"12345")
+                    yield pb2.EncryptChunk(chunk=b"678")
+
+                enc = await stub.Encrypt(chunks())
+                assert enc.total == 8
+
+                # download (server streaming)
+                got = [c.chunk async for c in stub.Download(pb2.DownloadRequest(parts=3))]
+                assert got == [b"part0", b"part1", b"part2"]
+        finally:
+            await server.stop(None)
     finally:
-        await server.stop(None)
+        sys.path.remove(sdk_dir)
+        for mod in ("e2e_crypto_pb2", "e2e_crypto_pb2_grpc"):
+            sys.modules.pop(mod, None)

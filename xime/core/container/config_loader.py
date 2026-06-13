@@ -86,6 +86,11 @@ class ConfigClassLoader:
         """Return a FactoryEntry for fn, or None if fn is not an eligible factory."""
         try:
             hints = get_type_hints(fn)
+        except NameError as exc:
+            raise ConfigClassError(
+                f"Config class method '{method_name}' has an unresolvable annotation: {exc}. "
+                "Check for typos or missing imports in the type hints."
+            ) from exc
         except Exception:
             return None
 

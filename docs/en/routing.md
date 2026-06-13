@@ -213,10 +213,54 @@ async def get_user(self, user_id: int) -> UserResponse: ...
 
 ---
 
+## Middleware and Exception Handlers
+
+The web adapter installs `RequestContextMiddleware` (and `JwtAuthMiddleware`
+when the JWT starter is used) automatically. To add your own middleware or map
+exceptions to responses, declare them in the config layer following the
+`configure_*` pattern - no `WebAdapter` subclassing.
+
+**Custom middleware** — `configure_middleware(cls, **options)`:
+
+```python
+# config/web.py
+from xime.adapters.web import configure_middleware
+from starlette.middleware.cors import CORSMiddleware
+
+configure_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"])
+```
+
+Your middleware sits between `RequestContextMiddleware` (outermost) and
+`JwtAuthMiddleware` (innermost), so e.g. CORS preflight is handled before auth.
+Among your middleware, the one declared first runs first.
+
+**Global exception handlers** — `configure_exception_handlers({Exc: handler})`:
+
+```python
+# config/web.py
+from xime.adapters.web import configure_exception_handlers
+
+async def app_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"errorKey": exc.key, "code": exc.code, "message": str(exc)},
+    )
+
+configure_exception_handlers({AppException: app_exception_handler})
+```
+
+Handlers use FastAPI's `(request, exc) -> Response` signature and are applied to
+the app in `build_app()`, so they work both when serving and in HTTP integration
+tests - no need to repeat `try/except` in every controller.
+
+Both functions are partitioned by `server_id` (the second argument), matching
+multi-server setups.
+
+---
+
 ## Known Limitations
 
 - **Two-package declaration** — must list in both `dependency.scan()` and `configure_controllers()`
-- **Exception → HTTP status mapping** — unhandled exceptions return 500; custom error mapping is not yet built in
 - **`__all__` not respected by controller scanner** — all controller classes in the package are found regardless of `__all__`
 - **WebSocket and gRPC routing** — not yet in scope for class-based controllers
 

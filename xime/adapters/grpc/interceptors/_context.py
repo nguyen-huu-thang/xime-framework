@@ -44,26 +44,36 @@ class RequestContextInterceptor(grpc.aio.ServerInterceptor):
     # ------------------------------------------------------------------
 
     def _wrap_handler(self, handler: grpc.RpcMethodHandler) -> grpc.RpcMethodHandler:
-        """Return a new RpcMethodHandler whose invocation function sets/clears context."""
+        """Return a new RpcMethodHandler whose invocation function sets/clears context.
+
+        Response-streaming handlers (unary_stream / stream_stream) are async
+        generator functions, so they must be wrapped with `async for ... yield`,
+        not `await` — awaiting an async_generator raises TypeError and breaks
+        every server-streaming RPC. Mirrors ErrorMappingInterceptor.
+        Handler có response-streaming là async generator nên phải bọc bằng
+        `async for ... yield`, không được `await` (sẽ TypeError, hỏng mọi RPC
+        server-streaming). Giống ErrorMappingInterceptor.
+        """
         if handler.request_streaming and handler.response_streaming:
             return handler._replace(
-                stream_stream=self._wrap_fn(handler.stream_stream)
+                stream_stream=self._wrap_streaming(handler.stream_stream)
             )
         elif handler.request_streaming:
             return handler._replace(
-                stream_unary=self._wrap_fn(handler.stream_unary)
+                stream_unary=self._wrap_unary(handler.stream_unary)
             )
         elif handler.response_streaming:
             return handler._replace(
-                unary_stream=self._wrap_fn(handler.unary_stream)
+                unary_stream=self._wrap_streaming(handler.unary_stream)
             )
         else:
             return handler._replace(
-                unary_unary=self._wrap_fn(handler.unary_unary)
+                unary_unary=self._wrap_unary(handler.unary_unary)
             )
 
     @staticmethod
-    def _wrap_fn(fn: Callable[..., Any] | None) -> Callable[..., Any] | None:
+    def _wrap_unary(fn: Callable[..., Any] | None) -> Callable[..., Any] | None:
+        """Wrap a unary (or client-streaming) handler coroutine."""
         if fn is None:
             return fn
 
@@ -71,6 +81,23 @@ class RequestContextInterceptor(grpc.aio.ServerInterceptor):
             request_context.set("request_id", str(uuid.uuid4()))
             try:
                 return await fn(*args, **kwargs)
+            finally:
+                request_context.clear()
+                clear_security()
+
+        return wrapper
+
+    @staticmethod
+    def _wrap_streaming(fn: Callable[..., Any] | None) -> Callable[..., Any] | None:
+        """Wrap a server-streaming (or bidirectional) async-generator handler."""
+        if fn is None:
+            return fn
+
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            request_context.set("request_id", str(uuid.uuid4()))
+            try:
+                async for item in fn(*args, **kwargs):
+                    yield item
             finally:
                 request_context.clear()
                 clear_security()

@@ -73,6 +73,9 @@ class MethodContract:
     stream_param: str = ""        # name of the Upload/DownloadStream parameter
     request_py: Any = None        # Pydantic request type (the metadata for streams)
     response_py: Any = None       # Pydantic response type (None for download)
+    # contract metadata (sidecar) — original endpoint name, e.g. "hash"
+    # metadata contract (sidecar) — tên endpoint gốc, vd "hash"
+    endpoint_name: str = ""
 
 
 @dataclass
@@ -102,3 +105,7 @@ class ContractModel:
     # message/enum name → set of proto file stems that reference it (shared detection)
     # tên message/enum → tập file proto tham chiếu (phát hiện shared)
     references: dict[str, set[str]] = field(default_factory=dict)
+    # "Message.field" → fidelity hint where proto flattens the Python type
+    # ("decimal" / "uuid" / "date") — consumed by the contract.json sidecar.
+    # "Message.field" → hint giữ fidelity khi proto làm phẳng kiểu Python.
+    field_hints: dict[str, str] = field(default_factory=dict)

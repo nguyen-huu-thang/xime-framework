@@ -59,7 +59,7 @@ class DownloadRequest(BaseModel):
     parts: int
 
 class CryptoController:
-    server_id = "public"   # matches GrpcAdapter("public") or default
+    server_id = "default"   # served by the default GrpcAdapter()
 
     def __init__(self, crypto_service: CryptoService) -> None:
         self.crypto_service = crypto_service
@@ -100,7 +100,7 @@ This produces:
 
 ```text
 generated/
-└── public/
+└── default/
     ├── crypto.proto
     └── crypto_pb2.py
     └── crypto_pb2_grpc.py
@@ -265,7 +265,7 @@ Unsupported types raise `UnsupportedTypeError` at generate time, not at runtime.
 When a DTO is used by two or more controllers in the same `server_id`, XIME places it in `common.proto` automatically:
 
 ```text
-generated/public/
+generated/default/
 ├── crypto.proto     # imports common.proto
 ├── user.proto       # imports common.proto
 └── common.proto     # shared: UserResponse, PageInfo, ...
@@ -292,7 +292,7 @@ Compares the proto that *would* be generated against what is on disk. Exits with
 
 ```text
 Proto Out Of Date
-  File: generated/public/crypto.proto
+  File: generated/default/crypto.proto
   Hint: run `xime grpc generate`
 ```
 
@@ -304,7 +304,7 @@ Just like the HTTP and gRPC proto-first adapters, code-first controllers are rou
 
 ```python
 class PublicCryptoController:
-    server_id = "public"      # served by GrpcAdapter() or GrpcAdapter("public")
+    server_id = "default"     # served by the default GrpcAdapter()
     ...
 
 class InternalCryptoController:
@@ -313,9 +313,18 @@ class InternalCryptoController:
 ```
 
 ```python
-app.use(GrpcAdapter())                         # serves server_id="public"
+app.use(GrpcAdapter())                         # serves server_id="default"
 app.use(GrpcAdapter("internal", port=50052))   # serves server_id="internal"
 ```
+
+> **`server_id` must match a registered adapter.** The default `GrpcAdapter()`
+> has `server_id="default"` - it does **not** serve a controller whose
+> `server_id` is something else. If a code-first controller targets a `server_id`
+> that no `GrpcAdapter` serves (e.g. `server_id="public"` while only the default
+> adapter is registered), XIME **fails fast at startup** with a clear message,
+> instead of starting a server that silently answers every RPC with
+> `UNIMPLEMENTED`. Either register a matching `GrpcAdapter("public", port=...)`
+> or change the controller's `server_id`.
 
 ---
 
@@ -335,6 +344,58 @@ configure_grpc_codefirst(packages=["api.grpc.codefirst"])
 
 ---
 
+## TLS / mTLS
+
+Enable server TLS in `application.yml`. The `default` server reads `grpc.tls`;
+other servers read `grpc.servers.<server_id>.tls`:
+
+```yaml
+grpc:
+  port: 50051
+  tls:
+    enabled: true
+    mutual: true                 # true = require client cert (mTLS)
+    cert_file: certs/server.crt  # static mode: read certs from files
+    key_file:  certs/server.key
+    ca_file:   certs/ca.crt
+```
+
+**Dynamic mTLS (rotation without restart).** When certificates are issued
+dynamically (e.g. from a Trust Service and rotated periodically), register a
+`GrpcCertificateProvider` instead of declaring files. The provider reads the
+current cert from memory; the framework re-asks it on **every new TLS
+handshake**, so rotation needs no restart and never cuts established sessions:
+
+```python
+# config/grpc.py
+from xime.adapters.grpc import configure_grpc_tls
+
+configure_grpc_tls(provider=TrustGrpcCertificateProvider)
+#   provider is a DI class with version() -> str and current() -> ServerCertificates
+```
+
+```yaml
+grpc:
+  tls:
+    enabled: true
+    mutual: true     # cert_file/key_file not needed with a provider
+```
+
+The provider applies to every server; override one server with
+`configure_grpc_tls(provider=PublicCaProvider, server_id="public")` (e.g.
+internal servers use Trust-issued certs, the public server uses a public CA).
+
+---
+
+## Calling from another service
+
+This page is the **server** side. To have another service **call** this
+code-first server as if it were a local function - generate a typed client SDK,
+wire it into DI, share the dynamic cert - see
+[gRPC Client SDK + Dynamic mTLS](grpc-client.md).
+
+---
+
 ## Installation
 
 ```bash
@@ -343,4 +404,4 @@ pip install "xime[grpc]"   # adds grpcio, grpcio-tools, protobuf
 
 ---
 
-[← Routing](routing.md) · **7/9 — Code-First gRPC** · [Starters →](starters.md)
+[← Routing](routing.md) · **7/9 — Code-First gRPC** · [Starters →](starters.md) · [gRPC Client SDK →](grpc-client.md)

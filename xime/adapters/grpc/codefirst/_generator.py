@@ -5,9 +5,11 @@ from dataclasses import dataclass, field
 
 from xime.core.contract import ControllerScanner
 
+from .._descriptors import DESCRIPTOR_SET_NAME
 from ._builder import ContractBuilder
 from ._lock import LockFile
 from ._proto_emitter import ProtoEmitter
+from ._sidecar import emit_sidecar, sidecar_filename
 
 
 @dataclass
@@ -32,10 +34,13 @@ class CheckResult:
 # ---------------------------------------------------------------------------
 
 def build_proto_files(packages: list[str], lock: LockFile) -> dict[str, str]:
-    """Scan controllers, build one ContractModel per server_id, render all protos.
+    """Scan controllers, build one ContractModel per server_id, render all outputs.
 
-    Returns {relative_path: proto_text}. Mutates `lock` with field numbers.
-    Trả {đường dẫn tương đối: text proto}. Cập nhật field number vào `lock`.
+    Returns {relative_path: text} - the .proto files plus one contract.json
+    sidecar per server_id (metadata proto cannot carry; see _sidecar.py).
+    Mutates `lock` with field numbers.
+    Trả {đường dẫn tương đối: text} - các .proto kèm một sidecar contract.json
+    mỗi server_id. Cập nhật field number vào `lock`.
     """
     controllers = ControllerScanner().find_controllers(*packages)
     server_ids = sorted({getattr(c, "server_id", "default") for c in controllers})
@@ -47,6 +52,7 @@ def build_proto_files(packages: list[str], lock: LockFile) -> dict[str, str]:
         if not model.services:
             continue
         files.update(emitter.emit(model))
+        files[f"{server_id}/{sidecar_filename()}"] = emit_sidecar(model)
     return files
 
 
@@ -112,28 +118,48 @@ def check(
 # ---------------------------------------------------------------------------
 
 def _run_protoc(output_dir: str, files: dict[str, str]) -> list[str]:
+    import grpc_tools
     from grpc_tools import protoc
 
-    # Group proto files by their server_id directory.
-    # Nhóm file proto theo thư mục server_id.
+    # grpc_tools bundles the well-known types (google/protobuf/*.proto) so
+    # --include_imports can resolve Timestamp etc. for the descriptor set.
+    # grpc_tools kèm sẵn well-known types để --include_imports resolve được.
+    well_known = os.path.join(os.path.dirname(grpc_tools.__file__), "_proto")
+
+    # Group proto files by their server_id directory (skip non-proto outputs
+    # such as the contract.json sidecar).
+    # Nhóm file proto theo thư mục server_id (bỏ qua output không phải .proto
+    # như sidecar contract.json).
     by_dir: dict[str, list[str]] = {}
     for rel_path in files:
+        if not rel_path.endswith(".proto"):
+            continue
         server_dir = os.path.dirname(rel_path)          # e.g. "public"
         abs_dir = os.path.join(output_dir, server_dir)
         by_dir.setdefault(abs_dir, []).append(os.path.basename(rel_path))
 
     outputs: list[str] = []
     for abs_dir, proto_names in by_dir.items():
+        descriptor_out = os.path.join(abs_dir, DESCRIPTOR_SET_NAME)
         args = [
             "protoc",
             f"-I{abs_dir}",
+            f"-I{well_known}",
             f"--python_out={abs_dir}",
             f"--grpc_python_out={abs_dir}",
+            # Emit a FileDescriptorSet the server loads via a private
+            # DescriptorPool — no pb2 module imports, so no cross-server_id
+            # module name collisions.
+            # Phát FileDescriptorSet để server nạp qua DescriptorPool riêng —
+            # không import module pb2, nên không đụng tên giữa các server_id.
+            f"--descriptor_set_out={descriptor_out}",
+            "--include_imports",
             *proto_names,
         ]
         code = protoc.main(args)
         if code != 0:
             raise RuntimeError(f"protoc failed (exit {code}) for {abs_dir}: {proto_names}")
+        outputs.append(descriptor_out)
         for name in proto_names:
             stem = name[:-len(".proto")]
             outputs.append(os.path.join(abs_dir, f"{stem}_pb2.py"))

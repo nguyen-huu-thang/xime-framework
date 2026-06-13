@@ -192,8 +192,9 @@ Cách tốt nhất để học XIME là đọc code thật. Các dự án mã ng
 | [**xime-shop-example**](https://github.com/nguyen-huu-thang/xime-shop-example) | Demo thương mại điện tử với kiến trúc đa lớp đơn giản, dễ tiếp cận. | 🟢 Mới bắt đầu |
 | [**data-service**](https://github.com/nguyen-huu-thang/data-service) | Microservice cấp production: Hexagonal / DDD, gRPC, SQLAlchemy, sharding đa tenant. Tài liệu tham khảo đầy đủ nhất. | 🔵 Pattern thực chiến |
 | [**notification-service**](https://github.com/nguyen-huu-thang/notification-service) | Microservice thông báo async, thiên về IO, theo mô hình hướng sự kiện. | 🔵 Async & event |
+| [**xime-grpc-socket-example**](https://github.com/nguyen-huu-thang/xime-grpc-socket-example) | Một app phục vụ song song gRPC (code-first, mTLS động) và Unix Domain Socket, dùng chung contract `@command` / `@stream` với hai mô hình bảo mật khác nhau. | 🟣 Đa giao thức |
 
-> Mới làm quen XIME? Hãy bắt đầu với **xime-shop-example** để nắm nền tảng, sau đó nghiên cứu **data-service** để học trọn bộ pattern Hexagonal/DDD ở quy mô production.
+> Mới làm quen XIME? Hãy bắt đầu với **xime-shop-example** để nắm nền tảng, sau đó nghiên cứu **data-service** để học trọn bộ pattern Hexagonal/DDD ở quy mô production. Muốn xem một app vừa nói gRPC vừa nói socket, đọc **xime-grpc-socket-example**.
 
 ---
 
@@ -215,6 +216,8 @@ Cách tốt nhất để học XIME là đọc code thật. Các dự án mã ng
 | **Transaction API** | `async with self.transaction():` tường minh - không có AOP ẩn |
 | **Class-Based Controllers** | Controller là DI singleton, method ánh xạ thành route |
 | **Code-First gRPC** | Viết Python DTO, XIME sinh `.proto` + stub; ổn định field number qua lock file |
+| **gRPC Client SDK** | Sinh client Pydantic typed từ `.proto`, inject qua DI; deadline + lỗi typed |
+| **mTLS động** | Xoay chứng chỉ không cần restart, cho cả server inbound lẫn client outbound |
 | **Socket Adapter** | IPC qua Unix Domain Socket cho Native Engine cùng máy (Linux); `@command` / `@stream` |
 
 ---
@@ -245,7 +248,7 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 ## Trạng thái dự án
 
-XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing), gRPC adapter (proto-first + **code-first**), **Socket adapter** (Unix Domain Socket IPC), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện. Redis và Cache starter đang được kế hoạch.
+XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing, middleware & exception handler tùy chỉnh), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed), **Socket adapter** (Unix Domain Socket IPC), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện. Redis và Cache starter đang được kế hoạch.
 
 ---
 
@@ -259,7 +262,8 @@ XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: cor
 | [Cấu hình](docs/vn/configuration.md) | Framework config + runtime YAML |
 | [Routing](docs/vn/routing.md) | Class-based controller, route decorator |
 | [Transaction](docs/vn/transaction.md) | Quản lý transaction tường minh |
-| [Code-First gRPC](docs/vn/grpc-codefirst.md) | Sinh `.proto` từ Python DTO; ổn định field number; `xime grpc generate/check` |
+| [Code-First gRPC](docs/vn/grpc-codefirst.md) | Sinh `.proto` từ Python DTO; ổn định field number; `xime grpc generate/check`; mTLS động |
+| [gRPC Client SDK](docs/vn/grpc-client.md) | Sinh client SDK typed; inject qua DI; deadline, lỗi typed, mTLS động |
 | [Socket Adapter](docs/vn/socket-adapter.md) | IPC qua Unix Domain Socket cho Native Engine cùng máy |
 | [Starters](docs/vn/starters.md) | SQLAlchemy, JWT, Scheduler |
 | [Testing](docs/vn/testing.md) | DI override, fake, test utilities |

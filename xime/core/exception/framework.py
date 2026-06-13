@@ -244,3 +244,37 @@ class SocketCommandError(SocketException):
         self.code = code
         self.error_message = message
         super().__init__(f"[{code}] {message}")
+
+
+class GrpcClientException(XimeException):
+    """Base for errors raised by generated gRPC client SDKs (XimeGrpcChannel)."""
+
+
+class RemoteCallError(GrpcClientException):
+    """Raised when a remote gRPC call returns a non-OK status.
+
+    Mirrors SocketCommandError for the gRPC transport. Carries:
+    - status : gRPC StatusCode name (e.g. "NOT_FOUND", "INTERNAL")
+    - code   : server-side exception class name from the `xime-error` trailing
+               metadata set by ErrorMappingInterceptor ("" for non-Xime servers)
+    - path   : full method path (e.g. "/xime.internal.KeyController/GetKeys")
+    Gương của SocketCommandError cho transport gRPC: status là tên StatusCode,
+    code là tên exception phía server (trailing metadata `xime-error`,
+    rỗng nếu server không phải Xime), path là method bị lỗi.
+    """
+
+    def __init__(self, status: str, code: str, message: str, path: str):
+        self.status = status
+        self.code = code
+        self.error_message = message
+        self.path = path
+        prefix = f"{status}/{code}" if code else status
+        super().__init__(f"[{prefix}] {path}: {message}")
+
+
+class RemoteCallTimeout(RemoteCallError):
+    """The call exceeded its deadline (StatusCode.DEADLINE_EXCEEDED)."""
+
+
+class RemoteServiceUnavailable(RemoteCallError):
+    """The target service cannot be reached (StatusCode.UNAVAILABLE)."""

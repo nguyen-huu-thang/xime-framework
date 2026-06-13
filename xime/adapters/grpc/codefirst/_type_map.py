@@ -138,6 +138,41 @@ def map_type(py_type: Any, registry: Any) -> tuple[str, bool]:
     raise UnsupportedTypeError(py_type)
 
 
+def python_hint(py_type: Any) -> str | None:
+    """Fidelity hint for the contract.json sidecar, or None when proto is lossless.
+
+    Proto flattens Decimal/UUID/date to plain strings; the sidecar records the
+    original Python type so a generated client SDK can mirror the model 1:1.
+    Unwraps Annotated/Optional/list/dict to inspect the base scalar.
+    Proto làm phẳng Decimal/UUID/date thành string; sidecar ghi lại kiểu Python
+    gốc để SDK client lật gương 1:1. Tự bóc Annotated/Optional/list/dict.
+    """
+    if hasattr(py_type, "__metadata__"):
+        return python_hint(py_type.__origin__)
+
+    origin = typing.get_origin(py_type)
+    if origin is typing.Union or _is_uniontype(py_type):
+        args = [a for a in typing.get_args(py_type) if a is not type(None)]
+        return python_hint(args[0]) if len(args) == 1 else None
+    if origin in (list, typing.List):  # noqa: UP006
+        (elem,) = typing.get_args(py_type) or (Any,)
+        return python_hint(elem)
+    if origin in (dict, typing.Dict):  # noqa: UP006
+        args = typing.get_args(py_type)
+        return python_hint(args[1]) if len(args) == 2 else None
+
+    if py_type is decimal.Decimal:
+        return "decimal"
+    if py_type is uuid.UUID:
+        return "uuid"
+    # Exact match: datetime.datetime maps to Timestamp (lossless), only the
+    # plain date is flattened to string.
+    # So sánh đúng type: datetime đã có Timestamp, chỉ date bị phẳng thành string.
+    if py_type is datetime.date:
+        return "date"
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------

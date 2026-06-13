@@ -221,7 +221,15 @@ configure_controllers("api.rest")
 server:
   host: 0.0.0.0
   port: 8080
+
+# Optional — XIME configures INFO logging by default; tune or disable it here.
+logging:
+  level: INFO
 ```
+
+Logging is set up automatically at startup, so your app prints `INFO` logs out of
+the box. See [Configuration → Logging](configuration.md) for the full block and the
+opt-out rule.
 
 ---
 

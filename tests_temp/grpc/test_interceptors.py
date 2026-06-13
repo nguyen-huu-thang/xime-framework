@@ -244,6 +244,75 @@ class TestRequestContextInterceptor:
         assert request_context.get("request_id") is None
 
     @pytest.mark.asyncio
+    async def test_server_streaming_handler_yields_items(self):
+        """Regression: unary_stream handler is an async generator — the wrapper
+        must `async for ... yield`, not `await` it (awaiting raises TypeError
+        'async_generator object can't be awaited' and breaks every server-stream RPC)."""
+        captured_id = None
+
+        async def handler_fn(request, context):
+            nonlocal captured_id
+            captured_id = request_context.get("request_id")
+            yield "a"
+            yield "b"
+
+        real_handler = grpc.unary_stream_rpc_method_handler(handler_fn)
+
+        async def continuation(details):
+            return real_handler
+
+        interceptor = RequestContextInterceptor()
+        wrapped = await interceptor.intercept_service(continuation, MagicMock())
+
+        items = []
+        async for item in wrapped.unary_stream(None, None):
+            items.append(item)
+
+        assert items == ["a", "b"]
+        assert captured_id is not None and len(captured_id) == 36  # UUID4
+        # Context cleared after the stream is exhausted.
+        assert request_context.get("request_id") is None
+
+    @pytest.mark.asyncio
+    async def test_bidi_streaming_handler_yields_items(self):
+        """stream_stream handler is also an async generator — same wrapping rule."""
+        async def handler_fn(request_iter, context):
+            yield "x"
+
+        real_handler = grpc.stream_stream_rpc_method_handler(handler_fn)
+
+        async def continuation(details):
+            return real_handler
+
+        interceptor = RequestContextInterceptor()
+        wrapped = await interceptor.intercept_service(continuation, MagicMock())
+
+        items = [item async for item in wrapped.stream_stream(None, None)]
+        assert items == ["x"]
+        assert request_context.get("request_id") is None
+
+    @pytest.mark.asyncio
+    async def test_clears_context_when_streaming_handler_raises(self):
+        """Context phải được clear kể cả khi handler streaming raise giữa chừng."""
+        async def handler_fn(request, context):
+            yield "first"
+            raise RuntimeError("stream failed")
+
+        real_handler = grpc.unary_stream_rpc_method_handler(handler_fn)
+
+        async def continuation(details):
+            return real_handler
+
+        interceptor = RequestContextInterceptor()
+        wrapped = await interceptor.intercept_service(continuation, MagicMock())
+
+        with pytest.raises(RuntimeError):
+            async for _ in wrapped.unary_stream(None, None):
+                pass
+
+        assert request_context.get("request_id") is None
+
+    @pytest.mark.asyncio
     async def test_returns_wrapped_handler_that_delegates_to_original(self):
         """intercept_service() trả về handler mới (không phải object gốc) nhưng vẫn gọi đúng handler gốc."""
         call_count = 0
@@ -388,7 +457,11 @@ class TestErrorMappingInterceptorIntercept:
         result = await interceptor.intercept_service(continuation, MagicMock())
         await result.unary_unary("req", mock_context)
 
-        mock_context.abort.assert_called_once_with(grpc.StatusCode.NOT_FOUND, "not found")
+        mock_context.abort.assert_called_once_with(
+            grpc.StatusCode.NOT_FOUND,
+            "not found",
+            trailing_metadata=(("xime-error", "_NotFoundException"),),
+        )
 
     @pytest.mark.asyncio
     async def test_unary_handler_uses_internal_for_unmapped_exception(self):
@@ -405,7 +478,11 @@ class TestErrorMappingInterceptorIntercept:
         result = await interceptor.intercept_service(continuation, MagicMock())
         await result.unary_unary("req", mock_context)
 
-        mock_context.abort.assert_called_once_with(grpc.StatusCode.INTERNAL, "boom")
+        mock_context.abort.assert_called_once_with(
+            grpc.StatusCode.INTERNAL,
+            "boom",
+            trailing_metadata=(("xime-error", "_UnmappedException"),),
+        )
 
     @pytest.mark.asyncio
     async def test_unary_handler_reraises_rpc_error(self):
@@ -484,4 +561,8 @@ class TestErrorMappingInterceptorIntercept:
             items.append(item)
 
         assert items == ["first"]
-        mock_context.abort.assert_called_once_with(grpc.StatusCode.NOT_FOUND, "stream error")
+        mock_context.abort.assert_called_once_with(
+            grpc.StatusCode.NOT_FOUND,
+            "stream error",
+            trailing_metadata=(("xime-error", "_NotFoundException"),),
+        )

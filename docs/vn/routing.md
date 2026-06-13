@@ -213,10 +213,53 @@ async def get_user(self, user_id: int) -> UserResponse: ...
 
 ---
 
+## Middleware và Exception Handler
+
+Web adapter tự gắn sẵn `RequestContextMiddleware` (và `JwtAuthMiddleware` nếu
+dùng JWT starter). Để thêm middleware riêng hoặc map exception sang response,
+khai báo trong config layer theo đúng pattern `configure_*` - không subclass
+`WebAdapter`.
+
+**Middleware tùy chỉnh** — `configure_middleware(cls, **options)`:
+
+```python
+# config/web.py
+from xime.adapters.web import configure_middleware
+from starlette.middleware.cors import CORSMiddleware
+
+configure_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"])
+```
+
+Middleware của bạn nằm giữa `RequestContextMiddleware` (ngoài cùng) và
+`JwtAuthMiddleware` (trong cùng), nên ví dụ CORS preflight được xử lý trước
+auth. Trong nhóm middleware của bạn, cái khai báo trước chạy trước.
+
+**Exception handler toàn cục** — `configure_exception_handlers({Exc: handler})`:
+
+```python
+# config/web.py
+from xime.adapters.web import configure_exception_handlers
+
+async def app_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"errorKey": exc.key, "code": exc.code, "message": str(exc)},
+    )
+
+configure_exception_handlers({AppException: app_exception_handler})
+```
+
+Handler theo đúng chữ ký FastAPI `(request, exc) -> Response`, được áp vào app
+trong `build_app()` nên chạy cả khi serve thật lẫn trong test tích hợp HTTP. Nhờ
+vậy không phải lặp `try/except` ở mọi controller.
+
+Cả hai hàm tách theo `server_id` (tham số thứ hai), khớp với multi-server.
+
+---
+
 ## Hạn chế đã biết
 
 - **Khai báo hai package** — phải liệt kê trong cả `dependency.scan()` và `configure_controllers()`
-- **Exception → HTTP status mapping** — exception chưa được xử lý sẽ trả về 500; chưa có cơ chế map lỗi tùy chỉnh
 - **`__all__` không được controller scanner tôn trọng** — tất cả controller class trong package đều được tìm bất kể `__all__`
 - **WebSocket và gRPC routing** — chưa trong scope của class-based controller
 

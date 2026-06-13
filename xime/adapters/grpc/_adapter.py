@@ -45,15 +45,25 @@ class GrpcAdapter:
         class ExternalUserServicer:
             # không khai báo → mặc định "default"
 
-    TLS / mTLS chỉ áp dụng cho server default, cấu hình qua application.yml:
+    TLS / mTLS áp dụng được cho mọi server. Server default cấu hình qua
+    grpc.tls; server khác qua grpc.servers.<server_id>.tls:
         grpc:
           port: 50051
           tls:
             enabled: true
-            cert_file: certs/server.crt
+            cert_file: certs/server.crt   # chế độ tĩnh (không có provider)
             key_file:  certs/server.key
             ca_file:   certs/ca.crt   # optional — needed for mTLS
             mutual:    true            # true = require client certificate
+          servers:
+            internal:
+              tls:
+                enabled: true
+                mutual: true
+
+    Cert động (rotate không restart): đăng ký provider qua configure_grpc_tls()
+    trong config/grpc.py — khi đó cert_file/key_file/ca_file không cần nữa,
+    cert được đọc từ provider ở mỗi TLS handshake mới.
 
     Interceptor order (outermost first):
         1. RequestContextInterceptor  — always present, sets request_id + cleans up
@@ -95,11 +105,14 @@ class GrpcAdapter:
         self._app = app
 
         # Default server reads full config from application.yml (port, TLS, etc.).
-        # Non-default servers use constructor-provided port; TLS is not supported.
+        # Non-default servers: port from constructor, TLS from grpc.servers.<id>.
+        # Server default đọc config từ application.yml; server khác: port từ
+        # constructor, TLS từ block grpc.servers.<id>.
         if self._server_id == "default":
             config = GrpcServerConfig.from_runtime(runtime)
         else:
-            config = GrpcServerConfig(port=self._port_override)  # type: ignore[arg-type]
+            config = GrpcServerConfig.for_server(runtime, self._server_id)
+            config = config.model_copy(update={"port": self._port_override})
 
         bind_host = self._host_override or "[::]"
         interceptors = self._build_interceptors()
@@ -118,9 +131,12 @@ class GrpcAdapter:
         # Đăng ký controller code-first cho server này (nếu có).
         self._register_codefirst(app)
 
-        # Bind port — TLS/mTLS only for default server.
-        if self._server_id == "default" and config.tls.enabled:
-            credentials = build_server_credentials(config.tls)
+        # Bind port — any server may enable TLS/mTLS; dynamic provider wins
+        # over static files when registered via configure_grpc_tls().
+        # Mọi server đều có thể bật TLS/mTLS; provider động (configure_grpc_tls)
+        # được ưu tiên hơn đọc file tĩnh.
+        credentials = self._build_credentials(app, config)
+        if credentials is not None:
             self._server.add_secure_port(f"{bind_host}:{config.port}", credentials)
         else:
             self._server.add_insecure_port(f"{bind_host}:{config.port}")
@@ -141,6 +157,57 @@ class GrpcAdapter:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _build_credentials(
+        self, app: "Application", config: GrpcServerConfig
+    ) -> grpc.ServerCredentials | None:
+        """Resolve TLS credentials for this server, or None for insecure.
+
+        Resolution order:
+        1. tls.enabled is false                  → None (insecure).
+        2. provider via configure_grpc_tls()     → dynamic credentials:
+           every new handshake re-reads the provider, so certificate rotation
+           needs no restart and never touches established sessions.
+        3. no provider                           → static file-based credentials.
+
+        Thứ tự: TLS tắt → insecure; có provider → dynamic (rotate không cần
+        restart, không cắt phiên đang mở); không có provider → đọc file tĩnh.
+
+        Fails fast with a clear message when the provider is missing from the
+        DI container or cannot supply the initial certificate.
+        """
+        if not config.tls.enabled:
+            return None
+
+        from .tls._config import grpc_tls_registry
+
+        provider_class = grpc_tls_registry.get_provider(self._server_id)
+        if provider_class is None:
+            return build_server_credentials(config.tls)
+
+        try:
+            provider = app.get(provider_class)
+        except KeyError:
+            raise RuntimeError(
+                f"GrpcAdapter('{self._server_id}'): certificate provider "
+                f"'{provider_class.__name__}' (configure_grpc_tls) is not in "
+                "the DI container. Add its package to dependency.scan() or "
+                "dependency.register() in config/dependency.py."
+            ) from None
+
+        from .tls._credentials import build_dynamic_server_credentials
+
+        try:
+            return build_dynamic_server_credentials(provider, mutual=config.tls.mutual)
+        except Exception as exc:
+            raise RuntimeError(
+                f"GrpcAdapter('{self._server_id}'): certificate provider "
+                f"'{provider_class.__name__}' failed to supply the initial "
+                f"certificate: {exc}\n"
+                "Ensure the certificate is loaded before adapters start "
+                "(e.g. by a PostConstruct bootstrap such as a Trust startup "
+                "orchestrator)."
+            ) from exc
 
     def _register_codefirst(self, app: "Application") -> None:
         """Build + register code-first controllers for this server, if configured.

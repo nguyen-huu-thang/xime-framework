@@ -124,6 +124,33 @@ python app/main.py
 
 ---
 
+## Logging — Framework tự cấu hình mặc định
+
+Python mặc định để root logger ở mức `WARNING` và không gắn handler, nên mọi log
+`INFO` (kể cả luồng startup của framework) đều bị nuốt - app chạy đúng nhưng im
+lặng, dễ tưởng bị treo.
+
+Để tránh cú vấp này, `Application` tự cấu hình root logging lúc bootstrap, đọc từ
+khối `logging:` trong `application.yml`:
+
+```yaml
+logging:
+  enabled: true        # đặt false để framework không đụng tới logging
+  level: INFO          # DEBUG / INFO / WARNING / ERROR ... (không phân biệt hoa thường)
+  format: "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+  datefmt: "%H:%M:%S"
+```
+
+Toàn bộ khối là tùy chọn - không khai báo thì dùng mặc định ở trên (enabled,
+INFO).
+
+Quy tắc an toàn: framework **chỉ** cấu hình khi `enabled: true` **và** root logger
+chưa có handler nào. Nếu app tự gọi `logging.basicConfig`/`dictConfig` (hoặc chạy
+dưới một harness đã cấu hình logging như pytest), framework **không** ghi đè -
+setup của app luôn được ưu tiên. Muốn tự lo hoàn toàn thì đặt `enabled: false`.
+
+---
+
 ## `sys.path` — Framework tự xử lý
 
 Khi `main.py` chạy, Python coi thư mục gốc của project (không phải `./app`) là working directory. Điều này có nghĩa import như `from application.service import UserService` sẽ thất bại vì Python không biết về `./app`.

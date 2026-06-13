@@ -1,6 +1,7 @@
 import pytest
 
 from xime.adapters.grpc.routing._config import grpc_service_registry
+from xime.adapters.grpc.tls._config import grpc_tls_registry
 
 
 @pytest.fixture(autouse=True)
@@ -9,3 +10,10 @@ def reset_grpc_service_registry():
     yield
     grpc_service_registry._packages.clear()
     grpc_service_registry._bindings.clear()
+
+
+@pytest.fixture(autouse=True)
+def reset_grpc_tls_registry():
+    """Khôi phục grpc_tls_registry về trạng thái ban đầu sau mỗi test."""
+    yield
+    grpc_tls_registry.reset()

@@ -107,6 +107,7 @@ class Application:
 
         binding = self._resolve_binding()
         runtime = self._load_runtime()
+        self._configure_logging(runtime)
         self._orchestrator = StartupOrchestrator(binding, runtime)
         await self._orchestrator.start()
 
@@ -143,6 +144,7 @@ class Application:
         # runs even when a PostConstruct hook raises during startup.
         try:
             await self.start()
+            self._validate_grpc_codefirst_targets()
             if self._adapters:
                 # TaskGroup guarantees all adapter tasks are cancelled when any
                 # one of them fails — no orphaned background tasks.
@@ -184,6 +186,67 @@ class Application:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _validate_grpc_codefirst_targets(self) -> None:
+        """Fail fast when a code-first gRPC controller targets a server_id that
+        no registered GrpcAdapter serves.
+
+        Without this check the adapter silently skips the controller (its
+        server_id never matches any adapter), the server starts cleanly with no
+        log line, and every RPC returns UNIMPLEMENTED — a footgun that is very
+        hard to debug. This runs from _run_async (the adapter-running path) so
+        that test/context-manager usage without adapters is unaffected.
+
+        Kiểm tra sớm: nếu controller code-first mang server_id mà không
+        GrpcAdapter nào phục vụ, báo lỗi ngay thay vì để mọi RPC trả
+        UNIMPLEMENTED không một dòng log. Chỉ chạy ở _run_async (đường có
+        adapter) nên dùng qua context manager không bị ảnh hưởng.
+        """
+        try:
+            from xime.adapters.grpc._adapter import GrpcAdapter
+            from xime.adapters.grpc.codefirst._config import codefirst_registry
+            from xime.core.contract import ControllerScanner
+        except ImportError:
+            return  # grpc extra not installed — nothing to validate
+
+        packages = codefirst_registry.get_packages()
+        if not packages:
+            return  # configure_grpc_codefirst() was never called
+
+        served_ids = {
+            getattr(adapter, "_server_id", "default")
+            for adapter in self._adapters
+            if isinstance(adapter, GrpcAdapter)
+        }
+
+        controllers = ControllerScanner().find_controllers(*packages)
+        orphans = [
+            (cls.__name__, getattr(cls, "server_id", "default"))
+            for cls in controllers
+            if getattr(cls, "server_id", "default") not in served_ids
+        ]
+        if not orphans:
+            return
+
+        from xime.core.exception.framework import StartupException
+
+        served_str = ", ".join(sorted(served_ids)) if served_ids else (
+            "(none — no GrpcAdapter is registered via app.use())"
+        )
+        orphan_lines = "\n".join(
+            f"  - {name} (server_id='{server_id}')" for name, server_id in orphans
+        )
+        raise StartupException(
+            "\nCode-first gRPC controller targets an unserved server_id\n"
+            "These controllers were registered via configure_grpc_codefirst() "
+            "but their server_id is not served by any GrpcAdapter, so every RPC "
+            "would return UNIMPLEMENTED:\n"
+            f"{orphan_lines}\n"
+            f"  Registered GrpcAdapter server_id(s): {served_str}\n"
+            "  Fix: register a matching adapter, e.g. "
+            "app.use(GrpcAdapter('<server_id>', host, port)), or change the "
+            "controller's server_id to a registered one."
+        )
 
     def _resolve_binding(self) -> BindingConfig:
         if self._binding is not None:
@@ -293,3 +356,35 @@ class Application:
     def _load_runtime(self) -> RuntimeConfig:
         loader = YamlConfigLoader(self._resources_dir)
         return RuntimeConfig.from_dict(loader.load(env=detect_env()))
+
+    @staticmethod
+    def _configure_logging(
+        runtime: RuntimeConfig, root: "logging.Logger | None" = None
+    ) -> None:
+        """Apply a sane default root logging config from the `logging:` block.
+
+        Skips entirely when disabled, or when the root logger already has a
+        handler — so an app (or a test harness like pytest) that configured
+        logging itself is never overridden. Without this, INFO logs from the
+        framework and app are swallowed and the app appears to start silently.
+
+        `root` is injectable for testing; production passes None → the real root.
+
+        Bỏ qua khi tắt hoặc khi root đã có handler (app/pytest tự cấu hình luôn
+        được ưu tiên). Không có bước này, log INFO bị nuốt, app tưởng như treo.
+        """
+        import logging
+
+        cfg = runtime.logging
+        if not cfg.enabled:
+            return
+
+        root = root if root is not None else logging.getLogger()
+        if root.hasHandlers():
+            return
+
+        level = logging.getLevelName(cfg.level.upper())
+        if not isinstance(level, int):
+            level = logging.INFO  # unknown level name → safe default
+
+        logging.basicConfig(level=level, format=cfg.format, datefmt=cfg.datefmt)

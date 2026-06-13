@@ -9,6 +9,7 @@ from xime.core.config.binding import BindingConfig
 from xime.core.config.loader import YamlConfigLoader, detect_env
 from xime.core.config.runtime import RuntimeConfig
 from xime.core.container import XimeContainer
+from xime.core.event.bus import EventBus
 from xime.core.lifecycle.manager import LifecycleManager
 
 
@@ -38,16 +39,28 @@ class _TestStartupOrchestrator(StartupOrchestrator):
                 "Call stop() before starting again."
             )
 
-        container = XimeContainer().register_instance(RuntimeConfig, self._runtime)
-        for cls, instance in self._overrides.items():
-            container.register_instance(cls, instance)
-
-        self._container = (
-            container
+        event_bus = EventBus()
+        container = (
+            XimeContainer()
+            .register_instance(RuntimeConfig, self._runtime)
+            .register_instance(EventBus, event_bus)
             .scan(*self._binding.packages)
             .bind(self._binding.bindings)
-            .build()
+            .register(*self._binding.explicit_classes)
         )
+        for cls, instance in self._collect_framework_instances().items():
+            container.register_instance(cls, instance)
+        # Overrides are registered last so they take precedence over everything.
+        # Override đăng ký cuối để có độ ưu tiên cao nhất.
+        for cls, instance in self._overrides.items():
+            container.register_instance(cls, instance)
+        for config_cls in self._binding.config_classes:
+            container.configure(config_cls)
+        if self._binding.order_rules:
+            container.order(*self._binding.order_rules)
+        self._container = container.build()
+
+        self._wire_framework_instances(self._container.get)
 
         instances = self._container.get_all_in_order()
         instances.extend(self._build_framework_components(self._container.get))
@@ -98,6 +111,10 @@ class TestApplication:
         Supply a RuntimeConfig directly to skip YAML loading entirely.
         Useful when tests don't need any configuration values.
     """
+
+    # Tell pytest not to collect this utility class as a test class.
+    # Báo pytest không thu thập class tiện ích này như một test class.
+    __test__ = False
 
     def __init__(
         self,

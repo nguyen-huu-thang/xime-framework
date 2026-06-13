@@ -220,3 +220,57 @@ class TestGrpcServerConfigFromRuntime:
         })
         cfg = GrpcServerConfig.from_runtime(runtime)
         assert isinstance(cfg.tls, GrpcTlsConfig)
+
+
+# ---------------------------------------------------------------------------
+# GrpcServerConfig.for_server() — block grpc.servers.<server_id>
+# ---------------------------------------------------------------------------
+
+class TestGrpcServerConfigForServer:
+    def _runtime(self, data: dict) -> RuntimeConfig:
+        return RuntimeConfig.from_dict(data)
+
+    def test_returns_defaults_when_no_grpc_key(self):
+        cfg = GrpcServerConfig.for_server(self._runtime({}), "internal")
+        assert cfg.tls.enabled is False
+
+    def test_returns_defaults_when_no_servers_block(self):
+        runtime = self._runtime({"grpc": {"port": 50051}})
+        cfg = GrpcServerConfig.for_server(runtime, "internal")
+        assert cfg.tls.enabled is False
+
+    def test_returns_defaults_when_server_id_absent(self):
+        runtime = self._runtime({"grpc": {"servers": {"other": {"tls": {"enabled": True}}}}})
+        cfg = GrpcServerConfig.for_server(runtime, "internal")
+        assert cfg.tls.enabled is False
+
+    def test_parses_tls_block_for_server(self):
+        runtime = self._runtime({
+            "grpc": {
+                "port": 50051,
+                "servers": {
+                    "internal": {"tls": {"enabled": True, "mutual": True}},
+                },
+            }
+        })
+        cfg = GrpcServerConfig.for_server(runtime, "internal")
+        assert cfg.tls.enabled is True
+        assert cfg.tls.mutual is True
+        assert isinstance(cfg.tls, GrpcTlsConfig)
+
+    def test_top_level_tls_does_not_leak_into_server_block(self):
+        """grpc.tls (server default) không được áp sang server khác."""
+        runtime = self._runtime({
+            "grpc": {
+                "tls": {"enabled": True, "mutual": True},
+                "servers": {"internal": {}},
+            }
+        })
+        cfg = GrpcServerConfig.for_server(runtime, "internal")
+        assert cfg.tls.enabled is False
+
+    def test_servers_null_in_yaml_returns_defaults(self):
+        """grpc.servers: null trong YAML → không crash, trả default."""
+        runtime = self._runtime({"grpc": {"servers": None}})
+        cfg = GrpcServerConfig.for_server(runtime, "internal")
+        assert cfg.tls.enabled is False

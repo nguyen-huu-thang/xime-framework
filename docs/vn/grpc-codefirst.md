@@ -63,7 +63,7 @@ class DownloadRequest(BaseModel):
     parts: int
 
 class CryptoController:
-    server_id = "public"   # khớp với GrpcAdapter("public") hoặc default
+    server_id = "default"   # phục vụ bởi GrpcAdapter() mặc định
 
     def __init__(self, crypto_service: CryptoService) -> None:
         self.crypto_service = crypto_service
@@ -104,7 +104,7 @@ Lệnh này tạo ra:
 
 ```text
 generated/
-└── public/
+└── default/
     ├── crypto.proto
     ├── crypto_pb2.py
     └── crypto_pb2_grpc.py
@@ -274,7 +274,7 @@ Khi một DTO được dùng bởi hai controller trở lên cùng `server_id`, 
 nó vào `common.proto`:
 
 ```text
-generated/public/
+generated/default/
 ├── crypto.proto     # import common.proto
 ├── user.proto       # import common.proto
 └── common.proto     # dùng chung: UserResponse, PageInfo, ...
@@ -302,7 +302,7 @@ khác biệt. Dùng làm CI gate để bắt "DTO đã sửa nhưng chưa genera
 
 ```text
 Proto Out Of Date
-  File: generated/public/crypto.proto
+  File: generated/default/crypto.proto
   Hint: chạy `xime grpc generate`
 ```
 
@@ -315,7 +315,7 @@ bằng `server_id`:
 
 ```python
 class PublicCryptoController:
-    server_id = "public"      # phục vụ bởi GrpcAdapter() hoặc GrpcAdapter("public")
+    server_id = "default"     # phục vụ bởi GrpcAdapter() mặc định
     ...
 
 class InternalCryptoController:
@@ -324,9 +324,17 @@ class InternalCryptoController:
 ```
 
 ```python
-app.use(GrpcAdapter())                         # phục vụ server_id="public"
+app.use(GrpcAdapter())                         # phục vụ server_id="default"
 app.use(GrpcAdapter("internal", port=50052))   # phục vụ server_id="internal"
 ```
+
+> **`server_id` phải khớp một adapter đã đăng ký.** `GrpcAdapter()` mặc định mang
+> `server_id="default"` - nó **không** phục vụ controller có `server_id` khác.
+> Nếu một controller code-first nhắm tới `server_id` mà không `GrpcAdapter` nào
+> phục vụ (ví dụ `server_id="public"` trong khi chỉ đăng ký adapter mặc định),
+> XIME **báo lỗi ngay lúc startup** với thông điệp rõ ràng, thay vì cho server lên
+> rồi mọi RPC trả `UNIMPLEMENTED` không một dòng log. Hãy đăng ký
+> `GrpcAdapter("public", port=...)` tương ứng, hoặc đổi `server_id` của controller.
 
 ---
 
@@ -347,6 +355,56 @@ configure_grpc_codefirst(packages=["api.grpc.codefirst"])
 
 ---
 
+## TLS / mTLS
+
+Bật TLS cho server qua `application.yml`. Server `default` đọc `grpc.tls`; server
+khác đọc `grpc.servers.<server_id>.tls`:
+
+```yaml
+grpc:
+  port: 50051
+  tls:
+    enabled: true
+    mutual: true                 # true = yêu cầu client cert (mTLS)
+    cert_file: certs/server.crt  # chế độ tĩnh: đọc cert từ file
+    key_file:  certs/server.key
+    ca_file:   certs/ca.crt
+```
+
+**mTLS động (cert xoay không restart).** Khi cert được cấp động (ví dụ từ một
+Trust Service và xoay định kỳ), đăng ký một `GrpcCertificateProvider` thay cho
+khai file. Provider đọc cert hiện hành từ bộ nhớ; framework hỏi lại nó ở **mỗi
+TLS handshake mới**, nên cert xoay không cần restart và không cắt phiên đang mở:
+
+```python
+# config/grpc.py
+from xime.adapters.grpc import configure_grpc_tls
+
+configure_grpc_tls(provider=TrustGrpcCertificateProvider)
+#   provider là class trong DI, có version() -> str và current() -> ServerCertificates
+```
+
+```yaml
+grpc:
+  tls:
+    enabled: true
+    mutual: true     # cert_file/key_file không cần khi có provider
+```
+
+Provider áp dụng cho mọi server; override cho một server cụ thể bằng
+`configure_grpc_tls(provider=PublicCaProvider, server_id="public")` (ví dụ server
+nội bộ dùng cert Trust, server public dùng cert public CA).
+
+---
+
+## Gọi từ service khác
+
+Trang này lo phía **server**. Để một service khác **gọi** vào server code-first
+này như gọi hàm nội bộ - sinh client SDK typed, đưa vào DI, dùng chung cert động
+- xem [gRPC Client SDK + mTLS động](grpc-client.md).
+
+---
+
 ## Cài đặt
 
 ```bash
@@ -355,4 +413,4 @@ pip install "xime[grpc]"   # thêm grpcio, grpcio-tools, protobuf
 
 ---
 
-[← Routing](routing.md) · **7/9 — Code-First gRPC** · [Starters →](starters.md)
+[← Routing](routing.md) · **7/9 — Code-First gRPC** · [Starters →](starters.md) · [gRPC Client SDK →](grpc-client.md)

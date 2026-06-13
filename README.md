@@ -192,8 +192,9 @@ The best way to learn XIME is to read real code. These open-source projects are 
 | [**xime-shop-example**](https://github.com/nguyen-huu-thang/xime-shop-example) | An e-commerce demo using a straightforward layered architecture. | 🟢 Getting started |
 | [**data-service**](https://github.com/nguyen-huu-thang/data-service) | A production-grade microservice: Hexagonal / DDD, gRPC, SQLAlchemy, multi-tenant sharding. The most complete reference. | 🔵 Real-world patterns |
 | [**notification-service**](https://github.com/nguyen-huu-thang/notification-service) | An async, IO-bound notification microservice with event-driven patterns. | 🔵 Async & events |
+| [**xime-grpc-socket-example**](https://github.com/nguyen-huu-thang/xime-grpc-socket-example) | One app serving gRPC (code-first, dynamic mTLS) and Unix Domain Sockets side by side, with shared `@command` / `@stream` contracts and different security models. | 🟣 Multi-transport |
 
-> New to XIME? Start with **xime-shop-example** for the fundamentals, then study **data-service** for full Hexagonal/DDD patterns at production scale.
+> New to XIME? Start with **xime-shop-example** for the fundamentals, then study **data-service** for full Hexagonal/DDD patterns at production scale. To see one app speak gRPC and sockets at once, read **xime-grpc-socket-example**.
 
 ---
 
@@ -215,6 +216,8 @@ The best way to learn XIME is to read real code. These open-source projects are 
 | **Transaction API** | Explicit `async with self.transaction():` - no hidden AOP |
 | **Class-Based Controllers** | Controllers are DI singletons, methods map to routes |
 | **Code-First gRPC** | Write Python DTOs, XIME generates `.proto` + stubs; field-number stability via lock file |
+| **gRPC Client SDK** | Generate a typed Pydantic client from `.proto`, inject via DI; deadlines + typed errors |
+| **Dynamic mTLS** | Certificate rotation without restart for both inbound servers and outbound clients |
 | **Socket Adapter** | Unix Domain Socket IPC for same-host Native Engine calls (Linux); `@command` / `@stream` |
 
 ---
@@ -245,7 +248,7 @@ Optional modules, similar to `spring-boot-starter-*`:
 
 ## Project Status
 
-XIME is in **active development**. The following are implemented: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing), gRPC adapter (proto-first + **code-first**), **Socket adapter** (Unix Domain Socket IPC), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial. Redis and Cache starters are planned.
+XIME is in **active development**. The following are implemented: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing, custom middleware & exception handlers), gRPC adapter (proto-first + **code-first**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors), **Socket adapter** (Unix Domain Socket IPC), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial. Redis and Cache starters are planned.
 
 ---
 
@@ -259,7 +262,8 @@ XIME is in **active development**. The following are implemented: core DI, lifec
 | [Configuration](docs/en/configuration.md) | Framework config + runtime YAML |
 | [Routing](docs/en/routing.md) | Class-based controllers, route decorators |
 | [Transaction](docs/en/transaction.md) | Explicit transaction management |
-| [Code-First gRPC](docs/en/grpc-codefirst.md) | Generate `.proto` from Python DTOs; field-number stability; `xime grpc generate/check` |
+| [Code-First gRPC](docs/en/grpc-codefirst.md) | Generate `.proto` from Python DTOs; field-number stability; `xime grpc generate/check`; dynamic mTLS |
+| [gRPC Client SDK](docs/en/grpc-client.md) | Generate a typed client SDK; inject it via DI; deadlines, typed errors, dynamic mTLS |
 | [Socket Adapter](docs/en/socket-adapter.md) | Unix Domain Socket IPC for same-host Native Engine calls |
 | [Starters](docs/en/starters.md) | SQLAlchemy, JWT, Scheduler |
 | [Testing](docs/en/testing.md) | DI overrides, fakes, test utilities |

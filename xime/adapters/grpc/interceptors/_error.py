@@ -66,7 +66,11 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
             except Exception as exc:
                 if isinstance(exc, grpc.RpcError):
                     raise
-                await context.abort(interceptor._resolve_status_code(exc), str(exc))
+                await context.abort(
+                    interceptor._resolve_status_code(exc),
+                    str(exc),
+                    trailing_metadata=_error_metadata(exc),
+                )
 
         return wrapped
 
@@ -84,7 +88,11 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
             except Exception as exc:
                 if isinstance(exc, grpc.RpcError):
                     raise
-                await context.abort(interceptor._resolve_status_code(exc), str(exc))
+                await context.abort(
+                    interceptor._resolve_status_code(exc),
+                    str(exc),
+                    trailing_metadata=_error_metadata(exc),
+                )
 
         return wrapped
 
@@ -98,3 +106,14 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
             if isinstance(exc, exc_type):
                 return status_code
         return grpc.StatusCode.INTERNAL
+
+
+# Trailing metadata key carrying the server-side exception class name so a
+# Xime client SDK can expose a typed error code (RemoteCallError.code).
+# Key trailing metadata mang tên exception phía server để client SDK
+# phơi ra code lỗi typed (RemoteCallError.code).
+XIME_ERROR_METADATA_KEY = "xime-error"
+
+
+def _error_metadata(exc: Exception) -> tuple[tuple[str, str], ...]:
+    return ((XIME_ERROR_METADATA_KEY, type(exc).__name__),)

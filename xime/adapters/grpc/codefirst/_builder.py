@@ -28,7 +28,7 @@ from ._stream_convention import (
     download_wrapper_name,
     upload_wrapper_name,
 )
-from ._type_map import map_type
+from ._type_map import map_type, python_hint
 
 
 class _MessageRegistry:
@@ -50,6 +50,9 @@ class _MessageRegistry:
         # name → set of child message/enum names (for transitive shared detection)
         self.children: dict[str, set[str]] = {}
         self._current: str | None = None
+        # "Message.field" → sidecar fidelity hint ("decimal" / "uuid" / "date")
+        # "Message.field" → hint fidelity cho sidecar
+        self.field_hints: dict[str, str] = {}
 
     # -- called by map_type -------------------------------------------------
 
@@ -102,6 +105,9 @@ class _MessageRegistry:
                 proto_type, optional = map_type(annotation, self)
                 field_specs[fname] = (proto_type, optional)
                 py_fields.append(fname)
+                hint = python_hint(annotation)
+                if hint is not None:
+                    self.field_hints[f"{model.__name__}.{fname}"] = hint
         finally:
             self._current = None
 
@@ -169,6 +175,7 @@ class ContractBuilder:
             messages=registry.messages,
             enums=registry.enums,
             references=references,
+            field_hints=registry.field_hints,
         )
 
     # ------------------------------------------------------------------
@@ -209,6 +216,7 @@ class ContractBuilder:
             return MethodContract(
                 rpc_name, request_msg, response_msg, stream_kind,
                 handler_attr=attr_name, request_py=request_type, response_py=response_type,
+                endpoint_name=info.name,
             )
 
         if stream_kind is StreamKind.CLIENT_STREAM:
@@ -230,6 +238,7 @@ class ContractBuilder:
                 rpc_name, wrapper, response_msg, StreamKind.CLIENT_STREAM,
                 handler_attr=attr_name, stream_param=stream_param,
                 request_py=request_type, response_py=response_type,
+                endpoint_name=info.name,
             )
 
         # SERVER_STREAM (download)
@@ -245,6 +254,7 @@ class ContractBuilder:
             rpc_name, request_msg, wrapper, StreamKind.SERVER_STREAM,
             handler_attr=attr_name, stream_param=stream_param,
             request_py=request_type, response_py=None,
+            endpoint_name=info.name,
         )
 
     # ------------------------------------------------------------------

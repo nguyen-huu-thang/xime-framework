@@ -153,8 +153,19 @@ class WebAdapter:
         # Middleware stack is addded in LIFO order (last added = outermost = runs first).
         # JwtAuthMiddleware added first → innermost → runs after RequestContextMiddleware.
         # RequestContextMiddleware added last → outermost → runs first, cleans up last.
+        # User middleware (configure_middleware) sit in between: outside JwtAuth so
+        # e.g. CORS preflight is handled before auth; declared-first runs first.
+        # Middleware của user (configure_middleware) nằm giữa: ngoài JwtAuth để
+        # CORS preflight chạy trước auth; khai báo trước chạy trước.
         self._add_jwt_middleware(fastapi_app)
+        for middleware, options in reversed(registry.get_middlewares(self._server_id)):
+            fastapi_app.add_middleware(middleware, **options)
         fastapi_app.add_middleware(RequestContextMiddleware)
+
+        # Global exception handlers registered via configure_exception_handlers().
+        # Exception handler toàn cục đăng ký qua configure_exception_handlers().
+        for exc_type, handler in registry.get_exception_handlers(self._server_id).items():
+            fastapi_app.add_exception_handler(exc_type, handler)
 
         if openapi_config is not None:
             fastapi_app.openapi = build_custom_openapi(fastapi_app, openapi_config)

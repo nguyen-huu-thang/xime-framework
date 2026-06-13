@@ -221,7 +221,14 @@ configure_controllers("api.rest")
 server:
   host: 0.0.0.0
   port: 8080
+
+# Tùy chọn — XIME mặc định cấu hình logging mức INFO; chỉnh hoặc tắt ở đây.
+logging:
+  level: INFO
 ```
+
+Logging được cấu hình tự động lúc khởi động nên app in log `INFO` ngay từ đầu. Xem
+[Cấu hình → Logging](configuration.md) để biết đầy đủ khối config và quy tắc tắt.
 
 ---
 

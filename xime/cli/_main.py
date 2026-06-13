@@ -21,12 +21,32 @@ def main(argv: list[str] | None = None) -> int:
     chk = grpc_sub.add_parser("check", help="Fail if generated .proto is out of date")
     chk.add_argument("--config", default="config", help="config package to import (default: config)")
 
+    cli = grpc_sub.add_parser(
+        "client",
+        help="Generate a typed client SDK from .proto files (+ contract.json sidecar)",
+    )
+    cli.add_argument("--proto", required=True, help="directory containing the .proto files")
+    cli.add_argument("--out", required=True, help="output package directory (e.g. clients/trust)")
+    cli.add_argument(
+        "--package",
+        default=None,
+        help="emit a pip-installable layout with pyproject.toml under --out, "
+        "using this distribution name (e.g. trust-client)",
+    )
+    cli.add_argument(
+        "--package-version",
+        default="0.2.0",
+        help="version written into pyproject.toml (default: 0.2.0)",
+    )
+
     args = parser.parse_args(argv)
 
     if args.group == "grpc" and args.command == "generate":
         return _grpc_generate(args.config, run_protoc=not args.no_protoc)
     if args.group == "grpc" and args.command == "check":
         return _grpc_check(args.config)
+    if args.group == "grpc" and args.command == "client":
+        return _grpc_client(args.proto, args.out, args.package, args.package_version)
 
     parser.print_help()
     return 2
@@ -86,6 +106,25 @@ def _grpc_check(config_package: str) -> int:
         print(f"  stale   : {path}")
     print("\nPlease run:\n  xime grpc generate")
     return 1
+
+
+def _grpc_client(
+    proto_dir: str,
+    out_dir: str,
+    package: str | None = None,
+    package_version: str = "0.2.0",
+) -> int:
+    from xime.adapters.grpc.client import generate_client_sdk
+
+    result = generate_client_sdk(
+        proto_dir, out_dir, package=package, package_version=package_version
+    )
+    for path in result.written:
+        print(f"  sdk    {path}")
+    for path in result.skipped_methods:
+        print(f"  skip   {path}  (streaming requires contract.json sidecar)")
+    print(f"Generated client SDK in {out_dir}.")
+    return 0
 
 
 # ---------------------------------------------------------------------------

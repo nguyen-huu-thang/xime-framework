@@ -15,6 +15,28 @@ class ServerConfig(BaseModel):
     port: int = 8080
 
 
+class LoggingConfig(BaseModel):
+    """Default root logging applied at bootstrap.
+
+    Without this, Python's root logger defaults to WARNING with no handler, so
+    every INFO log the framework and app emit is swallowed — the app appears to
+    start silently and is easily mistaken for hung. The framework configures
+    root logging only when `enabled` is true AND no handler is already installed
+    (so an app that calls logging.basicConfig/dictConfig itself always wins).
+    Set `enabled: false` to opt out entirely.
+
+    Không có khối này, root logger mặc định mức WARNING, không handler -> mọi log
+    INFO bị nuốt, app tưởng như treo. Framework chỉ cấu hình khi enabled=true VÀ
+    root chưa có handler (app tự cấu hình logging luôn được ưu tiên). Đặt
+    enabled: false để tắt hẳn.
+    """
+
+    enabled: bool = True
+    level: str = "INFO"
+    format: str = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+    datefmt: str = "%H:%M:%S"
+
+
 class RuntimeConfig(BaseModel):
     """
     Typed view of application.yml merged with the active env override.
@@ -32,6 +54,7 @@ class RuntimeConfig(BaseModel):
 
     env: str = "development"
     server: ServerConfig = Field(default_factory=ServerConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
 
     # Cached flat dict built once in model_post_init.
     # Avoids re-running model_dump() on every get() call.

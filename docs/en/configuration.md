@@ -130,6 +130,24 @@ APP_ENV=prod python app/main.py
 
 XIME checks `XIME_ENV` first, then falls back to `APP_ENV`. Defaults to `dev` if neither is set.
 
+### Logging
+
+Python's root logger defaults to `WARNING` with no handler, so every `INFO` log (including the framework's own startup messages) is swallowed - the app runs correctly but silently, which is easily mistaken for a hang.
+
+To avoid this, XIME configures the root logger at bootstrap, reading an optional `logging:` block from `application.yml`:
+
+```yaml
+logging:
+  enabled: true        # set false to make the framework leave logging untouched
+  level: INFO          # DEBUG / INFO / WARNING / ERROR ... (case-insensitive)
+  format: "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
+  datefmt: "%H:%M:%S"
+```
+
+The whole block is optional - omit it to get the defaults above (enabled, `INFO`).
+
+**Safety rule:** the framework configures logging **only** when `enabled: true` **and** the root logger has no handler yet. If your app calls `logging.basicConfig`/`dictConfig` itself (or runs under a harness that already set up logging, such as pytest), the framework does **not** override it - your setup always wins. To take full control, set `enabled: false`.
+
 ---
 
 ## Accessing Runtime Config in Code
