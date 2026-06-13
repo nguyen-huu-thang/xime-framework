@@ -17,6 +17,29 @@ if typing.TYPE_CHECKING:
 EndpointShape = Literal["command", "upload", "download"]
 
 
+def _unresolved_hint(cls: type) -> str:
+    """Actionable explanation for a NameError raised by get_type_hints.
+
+    The common cause is a controller (or its request/response models) defined
+    inside a function: with ``from __future__ import annotations`` every hint is
+    a string resolved later against the module globals only — the enclosing
+    function's locals are gone, so the name cannot be found. There is no way to
+    recover that scope, so we tell the developer to lift it to module level.
+    Nguyên nhân thường gặp: controller định nghĩa trong local scope của hàm.
+    """
+    if "<locals>" in getattr(cls, "__qualname__", ""):
+        return (
+            f"controller '{cls.__qualname__}' is defined inside a function. "
+            f"Define the controller and its request/response models at module "
+            f"level — annotations referencing names from a function's local "
+            f"scope cannot be resolved at startup."
+        )
+    return (
+        f"the annotation refers to a name that is not importable from module "
+        f"'{cls.__module__}'. Define or import the referenced type at module level."
+    )
+
+
 @dataclass
 class ResolvedEndpoint:
     """A fully-resolved endpoint ready for dispatch.
@@ -180,6 +203,14 @@ class SocketEndpointBuilder:
     def _type_hints(cls: type, attr_name: str, bound: Any) -> dict[str, Any]:
         try:
             return typing.get_type_hints(bound)
+        except NameError as exc:
+            raise StartupException(
+                f"\nUnresolvable Type Annotation\n"
+                f"  Controller: {cls.__name__}\n"
+                f"  Endpoint  : {attr_name}\n"
+                f"  Detail    : {exc}\n"
+                f"  Hint      : {_unresolved_hint(cls)}"
+            ) from exc
         except Exception as exc:
             raise StartupException(
                 f"\nUnresolvable Type Annotation\n"

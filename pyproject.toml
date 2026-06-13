@@ -65,7 +65,7 @@ jwt = [
     "pyjwt>=2.8",
 ]
 scheduler = [
-    "apscheduler>=4.0",
+    "apscheduler>=3.6",
 ]
 socket = [
     "msgpack>=1.0",

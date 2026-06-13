@@ -31,6 +31,29 @@ from ._stream_convention import (
 from ._type_map import map_type, python_hint
 
 
+def _unresolved_hint(cls: type) -> str:
+    """Actionable explanation for a NameError raised by get_type_hints.
+
+    The common cause is a controller (or its request/response models) defined
+    inside a function: with ``from __future__ import annotations`` every hint is
+    a string resolved later against the module globals only — the enclosing
+    function's locals are gone, so the name cannot be found. There is no way to
+    recover that scope, so we tell the developer to lift it to module level.
+    Nguyên nhân thường gặp: controller định nghĩa trong local scope của hàm.
+    """
+    if "<locals>" in getattr(cls, "__qualname__", ""):
+        return (
+            f"controller '{cls.__qualname__}' is defined inside a function — "
+            f"define it and its request/response models at module level; "
+            f"annotations referencing a function's local scope cannot be "
+            f"resolved at startup."
+        )
+    return (
+        f"the annotation refers to a name not importable from module "
+        f"'{cls.__module__}' — define or import the referenced type at module level."
+    )
+
+
 class _MessageRegistry:
     """Collects Pydantic models / enums referenced by a contract and turns them
     into MessageContract / EnumContract, assigning stable field numbers via the lock.
@@ -279,6 +302,10 @@ class ContractBuilder:
     ) -> tuple[type[BaseModel], type | None, StreamKind, str]:
         try:
             hints = typing.get_type_hints(func)
+        except NameError as exc:
+            raise StartupException(
+                self._err(cls, attr_name, f"unresolvable annotation: {exc}. {_unresolved_hint(cls)}")
+            ) from exc
         except Exception as exc:
             raise StartupException(self._err(cls, attr_name, f"unresolvable annotation: {exc}")) from exc
         return_type = hints.pop("return", None)

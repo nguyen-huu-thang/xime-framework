@@ -4,9 +4,8 @@
 
 **Spring Boot-style developer experience for Python - without betraying Python's philosophy.**
 
-[![PyPI version](https://img.shields.io/pypi/v/xime.svg)](https://pypi.org/project/xime/)
-<!-- Badge tĩnh tạm thời. Sau khi publish bản PyPI mới (classifiers 3.12+), khôi phục badge động bằng dòng dưới đây:
-     [![Python](https://img.shields.io/pypi/pyversions/xime.svg)](https://pypi.org/project/xime/) -->
+[![Python](https://img.shields.io/pypi/pyversions/xime.svg)](https://pypi.org/project/xime/)
+
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://pypi.org/project/xime/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
