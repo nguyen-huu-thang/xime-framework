@@ -4,8 +4,6 @@
 
 **Spring Boot-style developer experience for Python - without betraying Python's philosophy.**
 
-[![Python](https://img.shields.io/pypi/pyversions/xime.svg)](https://pypi.org/project/xime/)
-
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://pypi.org/project/xime/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -17,7 +15,7 @@
 
 ---
 
-XIME is not another HTTP framework. It sits **on top of** FastAPI, SQLAlchemy, and gRPC - providing a convention engine, automatic dependency injection, and architectural guardrails so you can focus on business logic instead of wiring.
+XIME is a convention layer for Python microservices. It sits **on top of** FastAPI, SQLAlchemy, and gRPC - providing automatic dependency injection, startup-time graph validation, and architectural guardrails so you can focus on business logic instead of wiring.
 
 ```python
 # Before XIME - wire everything manually
@@ -52,6 +50,23 @@ Python has excellent libraries for HTTP, databases, and serialization. What it l
 - Provides a consistent structure for Clean Architecture / DDD / Modular Monolith projects
 
 XIME fills that gap. It does not replace FastAPI or SQLAlchemy - it makes them easier to use at scale.
+
+---
+
+## Why not dependency-injector, injector, or lagom?
+
+These are solid libraries - XIME actually uses `dependency-injector` internally as its singleton storage layer. The difference is scope:
+
+| | dependency-injector / injector | lagom | XIME |
+|---|---|---|---|
+| Auto-scan packages by directory | No - manual wiring required | No | Yes |
+| Startup-time graph validation | No | Partial | Yes - cycles, missing impl, ambiguous bindings |
+| Code-first gRPC generation | No | No | Yes |
+| Web framework integration | No | No | Yes - controllers, middleware, lifecycle |
+| Explicit transaction management | No | No | Yes - `async with self.transaction():` |
+| Designed for microservice structure | No | No | Yes |
+
+If you only need DI, use `dependency-injector` or `lagom`. If you want a full convention layer that wires DI, HTTP, gRPC, transactions, and lifecycle together - use XIME.
 
 ---
 
@@ -248,6 +263,8 @@ Optional modules, similar to `spring-boot-starter-*`:
 ## Project Status
 
 XIME is in **active development**. The following are implemented: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing, custom middleware & exception handlers), gRPC adapter (proto-first + **code-first**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors), **Socket adapter** (Unix Domain Socket IPC), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial. Redis and Cache starters are planned.
+
+The core is covered by **870+ tests**.
 
 ---
 

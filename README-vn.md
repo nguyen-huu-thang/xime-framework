@@ -4,8 +4,6 @@
 
 **Trải nghiệm phát triển kiểu Spring Boot cho Python - mà vẫn tôn trọng triết lý Python.**
 
-[![Python](https://img.shields.io/pypi/pyversions/xime.svg)](https://pypi.org/project/xime/)
-
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://pypi.org/project/xime/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -17,7 +15,7 @@
 
 ---
 
-XIME không phải một HTTP framework khác. Nó nằm **phía trên** FastAPI, SQLAlchemy và gRPC - cung cấp convention engine, dependency injection tự động và các guardrail kiến trúc để bạn tập trung vào nghiệp vụ thay vì dây nhợ cấu hình.
+XIME là một tầng convention cho microservice Python. Nó nằm **phía trên** FastAPI, SQLAlchemy và gRPC - cung cấp dependency injection tự động, validation dependency graph ngay lúc startup và các guardrail kiến trúc để bạn tập trung vào nghiệp vụ thay vì dây nhợ cấu hình.
 
 ```python
 # Trước XIME - tự kết nối mọi thứ thủ công
@@ -52,6 +50,23 @@ Python có các thư viện xuất sắc cho HTTP, database và serialization. �
 - Cung cấp cấu trúc nhất quán cho các project theo Clean Architecture / DDD / Modular Monolith
 
 XIME lấp đầy khoảng trống đó. Nó không thay thế FastAPI hay SQLAlchemy - nó giúp chúng dễ dùng hơn ở quy mô lớn.
+
+---
+
+## Tại sao không dùng dependency-injector, injector hay lagom?
+
+Đây là những thư viện tốt - XIME thực ra dùng `dependency-injector` bên trong làm lớp lưu trữ singleton. Sự khác biệt nằm ở phạm vi:
+
+| | dependency-injector / injector | lagom | XIME |
+|---|---|---|---|
+| Tự động quét package theo thư mục | Không - phải wire thủ công | Không | Có |
+| Validate dependency graph lúc startup | Không | Một phần | Có - vòng lặp, thiếu impl, binding mơ hồ |
+| Sinh gRPC code-first | Không | Không | Có |
+| Tích hợp web framework | Không | Không | Có - controller, middleware, lifecycle |
+| Quản lý transaction tường minh | Không | Không | Có - `async with self.transaction():` |
+| Thiết kế cho cấu trúc microservice | Không | Không | Có |
+
+Nếu bạn chỉ cần DI, hãy dùng `dependency-injector` hay `lagom`. Nếu bạn muốn một tầng convention đầy đủ kết nối DI, HTTP, gRPC, transaction và lifecycle lại với nhau - hãy dùng XIME.
 
 ---
 
@@ -248,6 +263,8 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 ## Trạng thái dự án
 
 XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing, middleware & exception handler tùy chỉnh), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed), **Socket adapter** (Unix Domain Socket IPC), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện. Redis và Cache starter đang được kế hoạch.
+
+Core được bao phủ bởi **870+ test**.
 
 ---
 
