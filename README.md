@@ -230,7 +230,7 @@ The best way to learn XIME is to read real code. These open-source projects are 
 | **Transaction API** | Explicit `async with self.transaction():` - no hidden AOP |
 | **Class-Based Controllers** | Controllers are DI singletons, methods map to routes |
 | **Code-First gRPC** | Write Python DTOs, XIME generates `.proto` + stubs; field-number stability via lock file |
-| **gRPC Client SDK** | Generate a typed Pydantic client from `.proto`, inject via DI; deadlines + typed errors |
+| **gRPC Client SDK** | Generate a typed Pydantic client from `.proto`, inject via DI; deadlines, typed errors, automatic retry |
 | **Dynamic mTLS** | Certificate rotation without restart for both inbound servers and outbound clients |
 | **Socket Adapter** | Unix Domain Socket IPC for same-host Native Engine calls (Linux); `@command` / `@stream` |
 
@@ -262,9 +262,11 @@ Optional modules, similar to `spring-boot-starter-*`:
 
 ## Project Status
 
-XIME is in **active development**. The following are implemented: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing, custom middleware & exception handlers), gRPC adapter (proto-first + **code-first**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors), **Socket adapter** (Unix Domain Socket IPC), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial. Redis and Cache starters are planned.
+XIME is in **active development**. The following are implemented: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing, custom middleware & exception handlers), gRPC adapter (proto-first + **code-first**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors + automatic retry), **Socket adapter** (Unix Domain Socket IPC), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial. Redis and Cache starters are planned.
 
-The core is covered by **870+ tests**.
+The core is covered by **890+ tests**.
+
+See the [CHANGELOG](CHANGELOG.md) for release history.
 
 ---
 
@@ -279,7 +281,7 @@ The core is covered by **870+ tests**.
 | [Routing](docs/en/routing.md) | Class-based controllers, route decorators |
 | [Transaction](docs/en/transaction.md) | Explicit transaction management |
 | [Code-First gRPC](docs/en/grpc-codefirst.md) | Generate `.proto` from Python DTOs; field-number stability; `xime grpc generate/check`; dynamic mTLS |
-| [gRPC Client SDK](docs/en/grpc-client.md) | Generate a typed client SDK; inject it via DI; deadlines, typed errors, dynamic mTLS |
+| [gRPC Client SDK](docs/en/grpc-client.md) | Generate a typed client SDK; inject it via DI; deadlines, typed errors, retry, dynamic mTLS |
 | [Socket Adapter](docs/en/socket-adapter.md) | Unix Domain Socket IPC for same-host Native Engine calls |
 | [Starters](docs/en/starters.md) | SQLAlchemy, JWT, Scheduler |
 | [Testing](docs/en/testing.md) | DI overrides, fakes, test utilities |

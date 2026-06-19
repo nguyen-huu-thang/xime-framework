@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterator, Callable
 
@@ -68,6 +69,14 @@ class XimeGrpcChannel:
         self._provider: "GrpcCertificateProvider | None" = None
         self._cert_version: str | None = None
         self._retired: list[grpc.aio.Channel] = []
+        # Serializes the dynamic check-and-replace below. A threading.Lock (not
+        # asyncio.Lock) because _dynamic_channel() is synchronous: under asyncio
+        # it is already atomic (no await inside), so this only matters if the
+        # channel is touched from multiple OS threads — exactly the case the
+        # plain check-and-replace would leak a channel on.
+        # threading.Lock (không asyncio.Lock) vì _dynamic_channel() đồng bộ: dưới
+        # asyncio vốn đã atomic, lock chỉ cần khi channel bị chạm từ nhiều thread.
+        self._rotation_lock = threading.Lock()
 
     @property
     def client_id(self) -> str:
@@ -88,10 +97,7 @@ class XimeGrpcChannel:
         )
 
         async def call(request: Any, timeout: float | None = None) -> Any:
-            try:
-                return await inner(request, timeout=self._timeout(timeout))
-            except grpc.aio.AioRpcError as exc:
-                raise self._translate(exc, path) from None
+            return await self._unary_with_retry(inner, request, timeout, path)
 
         return call
 
@@ -173,17 +179,21 @@ class XimeGrpcChannel:
                 "configure_grpc_tls(provider=...) in config/grpc.py."
             )
         version = provider.version()
-        if self._channel is None or version != self._cert_version:
-            new_channel = self._create_dynamic_channel(provider.current())
-            if self._channel is not None:
-                self._retire(self._channel)
-                _log.info(
-                    "gRPC client '%s': certificate rotated (version=%s), channel rebuilt.",
-                    self._client_id, version,
-                )
-            self._channel = new_channel
-            self._cert_version = version
-        return self._channel
+        # Lock so two concurrent callers cannot both build a channel and leak
+        # one: the loser must observe the winner's channel + version.
+        # Khoá để hai caller song song không cùng dựng channel rồi rò một cái.
+        with self._rotation_lock:
+            if self._channel is None or version != self._cert_version:
+                new_channel = self._create_dynamic_channel(provider.current())
+                if self._channel is not None:
+                    self._retire(self._channel)
+                    _log.info(
+                        "gRPC client '%s': certificate rotated (version=%s), channel rebuilt.",
+                        self._client_id, version,
+                    )
+                self._channel = new_channel
+                self._cert_version = version
+            return self._channel
 
     def _create_dynamic_channel(self, certs: "ServerCertificates") -> grpc.aio.Channel:
         if not certs.root_ca_pem:
@@ -227,6 +237,44 @@ class XimeGrpcChannel:
             certificate_chain=_read(tls.cert_file),
         )
         return grpc.aio.secure_channel(target, credentials)
+
+    async def _unary_with_retry(
+        self, inner: Callable[..., Any], request: Any, timeout: float | None, path: str
+    ) -> Any:
+        """Issue a unary call, retrying on configured statuses with backoff.
+
+        Only unary calls go through here — streaming requests/responses cannot
+        be replayed. When retry is disabled this is a single attempt, identical
+        to the previous behavior.
+        Chỉ call unary; stream không replay được. Retry tắt → đúng một lần thử.
+        """
+        retry = self._config.retry
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                return await inner(request, timeout=self._timeout(timeout))
+            except grpc.aio.AioRpcError as exc:
+                if (
+                    retry.enabled
+                    and attempt < retry.max_attempts
+                    and exc.code().name in retry.retryable_status
+                ):
+                    delay = self._backoff_delay(attempt)
+                    _log.debug(
+                        "gRPC client '%s': %s on %s, retry %d/%d after %.3fs",
+                        self._client_id, exc.code().name, path,
+                        attempt, retry.max_attempts - 1, delay,
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+                raise self._translate(exc, path) from None
+
+    def _backoff_delay(self, attempt: int) -> float:
+        """Exponential backoff (seconds) before the next attempt; capped."""
+        retry = self._config.retry
+        delay_ms = retry.initial_backoff_ms * (retry.backoff_multiplier ** (attempt - 1))
+        return min(delay_ms, retry.max_backoff_ms) / 1000.0
 
     def _timeout(self, override: float | None) -> float | None:
         if override is not None:

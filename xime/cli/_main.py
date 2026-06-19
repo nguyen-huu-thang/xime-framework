@@ -35,8 +35,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     cli.add_argument(
         "--package-version",
-        default="0.2.0",
-        help="version written into pyproject.toml (default: 0.2.0)",
+        default="0.1.0",
+        help="initial version written into the generated SDK's pyproject.toml "
+        "(default: 0.1.0; this is the SDK's own version, not the framework's)",
     )
 
     args = parser.parse_args(argv)
@@ -112,7 +113,7 @@ def _grpc_client(
     proto_dir: str,
     out_dir: str,
     package: str | None = None,
-    package_version: str = "0.2.0",
+    package_version: str = "0.1.0",
 ) -> int:
     from xime.adapters.grpc.client import generate_client_sdk
 

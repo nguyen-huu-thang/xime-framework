@@ -19,9 +19,10 @@ Test XimeGrpcChannel (Phase 2):
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import grpc
+import grpc.aio
 import pytest
 
 from xime.adapters.grpc.client._channel import XimeGrpcChannel
@@ -40,6 +41,24 @@ def _channel(deadline_ms: int = 5000, **config_extra) -> XimeGrpcChannel:
 
 class _FakeRpcError:
     """Đối tượng giả đủ giao diện AioRpcError mà _translate cần."""
+
+    def __init__(self, status, details="boom", trailing=()):
+        self._status = status
+        self._details = details
+        self._trailing = trailing
+
+    def code(self):
+        return self._status
+
+    def details(self):
+        return self._details
+
+    def trailing_metadata(self):
+        return self._trailing
+
+
+class _FakeAioRpcError(grpc.aio.AioRpcError):
+    """Raised by the fake inner call so `except AioRpcError` catches it."""
 
     def __init__(self, status, details="boom", trailing=()):
         self._status = status
@@ -177,3 +196,90 @@ class TestChannelCreation:
     @pytest.mark.asyncio
     async def test_close_is_safe_when_never_opened(self):
         await _channel().close()   # không raise
+
+
+# ---------------------------------------------------------------------------
+# Retry policy (unary)
+# ---------------------------------------------------------------------------
+
+class TestRetry:
+    def _with_inner(self, inner, **retry):
+        channel = _channel(retry={"enabled": True, "max_attempts": 3,
+                                  "initial_backoff_ms": 1, **retry})
+        fake = MagicMock()
+        fake.unary_unary.return_value = inner
+        return channel, fake
+
+    @pytest.mark.asyncio
+    async def test_retries_unavailable_then_succeeds(self):
+        calls = {"n": 0}
+
+        async def inner(request, timeout=None):
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise _FakeAioRpcError(grpc.StatusCode.UNAVAILABLE)
+            return "ok"
+
+        channel, fake = self._with_inner(inner)
+        with patch.object(channel, "_create_static_channel", return_value=fake), \
+             patch("asyncio.sleep", new=AsyncMock()):
+            call = channel.unary_unary("/svc/M", None, None)
+            assert await call("req") == "ok"
+        assert calls["n"] == 3   # two failures + one success
+
+    @pytest.mark.asyncio
+    async def test_retries_exhausted_raises_typed(self):
+        calls = {"n": 0}
+
+        async def inner(request, timeout=None):
+            calls["n"] += 1
+            raise _FakeAioRpcError(grpc.StatusCode.UNAVAILABLE)
+
+        channel, fake = self._with_inner(inner)
+        with patch.object(channel, "_create_static_channel", return_value=fake), \
+             patch("asyncio.sleep", new=AsyncMock()):
+            call = channel.unary_unary("/svc/M", None, None)
+            with pytest.raises(RemoteServiceUnavailable):
+                await call("req")
+        assert calls["n"] == 3   # exactly max_attempts
+
+    @pytest.mark.asyncio
+    async def test_disabled_does_not_retry(self):
+        calls = {"n": 0}
+
+        async def inner(request, timeout=None):
+            calls["n"] += 1
+            raise _FakeAioRpcError(grpc.StatusCode.UNAVAILABLE)
+
+        channel = _channel()   # retry off by default
+        fake = MagicMock()
+        fake.unary_unary.return_value = inner
+        with patch.object(channel, "_create_static_channel", return_value=fake):
+            call = channel.unary_unary("/svc/M", None, None)
+            with pytest.raises(RemoteServiceUnavailable):
+                await call("req")
+        assert calls["n"] == 1
+
+    @pytest.mark.asyncio
+    async def test_non_retryable_status_not_retried(self):
+        calls = {"n": 0}
+
+        async def inner(request, timeout=None):
+            calls["n"] += 1
+            raise _FakeAioRpcError(grpc.StatusCode.NOT_FOUND)
+
+        channel, fake = self._with_inner(inner)
+        with patch.object(channel, "_create_static_channel", return_value=fake), \
+             patch("asyncio.sleep", new=AsyncMock()):
+            call = channel.unary_unary("/svc/M", None, None)
+            with pytest.raises(RemoteCallError):
+                await call("req")
+        assert calls["n"] == 1   # NOT_FOUND is not retryable
+
+    def test_backoff_grows_and_caps(self):
+        channel = _channel(retry={"enabled": True, "initial_backoff_ms": 100,
+                                  "backoff_multiplier": 2.0, "max_backoff_ms": 300})
+        assert channel._backoff_delay(1) == 0.1
+        assert channel._backoff_delay(2) == 0.2
+        assert channel._backoff_delay(3) == 0.3   # would be 0.4, capped at 0.3
+        assert channel._backoff_delay(4) == 0.3

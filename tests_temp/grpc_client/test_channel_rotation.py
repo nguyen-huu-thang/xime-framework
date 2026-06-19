@@ -121,6 +121,35 @@ class TestDynamicChannelRotation:
         old.close.assert_awaited()
         current.close.assert_awaited()
 
+    def test_concurrent_first_access_builds_one_channel(self):
+        # Backlog #7: many OS threads hitting _grpc_channel() at once must not
+        # each build a channel and leak all but one. The rotation lock makes the
+        # check-and-replace atomic, so exactly one channel is created.
+        import threading
+
+        channel, provider = _dynamic_channel()
+        barrier = threading.Barrier(20)
+        errors: list[BaseException] = []
+
+        def worker():
+            try:
+                barrier.wait()          # maximize contention
+                channel._grpc_channel()
+            except BaseException as exc:  # noqa: BLE001 - surfaced via errors
+                errors.append(exc)
+
+        with patch("grpc.aio.secure_channel", side_effect=lambda *a: _mock_grpc_channel()) as mock_secure:
+            threads = [threading.Thread(target=worker) for _ in range(20)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+        assert not errors
+        assert mock_secure.call_count == 1       # only one channel ever built
+        assert provider.current_calls == 1
+        assert channel._retired == []            # nothing leaked / retired
+
     def test_missing_provider_raises_with_guidance(self):
         config = GrpcClientConfig(port=9090, tls={"enabled": True, "dynamic": True})
         channel = XimeGrpcChannel("trust", config)
@@ -153,11 +182,30 @@ class DiFakeProvider:
         return ServerCertificates("KEY", "CERT", "CA")
 
 
+class DiPublicProvider:
+    """A second provider, registered under a non-default server_id."""
+
+    def version(self) -> str:
+        return "v1"
+
+    def current(self) -> ServerCertificates:
+        return ServerCertificates("PKEY", "PCERT", "PCA")
+
+
 def _runtime_dynamic() -> RuntimeConfig:
     return RuntimeConfig.from_dict({
         "grpc": {"clients": {"trust": {
             "port": 9090,
             "tls": {"enabled": True, "dynamic": True},
+        }}}
+    })
+
+
+def _runtime_dynamic_server_id(server_id: str) -> RuntimeConfig:
+    return RuntimeConfig.from_dict({
+        "grpc": {"clients": {"trust": {
+            "port": 9090,
+            "tls": {"enabled": True, "dynamic": True, "server_id": server_id},
         }}}
     })
 
@@ -176,6 +224,26 @@ class TestWireDynamicCertificates:
         try:
             client = orchestrator.get(FakeTrustClient)
             assert isinstance(client.channel._provider, DiFakeProvider)
+        finally:
+            await orchestrator.stop()
+
+    @pytest.mark.asyncio
+    async def test_non_default_server_id_uses_matching_provider(self):
+        # Backlog #8: a client with tls.server_id != "default" must receive the
+        # provider registered for that server_id, not the hardcoded "default".
+        configure_grpc_clients("trust", FakeTrustClient)
+        configure_grpc_tls(provider=DiFakeProvider)                      # default
+        configure_grpc_tls(provider=DiPublicProvider, server_id="public")
+
+        binding = BindingConfig()
+        binding.register(DiFakeProvider)
+        binding.register(DiPublicProvider)
+
+        orchestrator = StartupOrchestrator(binding, _runtime_dynamic_server_id("public"))
+        await orchestrator.start()
+        try:
+            client = orchestrator.get(FakeTrustClient)
+            assert isinstance(client.channel._provider, DiPublicProvider)
         finally:
             await orchestrator.stop()
 

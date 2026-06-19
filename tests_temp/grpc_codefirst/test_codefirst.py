@@ -262,6 +262,32 @@ def test_builder_rejects_missing_response():
         ContractBuilder("public", LockFile()).build([Bad])
 
 
+def test_builder_rejects_sync_command():
+    # A plain `def` endpoint would crash at the first RPC (server awaits it).
+    class Bad:
+        server_id = "public"
+
+        @command("x")
+        def x(self, request: HashRequest) -> HashResponse: ...   # not async
+
+    with pytest.raises(StartupException, match="async def"):
+        ContractBuilder("public", LockFile()).build([Bad])
+
+
+def test_builder_rejects_async_generator_command():
+    # An `async def` with `yield` is an async generator, not a coroutine —
+    # awaiting it raises TypeError. Must be rejected at startup too.
+    class Bad:
+        server_id = "public"
+
+        @command("x")
+        async def x(self, request: HashRequest) -> HashResponse:
+            yield  # makes this an async generator function
+
+    with pytest.raises(StartupException, match="async def"):
+        ContractBuilder("public", LockFile()).build([Bad])
+
+
 def test_enum_unspecified_prepended():
     model = ContractBuilder("public", LockFile()).build([ColorController])
     text = ProtoEmitter().emit(model)["public/color.proto"]

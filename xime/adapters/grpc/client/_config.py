@@ -49,6 +49,47 @@ class GrpcClientTlsConfig(BaseModel):
     ca_file: str | None = None
     cert_file: str | None = None
     key_file: str | None = None
+    # Which configure_grpc_tls(server_id=...) provider supplies the certificate
+    # in dynamic mode. Defaults to the service's "default" provider; set this
+    # only in multi-server setups where this client must use a non-default
+    # identity. get_provider() still falls back to "default" if unregistered.
+    # Provider cert (configure_grpc_tls) dùng cho dynamic, theo server_id; mặc
+    # định "default", chỉ đổi khi multi-server cần định danh khác.
+    server_id: str = "default"
+
+
+class GrpcRetryConfig(BaseModel):
+    """Automatic retry for UNARY calls (opt-in, off by default).
+
+        grpc:
+          clients:
+            trust:
+              retry:
+                enabled: true
+                max_attempts: 3              # total tries incl. the first
+                initial_backoff_ms: 100
+                max_backoff_ms: 2000
+                backoff_multiplier: 2.0
+                retryable_status: [UNAVAILABLE]   # gRPC StatusCode names
+
+    Only unary calls are retried - a streaming request/response cannot be
+    replayed safely once consumed. The per-attempt deadline still applies
+    (each retry gets a fresh deadline_ms budget).
+
+    UNAVAILABLE is the only retry-safe status by default: it usually means the
+    request never reached the server. Adding others (e.g. for non-idempotent
+    mutations) risks duplicate side effects - opt in deliberately.
+    Chỉ retry call unary; stream không replay được. Mỗi lần thử có deadline
+    riêng. Mặc định chỉ UNAVAILABLE (request thường chưa tới server); thêm status
+    khác có thể gây tác dụng phụ trùng lặp - tự cân nhắc.
+    """
+
+    enabled: bool = False
+    max_attempts: int = 3
+    initial_backoff_ms: int = 100
+    max_backoff_ms: int = 2000
+    backoff_multiplier: float = 2.0
+    retryable_status: list[str] = Field(default_factory=lambda: ["UNAVAILABLE"])
 
 
 class GrpcClientConfig(BaseModel):
@@ -66,6 +107,7 @@ class GrpcClientConfig(BaseModel):
     port: int
     deadline_ms: int = 5000
     tls: GrpcClientTlsConfig = Field(default_factory=GrpcClientTlsConfig)
+    retry: GrpcRetryConfig = Field(default_factory=GrpcRetryConfig)
 
     @classmethod
     def from_runtime(cls, runtime: "RuntimeConfig", client_id: str) -> GrpcClientConfig:
@@ -212,22 +254,28 @@ def wire_dynamic_certificates(resolver) -> None:
     if not dynamic_channels:
         return
 
-    provider_class = grpc_tls_registry.get_provider("default")
-    if provider_class is None:
-        names = ", ".join(f"'{ch.client_id}'" for ch in dynamic_channels)
-        raise RuntimeError(
-            f"gRPC client(s) {names} enable tls.dynamic but no certificate "
-            "provider is registered. Call configure_grpc_tls(provider=...) "
-            "in config/grpc.py."
-        )
-    try:
-        provider = resolver(provider_class)
-    except KeyError:
-        raise RuntimeError(
-            f"Certificate provider '{provider_class.__name__}' (configure_grpc_tls) "
-            "is not in the DI container. Add its package to dependency.scan() "
-            "or dependency.register() in config/dependency.py."
-        ) from None
-
+    # Resolve a provider per channel by its configured server_id. Multiple
+    # channels sharing a provider class resolve it once (DI singleton anyway).
+    # Tra provider theo server_id của từng channel; cùng class thì resolve 1 lần.
+    resolved: dict[type, object] = {}
     for channel in dynamic_channels:
-        channel.attach_certificate_provider(provider)
+        server_id = channel._config.tls.server_id
+        provider_class = grpc_tls_registry.get_provider(server_id)
+        if provider_class is None:
+            raise RuntimeError(
+                f"gRPC client '{channel.client_id}' enables tls.dynamic with "
+                f"server_id='{server_id}' but no certificate provider is "
+                f"registered for it. Call configure_grpc_tls(provider=..., "
+                f"server_id='{server_id}') in config/grpc.py."
+            )
+        if provider_class not in resolved:
+            try:
+                resolved[provider_class] = resolver(provider_class)
+            except KeyError:
+                raise RuntimeError(
+                    f"Certificate provider '{provider_class.__name__}' "
+                    "(configure_grpc_tls) is not in the DI container. Add its "
+                    "package to dependency.scan() or dependency.register() in "
+                    "config/dependency.py."
+                ) from None
+        channel.attach_certificate_provider(resolved[provider_class])

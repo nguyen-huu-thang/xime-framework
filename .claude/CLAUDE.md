@@ -15,7 +15,8 @@ Trạng thái các mảng lớn (cập nhật 2026-06-13):
   (`configure_grpc_tls`).
 - **gRPC client SDK:** hoàn thành Phase 1-4 - `xime grpc client` sinh SDK
   (kèm `--package`), `configure_grpc_clients` + DI, `XimeGrpcChannel` deadline
-  + lỗi typed + mTLS động. Còn lại: retry policy, gen từ ContractModel.
+  + lỗi typed + mTLS động + retry policy (0.3, chỉ unary) + `tls.server_id`
+  multi-server. Còn lại: gen từ ContractModel (0.4).
 - **Socket adapter:** hoàn thành (dùng chung contract với gRPC code-first).
 - **Backlog còn mở:** xem `docs/backlog-sua-loi.md`.
 
@@ -28,6 +29,8 @@ Trạng thái các mảng lớn (cập nhật 2026-06-13):
 
 ## Tài liệu thiết kế chi tiết (đọc khi cần)
 
+- **Lộ trình phiên bản (0.3 -> 0.8, tra "việc X làm bản nào"):** `docs/lo-trinh-phien-ban.md`
+- **Kế hoạch 0.3 (hardening):** `docs/ke-hoach-0.3.md`
 - **Thiết kế tổng thể:** `docs/tai-lieu-thiet-ke.md`
 - **Giới thiệu & triết lý:** `docs/gioi-thieu-framework.md`
 - **Cây thư mục dự án:** `docs/cay-thu-muc.md`

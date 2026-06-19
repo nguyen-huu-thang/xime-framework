@@ -478,11 +478,34 @@ class TestErrorMappingInterceptorIntercept:
         result = await interceptor.intercept_service(continuation, MagicMock())
         await result.unary_unary("req", mock_context)
 
+        # Unmapped → generic message, never the internal str(exc) "boom".
         mock_context.abort.assert_called_once_with(
             grpc.StatusCode.INTERNAL,
-            "boom",
+            "Internal server error",
             trailing_metadata=(("xime-error", "_UnmappedException"),),
         )
+
+    @pytest.mark.asyncio
+    async def test_unary_handler_reraises_abort_error_without_second_abort(self):
+        # An inner interceptor/handler already called context.abort(), which
+        # raises grpc.aio.AbortError. It must propagate as terminal, NOT trigger
+        # a second abort here.
+        async def original(request, context):
+            raise grpc.aio.AbortError()
+
+        handler = grpc.unary_unary_rpc_method_handler(original)
+
+        async def continuation(details):
+            return handler
+
+        mock_context = AsyncMock(spec=grpc.aio.ServicerContext)
+        interceptor = ErrorMappingInterceptor({})
+        result = await interceptor.intercept_service(continuation, MagicMock())
+
+        with pytest.raises(grpc.aio.AbortError):
+            await result.unary_unary("req", mock_context)
+
+        mock_context.abort.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_unary_handler_reraises_rpc_error(self):

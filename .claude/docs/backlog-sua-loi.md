@@ -66,42 +66,45 @@ số `root=` để test inject. Mặc định enabled=true, INFO. Tài liệu:
 `docs/app-entry-point.md` mục Logging. Test:
 `tests_temp/bootstrap/test_application_logging.py`.
 
-## Còn mở
+## Đã sửa (0.3, 2026-06-19)
 
-Phát hiện lúc review trước khi publish v0.2.0 (2026-06-14). Không chặn publish -
-để dành phiên bản tiếp theo.
+### ~~7. `XimeGrpcChannel._dynamic_channel()` không thread-safe khi cert rotate~~ ĐÃ SỬA
 
-### 7. `XimeGrpcChannel._dynamic_channel()` không thread-safe khi cert rotate + concurrent requests
+`_channel.py`: thêm `threading.Lock` (`self._rotation_lock`) bảo vệ đoạn
+check-and-replace trong `_dynamic_channel()`. Dùng `threading.Lock` chứ KHÔNG
+phải `asyncio.Lock` như gợi ý gốc, vì method đồng bộ (không có `await` bên
+trong) nên dưới asyncio vốn đã atomic - lock chỉ cần khi channel bị chạm từ
+nhiều OS thread, đúng trường hợp duy nhất race xảy ra. Test đa luồng (20 thread
++ Barrier) khẳng định chỉ một channel được dựng, không rò:
+`tests_temp/grpc_client/test_channel_rotation.py::test_concurrent_first_access_builds_one_channel`.
 
-**File:** `xime/adapters/grpc/client/_channel.py`, method `_dynamic_channel()`
+### ~~8. `wire_dynamic_certificates()` hardcode `server_id="default"`~~ ĐÃ SỬA
 
-Khi cert version thay đổi, hai coroutine đến đồng thời đều thấy
-`version != self._cert_version`, cùng tạo channel mới và retire channel cũ.
-Channel đầu bị ghi đè bởi channel thứ hai trong `self._channel`, nhưng không
-được đưa vào `_retired` - bị leak.
+`_config.py` (client): thêm field `tls.server_id` (mặc định `"default"`) vào
+`GrpcClientTlsConfig`; `wire_dynamic_certificates()` giờ tra provider theo
+`server_id` của TỪNG channel (cùng class resolve một lần). `get_provider()` vẫn
+fallback về `"default"` nếu chưa đăng ký riêng. Test:
+`test_channel_rotation.py::test_non_default_server_id_uses_matching_provider`.
 
-Trigger: cert rotate đúng lúc có 2+ request song song. Rất hiếm trong thực tế.
-Fix gợi ý: thêm `asyncio.Lock` bảo vệ đoạn check-and-replace.
+### ~~9. Không warn khi endpoint code-first là `def` thay vì `async def`~~ ĐÃ SỬA
 
-### 8. `wire_dynamic_certificates()` hardcode `server_id="default"`
+`_builder.py` `_resolve()`: thêm `inspect.iscoroutinefunction(func)` ở đầu, không
+phải coroutine (kể cả `async def` có `yield` = async generator) → ném
+`StartupException` rõ ràng. Test:
+`tests_temp/grpc_codefirst/test_codefirst.py::test_builder_rejects_sync_command`
+và `::test_builder_rejects_async_generator_command`.
 
-**File:** `xime/adapters/grpc/client/_config.py`, dòng `grpc_tls_registry.get_provider("default")`
+### ~~(note data-service #2) Interceptor lỗi abort hai lần~~ ĐÃ SỬA
 
-Client mTLS động luôn lấy cert provider từ server "default". Nếu setup
-multi-server (server_id khác "default") và muốn client dùng cert từ server đó,
-hiện không có cách cấu hình.
+`interceptors/_error.py`: hai nhánh except re-raise cả `grpc.aio.AbortError`
+(không kế thừa `grpc.RpcError`) để khỏi abort lần hai khi interceptor/handler
+bên trong đã abort. Test:
+`tests_temp/grpc/test_interceptors.py::test_unary_handler_reraises_abort_error_without_second_abort`.
 
-Chỉ ảnh hưởng: multi-server + dynamic mTLS client. Fix gợi ý: cho phép truyền
-`server_id` vào `configure_grpc_clients()` hoặc từng client config.
+### ~~(note data-service #1a) Default `str(exc)` lộ chi tiết nội bộ~~ ĐÃ SỬA
 
-### 9. Không warn khi endpoint code-first là `def` thay vì `async def`
-
-**File:** `xime/adapters/grpc/codefirst/_builder.py`, method `_resolve()`
-
-Framework không kiểm tra endpoint có phải coroutine không lúc startup. Nếu
-developer viết `def` thay vì `async def`, server khởi động bình thường nhưng mọi
-RPC đó sẽ crash lúc runtime với `TypeError: object NoneType can't be used in
-'await' expression`.
-
-Fix gợi ý: trong `_resolve()`, thêm `inspect.iscoroutinefunction(func)` và
-ném `StartupException` nếu không phải async.
+`interceptors/_error.py`: thêm `_safe_details()` - lỗi đã map giữ message có chủ
+đích, lỗi CHƯA map trả message chung `"Internal server error"` thay vì
+`str(exc)`. Phần redaction theo visibility (Private/System/Public, #1b) vẫn để
+0.4. Test cập nhật:
+`test_interceptors.py::test_unary_handler_uses_internal_for_unmapped_exception`.

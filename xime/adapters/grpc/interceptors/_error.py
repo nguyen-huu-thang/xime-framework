@@ -64,11 +64,19 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
             try:
                 return await fn(request_or_iterator, context)
             except Exception as exc:
-                if isinstance(exc, grpc.RpcError):
+                # grpc.RpcError carries a status already; grpc.aio.AbortError is
+                # raised by an inner interceptor/handler that already called
+                # context.abort() — it is NOT a subclass of grpc.RpcError, so
+                # without this it would be aborted a second time here. Re-raise
+                # both as terminal.
+                # grpc.RpcError đã có status; grpc.aio.AbortError nghĩa là một
+                # interceptor/handler bên trong đã abort rồi (nó KHÔNG kế thừa
+                # grpc.RpcError) — thiếu nhánh này sẽ abort lần hai. Re-raise cả hai.
+                if isinstance(exc, (grpc.RpcError, grpc.aio.AbortError)):
                     raise
                 await context.abort(
                     interceptor._resolve_status_code(exc),
-                    str(exc),
+                    interceptor._safe_details(exc),
                     trailing_metadata=_error_metadata(exc),
                 )
 
@@ -86,11 +94,19 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
                 async for item in fn(request_or_iterator, context):
                     yield item
             except Exception as exc:
-                if isinstance(exc, grpc.RpcError):
+                # grpc.RpcError carries a status already; grpc.aio.AbortError is
+                # raised by an inner interceptor/handler that already called
+                # context.abort() — it is NOT a subclass of grpc.RpcError, so
+                # without this it would be aborted a second time here. Re-raise
+                # both as terminal.
+                # grpc.RpcError đã có status; grpc.aio.AbortError nghĩa là một
+                # interceptor/handler bên trong đã abort rồi (nó KHÔNG kế thừa
+                # grpc.RpcError) — thiếu nhánh này sẽ abort lần hai. Re-raise cả hai.
+                if isinstance(exc, (grpc.RpcError, grpc.aio.AbortError)):
                     raise
                 await context.abort(
                     interceptor._resolve_status_code(exc),
-                    str(exc),
+                    interceptor._safe_details(exc),
                     trailing_metadata=_error_metadata(exc),
                 )
 
@@ -107,12 +123,32 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
                 return status_code
         return grpc.StatusCode.INTERNAL
 
+    def _safe_details(self, exc: Exception) -> str:
+        """Message sent to the client.
+
+        Mapped (business) exceptions expose their own message intentionally —
+        the developer chose to surface them. Unmapped exceptions fall back to a
+        generic string so internal details (str(exc)) never leak to the caller.
+        Lỗi đã map: phơi message có chủ đích. Lỗi chưa map: trả message chung,
+        không để chi tiết nội bộ lọt ra client.
+        """
+        for exc_type in self._mappings:
+            if isinstance(exc, exc_type):
+                return str(exc)
+        return _GENERIC_INTERNAL_DETAILS
+
 
 # Trailing metadata key carrying the server-side exception class name so a
 # Xime client SDK can expose a typed error code (RemoteCallError.code).
 # Key trailing metadata mang tên exception phía server để client SDK
 # phơi ra code lỗi typed (RemoteCallError.code).
 XIME_ERROR_METADATA_KEY = "xime-error"
+
+# Generic message for unmapped exceptions so str(exc) (internal detail) never
+# reaches the client. Visibility-aware redaction (Private/System/Public) is a
+# separate, larger design tracked for a later version (#1b).
+# Message chung cho lỗi chưa map để str(exc) không lọt ra client.
+_GENERIC_INTERNAL_DETAILS = "Internal server error"
 
 
 def _error_metadata(exc: Exception) -> tuple[tuple[str, str], ...]:

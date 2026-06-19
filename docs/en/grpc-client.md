@@ -157,6 +157,31 @@ except RemoteCallError as exc:
 > server maps exception → StatusCode, the client maps StatusCode → exception
 > back.
 
+**Retry (optional).** Enable automatic retry for **unary** calls via YAML. Off
+by default - opt in explicitly, in keeping with the "no magic" philosophy:
+
+```yaml
+grpc:
+  clients:
+    trust:
+      retry:
+        enabled: true
+        max_attempts: 3            # total tries incl. the first
+        initial_backoff_ms: 100
+        max_backoff_ms: 2000
+        backoff_multiplier: 2.0
+        retryable_status: [UNAVAILABLE]   # gRPC StatusCode names
+```
+
+- Only **unary** calls are retried - a streaming request/response cannot be
+  replayed safely once consumed.
+- Only `UNAVAILABLE` by default (the request usually never reached the server,
+  so retrying is safe). Adding other statuses for non-idempotent calls risks
+  duplicate side effects - opt in deliberately.
+- Each attempt gets its own **deadline** (`deadline_ms`); exponential backoff
+  capped at `max_backoff_ms`. After the last attempt it raises the typed error
+  as usual.
+
 ---
 
 ## 4. Dynamic mTLS (rotation without downtime)
@@ -193,6 +218,24 @@ string compare, zero cost).
 This is the outbound counterpart to the server's dynamic certificate. Your cert
 rotation machinery just updates the resolver as usual; both directions pick up
 the new cert on the next handshake.
+
+**Multi-server.** By default the client uses the provider registered under
+`server_id="default"`. If the service has multiple providers keyed by
+`server_id` (e.g. internal vs public) and this client needs a different
+identity, set `tls.server_id`:
+
+```yaml
+grpc:
+  clients:
+    public-api:
+      tls:
+        enabled: true
+        dynamic: true
+        server_id: public     # use configure_grpc_tls(..., server_id="public")
+```
+
+`get_provider()` still falls back to `"default"` when that `server_id` has no
+dedicated registration.
 
 **Static mode** (`dynamic: false` or omitted) reads certs from files:
 

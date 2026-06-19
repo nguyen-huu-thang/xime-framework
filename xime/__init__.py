@@ -12,7 +12,20 @@ Sub-packages:
     xime.starters.scheduler  — Task scheduling (APScheduler)
 """
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _dist_version
+
 from xime.core.bootstrap.application import Application
 from xime.core.config.binding import BindingConfig
 
-__all__ = ["Application", "BindingConfig"]
+# Single source of truth for the framework version: read from the installed
+# distribution metadata (pyproject.toml). Falls back to the literal below only
+# when running from an uninstalled source tree.
+# Nguồn version duy nhất: đọc từ metadata distribution; chỉ fallback khi chạy
+# từ source tree chưa cài.
+try:
+    __version__ = _dist_version("xime")
+except PackageNotFoundError:  # pragma: no cover - chỉ xảy ra khi chưa cài đặt
+    __version__ = "0.3.0"
+
+__all__ = ["Application", "BindingConfig", "__version__"]

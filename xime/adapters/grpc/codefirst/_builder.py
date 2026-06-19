@@ -300,6 +300,24 @@ class ContractBuilder:
     def _resolve(
         self, cls: type, attr_name: str, info: EndpointInfo, func: Any
     ) -> tuple[type[BaseModel], type | None, StreamKind, str]:
+        # Every handler (unary, client-stream, server-stream) is invoked with
+        # `await bound(...)` by the serving glue, so it must be a coroutine
+        # function. A plain `def` — or an `async def` with `yield` (async
+        # generator) — would otherwise start fine but crash at the first RPC
+        # with "object NoneType can't be used in 'await' expression". Fail fast.
+        # Mọi handler đều được serving glue gọi bằng `await bound(...)`, nên phải
+        # là coroutine function. Viết `def` (hoặc async generator) sẽ qua được
+        # startup nhưng crash lúc RPC đầu tiên — chặn ngay từ startup.
+        if not inspect.iscoroutinefunction(func):
+            raise StartupException(
+                self._err(
+                    cls,
+                    attr_name,
+                    "endpoint handler must be an `async def` coroutine function "
+                    "(a plain `def` or an `async def` with `yield` would crash at "
+                    "the first RPC when the server awaits it)",
+                )
+            )
         try:
             hints = typing.get_type_hints(func)
         except NameError as exc:

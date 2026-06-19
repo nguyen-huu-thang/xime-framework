@@ -154,6 +154,30 @@ except RemoteCallError as exc:
 > Đây là gương của `configure_grpc_error_mappings` phía server: server map
 > exception → StatusCode, client map StatusCode → exception trở lại.
 
+**Retry (tùy chọn).** Bật tự động thử lại cho call **unary** qua YAML. Tắt mặc
+định - bật tường minh đúng triết lý "no magic":
+
+```yaml
+grpc:
+  clients:
+    trust:
+      retry:
+        enabled: true
+        max_attempts: 3            # tổng số lần thử, kể cả lần đầu
+        initial_backoff_ms: 100
+        max_backoff_ms: 2000
+        backoff_multiplier: 2.0
+        retryable_status: [UNAVAILABLE]   # tên gRPC StatusCode
+```
+
+- Chỉ retry call **unary** - request/response streaming không replay an toàn sau
+  khi đã tiêu thụ.
+- Mặc định chỉ `UNAVAILABLE` (request thường chưa tới server nên an toàn thử
+  lại). Thêm status khác cho call không idempotent có thể gây tác dụng phụ trùng
+  lặp - tự cân nhắc.
+- Mỗi lần thử có **deadline riêng** (`deadline_ms`); backoff mũ, có cap
+  `max_backoff_ms`. Hết số lần thử thì ném lỗi typed như thường.
+
 ---
 
 ## 4. mTLS động (cert xoay không downtime)
@@ -187,6 +211,23 @@ không restart**. Giống nhau → dùng lại channel (chỉ so chuỗi, không
 Đây là chiều outbound đối xứng với cert động phía server. Bộ máy xoay cert của
 bạn chỉ việc cập nhật resolver như thường; cả hai chiều tự nhặt cert mới ở
 handshake kế tiếp.
+
+**Multi-server.** Mặc định client lấy provider đăng ký dưới `server_id="default"`.
+Nếu service có nhiều provider theo `server_id` (vd internal vs public) và client
+này cần dùng một định danh khác, khai `tls.server_id`:
+
+```yaml
+grpc:
+  clients:
+    public-api:
+      tls:
+        enabled: true
+        dynamic: true
+        server_id: public     # dùng provider configure_grpc_tls(..., server_id="public")
+```
+
+`get_provider()` vẫn fallback về `"default"` nếu `server_id` đó chưa đăng ký
+riêng.
 
 **Chế độ tĩnh** (`dynamic: false` hoặc bỏ trống) đọc cert từ file:
 

@@ -230,7 +230,7 @@ Cách tốt nhất để học XIME là đọc code thật. Các dự án mã ng
 | **Transaction API** | `async with self.transaction():` tường minh - không có AOP ẩn |
 | **Class-Based Controllers** | Controller là DI singleton, method ánh xạ thành route |
 | **Code-First gRPC** | Viết Python DTO, XIME sinh `.proto` + stub; ổn định field number qua lock file |
-| **gRPC Client SDK** | Sinh client Pydantic typed từ `.proto`, inject qua DI; deadline + lỗi typed |
+| **gRPC Client SDK** | Sinh client Pydantic typed từ `.proto`, inject qua DI; deadline, lỗi typed, retry tự động |
 | **mTLS động** | Xoay chứng chỉ không cần restart, cho cả server inbound lẫn client outbound |
 | **Socket Adapter** | IPC qua Unix Domain Socket cho Native Engine cùng máy (Linux); `@command` / `@stream` |
 
@@ -262,9 +262,11 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 ## Trạng thái dự án
 
-XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing, middleware & exception handler tùy chỉnh), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed), **Socket adapter** (Unix Domain Socket IPC), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện. Redis và Cache starter đang được kế hoạch.
+XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing, middleware & exception handler tùy chỉnh), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed + retry tự động), **Socket adapter** (Unix Domain Socket IPC), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện. Redis và Cache starter đang được kế hoạch.
 
-Core được bao phủ bởi **870+ test**.
+Core được bao phủ bởi **890+ test**.
+
+Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 
 ---
 
@@ -279,7 +281,7 @@ Core được bao phủ bởi **870+ test**.
 | [Routing](docs/vn/routing.md) | Class-based controller, route decorator |
 | [Transaction](docs/vn/transaction.md) | Quản lý transaction tường minh |
 | [Code-First gRPC](docs/vn/grpc-codefirst.md) | Sinh `.proto` từ Python DTO; ổn định field number; `xime grpc generate/check`; mTLS động |
-| [gRPC Client SDK](docs/vn/grpc-client.md) | Sinh client SDK typed; inject qua DI; deadline, lỗi typed, mTLS động |
+| [gRPC Client SDK](docs/vn/grpc-client.md) | Sinh client SDK typed; inject qua DI; deadline, lỗi typed, retry, mTLS động |
 | [Socket Adapter](docs/vn/socket-adapter.md) | IPC qua Unix Domain Socket cho Native Engine cùng máy |
 | [Starters](docs/vn/starters.md) | SQLAlchemy, JWT, Scheduler |
 | [Testing](docs/vn/testing.md) | DI override, fake, test utilities |

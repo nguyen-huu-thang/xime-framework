@@ -221,7 +221,11 @@ thật (attach đúng, fail fast khi thiếu đăng ký/thiếu DI, static khôn
       sinh layout pip-installable (`<out>/pyproject.toml` + `<out>/<module>/`,
       dependency `xime[grpc]`, package-data `*.binpb`). Hoàn thành 2026-06-13.
 - [ ] Sinh SDK trực tiếp từ ContractModel cho Xime-to-Xime (fidelity cao hơn)
-- [ ] Retry policy đầy đủ trong YAML
+- [x] Retry policy trong YAML (0.3, 2026-06-19): `grpc.clients.<id>.retry`
+      (`GrpcRetryConfig`: enabled/max_attempts/backoff/retryable_status). Chỉ
+      retry call UNARY (stream không replay được), mặc định chỉ `UNAVAILABLE`,
+      backoff mũ có cap, mỗi lần thử deadline riêng. Áp trong
+      `XimeGrpcChannel._unary_with_retry`. Test: `test_channel.py::TestRetry`.
 
 **Quyết định phân phối SDK (chốt 2026-06-13): KHÔNG cần PyPI nội bộ.**
 Ba mức, đi từ thấp lên khi platform lớn dần - kênh phân phối là quyết định
