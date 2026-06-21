@@ -86,6 +86,10 @@ class _SchedulerRegistry:
     def get(self) -> SchedulerConfig | None:
         return self._config
 
+    def reset(self) -> None:
+        """Clear the registration - test cleanup only."""
+        self._config = None
+
 
 # Module-level singleton — read by StartupOrchestrator after DI is built.
 scheduler_registry = _SchedulerRegistry()

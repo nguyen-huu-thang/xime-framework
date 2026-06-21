@@ -37,6 +37,11 @@ class _GrpcServiceRegistry:
     def get_bindings(self) -> dict[type, Callable[..., Any]]:
         return dict(self._bindings)
 
+    def reset(self) -> None:
+        """Clear all registrations - test cleanup only."""
+        self._packages.clear()
+        self._bindings.clear()
+
 
 grpc_service_registry = _GrpcServiceRegistry()
 

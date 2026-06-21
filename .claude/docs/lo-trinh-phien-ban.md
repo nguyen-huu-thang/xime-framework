@@ -1,15 +1,17 @@
 # Lộ trình phiên bản Xime Framework
 
 > Chỉ mục tổng các mốc phiên bản đã chốt, để tra nhanh "việc X làm ở bản nào".
-> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật 2026-06-19.
-> Hiện tại: 0.2.x (pyproject ghi 0.2.0, cần đồng bộ).
+> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật 2026-06-21.
+> Hiện tại: 0.4.0 (pyproject đã đồng bộ 0.4.0).
 
 | Bản | Chủ đề | Trạng thái |
 | --- | --- | --- |
-| 0.3 | Hardening + hoàn tất gRPC | Đã lập kế hoạch, chưa code |
-| 0.4 | Cross-cutting + starters | Đã chốt mốc |
-| 0.5 | Ổn định + kiểm toán toàn diện | Đã chốt mốc |
-| 0.6-0.8 | Thay `dependency-injector` + dynamic interface binding | Đã chốt mốc, cần nghiên cứu sâu |
+| 0.3 | Hardening + hoàn tất gRPC | Đã phát hành (2026-06-20) |
+| 0.4 | Cross-cutting + starters | Đã phát hành (2026-06-20) |
+| 0.5 | Kiểm toán toàn diện + Messaging/IoT (MQTT) + File | Đã chốt mốc (đổi phạm vi 2026-06-21) |
+| 0.6 | Thay `dependency-injector` + dynamic interface binding | Đã chốt mốc, cần nghiên cứu sâu |
+| 0.7 | Fieldbus công nghiệp (Modbus TCP + OPC UA) | Đã chốt mốc (dời từ 0.5, 2026-06-21) |
+| 0.8 | Dự phòng cho cụm DI / wishlist | Mở |
 
 ---
 
@@ -25,7 +27,8 @@ Chi tiết đầy đủ: `ke-hoach-0.3.md`.
 
 ## 0.4 - Cross-cutting + starters
 
-Chi tiết: `wishlist-tinh-nang.md` (mục "Security / Cross-cutting" và "Starters").
+Chi tiết kế hoạch: `ke-hoach-0.4.md`. Nguồn ý tưởng: `wishlist-tinh-nang.md`
+(mục "Security / Cross-cutting" và "Starters").
 
 - Trích xuất danh tính peer mTLS (CN client cert) -> `request_context`, key
   trung tính + helper `current_caller()`. (đề xuất notification mục 1)
@@ -34,10 +37,24 @@ Chi tiết: `wishlist-tinh-nang.md` (mục "Security / Cross-cutting" và "Start
 - Cân nhắc thêm (chưa chốt cứng): gRPC reflection + health checking; error
   catalog visibility-aware (#1b).
 
-## 0.5 - Ổn định & kiểm toán toàn diện
+## 0.5 - Kiểm toán toàn diện + Messaging/IoT + File
 
-> Bản KHÔNG thêm tính năng. Mục tiêu: đọc kỹ, chi tiết TỪNG FILE để tìm mọi vấn
-> đề tiềm ẩn và mâu thuẫn logic giữa các phần. Chốt 2026-06-19.
+Chi tiết đầy đủ: `ke-hoach-0.5.md`.
+
+> **Đổi phạm vi 2026-06-21:** bản gốc (chốt 2026-06-19) là bản KHÔNG thêm tính
+> năng, chỉ kiểm toán. Chủ dự án quyết định gộp thêm hai mảng feature: **adapter
+> MQTT (messaging/IoT)** và **làm việc với file (storage starter + streaming web)**.
+> Audit vẫn là trục chính, làm trước; feature làm sau trên nền đã sạch.
+
+- **Nhóm A - Kiểm toán toàn diện** (trục chính): đọc kỹ TỪNG FILE core/adapters/
+  starters, ghi `docs/kiem-toan-0.5.md`, phân loại theo mức nghiêm trọng rồi mới
+  vá. Gồm fix issue context-bleeding khi test ASGI in-process (dental-clinic #001):
+  chuyển `RequestContextMiddleware` từ `BaseHTTPMiddleware` sang pure ASGI middleware.
+- **Nhóm B - Adapter MQTT**: pub/sub message-driven (khác RPC), `@subscribe` +
+  `MqttPublisher`, auto-reconnect, extra `xime[mqtt]` (aiomqtt import lười).
+- **Nhóm C - File**: storage starter (Protocol `StorageService`, backend local
+  + cân nhắc s3) theo pattern cache/redis, + streaming upload/download lớn ở web
+  adapter (Range, multipart, chunked).
 
 Phạm vi kiểm toán (đọc thật kỹ, không lướt):
 
@@ -78,7 +95,7 @@ Cách làm đề xuất khi tới 0.5: đi theo từng package, mỗi file ghi p
 một báo cáo kiểm toán (`docs/kiem-toan-0.5.md`), phân loại theo mức nghiêm trọng,
 rồi mới vá. KHÔNG vừa đọc vừa sửa lung tung để tránh bỏ sót.
 
-## 0.6 / 0.7 / 0.8 - Thay `dependency-injector` + dynamic interface binding
+## 0.6 - Thay `dependency-injector` + dynamic interface binding
 
 Chi tiết + toàn bộ phân tích: `wishlist-tinh-nang.md` (mục đầu phần "Core DI /
 Interface Binding").
@@ -87,7 +104,18 @@ Interface Binding").
   không đổi API người dùng). Phân tích mức phụ thuộc/tốc độ/đa luồng/đa tiến
   trình đã làm sẵn 2026-06-19.
 - Dynamic interface binding (`bind_many`/`switcher`) - đụng cùng lớp registry,
-  cân nhắc làm chung đợt.
+  cân nhắc làm chung đợt. Có thể tràn sang 0.8 nếu cần.
+
+## 0.7 - Fieldbus công nghiệp (Modbus TCP + OPC UA)
+
+Chi tiết đầy đủ: `ke-hoach-0.7.md`. Dời từ 0.5 (quyết 2026-06-21).
+
+- Xime đóng vai client/master chủ động đọc PLC/thiết bị nhà máy - mô hình
+  polling/subscribe, khác cả RPC lẫn pub/sub của MQTT.
+- **Modbus TCP** (pymodbus, extra `xime[modbus]`) làm trước vì đơn giản; **OPC UA**
+  (asyncua, extra `xime[opcua]`, bảo mật phức tạp hơn) cân nhắc tách tiếp.
+- **Chốt trước khi đầu tư:** nếu có edge gateway phía trước (gateway nói Modbus
+  với PLC rồi đẩy MQTT lên Xime) thì có thể KHÔNG cần hai adapter này - MQTT đủ.
 
 ## Chưa gắn mốc (wishlist thuần)
 

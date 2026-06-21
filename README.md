@@ -110,6 +110,7 @@ pip install "xime[web]"          # Uvicorn ASGI server
 pip install "xime[sqlalchemy]"   # async DB sessions + transactions
 pip install "xime[jwt]"          # JWT authentication
 pip install "xime[scheduler]"    # cron-style task scheduling
+pip install "xime[redis]"        # Redis client + cache backend
 pip install "xime[grpc]"         # gRPC adapter (code-first)
 pip install "xime[socket]"       # Unix domain socket IPC
 pip install "xime[all]"          # everything above
@@ -232,6 +233,7 @@ The best way to learn XIME is to read real code. These open-source projects are 
 | **Code-First gRPC** | Write Python DTOs, XIME generates `.proto` + stubs; field-number stability via lock file |
 | **gRPC Client SDK** | Generate a typed Pydantic client from `.proto`, inject via DI; deadlines, typed errors, automatic retry |
 | **Dynamic mTLS** | Certificate rotation without restart for both inbound servers and outbound clients |
+| **Peer Identity** | gRPC reads the verified client-cert CN into request context; `current_caller()` exposes it (fail-soft) |
 | **Socket Adapter** | Unix Domain Socket IPC for same-host Native Engine calls (Linux); `@command` / `@stream` |
 
 ---
@@ -245,8 +247,8 @@ Optional modules, similar to `spring-boot-starter-*`:
 | `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager` | ✅ Implemented |
 | `xime.starters.jwt` | JWT signing, verification, middleware | ✅ Implemented |
 | `xime.starters.scheduler` | Cron-style task scheduling | ✅ Implemented |
-| `xime.starters.redis` | Redis client integration | 🔲 Planned |
-| `xime.starters.cache` | Cache abstraction layer | 🔲 Planned |
+| `xime.starters.cache` | `CacheService` abstraction (backend-neutral) | ✅ Implemented |
+| `xime.starters.redis` | Async Redis client + `CacheService` backend | ✅ Implemented |
 
 ---
 
@@ -283,7 +285,7 @@ See the [CHANGELOG](CHANGELOG.md) for release history.
 | [Code-First gRPC](docs/en/grpc-codefirst.md) | Generate `.proto` from Python DTOs; field-number stability; `xime grpc generate/check`; dynamic mTLS |
 | [gRPC Client SDK](docs/en/grpc-client.md) | Generate a typed client SDK; inject it via DI; deadlines, typed errors, retry, dynamic mTLS |
 | [Socket Adapter](docs/en/socket-adapter.md) | Unix Domain Socket IPC for same-host Native Engine calls |
-| [Starters](docs/en/starters.md) | SQLAlchemy, JWT, Scheduler |
+| [Starters](docs/en/starters.md) | SQLAlchemy, JWT, Scheduler, Cache, Redis |
 | [Testing](docs/en/testing.md) | DI overrides, fakes, test utilities |
 | [Contributing](docs/en/contributing.md) | How to contribute, roadmap |
 
@@ -291,7 +293,7 @@ See the [CHANGELOG](CHANGELOG.md) for release history.
 
 ## Contributing
 
-XIME is a solo project that needs community help to grow. There is still ground to cover: completing WebSocket support, Redis/Cache starters, CLI scaffolding, testing utilities, and more.
+XIME is a solo project that needs community help to grow. There is still ground to cover: completing WebSocket support, CLI scaffolding, testing utilities, and more.
 
 **Ways to contribute:**
 

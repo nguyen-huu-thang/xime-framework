@@ -80,6 +80,18 @@ class WebSocketHandler:
             connected = True
             while True:
                 message = await ws.receive()
+                # Starlette's low-level receive() does NOT raise on disconnect —
+                # it returns a {"type": "websocket.disconnect", "code": ...} dict
+                # and only the typed helpers (receive_text/bytes) raise
+                # WebSocketDisconnect. Handle the disconnect message explicitly so
+                # the real close code is reported instead of leaking a RuntimeError.
+                # receive() của Starlette KHÔNG raise khi disconnect — nó trả dict
+                # {"type": "websocket.disconnect", "code": ...}; chỉ receive_text/
+                # bytes mới raise. Xử lý message disconnect tường minh để báo đúng
+                # close code thay vì để lọt RuntimeError.
+                if message["type"] == "websocket.disconnect":
+                    await self.on_disconnect(ws, message.get("code", 1000))
+                    return
                 # Starlette luôn trả về cả hai key "text" và "bytes",
                 # nhưng chỉ một trong hai khác None tại một thời điểm.
                 if message.get("text") is not None:
@@ -87,7 +99,11 @@ class WebSocketHandler:
                 elif message.get("bytes") is not None:
                     await self.on_bytes(ws, message["bytes"])
         except WebSocketDisconnect as exc:
-            await self.on_disconnect(ws, exc.code)
+            # Defensive: a handler that calls receive_text/json itself surfaces
+            # disconnect as this exception. Only meaningful after on_connect.
+            # Phòng thủ: handler tự gọi receive_text/json sẽ ném exception này.
+            if connected:
+                await self.on_disconnect(ws, exc.code)
         except Exception:
             if connected:
                 await self.on_disconnect(ws, 1011)

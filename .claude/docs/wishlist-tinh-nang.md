@@ -144,6 +144,47 @@
 Quan hệ: `cache` (interface) nên định hình trước hoặc cùng lúc với `redis`
 (impl). Làm gần nhau trong cùng đợt 0.4.
 
+## Messaging / IoT Adapter (CHỐT mốc 0.5)
+
+> Đề xuất trực tiếp của chủ dự án 2026-06-21. Kế hoạch chi tiết: `ke-hoach-0.5.md`
+> Nhóm B.
+
+- **Adapter MQTT cho thiết bị nhúng/IoT.** Adapter message-driven (pub/sub),
+  đứng ngang `web/grpc/socket` trong `adapters/mqtt/`. KHÁC mô hình request/
+  response - thiết kế riêng, không dùng chung `contract.json` của gRPC/socket.
+  `@subscribe(topic, qos=...)` + `MqttPublisher`, auto-reconnect + re-subscribe,
+  payload `bytes` thô (app tự parse). Thư viện `aiomqtt` import lười, extra
+  `xime[mqtt]`. Mở rộng tương lai: gom thành họ `adapters/messaging/` nếu thêm
+  CoAP/AMQP. Câu hỏi mở: RPC over MQTT (request/reply), TLS peer identity.
+
+## Fieldbus công nghiệp / IIoT (CHỐT mốc 0.7)
+
+> Đề xuất chủ dự án 2026-06-21, ban đầu định gộp 0.5, đã dời sang **0.7** để 0.5
+> không phình. Kế hoạch chi tiết: `ke-hoach-0.7.md`.
+
+- **Modbus TCP + OPC UA.** Xime nhắm tới công nghiệp -> đóng vai client/master chủ
+  động đọc PLC/thiết bị nhà máy. KHÁC cả RPC lẫn pub/sub (polling thanh ghi /
+  subscribe node). **Modbus TCP** (pymodbus, extra `xime[modbus]`) làm trước vì
+  đơn giản; **OPC UA** (asyncua, extra `xime[opcua]`, bảo mật phức tạp hơn) tách
+  tiếp. Câu hỏi mở: Modbus chỉ client hay cả server giả lập; poll định kỳ ghép
+  `scheduler` hay đọc-theo-yêu-cầu; OPC UA hỗ trợ security policy tới mức nào.
+  **Cần chốt trước:** nếu có edge gateway phía trước thì có thể KHÔNG cần hai
+  adapter này - MQTT (0.5) đủ.
+
+## File / Storage (CHỐT mốc 0.5)
+
+> Đề xuất trực tiếp của chủ dự án 2026-06-21 (framework hiện để FastAPI tự lo
+> upload/download). Phạm vi chốt: storage + streaming web. Chi tiết: `ke-hoach-0.5.md`
+> Nhóm C.
+
+- **`storage/` starter - abstraction lưu trữ file** (Protocol `StorageService`:
+  put/get/open_stream/delete/exists/url) theo đúng pattern `cache`/`redis`. Backend
+  `local` (filesystem) chắc chắn; `s3`/MinIO (`aioboto3`, extra `xime[s3]`, import
+  lười) cân nhắc cùng đợt hay đẩy 0.6.
+- **Streaming ở web adapter** - download stream + `Range` (resume), upload lớn ghi
+  thẳng vào storage theo chunk (không nạp hết RAM) + giới hạn dung lượng. Cân nhắc
+  presigned URL upload trực tiếp lên S3 (có thể để 0.6).
+
 ## Code-First gRPC (server + contract)
 
 - **`@proto_field(rename_from=..., number=...)`** - đổi tên field nhưng giữ

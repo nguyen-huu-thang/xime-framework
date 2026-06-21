@@ -9,6 +9,62 @@ import grpc.aio
 
 from xime.core.context import request_context
 from xime.core.security import clear_security
+from xime.core.security.peer import PEER_CN
+
+
+def _read_peer_cn(context: Any) -> str | None:
+    """Return the verified client-certificate Common Name, or None.
+
+    Reads the CN from the gRPC ServicerContext's auth_context(), which is only
+    populated when the call arrived over verified mTLS. Returns None for every
+    other case (plaintext, server-only TLS, missing CN) so it degrades cleanly.
+    Đọc CN từ auth_context() - chỉ có khi call đến qua mTLS đã verify. Trả None
+    cho mọi trường hợp còn lại để fail-soft.
+
+    Fail-soft by design: any exception (e.g. context is a test double without
+    auth_context) is swallowed and treated as "no peer identity" so it can never
+    break a request.
+    Cố ý fail-soft: mọi exception bị nuốt và coi như "không có danh tính peer".
+    """
+    if context is None:
+        return None
+    try:
+        auth = context.auth_context()
+    except Exception:
+        return None
+    if not auth:
+        return None
+
+    # grpc exposes property names as str keys mapping to list[bytes]; tolerate a
+    # bytes key as well across grpc versions.
+    # grpc trả key str -> list[bytes]; chấp nhận cả key bytes cho chắc.
+    values = auth.get("x509_common_name") or auth.get(b"x509_common_name")
+    if not values:
+        return None
+
+    value = values[0]
+    if isinstance(value, bytes):
+        try:
+            return value.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+    return str(value)
+
+
+def _set_peer_cn(handler_args: tuple[Any, ...]) -> None:
+    """Store the peer CN in request_context if present.
+
+    gRPC handlers are invoked as (request, context) / (request_iterator, context),
+    so the ServicerContext is the second positional argument. Stored under the
+    neutral key PEER_CN - the CN may be a service id OR an application identity,
+    callers interpret it themselves.
+    Handler được gọi dạng (request, context) nên context là tham số thứ hai.
+    Lưu dưới key trung tính PEER_CN - app tự diễn giải.
+    """
+    context = handler_args[1] if len(handler_args) > 1 else None
+    cn = _read_peer_cn(context)
+    if cn is not None:
+        request_context.set(PEER_CN, cn)
 
 
 class RequestContextInterceptor(grpc.aio.ServerInterceptor):
@@ -79,6 +135,7 @@ class RequestContextInterceptor(grpc.aio.ServerInterceptor):
 
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             request_context.set("request_id", str(uuid.uuid4()))
+            _set_peer_cn(args)
             try:
                 return await fn(*args, **kwargs)
             finally:
@@ -95,6 +152,7 @@ class RequestContextInterceptor(grpc.aio.ServerInterceptor):
 
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             request_context.set("request_id", str(uuid.uuid4()))
+            _set_peer_cn(args)
             try:
                 async for item in fn(*args, **kwargs):
                     yield item

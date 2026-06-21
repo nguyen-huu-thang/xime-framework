@@ -279,6 +279,18 @@ class AuditService:
 
 Because `ContextVar` is async-safe, each concurrent request has its own isolated context.
 
+### Peer identity (mTLS)
+
+For gRPC calls over verified mTLS, the framework reads the client certificate's Common Name into the request context and exposes it via a helper:
+
+```python
+from xime.core.security import current_caller
+
+caller = current_caller()   # the verified CN, or None when there is no mTLS
+```
+
+This is fail-soft: a plaintext or server-only-TLS call leaves `current_caller()` returning `None` and never breaks the request. The framework only provides the mechanism (who called); authorization - what that caller may do - stays in the application. The CN is raw: it may be a service id or an application identity, and the app decides how to interpret it.
+
 ---
 
 ## 11. Multi-Server Support

@@ -222,6 +222,7 @@ class ProfileController:
 
 
 class Color(enum.IntEnum):
+    UNSPECIFIED = 0
     RED = 1
     GREEN = 2
 
@@ -239,6 +240,22 @@ class ColorController:
 
     @command("c")
     async def c(self, request: ColorReq) -> ColorResp: ...
+
+
+class NoZeroColor(enum.IntEnum):
+    RED = 1
+    GREEN = 2
+
+
+class NoZeroResp(BaseModel):
+    color: NoZeroColor
+
+
+class NoZeroController:
+    server_id = "public"
+
+    @command("c")
+    async def c(self, request: ColorReq) -> NoZeroResp: ...
 
 
 def test_shared_message_goes_to_common():
@@ -288,12 +305,21 @@ def test_builder_rejects_async_generator_command():
         ContractBuilder("public", LockFile()).build([Bad])
 
 
-def test_enum_unspecified_prepended():
+def test_enum_zero_member_emitted_first():
+    """An enum that defines its own 0-value member is emitted with that member
+    first (proto3 convention), no auto-injection."""
     model = ContractBuilder("public", LockFile()).build([ColorController])
     text = ProtoEmitter().emit(model)["public/color.proto"]
     assert "enum Color {" in text
-    assert "COLOR_UNSPECIFIED = 0;" in text
+    assert "UNSPECIFIED = 0;" in text
     assert "RED = 1;" in text
+
+
+def test_builder_rejects_enum_without_zero_member():
+    """proto3 needs a 0 value; an enum lacking one must fail fast at build time
+    so the source enum, the .proto and generated SDKs stay in agreement."""
+    with pytest.raises(StartupException, match="value 0"):
+        ContractBuilder("public", LockFile()).build([NoZeroController])
 
 
 # ===========================================================================

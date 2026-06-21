@@ -27,6 +27,14 @@ VERSION = 1
 HEADER_FORMAT = ">2sBBQI"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)  # = 16
 
+# Hard ceiling on a single frame payload (defense-in-depth). payload_len is a
+# u32 (up to 4 GiB); without a bound a malformed/hostile header could make the
+# reader allocate/wait for an enormous read. 64 MiB is far above any legitimate
+# command or chunk (per-stream chunks are additionally capped by max_chunk_size).
+# Trần cứng cho payload một frame: u32 tới 4 GiB, không chặn thì header độc hại
+# bắt reader chờ/cấp phát khổng lồ. 64 MiB vượt xa mọi command/chunk hợp lệ.
+MAX_PAYLOAD_SIZE = 64 * 1024 * 1024
+
 
 class MessageType(enum.IntEnum):
     """Frame types exchanged between client and server.
@@ -82,6 +90,10 @@ async def read_frame(reader: asyncio.StreamReader) -> Frame:
         raise ProtocolError(f"bad frame magic: {magic!r} (expected {MAGIC!r})")
     if version != VERSION:
         raise ProtocolError(f"unsupported protocol version: {version} (expected {VERSION})")
+    if length > MAX_PAYLOAD_SIZE:
+        raise ProtocolError(
+            f"frame payload too large: {length} bytes (max {MAX_PAYLOAD_SIZE})"
+        )
 
     payload = await reader.readexactly(length) if length else b""
     return Frame(msg_type=msg_type, session_id=session_id, payload=payload)

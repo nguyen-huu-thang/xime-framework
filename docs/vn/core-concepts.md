@@ -279,6 +279,18 @@ class AuditService:
 
 Vì `ContextVar` an toàn với async, mỗi request đồng thời có context được cô lập riêng.
 
+### Danh tính peer (mTLS)
+
+Với call gRPC qua mTLS đã verify, framework đọc Common Name của client certificate vào request context và cho truy xuất qua helper:
+
+```python
+from xime.core.security import current_caller
+
+caller = current_caller()   # CN đã verify, hoặc None khi không có mTLS
+```
+
+Cơ chế fail-soft: call plaintext hay chỉ TLS một phía sẽ khiến `current_caller()` trả `None` và không bao giờ phá request. Framework chỉ cấp cơ chế (ai gọi); authorization - caller được làm gì - vẫn nằm ở ứng dụng. CN là giá trị thô: có thể là service id hoặc định danh ứng dụng, app tự quyết cách diễn giải.
+
 ---
 
 ## 11. Multi-Server

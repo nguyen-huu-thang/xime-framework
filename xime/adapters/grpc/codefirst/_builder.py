@@ -154,13 +154,33 @@ class _MessageRegistry:
 
     def _build_enum(self, enum_cls: type[enum.Enum]) -> EnumContract:
         members = [(m.name, int(m.value)) for m in enum_cls]
-        has_zero = any(v == 0 for _, v in members)
-        if has_zero:
-            ordered = [m for m in members if m[1] == 0] + [m for m in members if m[1] != 0]
-        else:
-            # proto3 requires the first enum value to be 0.
-            # proto3 yêu cầu giá trị enum đầu tiên phải là 0.
-            ordered = [(f"{enum_cls.__name__.upper()}_UNSPECIFIED", 0), *members]
+        # proto3 requires a 0-value member (the default / "unspecified"). We
+        # require the developer's own enum to define it rather than silently
+        # injecting one: otherwise a cross-language peer that leaves the field
+        # unset sends 0 on the wire, which deserializes back to a value the
+        # Python enum has no member for and fails Pydantic validation. Failing
+        # at generate time keeps the source enum, the .proto and every generated
+        # SDK in agreement.
+        # proto3 cần member giá trị 0. Bắt enum của developer tự khai báo thay vì
+        # tự chèn ngầm: nếu không, peer khác ngôn ngữ để field trống sẽ gửi 0,
+        # giải mã về giá trị enum Python không có → Pydantic validate lỗi. Báo lỗi
+        # lúc generate để enum gốc, .proto và mọi SDK sinh ra luôn khớp nhau.
+        if not any(v == 0 for _, v in members):
+            raise StartupException(
+                f"\nInvalid Enum for proto mapping\n"
+                f"  Enum  : {enum_cls.__name__}\n"
+                f"  Detail: proto3 requires a member with value 0 (the default / "
+                f"\"unspecified\" value).\n"
+                f"          Without it, a peer that leaves the field unset sends 0 "
+                f"on the wire, which\n"
+                f"          deserializes back to an invalid value and fails "
+                f"validation.\n"
+                f"  Fix   : add a zero member, e.g. "
+                f"`{enum_cls.__name__.upper()}_UNSPECIFIED = 0`."
+            )
+        # Keep the zero member first (proto3 convention), preserve the rest.
+        # Đưa member 0 lên đầu (quy ước proto3), giữ nguyên phần còn lại.
+        ordered = [m for m in members if m[1] == 0] + [m for m in members if m[1] != 0]
         return EnumContract(
             name=enum_cls.__name__,
             values=[EnumValueContract(name=n, number=v) for n, v in ordered],
@@ -292,7 +312,12 @@ class ContractBuilder:
                 if attr_name in seen or not inspect.isfunction(val):
                     continue
                 seen.add(attr_name)
-                info: EndpointInfo | None = getattr(val, ENDPOINT_ATTR, None)
+                # Resolve metadata from the most-derived definition so an
+                # overriding subclass controls its own @command/@stream info.
+                # Lấy metadata từ định nghĩa dẫn xuất nhất để subclass override quyết.
+                info: EndpointInfo | None = getattr(
+                    getattr(cls, attr_name, None), ENDPOINT_ATTR, None
+                )
                 if info is not None:
                     result.append((attr_name, info))
         return result

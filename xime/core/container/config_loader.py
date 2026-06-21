@@ -4,6 +4,8 @@ import inspect
 from dataclasses import dataclass, field
 from typing import Callable, get_type_hints
 
+from xime.core.exception.framework import StartupException
+
 
 @dataclass
 class FactoryEntry:
@@ -116,5 +118,9 @@ class ConfigClassLoader:
         )
 
 
-class ConfigClassError(Exception):
-    """Raised when a config class violates framework constraints."""
+class ConfigClassError(StartupException):
+    """Raised when a config class violates framework constraints.
+
+    A StartupException subclass so callers that catch startup failures
+    (e.g. `except StartupException`) also catch config-class mistakes.
+    """

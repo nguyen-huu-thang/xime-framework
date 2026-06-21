@@ -77,7 +77,7 @@ class SocketClient:
         import msgpack
 
         sid = next(self._next_session)
-        fut: asyncio.Future = asyncio.get_event_loop().create_future()
+        fut: asyncio.Future = asyncio.get_running_loop().create_future()
         self._pending[sid] = fut
         payload = msgpack.packb({"endpoint": endpoint, "data": request.model_dump()})
         await self._send(MessageType.COMMAND_REQUEST, sid, payload)
@@ -195,7 +195,7 @@ class ClientUpload:
     async def __aenter__(self) -> "ClientUpload":
         import msgpack
 
-        self._fut = asyncio.get_event_loop().create_future()
+        self._fut = asyncio.get_running_loop().create_future()
         self._client._pending[self._sid] = self._fut
         payload = msgpack.packb({"endpoint": self._endpoint, "data": self._request.model_dump()})
         await self._client._send(MessageType.STREAM_START, self._sid, payload)

@@ -16,6 +16,10 @@ class _ControllerRegistry:
     def get_packages(self) -> list[str]:
         return list(self._packages)
 
+    def reset(self) -> None:
+        """Clear all registrations - test cleanup only."""
+        self._packages.clear()
+
 
 controller_registry = _ControllerRegistry()
 

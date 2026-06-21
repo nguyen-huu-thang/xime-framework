@@ -5,6 +5,31 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [0.4.0] - 2026-06-20
+
+Bản cross-cutting + starters: thêm danh tính peer mTLS cho gRPC và hai starter
+còn thiếu (`cache`, `redis`). Không đụng lõi DI. Toàn bộ test: 929 passed,
+2 skipped.
+
+### Added
+
+- **Danh tính peer mTLS cho gRPC -> request_context**: `RequestContextInterceptor`
+  nay đọc Common Name của client certificate đã verify (qua `auth_context()`) và
+  lưu vào `request_context` dưới key trung tính `peer_cn`. **Fail-soft**: không
+  mTLS / không có CN / lỗi đọc -> không set key, request vẫn chạy. Thêm helper
+  `current_caller()` (`xime.core.security`) trả CN thô; authorization vẫn ở app.
+- **Starter `cache`**: Protocol `CacheService` (`get`/`set`/`delete`/`exists`),
+  value là `bytes` thô (framework không áp đặt serialize), TTL theo giây,
+  `None` = không hết hạn. Tách hoàn toàn khỏi backend.
+- **Starter `redis`** (`pip install xime[redis]`): `RedisClientProvider` (đọc
+  `redis.url` + `redis.max_connections` từ `application.yml`, `pre_destroy` đóng
+  connection pool) và `RedisCacheService` (implement `CacheService`). `redis`
+  được import lười để module vẫn import được khi chưa cài extra.
+
+### Changed
+
+- Bump version `0.3.0` -> `0.4.0`.
+
 ## [0.3.0] - 2026-06-19
 
 Bản hardening: vá bug đã xác nhận, tăng an toàn mặc định và khép kín mảng gRPC
@@ -48,5 +73,6 @@ Bản hoàn thiện đầu tiên: core (DI / lifecycle / config / context / even
 security / transaction), các adapter (web, gRPC code-first + client SDK + mTLS
 động, socket) và các starter (sqlalchemy, jwt, scheduler).
 
+[0.4.0]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/nguyen-huu-thang/xime-framework/releases/tag/v0.2.0

@@ -136,6 +136,11 @@ class _SocketRegistry:
     def get_error_mappings(self) -> dict[type[Exception], str]:
         return dict(self._error_mappings)
 
+    def reset(self) -> None:
+        """Clear all registrations - test cleanup only."""
+        self._packages.clear()
+        self._error_mappings.clear()
+
 
 socket_registry = _SocketRegistry()
 

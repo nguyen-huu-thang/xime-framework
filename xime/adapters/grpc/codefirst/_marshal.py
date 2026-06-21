@@ -72,6 +72,12 @@ def _sanitize(value: Any) -> Any:
     if isinstance(value, enum.Enum):
         return _sanitize(value.value)
     if isinstance(value, datetime.datetime):
+        # proto Timestamp requires an RFC3339 string with a timezone offset.
+        # A naive datetime has none, so ParseDict would crash — assume UTC.
+        # Timestamp proto cần offset timezone; datetime naive không có nên coi
+        # như UTC để ParseDict không lỗi.
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=datetime.timezone.utc)
         return value.isoformat()
     if isinstance(value, datetime.date):
         return value.isoformat()

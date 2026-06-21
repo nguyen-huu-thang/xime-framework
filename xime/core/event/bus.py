@@ -64,7 +64,11 @@ class EventBus:
         Returns immediately after scheduling — does not wait for handlers
         to complete. No-op when no handlers are registered for the event type.
         """
-        handlers = self._handlers[type(event)]
+        # Use .get() rather than indexing the defaultdict so publishing an event
+        # type that has no subscribers does not create a permanent empty entry.
+        # Dùng .get() thay vì index defaultdict để publish event không có handler
+        # không tạo entry rỗng vĩnh viễn.
+        handlers = self._handlers.get(type(event))
         if not handlers:
             return
 

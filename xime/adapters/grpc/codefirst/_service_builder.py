@@ -118,12 +118,22 @@ class CodeFirstGrpcBuilder:
                     await download._queue.put(_DONE)
 
             task = asyncio.create_task(run())
-            while True:
-                item = await download._queue.get()
-                if item is _DONE:
-                    break
-                yield item
-            await task  # re-raise handler exceptions → ErrorMappingInterceptor maps them
+            try:
+                while True:
+                    item = await download._queue.get()
+                    if item is _DONE:
+                        break
+                    yield item
+                await task  # re-raise handler exceptions → ErrorMappingInterceptor maps them
+            finally:
+                # On client cancellation the generator is closed (GeneratorExit
+                # at `yield`) and `await task` is never reached — cancel the
+                # handler task so it does not run on detached, writing to a queue
+                # nobody reads.
+                # Khi client cancel, generator bị đóng và `await task` không tới —
+                # huỷ task handler để nó không chạy mồ côi.
+                if not task.done():
+                    task.cancel()
 
         return grpc.unary_stream_rpc_method_handler(
             behavior,

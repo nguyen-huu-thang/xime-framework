@@ -86,7 +86,7 @@ Các mảng cần làm, theo thứ tự ưu tiên:
 | --- | --- | --- |
 | **MQ adapter** | Tích hợp RabbitMQ / Kafka | Cao |
 | **Savepoint (nested transaction)** | Hỗ trợ nested transaction thực sự | Cao |
-| **Cải thiện `@job`** | Ergonomics tốt hơn cho scheduler job | Thấp |
+| **Đăng ký job bằng decorator** | Decorator `@job` tùy chọn thay cho `SchedulerConfig` | Thấp |
 | **Publish lên PyPI** | Package và publish lên PyPI | Thấp |
 | **Cải thiện tài liệu** | Thêm ví dụ, tutorial, API reference | Thấp |
 

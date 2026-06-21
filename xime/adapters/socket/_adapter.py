@@ -235,7 +235,7 @@ class SocketAdapter:
                 self._run_upload(endpoint, data, upload, frame.session_id, conn, sessions)
             )
         elif endpoint.shape == "download":
-            download = DownloadStream(conn, frame.session_id)
+            download = DownloadStream(conn, frame.session_id, session)
             session.task = asyncio.create_task(
                 self._run_download(endpoint, data, download, frame.session_id, conn, sessions)
             )
@@ -341,12 +341,20 @@ class SocketAdapter:
             pass  # peer already gone — nothing to report to
 
     def _map_error(self, exc: Exception) -> tuple[str, str]:
-        """Resolve an exception to (code, message) using the configured mappings."""
+        """Resolve an exception to (code, message) using the configured mappings.
+
+        Mapped (business) exceptions expose their own message intentionally.
+        Unmapped exceptions fall back to a generic message so internal details
+        (str(exc)) never leak to the client — mirroring the gRPC
+        ErrorMappingInterceptor.
+        Lỗi đã map phơi message có chủ đích; lỗi chưa map trả message chung để
+        không lộ chi tiết nội bộ, giống ErrorMappingInterceptor của gRPC.
+        """
         mappings = socket_registry.get_error_mappings()
         for exc_type, code in mappings.items():
             if isinstance(exc, exc_type):
                 return code, str(exc)
-        return "INTERNAL", str(exc)
+        return "INTERNAL", "Internal server error"
 
     async def _reap_loop(self) -> None:
         """Periodically reap idle sessions across all live connections."""

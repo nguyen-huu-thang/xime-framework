@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.3.0"
+version = "0.4.0"
 description = "Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -51,6 +51,7 @@ xime = "xime.cli._main:main"
 #   pip install xime[sqlalchemy]
 #   pip install xime[jwt]
 #   pip install xime[scheduler]
+#   pip install xime[redis]
 #   pip install xime[all]          # toàn bộ starters
 # ---------------------------------------------------------------------------
 
@@ -75,8 +76,11 @@ grpc = [
     "grpcio-tools>=1.60",
     "protobuf>=4.25",
 ]
+redis = [
+    "redis>=5.0",
+]
 all = [
-    "xime[web,sqlalchemy,jwt,scheduler,socket,grpc]",
+    "xime[web,sqlalchemy,jwt,scheduler,socket,grpc,redis]",
 ]
 
 # Dev: chạy test, lint, type-check, ASGI server

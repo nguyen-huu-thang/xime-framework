@@ -45,6 +45,10 @@ class _JwtRegistry:
     def get(self) -> JwtMiddlewareConfig | None:
         return self._config
 
+    def reset(self) -> None:
+        """Clear the registration - test cleanup only."""
+        self._config = None
+
 
 # Module-level singleton — read by WebAdapter.build() to add JwtAuthMiddleware.
 jwt_registry = _JwtRegistry()

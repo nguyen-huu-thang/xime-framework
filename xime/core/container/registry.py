@@ -38,6 +38,7 @@ class DependencyRegistry:
         Factory entries (from configure()) are registered using their bound
         method as the callable instead of the class constructor.
         """
+        instance_keys = set(instances or {})
         for cls, obj in (instances or {}).items():
             provider_name = self._unique_name(cls)
             self._provider_map[cls] = provider_name
@@ -48,6 +49,15 @@ class DependencyRegistry:
         }
 
         for cls in graph.topological_order():
+            # A pre-built instance (register_instance / test override) already
+            # backs this type as an Object provider — never overwrite it with a
+            # scanned Singleton, otherwise the override would be silently ignored
+            # for concrete classes that also live in a scanned package.
+            # Instance dựng sẵn (register_instance / override trong test) đã cấp
+            # provider Object — không ghi đè bằng Singleton từ scan, nếu không
+            # override sẽ bị bỏ qua âm thầm với class cụ thể nằm trong package scan.
+            if cls in instance_keys:
+                continue
             provider_name = self._unique_name(cls)
             self._provider_map[cls] = provider_name
             kwargs = self._build_kwargs(resolved.get(cls, {}))

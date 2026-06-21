@@ -213,6 +213,20 @@ class TestTestApplicationOverrides:
         async with TestApplication():
             pass  # no error
 
+    @pytest.mark.asyncio
+    async def test_override_of_concrete_scanned_class_wins(self):
+        """Overriding a CONCRETE class that also lives in a scanned package must
+        return the override, not a freshly-built scanned singleton."""
+        fake_service = SampleService(_FakeStorage())
+        async with TestApplication(
+            binding=_sample_binding(),            # scans SampleService
+            overrides={
+                StoragePort: _FakeStorage(),
+                SampleService: fake_service,      # concrete scanned class override
+            },
+        ) as app:
+            assert app.get(SampleService) is fake_service
+
 
 # ---------------------------------------------------------------------------
 # Fail-fast — DI validation still applies when overrides are incomplete

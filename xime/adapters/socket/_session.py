@@ -111,11 +111,25 @@ class DownloadStream(BaseDownloadStream):
     Mỗi write gửi một STREAM_CHUNK; adapter tự gửi STREAM_END khi handler kết thúc.
     """
 
-    def __init__(self, conn: ConnectionWriter, session_id: int) -> None:
+    def __init__(
+        self,
+        conn: ConnectionWriter,
+        session_id: int,
+        session: "Session | None" = None,
+    ) -> None:
         self._conn = conn
         self._session_id = session_id
+        # Download streams receive no inbound frames, so without this the idle
+        # reaper (which only refreshes last_active on inbound traffic) would
+        # cancel a healthy long download once it exceeds session_timeout. Each
+        # write keeps the session alive.
+        # Download không có frame inbound nên reaper (chỉ làm tươi last_active khi
+        # có traffic vào) sẽ huỷ nhầm download dài. Mỗi write giữ session sống.
+        self._session = session
 
     async def write(self, chunk: bytes) -> None:
+        if self._session is not None:
+            self._session.last_active = time.monotonic()
         await self._conn.send(MessageType.STREAM_CHUNK, self._session_id, chunk)
 
 

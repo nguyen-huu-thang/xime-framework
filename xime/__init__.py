@@ -26,6 +26,6 @@ from xime.core.config.binding import BindingConfig
 try:
     __version__ = _dist_version("xime")
 except PackageNotFoundError:  # pragma: no cover - chỉ xảy ra khi chưa cài đặt
-    __version__ = "0.3.0"
+    __version__ = "0.4.0"
 
 __all__ = ["Application", "BindingConfig", "__version__"]

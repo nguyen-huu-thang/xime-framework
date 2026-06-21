@@ -69,8 +69,16 @@ class RouteBuilder:
                     seen_names.add(attr_name)
                     ordered_methods.append((attr_name, val))
 
-        for attr_name, unbound_method in ordered_methods:
-            route_info: RouteInfo | None = getattr(unbound_method, ROUTE_ATTR, None)
+        for attr_name, _unbound_method in ordered_methods:
+            # Read the decorator metadata from the most-derived definition
+            # (getattr resolves the MRO) so a subclass that overrides a route
+            # method controls its own RouteInfo, instead of inheriting the base
+            # class's first-seen one while binding the override's implementation.
+            # Đọc metadata từ định nghĩa dẫn xuất nhất (getattr theo MRO) để
+            # subclass override route tự quyết RouteInfo, thay vì lấy của lớp cha.
+            route_info: RouteInfo | None = getattr(
+                getattr(cls, attr_name, None), ROUTE_ATTR, None
+            )
             if route_info is None:
                 continue
 

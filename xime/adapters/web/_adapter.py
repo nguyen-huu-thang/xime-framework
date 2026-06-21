@@ -98,8 +98,11 @@ class WebAdapter:
         runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
 
         if self._server_id == "default":
-            host = self._host_override or runtime.server.host
-            port = self._port_override or runtime.server.port
+            # Explicit None checks so a valid host="" or port=0 (ask the OS for a
+            # free port) is honoured instead of falling back to the YAML value.
+            # Kiểm tra None tường minh để host=""/port=0 hợp lệ không bị rơi về YAML.
+            host = self._host_override if self._host_override is not None else runtime.server.host
+            port = self._port_override if self._port_override is not None else runtime.server.port
         else:
             host = self._host_override  # type: ignore[assignment]  # validated in __init__
             port = self._port_override  # type: ignore[assignment]

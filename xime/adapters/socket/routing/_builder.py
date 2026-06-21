@@ -118,7 +118,12 @@ class SocketEndpointBuilder:
                 if attr_name in seen or not inspect.isfunction(val):
                     continue
                 seen.add(attr_name)
-                info: EndpointInfo | None = getattr(val, ENDPOINT_ATTR, None)
+                # Resolve metadata from the most-derived definition so an
+                # overriding subclass controls its own @command/@stream info.
+                # Lấy metadata từ định nghĩa dẫn xuất nhất để subclass override quyết.
+                info: EndpointInfo | None = getattr(
+                    getattr(cls, attr_name, None), ENDPOINT_ATTR, None
+                )
                 if info is not None:
                     result.append((attr_name, info))
         return result
@@ -130,6 +135,23 @@ class SocketEndpointBuilder:
         info: EndpointInfo,
         bound: Any,
     ) -> ResolvedEndpoint:
+        # The adapter invokes every handler with `await bound(...)`, so it must
+        # be an `async def` coroutine function. A plain `def` — or an
+        # `async def` with `yield` (async generator) — passes startup but crashes
+        # at the first call. Fail fast, mirroring the code-first gRPC builder.
+        # Adapter gọi handler bằng `await bound(...)` nên phải là async def. Viết
+        # `def` (hoặc async generator) sẽ qua startup nhưng hỏng ở call đầu —
+        # chặn sớm, giống builder gRPC code-first.
+        if not inspect.iscoroutinefunction(bound):
+            raise StartupException(
+                self._err(
+                    cls,
+                    attr_name,
+                    "endpoint handler must be an `async def` coroutine function "
+                    "(a plain `def` or an `async def` with `yield` would crash at "
+                    "the first call when the adapter awaits it)",
+                )
+            )
         hints = self._type_hints(cls, attr_name, bound)
         sig = inspect.signature(bound)   # 'self' already bound out
 

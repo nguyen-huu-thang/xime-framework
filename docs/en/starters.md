@@ -133,52 +133,130 @@ configure_jwt_middleware(public_paths=["/auth/login", "/health"])
 
 `xime.starters.scheduler`
 
-Provides cron-style periodic task scheduling.
+Provides cron-style and fixed-interval periodic task scheduling (backed by APScheduler). Install with `pip install "xime[scheduler]"`.
+
+### Defining a Job
+
+A job is a class that implements the `ScheduledJob` protocol - a single `async def run(self) -> None` method. Job classes are DI singletons, so they receive their dependencies through the constructor like any other class:
+
+```python
+class DailyReportJob:
+    def __init__(self, report_service: ReportService) -> None:
+        self._service = report_service
+
+    async def run(self) -> None:
+        await self._service.generate_and_send()
+
+class CacheSyncJob:
+    def __init__(self, cache_service: CacheService) -> None:
+        self._service = cache_service
+
+    async def run(self) -> None:
+        await self._service.sync()
+```
+
+### Setup
+
+Register jobs by passing a `SchedulerConfig` to `configure_scheduler()`. Use `CronJob` for a 5-field cron expression and `IntervalJob` for a fixed interval:
+
+```python
+# config/scheduler.py
+from xime.starters.scheduler import (
+    configure_scheduler,
+    SchedulerConfig,
+    CronJob,
+    IntervalJob,
+)
+
+configure_scheduler(SchedulerConfig(
+    jobs=[
+        CronJob(job_class=DailyReportJob, cron="0 8 * * *"),   # every day at 08:00
+        IntervalJob(job_class=CacheSyncJob, seconds=60),        # every 60 seconds
+    ],
+    timezone="Asia/Ho_Chi_Minh",   # optional, default "UTC"
+))
+```
+
+`CronJob` and `IntervalJob` accept an optional `id` (defaults to the class name). `IntervalJob` combines `hours` / `minutes` / `seconds`; a zero interval is rejected at startup (fail-fast). The scheduler starts after all singletons are constructed and stops gracefully on shutdown, waiting for any in-flight job to finish.
+
+---
+
+## Cache Starter
+
+`xime.starters.cache`
+
+Defines `CacheService`, a backend-neutral key/value cache contract (a `Protocol`). Business code depends on `CacheService`; the concrete backend (e.g. Redis) is bound explicitly in `config/dependency.py`, so the implementation can be swapped without touching business code.
+
+`CacheService` deals in raw `bytes` by design - the framework does not impose a serialization policy. Callers encode/decode (JSON, pickle, msgpack, plain UTF-8) as their domain requires. TTL is expressed in whole seconds; `None` means the entry never expires.
+
+```python
+from typing import Protocol
+
+class CacheService(Protocol):
+    async def get(self, key: str) -> bytes | None: ...
+    async def set(self, key: str, value: bytes, ttl: int | None = None) -> None: ...
+    async def delete(self, key: str) -> None: ...
+    async def exists(self, key: str) -> bool: ...
+```
+
+### Usage
+
+```python
+from xime.starters.cache import CacheService
+
+class TokenService:
+    def __init__(self, cache: CacheService) -> None:
+        self._cache = cache
+
+    async def remember(self, token: str, user_id: int) -> None:
+        await self._cache.set(f"token:{token}", str(user_id).encode(), ttl=3600)
+
+    async def lookup(self, token: str) -> int | None:
+        raw = await self._cache.get(f"token:{token}")
+        return int(raw) if raw is not None else None
+```
+
+---
+
+## Redis Starter
+
+`xime.starters.redis`
+
+Provides an async Redis client (`RedisClientProvider`) and `RedisCacheService`, a Redis-backed implementation of `CacheService`. Install with `pip install "xime[redis]"`.
 
 ### Setup
 
 ```python
 # config/dependency.py
-from xime.starters.scheduler import configure_scheduler
+from xime.starters.cache import CacheService
+from xime.starters.redis import RedisCacheService
 
-configure_scheduler()
+dependency.scan("xime.starters.redis")
+dependency.bind({
+    CacheService: RedisCacheService,
+})
 ```
 
-### Defining a Job
+```yaml
+# resources/application.yml
+redis:
+  url: redis://localhost:6379/0
+  max_connections: 10   # optional, default 10
+```
+
+`RedisClientProvider` reads `redis.url` (required - missing it fails fast at startup) and `redis.max_connections`, owns the connection pool, and closes it on `PreDestroy` during shutdown. The `redis` package is imported lazily, so the starter module stays importable even when the extra is not installed - only services that scan this package need it.
+
+### Using a different backend
+
+Because business code depends only on `CacheService`, swapping backends is a one-line binding change:
 
 ```python
-from xime.starters.scheduler import job
+# Production: Redis
+dependency.bind({ CacheService: RedisCacheService })
 
-class ReportJob:
-    def __init__(self, report_service: ReportService) -> None:
-        self._service = report_service
-
-    @job(cron="0 8 * * *")   # every day at 08:00
-    async def send_daily_report(self) -> None:
-        await self._service.generate_and_send()
-
-    @job(interval_seconds=60)  # every 60 seconds
-    async def sync_cache(self) -> None:
-        await self._service.sync()
+# Testing: an in-memory fake that satisfies the CacheService Protocol
+dependency.bind({ CacheService: InMemoryCacheService })
 ```
-
-Job classes are DI singletons — they receive their dependencies via the constructor like any other class.
-
----
-
-## Redis Starter *(Planned)*
-
-`xime.starters.redis`
-
-> **Not yet implemented.** Planned: a configured async Redis client registered into the DI container.
-
----
-
-## Cache Starter *(Planned)*
-
-`xime.starters.cache`
-
-> **Not yet implemented.** Planned: a cache abstraction layer with swappable backends (Redis, in-memory, etc.) so business code never depends on a specific cache implementation.
 
 ---
 
@@ -198,7 +276,11 @@ configure_jwt_middleware(public_paths=["/auth/login", "/health"])
 
 # config/routing.py
 configure_controllers("api.rest")
-configure_scheduler()
+
+# config/scheduler.py
+configure_scheduler(SchedulerConfig(jobs=[
+    CronJob(job_class=DailyReportJob, cron="0 8 * * *"),
+]))
 ```
 
 

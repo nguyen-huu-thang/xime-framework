@@ -59,8 +59,12 @@ class TestSanitize:
         assert _sanitize(Decimal("9.99")) == "9.99"
         uid = uuid.uuid4()
         assert _sanitize(uid) == str(uid)
-        moment = datetime.datetime(2026, 6, 13, 8, 30)
-        assert _sanitize(moment) == moment.isoformat()
+        # Aware datetime keeps its offset; naive is assumed UTC so the proto
+        # Timestamp parser always receives a valid RFC3339 string.
+        aware = datetime.datetime(2026, 6, 13, 8, 30, tzinfo=datetime.timezone.utc)
+        assert _sanitize(aware) == aware.isoformat()
+        naive = datetime.datetime(2026, 6, 13, 8, 30)
+        assert _sanitize(naive) == naive.replace(tzinfo=datetime.timezone.utc).isoformat()
         assert _sanitize(datetime.date(2026, 6, 13)) == "2026-06-13"
         assert _sanitize(Color.RED) == 1
 

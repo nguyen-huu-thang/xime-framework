@@ -110,6 +110,7 @@ pip install "xime[web]"          # Uvicorn ASGI server
 pip install "xime[sqlalchemy]"   # async DB session + transaction
 pip install "xime[jwt]"          # xác thực JWT
 pip install "xime[scheduler]"    # lập lịch tác vụ kiểu cron
+pip install "xime[redis]"        # Redis client + backend cache
 pip install "xime[grpc]"         # gRPC adapter (code-first)
 pip install "xime[socket]"       # IPC qua Unix domain socket
 pip install "xime[all]"          # tất cả ở trên
@@ -232,6 +233,7 @@ Cách tốt nhất để học XIME là đọc code thật. Các dự án mã ng
 | **Code-First gRPC** | Viết Python DTO, XIME sinh `.proto` + stub; ổn định field number qua lock file |
 | **gRPC Client SDK** | Sinh client Pydantic typed từ `.proto`, inject qua DI; deadline, lỗi typed, retry tự động |
 | **mTLS động** | Xoay chứng chỉ không cần restart, cho cả server inbound lẫn client outbound |
+| **Danh tính peer** | gRPC đọc CN client cert đã verify vào request context; `current_caller()` truy xuất (fail-soft) |
 | **Socket Adapter** | IPC qua Unix Domain Socket cho Native Engine cùng máy (Linux); `@command` / `@stream` |
 
 ---
@@ -245,8 +247,8 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 | `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager` | ✅ Đã implement |
 | `xime.starters.jwt` | JWT signing, verification, middleware | ✅ Đã implement |
 | `xime.starters.scheduler` | Lập lịch tác vụ kiểu cron | ✅ Đã implement |
-| `xime.starters.redis` | Tích hợp Redis client | 🔲 Đang kế hoạch |
-| `xime.starters.cache` | Abstraction layer cho caching | 🔲 Đang kế hoạch |
+| `xime.starters.cache` | Abstraction `CacheService` (trung lập backend) | ✅ Đã implement |
+| `xime.starters.redis` | Async Redis client + backend cho `CacheService` | ✅ Đã implement |
 
 ---
 
@@ -283,7 +285,7 @@ Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 | [Code-First gRPC](docs/vn/grpc-codefirst.md) | Sinh `.proto` từ Python DTO; ổn định field number; `xime grpc generate/check`; mTLS động |
 | [gRPC Client SDK](docs/vn/grpc-client.md) | Sinh client SDK typed; inject qua DI; deadline, lỗi typed, retry, mTLS động |
 | [Socket Adapter](docs/vn/socket-adapter.md) | IPC qua Unix Domain Socket cho Native Engine cùng máy |
-| [Starters](docs/vn/starters.md) | SQLAlchemy, JWT, Scheduler |
+| [Starters](docs/vn/starters.md) | SQLAlchemy, JWT, Scheduler, Cache, Redis |
 | [Testing](docs/vn/testing.md) | DI override, fake, test utilities |
 | [Đóng góp](docs/vn/contributing.md) | Cách đóng góp, roadmap |
 
@@ -291,7 +293,7 @@ Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 
 ## Đóng góp
 
-XIME là dự án cá nhân cần sự giúp đỡ của cộng đồng để phát triển. Còn việc cần làm: hoàn thiện WebSocket, Redis/Cache starter, CLI scaffolding, testing utilities và nhiều hơn nữa.
+XIME là dự án cá nhân cần sự giúp đỡ của cộng đồng để phát triển. Còn việc cần làm: hoàn thiện WebSocket, CLI scaffolding, testing utilities và nhiều hơn nữa.
 
 **Cách đóng góp:**
 

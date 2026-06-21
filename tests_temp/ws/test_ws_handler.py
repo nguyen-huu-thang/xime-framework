@@ -32,6 +32,53 @@ def _make_ws() -> MagicMock:
 
 @pytest.mark.asyncio
 async def test_on_disconnect_called_on_websocket_disconnect():
+    """Real Starlette behaviour: receive() RETURNS a disconnect message dict
+    (it does not raise) — the handler must report the real close code."""
+    log: list[str] = []
+
+    class TestHandler(WebSocketHandler):
+        async def on_disconnect(self, ws, code: int) -> None:
+            log.append(f"disconnected:{code}")
+
+    ws = _make_ws()
+    ws.receive = AsyncMock(return_value={"type": "websocket.disconnect", "code": 1000})
+
+    await TestHandler().handle(ws)
+
+    assert log == ["disconnected:1000"]
+
+
+@pytest.mark.asyncio
+async def test_messages_then_disconnect():
+    """Text/binary messages are dispatched, then a disconnect dict ends the loop."""
+    events: list[str] = []
+
+    class TestHandler(WebSocketHandler):
+        async def on_message(self, ws, data: str) -> None:
+            events.append(f"text:{data}")
+
+        async def on_bytes(self, ws, data: bytes) -> None:
+            events.append(f"bytes:{data!r}")
+
+        async def on_disconnect(self, ws, code: int) -> None:
+            events.append(f"disconnected:{code}")
+
+    ws = _make_ws()
+    ws.receive = AsyncMock(side_effect=[
+        {"type": "websocket.receive", "text": "hello"},
+        {"type": "websocket.receive", "bytes": b"\x01\x02"},
+        {"type": "websocket.disconnect", "code": 1001},
+    ])
+
+    await TestHandler().handle(ws)
+
+    assert events == ["text:hello", "bytes:b'\\x01\\x02'", "disconnected:1001"]
+
+
+@pytest.mark.asyncio
+async def test_on_disconnect_called_when_receive_raises_disconnect():
+    """Defensive path: a handler using receive_text/json surfaces disconnect as
+    a raised WebSocketDisconnect — on_disconnect must still run."""
     log: list[str] = []
 
     class TestHandler(WebSocketHandler):
@@ -119,7 +166,7 @@ async def test_context_cleared_after_normal_disconnect():
         pass
 
     ws = _make_ws()
-    ws.receive = AsyncMock(side_effect=WebSocketDisconnect(code=1000))
+    ws.receive = AsyncMock(return_value={"type": "websocket.disconnect", "code": 1000})
 
     identity.set("user_123")
     await TestHandler().handle(ws)
