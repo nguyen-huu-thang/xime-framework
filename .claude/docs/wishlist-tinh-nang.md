@@ -67,7 +67,7 @@
     triết lý no-magic. Hai primitive có thể hữu ích (`Factory` = instance mỗi
     lần; `ContextLocalSingleton` cho scope Request/Session dựa ContextVar)
     framework tự làm dễ (đã dùng `ContextVar` trực tiếp ở `core/context/`).
-  - **Rủi ro thấp:** có hơn 870 test phủ -> refactor an toàn. Lý do duy nhất
+  - **Rủi ro thấp:** có hơn 1050 test phủ -> refactor an toàn. Lý do duy nhất
     hoãn: là churn nội bộ không thêm tính năng, không nên nhét vào bản hardening
     0.3.
   - **Lợi ích:** bỏ một dependency Cython (gọn đóng gói/cài đặt), sở hữu trọn

@@ -282,3 +282,76 @@ async def test_custom_identity_claim_maps_correctly():
         response = await client.get("/protected", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     assert response.json()["identity"] == "custom_uid_999"
+
+
+# ---------------------------------------------------------------------------
+# Audience / Issuer + claims exposure (M5)
+# ---------------------------------------------------------------------------
+
+def _build_app_aud(*, audience=None, issuer=None) -> Starlette:
+    from xime.core.context import request_context
+    from xime.starters.jwt._middleware import JWT_CLAIMS
+
+    async def handler(request: Request) -> JSONResponse:
+        return JSONResponse({
+            "identity": _identity.get(),
+            "claims": request_context.get(JWT_CLAIMS),
+        })
+
+    config = JwtMiddlewareConfig(
+        key_context=KeyContext(algorithm="HS256", secret=MW_SECRET),
+        audience=audience,
+        issuer=issuer,
+    )
+    app = Starlette(routes=[Route("/protected", handler)])
+    app.add_middleware(JwtAuthMiddleware, config=config)
+    return app
+
+
+@pytest.mark.asyncio
+async def test_token_with_aud_accepted_when_audience_not_configured():
+    """Functional fix: token mang aud không bị 401 khi app không cấu hình audience."""
+    app = _build_app_aud()
+    token = make_token(extra_claims={"aud": "data-service"})
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r = await client.get("/protected", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_matching_audience_accepted():
+    app = _build_app_aud(audience="data-service")
+    token = make_token(extra_claims={"aud": "data-service"})
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r = await client.get("/protected", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_wrong_audience_rejected_401():
+    app = _build_app_aud(audience="data-service")
+    token = make_token(extra_claims={"aud": "other-service"})
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r = await client.get("/protected", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_wrong_issuer_rejected_401():
+    app = _build_app_aud(issuer="trust")
+    token = make_token(extra_claims={"iss": "evil"})
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r = await client.get("/protected", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_claims_exposed_in_request_context():
+    app = _build_app_aud()
+    token = make_token(sub="u7", extra_claims={"scope": "read write", "roles": ["a"]})
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r = await client.get("/protected", headers={"Authorization": f"Bearer {token}"})
+    body = r.json()
+    assert body["identity"] == "u7"
+    assert body["claims"]["scope"] == "read write"
+    assert body["claims"]["roles"] == ["a"]

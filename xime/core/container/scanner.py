@@ -17,6 +17,20 @@ _DEFAULT_EXCLUDED_SEGMENTS = frozenset(
 )
 
 
+def _module_itself_missing(exc: ModuleNotFoundError, module_name: str) -> bool:
+    """True when exc reports `module_name` (or a dotted parent) absent, rather
+    than a dependency imported *inside* it.
+
+    Lets scanners skip a genuinely-absent module while surfacing a real import
+    error (e.g. a missing third-party dependency) instead of hiding it.
+    Phân biệt "module vắng" với "dependency bên trong thiếu" để scanner bỏ qua cái
+    đầu nhưng ném ra cái sau.
+    """
+    missing = (exc.name or "").split(".")
+    parts = module_name.split(".")
+    return parts[: len(missing)] == missing
+
+
 class PackageScanner:
     """
     Scans one or more Python packages and returns every class that is
@@ -92,8 +106,17 @@ class PackageScanner:
 
             try:
                 module = importlib.import_module(module_name)
-            except ImportError:
-                continue
+            except ModuleNotFoundError as exc:
+                # Only skip when the walked module itself is absent (a race);
+                # a missing *dependency* inside it is a real error -> surface it.
+                # Chỉ bỏ qua khi chính module vắng; thiếu dependency bên trong là
+                # lỗi thật -> ném ra.
+                if _module_itself_missing(exc, module_name):
+                    continue
+                raise
+            # Other ImportError (cannot import name, circular import, ...) is a
+            # genuine bug in a scanned module -> do not hide it.
+            # ImportError khác (cannot import name, circular...) là bug thật.
 
             for _name, cls in inspect.getmembers(module, inspect.isclass):
                 # Skip classes that were merely imported into this module.

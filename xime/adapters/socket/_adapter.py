@@ -217,7 +217,16 @@ class SocketAdapter:
     ) -> None:
         import msgpack
 
-        envelope = msgpack.unpackb(frame.payload, raw=False)
+        try:
+            envelope = msgpack.unpackb(frame.payload, raw=False)
+        except Exception:
+            # Malformed STREAM_START envelope: report an error frame instead of
+            # tearing down the whole connection (mirrors _run_command's handling).
+            # Envelope STREAM_START hỏng: gửi ERROR thay vì rớt cả connection.
+            await self._send_error(
+                conn, frame.session_id, "INVALID_ARGUMENT", "malformed stream envelope"
+            )
+            return
         endpoint = self._table.get(envelope.get("endpoint"))
         if endpoint is None:
             await self._send_error(

@@ -4,7 +4,7 @@ File này cung cấp hướng dẫn cho Claude Code khi làm việc với dự �
 
 ## Tổng quan dự án
 
-**XIME** là một Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot nhưng vẫn tôn trọng triết lý Python. Framework đã **hoàn thiện ~95%** — toàn bộ core, các adapter chính và starters đã được triển khai đầy đủ.
+**XIME** là một Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot nhưng vẫn tôn trọng triết lý Python. Đã **phát hành 0.5.0** — toàn bộ core, các adapter (web, gRPC, socket, MQTT) và starters (gồm storage local + S3/MinIO) đã được triển khai đầy đủ và có test.
 
 XIME không thay thế FastAPI, SQLAlchemy hay gRPC. Nó cung cấp một tầng kiến trúc phía trên các thư viện này để tự động hóa dependency injection, chuẩn hóa cấu trúc dự án và quản lý vòng đời component.
 
@@ -38,15 +38,18 @@ Python Objects
 
 **Adapters** (`adapters/`) — Tích hợp giao thức, mỗi adapter thiết lập request `Context`:
 
-- `web/` — HTTP server (FastAPI), routing decorators (`@get`, `@post`, `@ws`), middleware, OpenAPI/Swagger, WebSocket
-- `grpc/` — gRPC server thông qua `grpc.aio`, code-first proto generation, TLS/mTLS, interceptors
+- `web/` — HTTP server (FastAPI), routing decorators (`@get`, `@post`, `@ws`), middleware (pure-ASGI), OpenAPI/Swagger, WebSocket, streaming file (`files/`: Range download, chunked upload)
+- `grpc/` — gRPC server thông qua `grpc.aio`, code-first proto generation, client SDK, TLS/mTLS động, interceptors
 - `socket/` — Unix domain socket RPC, frame protocol, peer authentication (Linux SO_PEERCRED)
+- `mqtt/` — MQTT pub/sub (`@subscribe`) + RPC over MQTT v5 (`@rpc`), `MqttPublisher`, auto-reconnect (extra `xime[mqtt]`, aiomqtt)
 
 **Starters** (`starters/`) — Module quickstart tùy chọn, tương tự `spring-boot-starter-*`:
 
-- `sqlalchemy/` — Async DB session, `TransactionProvider`, `@transactional`
-- `jwt/` — Xác thực JWT (RSA / HS256), middleware tự động
-- `scheduler/` — Lập lịch tác vụ (APScheduler), cron và interval jobs
+- `sqlalchemy/` — Async DB session, `SqlAlchemyTransactionManager`
+- `jwt/` — Xác thực JWT (HS/RSA/EC/EdDSA), middleware tự động, ép `audience`/`issuer`
+- `scheduler/` — Lập lịch tác vụ (APScheduler v4), cron và interval jobs
+- `cache/` + `redis/` — Protocol `CacheService` và backend Redis
+- `storage/` + `localfs/` + `s3/` — Protocol `StorageService` và backend filesystem / S3-MinIO (extra `xime[s3]`, aioboto3)
 
 **Testing** (`testing/`) — Tiện ích test và DI overrides.
 

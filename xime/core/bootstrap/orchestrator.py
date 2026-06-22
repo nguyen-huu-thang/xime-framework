@@ -66,6 +66,12 @@ class StartupOrchestrator:
         # pre-register trước khi build để class user phụ thuộc được vào chúng.
         for cls, instance in self._collect_framework_instances().items():
             container.register_instance(cls, instance)
+        # Extra instances contributed by subclasses (e.g. test overrides) are
+        # registered LAST so they take precedence over scanned/framework ones.
+        # Instance bổ sung từ subclass (vd override trong test) đăng ký CUỐI để
+        # có độ ưu tiên cao nhất.
+        for cls, instance in self._extra_instances().items():
+            container.register_instance(cls, instance)
         for config_cls in self._binding.config_classes:
             container.configure(config_cls)
         if self._binding.order_rules:
@@ -110,6 +116,21 @@ class StartupOrchestrator:
                 "StartupOrchestrator has not started. Call start() first."
             )
         return self._container.get(cls)
+
+    # ------------------------------------------------------------------
+    # Extension hook
+    # ------------------------------------------------------------------
+
+    def _extra_instances(self) -> dict[type, object]:
+        """Override-able hook: extra pre-built instances to register last.
+
+        Returns an empty map by default. Subclasses (e.g. the test
+        orchestrator) override this to inject overrides without duplicating the
+        whole start() pipeline.
+        Hook để subclass cấp instance dựng sẵn, đăng ký cuối (ưu tiên cao nhất),
+        không phải sao chép lại toàn bộ start().
+        """
+        return {}
 
     # ------------------------------------------------------------------
     # Framework-contributed instances (pre-registered before container build)
@@ -211,7 +232,8 @@ class StartupOrchestrator:
         except ImportError:
             raise RuntimeError(
                 "Scheduler is configured via configure_scheduler() but "
-                "'apscheduler' is not installed. "
-                "Run: pip install 'apscheduler>=4.0'"
+                "'apscheduler' is not installed (or the v3.x line is installed, "
+                "which lacks the v4 AsyncScheduler API). "
+                "Run: pip install 'apscheduler>=4.0.0a6'"
             )
         return SchedulerRunner(config, resolver)

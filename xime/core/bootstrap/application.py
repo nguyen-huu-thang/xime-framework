@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import logging
 import pkgutil
 import sys
 from typing import TYPE_CHECKING, Any
@@ -13,6 +14,8 @@ from xime.core.config.runtime import RuntimeConfig
 
 if TYPE_CHECKING:
     from xime.core.bootstrap.adapter import Adapter
+
+_logger = logging.getLogger("xime.bootstrap")
 
 
 class Application:
@@ -163,8 +166,15 @@ class Application:
             for adapter in reversed(self._adapters):
                 try:
                     await adapter.stop()
-                except (asyncio.CancelledError, Exception):
-                    pass
+                except asyncio.CancelledError:
+                    pass  # expected during shutdown cancellation
+                except Exception:
+                    # A teardown failure must not abort the rest of shutdown, but
+                    # it must not be hidden either - surface it for diagnostics.
+                    # Lỗi teardown không được chặn shutdown, nhưng phải được log.
+                    _logger.exception(
+                        "Error while stopping adapter %s", type(adapter).__name__
+                    )
             await self.stop()
 
     # ------------------------------------------------------------------

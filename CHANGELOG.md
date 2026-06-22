@@ -5,6 +5,73 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [0.5.0] - 2026-06-22
+
+Bản kiểm toán toàn diện + hai mảng tính năng mới: **adapter MQTT** (messaging/IoT)
+và **làm việc với file** (storage starter + streaming web). Toàn bộ test: 1051
+passed, 4 skipped (2 skip là test tích hợp MQTT/S3 - chạy khi có broker/MinIO).
+Chi tiết kiểm toán: `.claude/docs/kiem-toan-0.5.md`.
+
+### Added
+
+- **Adapter MQTT** (`pip install xime[mqtt]`, `aiomqtt` import lười): pub/sub
+  một chiều (`@subscribe`) + **RPC over MQTT v5** (`@rpc`, qua `ResponseTopic` +
+  `CorrelationData`). `MqttPublisher` (DI singleton) để publish; auto-reconnect +
+  re-subscribe; xử lý message giới hạn đồng thời (`max_concurrency`, backpressure);
+  định tuyến bằng **MQTT v5 Subscription Identifier** để filter chồng lấn không
+  double-dispatch; teardown `request_context`/`clear_security()` nhất quán mọi adapter.
+- **Starter `storage`** (Protocol `StorageService`): hai dạng truy cập song song
+  - `put`/`get` (bytes) cho object nhỏ và `put_stream`/`open_stream` (stream) cho
+  object lớn; `delete`/`exists`/`stat`/`url`. Value là bytes thô, framework không
+  áp đặt định dạng. Key được chuẩn hóa chung (từ chối rỗng/tuyệt đối/`..`) cho mọi
+  backend.
+- **Backend `localfs`** (`LocalFileStorage`): lưu file dưới `storage.local.root`,
+  chống path traversal 3 lớp, ghi nguyên tử (`.part` + `os.replace`), stream qua
+  `asyncio.to_thread` (không cần `aiofiles`).
+- **Backend `s3`** (`pip install xime[s3]`, `aioboto3` import lười): `S3ClientProvider`
+  (vòng đời client ở `post_construct`/`pre_destroy`) + `S3FileStorage` (multipart
+  upload, ranged GET, presigned `url()`); tương thích MinIO (`addressing_style`).
+- **Streaming file ở web adapter** (`xime.adapters.web.files`): `stream_object`
+  (HTTP Range 200/206/416, `Content-Range`, `ETag`, đọc lười không nạp hết RAM) và
+  `save_upload` (đọc `UploadFile` theo chunk -> `put_stream`, giới hạn `max_bytes`
+  -> 413).
+- **JWT `audience`/`issuer`** (`JwtMiddlewareConfig`): ép khớp `aud`/`iss` khi cấu
+  hình; middleware phơi toàn bộ claim qua `request_context[JWT_CLAIMS]` để app
+  authorize tiếp.
+
+### Fixed
+
+- **Context bleeding ở web HTTP middleware** (dental-clinic #001): chuyển
+  `RequestContextMiddleware` và `JwtAuthMiddleware` từ `BaseHTTPMiddleware` sang
+  **pure-ASGI middleware** -> set/clear `ContextVar` cùng context với handler, hết
+  rò identity giữa các request.
+- **JWT từ chối token có claim `aud`**: trước đây `jwt.decode` không truyền
+  `audience` khiến PyJWT reject mọi token mang `aud` (401). Nay đặt
+  `verify_aud=False` khi chưa cấu hình audience và ép khớp khi có.
+- **`MqttPublisher` treo vô hạn** khi không adapter nào phục vụ client_id: nay
+  fail-fast `RuntimeError` rõ ràng.
+- **HTTP Range sai cú pháp trả 416**: nay bỏ qua header rác và phục vụ full 200
+  (đúng RFC 7233); chỉ 416 cho range hợp lệ-nhưng-không-thoả.
+- **Scanner nuốt lỗi import thật của submodule**: nay re-raise lỗi import thật
+  (thiếu dependency, circular...), chỉ bỏ qua khi module thực sự vắng.
+- **`get_protocol_methods` bỏ dunder**: nay giữ dunder mang ý nghĩa contract
+  (`__call__`, `__aenter__`, `__aexit__`...) để binding validation đầy đủ hơn.
+- **MQTT `#`/`+` cấp đầu khớp `$SYS`**: nay không khớp topic hệ thống `$...`.
+- **Socket `STREAM_START` payload hỏng làm rớt connection**: nay gửi frame ERROR.
+- **`XimeGrpcChannel` task đóng channel nền có thể bị GC**: nay giữ strong-ref.
+- **OpenAPI `public_paths` không chuẩn hóa trailing slash** như JWT middleware:
+  nay đồng nhất.
+- **MQTT RPC: lỗi gửi reply che lỗi gốc**: nay reply lỗi là best-effort, luôn
+  giữ lỗi nghiệp vụ gốc trong log.
+
+### Changed
+
+- **`scheduler` extra**: `apscheduler>=3.6` -> `apscheduler>=4.0.0a6` cho khớp code
+  dùng API v4 (`AsyncScheduler`/`run_until_stopped`/`add_schedule`); `>=3.6` cho
+  phép cài 3.x stable thiếu API v4 -> `ImportError` lúc chạy.
+- Thêm extra `s3`, `mqtt`; gộp vào `all`.
+- Bump version `0.4.0` -> `0.5.0`.
+
 ## [0.4.0] - 2026-06-20
 
 Bản cross-cutting + starters: thêm danh tính peer mTLS cho gRPC và hai starter
@@ -73,6 +140,7 @@ Bản hoàn thiện đầu tiên: core (DI / lifecycle / config / context / even
 security / transaction), các adapter (web, gRPC code-first + client SDK + mTLS
 động, socket) và các starter (sqlalchemy, jwt, scheduler).
 
+[0.5.0]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/nguyen-huu-thang/xime-framework/releases/tag/v0.2.0

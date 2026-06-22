@@ -113,6 +113,8 @@ pip install "xime[scheduler]"    # lập lịch tác vụ kiểu cron
 pip install "xime[redis]"        # Redis client + backend cache
 pip install "xime[grpc]"         # gRPC adapter (code-first)
 pip install "xime[socket]"       # IPC qua Unix domain socket
+pip install "xime[mqtt]"         # MQTT adapter (pub/sub + RPC over MQTT v5)
+pip install "xime[s3]"           # backend storage S3 / MinIO
 pip install "xime[all]"          # tất cả ở trên
 ```
 
@@ -235,6 +237,8 @@ Cách tốt nhất để học XIME là đọc code thật. Các dự án mã ng
 | **mTLS động** | Xoay chứng chỉ không cần restart, cho cả server inbound lẫn client outbound |
 | **Danh tính peer** | gRPC đọc CN client cert đã verify vào request context; `current_caller()` truy xuất (fail-soft) |
 | **Socket Adapter** | IPC qua Unix Domain Socket cho Native Engine cùng máy (Linux); `@command` / `@stream` |
+| **MQTT Adapter** | Transport message-driven cho IoT/embedded: `@subscribe` (pub/sub) + `@rpc` (request/reply qua MQTT v5); auto-reconnect; giới hạn đồng thời |
+| **File Storage** | `StorageService` trung lập backend (filesystem local / S3 / MinIO); API bytes + streaming; helper download HTTP Range và upload theo chunk |
 
 ---
 
@@ -249,6 +253,9 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 | `xime.starters.scheduler` | Lập lịch tác vụ kiểu cron | ✅ Đã implement |
 | `xime.starters.cache` | Abstraction `CacheService` (trung lập backend) | ✅ Đã implement |
 | `xime.starters.redis` | Async Redis client + backend cho `CacheService` | ✅ Đã implement |
+| `xime.starters.storage` | Abstraction `StorageService` (object/blob store) | ✅ Đã implement |
+| `xime.starters.localfs` | Backend `StorageService` trên filesystem local | ✅ Đã implement |
+| `xime.starters.s3` | Backend `StorageService` S3 / MinIO (multipart, presigned URL) | ✅ Đã implement |
 
 ---
 
@@ -264,9 +271,9 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 ## Trạng thái dự án
 
-XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI, lifecycle, event bus, security context, configuration, JWT starter, scheduler starter, SQLAlchemy starter, Web adapter (FastAPI + routing, middleware & exception handler tùy chỉnh), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed + retry tự động), **Socket adapter** (Unix Domain Socket IPC), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện. Redis và Cache starter đang được kế hoạch.
+XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI, lifecycle, event bus, security context, configuration, JWT starter (có ép `audience`/`issuer`), scheduler starter, SQLAlchemy starter, Cache + Redis starter, **Storage starter** (filesystem local + S3/MinIO) kèm **streaming file HTTP** (download Range, upload theo chunk), Web adapter (FastAPI + routing, middleware request-context & JWT kiểu pure-ASGI, middleware & exception handler tùy chỉnh), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed + retry tự động), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện.
 
-Core được bao phủ bởi **890+ test**.
+Core được bao phủ bởi **1050+ test**.
 
 Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 
@@ -285,7 +292,9 @@ Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 | [Code-First gRPC](docs/vn/grpc-codefirst.md) | Sinh `.proto` từ Python DTO; ổn định field number; `xime grpc generate/check`; mTLS động |
 | [gRPC Client SDK](docs/vn/grpc-client.md) | Sinh client SDK typed; inject qua DI; deadline, lỗi typed, retry, mTLS động |
 | [Socket Adapter](docs/vn/socket-adapter.md) | IPC qua Unix Domain Socket cho Native Engine cùng máy |
-| [Starters](docs/vn/starters.md) | SQLAlchemy, JWT, Scheduler, Cache, Redis |
+| [MQTT Adapter](docs/vn/mqtt.md) | Pub/sub message-driven + RPC over MQTT v5 cho IoT/embedded |
+| [File Storage](docs/vn/file-storage.md) | `StorageService` (local / S3 / MinIO) + download HTTP Range & upload theo chunk |
+| [Starters](docs/vn/starters.md) | SQLAlchemy, JWT, Scheduler, Cache, Redis, Storage (local / S3 + streaming HTTP) |
 | [Testing](docs/vn/testing.md) | DI override, fake, test utilities |
 | [Đóng góp](docs/vn/contributing.md) | Cách đóng góp, roadmap |
 

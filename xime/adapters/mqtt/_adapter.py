@@ -1,0 +1,230 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import TYPE_CHECKING
+
+from ._config import MqttConfig, mqtt_registry
+from ._dispatcher import MqttDispatcher
+from .routing._builder import MqttRouteBuilder
+from .routing._scanner import MqttControllerScanner
+
+if TYPE_CHECKING:
+    from xime.core.bootstrap.application import Application
+
+logger = logging.getLogger("xime.mqtt")
+
+
+class MqttAdapter:
+    """MQTT adapter — message-driven (pub/sub) transport for IoT / embedded peers.
+
+    Register via app.use() and start via app.run():
+
+        app = Application()
+        app.use(MqttAdapter())
+        app.run()
+
+    Unlike web/grpc/socket (request/response), MQTT is pub/sub: the adapter
+    subscribes to the topic filters declared by @subscribe/@rpc controllers and
+    dispatches each incoming message. @rpc additionally publishes a reply to the
+    request's ResponseTopic (MQTT v5).
+    Khác web/grpc/socket (request/response), MQTT là pub/sub.
+
+    Lifecycle (driven by Application._run_async):
+        1. Application.start()    — DI container fully built
+        2. MqttAdapter.start(app) — connect, subscribe, dispatch until stopped
+        3. MqttAdapter.stop()     — cancel handlers, disconnect cleanly
+
+    Resilience: on connection loss the adapter reconnects and re-subscribes all
+    topics. Message handlers run in bounded-concurrency tasks (max_concurrency),
+    applying backpressure to the receive loop when saturated.
+
+    Ordering: with max_concurrency > 1 messages are dispatched CONCURRENTLY, so
+    per-topic delivery order is NOT preserved. Set max_concurrency=1 for strict
+    sequential, in-order processing (lower throughput).
+    Thứ tự: max_concurrency > 1 -> xử lý đồng thời, KHÔNG giữ thứ tự per-topic;
+    đặt =1 để xử lý tuần tự đúng thứ tự.
+
+    The publisher (MqttPublisher) binds to the connection of the default
+    client_id; run the adapter with the default id for the publisher to work.
+    Publisher bám vào connection của client_id mặc định.
+    """
+
+    def __init__(self, client_id: str = "default", path: str | None = None) -> None:
+        self._client_id = client_id
+        self._config: MqttConfig | None = None
+        self._connection = mqtt_registry.connection(client_id)
+        # Claim the client_id at construction (app.use time), well before any
+        # publish, so MqttPublisher bound to this id won't fail fast or hang.
+        # Nhận client_id ngay lúc app.use, trước mọi publish.
+        self._connection.mark_served()
+        self._dispatcher: MqttDispatcher | None = None
+        # (topic_filter, qos, subscription_id) per route.
+        self._subscriptions: list[tuple[str, int, int]] = []
+        self._stopping = False
+        self._tasks: set[asyncio.Task] = set()
+        self._sem: asyncio.Semaphore | None = None
+
+    # ------------------------------------------------------------------
+    # Adapter protocol
+    # ------------------------------------------------------------------
+
+    async def start(self, app: "Application") -> None:
+        """Build the route table, then connect/subscribe/dispatch with reconnect."""
+        try:
+            import aiomqtt  # noqa: F401
+        except ImportError:
+            raise RuntimeError(
+                "MqttAdapter requires aiomqtt. Run: pip install 'xime[mqtt]'"
+            ) from None
+
+        from xime.core.config.runtime import RuntimeConfig
+        runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
+        self._config = MqttConfig.resolve(runtime, self._client_id)
+        self._sem = asyncio.Semaphore(self._config.max_concurrency)
+
+        # Build the dispatch table from scanned controllers (DI is ready).
+        controllers = MqttControllerScanner().find_controllers(*mqtt_registry.get_packages())
+        routes = MqttRouteBuilder(app).build(controllers)
+        # Assign a unique MQTT v5 Subscription Identifier per route so the broker
+        # reports exactly which subscription matched -> the dispatcher routes by
+        # that id and overlapping filters never double-fire.
+        # Gán Subscription Identifier (MQTT v5) cho mỗi route -> broker báo đúng
+        # subscription khớp, dispatcher route theo id, filter chồng lấn không
+        # double-fire.
+        for i, route in enumerate(routes):
+            route.subscription_id = i + 1
+        self._dispatcher = MqttDispatcher(
+            routes, self._connection, mqtt_registry.get_error_mappings()
+        )
+        # (filter, qos, subscription_id) to (re-)issue on every (re)connect.
+        self._subscriptions = [
+            (r.info.topic, r.info.qos, route_id)
+            for r in routes
+            if (route_id := r.subscription_id) is not None
+        ]
+
+        await self._run_forever()
+
+    async def stop(self) -> None:
+        """Stop reconnecting, cancel in-flight handlers, drop the connection."""
+        self._stopping = True
+        for task in list(self._tasks):
+            task.cancel()
+        self._tasks.clear()
+        self._connection.detach()
+
+    # ------------------------------------------------------------------
+    # Connection loop
+    # ------------------------------------------------------------------
+
+    async def _run_forever(self) -> None:
+        import aiomqtt
+
+        assert self._config is not None
+        cfg = self._config
+        while not self._stopping:
+            try:
+                async with self._build_client(aiomqtt) as client:
+                    self._connection.attach(client)
+                    await self._subscribe_all(client)
+                    async for message in client.messages:
+                        await self._handle_message(message)
+            except aiomqtt.MqttError as exc:
+                if self._stopping:
+                    break
+                logger.warning(
+                    "MQTT connection lost (%s); reconnecting in %.1fs",
+                    exc, cfg.reconnect_delay,
+                )
+            finally:
+                self._connection.detach()
+            if self._stopping:
+                break
+            await asyncio.sleep(cfg.reconnect_delay)
+
+    def _build_client(self, aiomqtt):
+        cfg = self._config
+        assert cfg is not None
+        kwargs: dict = {
+            "hostname": cfg.host,
+            "port": cfg.port,
+            "identifier": cfg.client_id,
+            "keepalive": cfg.keepalive,
+            # MQTT v5 is required for RPC ResponseTopic/CorrelationData.
+            "protocol": aiomqtt.ProtocolVersion.V5,
+        }
+        if cfg.username is not None:
+            kwargs["username"] = cfg.username
+        if cfg.password is not None:
+            kwargs["password"] = cfg.password
+        if cfg.tls is not None:
+            kwargs["tls_params"] = aiomqtt.TLSParameters(
+                ca_certs=cfg.tls.ca_certs,
+                certfile=cfg.tls.certfile,
+                keyfile=cfg.tls.keyfile,
+            )
+        if cfg.lwt is not None:
+            kwargs["will"] = aiomqtt.Will(
+                topic=cfg.lwt.topic,
+                payload=cfg.lwt.payload,
+                qos=cfg.lwt.qos,
+                retain=cfg.lwt.retain,
+            )
+        return aiomqtt.Client(**kwargs)
+
+    async def _subscribe_all(self, client) -> None:
+        for topic, qos, sub_id in self._subscriptions:
+            await client.subscribe(
+                topic, qos=qos, properties=_subscribe_properties(sub_id)
+            )
+
+    async def _handle_message(self, message) -> None:
+        """Spawn a bounded-concurrency task to dispatch one message.
+
+        Acquiring the semaphore before scheduling applies backpressure: when
+        max_concurrency handlers are in flight, the receive loop blocks here.
+        Acquire semaphore trước khi schedule -> backpressure khi đầy.
+        """
+        assert self._sem is not None and self._dispatcher is not None
+        await self._sem.acquire()
+        task = asyncio.create_task(self._dispatch_one(message))
+        self._tasks.add(task)
+
+        def _done(t: asyncio.Task) -> None:
+            self._tasks.discard(t)
+            self._sem.release()  # type: ignore[union-attr]
+
+        task.add_done_callback(_done)
+
+    async def _dispatch_one(self, message) -> None:
+        topic = getattr(message.topic, "value", str(message.topic))
+        payload = message.payload
+        if isinstance(payload, str):
+            payload = payload.encode()
+        elif payload is None:
+            payload = b""
+        properties = getattr(message, "properties", None)
+        # MQTT v5: broker echoes the matching Subscription Identifier(s) so the
+        # dispatcher routes to exactly the right handler(s). None on a v3 broker
+        # or QoS path without the property -> dispatcher falls back to topic match.
+        # MQTT v5: broker trả Subscription Identifier khớp -> dispatcher route đúng
+        # handler. None (broker v3) -> dispatcher fallback khớp topic.
+        sub_ids = getattr(properties, "SubscriptionIdentifier", None)
+        await self._dispatcher.dispatch(  # type: ignore[union-attr]
+            topic, payload, properties, message, subscription_ids=sub_ids
+        )
+
+
+def _subscribe_properties(subscription_id: int):
+    """Build MQTT v5 SUBSCRIBE properties carrying the Subscription Identifier.
+
+    Imported lazily so the module stays importable without paho installed.
+    Import paho lười để module vẫn import được khi chưa cài paho.
+    """
+    from paho.mqtt.packettypes import PacketTypes
+    from paho.mqtt.properties import Properties
+
+    props = Properties(PacketTypes.SUBSCRIBE)
+    props.SubscriptionIdentifier = subscription_id
+    return props

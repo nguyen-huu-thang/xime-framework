@@ -57,27 +57,19 @@ infrastructure/client  → External client
 
 ## 4. Kiến trúc tổng thể
 
-Hiện tại:
+Hiện tại (0.5):
 
 ```text
 Xime Core
     ↑
- ┌──┴──┐
- │     │
-HTTP  gRPC
+ ┌──┼─────┬───────┬──────┐
+ │  │     │       │      │
+HTTP gRPC Socket  MQTT  WebSocket
 ```
 
-Tương lai:
+Tương lai: fieldbus công nghiệp (Modbus TCP / OPC UA - xem `ke-hoach-0.7.md`).
 
-```text
-Xime Core
-    ↑
- ┌──┼────┬────────┐
- │  │    │        │
-HTTP gRPC MQ  WebSocket
-```
-
-**Nguyên tắc:** Core không phụ thuộc vào FastAPI, grpc.aio, RabbitMQ hay Kafka. Core chỉ chứa: Dependency Injection, Lifecycle, Event Bus, Security, Configuration, Context.
+**Nguyên tắc:** Core không phụ thuộc vào FastAPI, grpc.aio, aiomqtt hay aioboto3. Core chỉ chứa: Dependency Injection, Lifecycle, Event Bus, Security, Configuration, Context.
 
 ---
 
@@ -306,10 +298,10 @@ Startup fail ngay với thông báo rõ ràng.
 Tùy chọn, không bắt buộc:
 
 - SQLAlchemy Starter
-- Redis Starter
 - JWT Starter
-- Cache Starter
 - Scheduler Starter
+- Cache Starter + Redis Starter (backend của `CacheService`)
+- Storage Starter + LocalFS / S3 Backend (backend của `StorageService`)
 
 Tương tự `spring-boot-starter-*` trong Spring Boot.
 

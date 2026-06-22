@@ -1,5 +1,5 @@
 """
-Test SchedulerRunner (yêu cầu apscheduler>=4.0):
+Test SchedulerRunner (yêu cầu apscheduler>=4.0.0a6 - API v4):
 
   _validate():
     - IntervalJob với tất cả field = 0 → RuntimeError "zero interval"
@@ -36,7 +36,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-apscheduler = pytest.importorskip("apscheduler", reason="pip install 'apscheduler>=4.0'")
+apscheduler = pytest.importorskip("apscheduler", reason="pip install 'apscheduler>=4.0.0a6'")
 
 from apscheduler.triggers.cron import CronTrigger       # noqa: E402
 from apscheduler.triggers.interval import IntervalTrigger  # noqa: E402

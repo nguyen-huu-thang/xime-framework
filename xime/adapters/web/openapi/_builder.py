@@ -34,6 +34,14 @@ def build_custom_openapi(app: FastAPI, config: OpenApiConfig) -> Callable[[], di
     return custom_openapi
 
 
+def _normalize_path(path: str) -> str:
+    """Strip trailing slash, keep bare '/' - matches JwtAuthMiddleware._normalize
+    so a path declared public for auth is also documented as public.
+    Trùng cách chuẩn hóa của JwtAuthMiddleware để public_paths nhất quán giữa
+    docs và auth thực thi."""
+    return path.rstrip("/") or "/"
+
+
 def _apply_security(
     schema: dict,
     scheme: JwtBearer | ApiKey,
@@ -44,12 +52,12 @@ def _apply_security(
     schema["components"].setdefault("securitySchemes", {})
     schema["components"]["securitySchemes"][scheme.scheme_name] = scheme.to_openapi_dict()
 
-    public = set(public_paths)
+    public = {_normalize_path(p) for p in public_paths}
     security_req = [{scheme.scheme_name: []}]
 
-    # Apply security cho tất cả endpoint, bỏ qua public_paths
+    # Apply security cho tất cả endpoint, bỏ qua public_paths (so khớp đã chuẩn hóa)
     for path, path_item in schema.get("paths", {}).items():
-        if path in public:
+        if _normalize_path(path) in public:
             continue
         for method_spec in path_item.values():
             # path_item có thể chứa key không phải method (vd: "summary", "$ref")

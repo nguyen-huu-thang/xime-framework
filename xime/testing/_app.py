@@ -3,14 +3,11 @@ from __future__ import annotations
 from typing import Any, TypeVar
 
 from xime.core.bootstrap.orchestrator import StartupOrchestrator
-
-_T = TypeVar("_T")
 from xime.core.config.binding import BindingConfig
 from xime.core.config.loader import YamlConfigLoader, detect_env
 from xime.core.config.runtime import RuntimeConfig
-from xime.core.container import XimeContainer
-from xime.core.event.bus import EventBus
-from xime.core.lifecycle.manager import LifecycleManager
+
+_T = TypeVar("_T")
 
 
 class _TestStartupOrchestrator(StartupOrchestrator):
@@ -21,6 +18,12 @@ class _TestStartupOrchestrator(StartupOrchestrator):
     Each override is registered via XimeContainer.register_instance() so that
     the DI graph wiring uses the test double instead of scanning for or
     instantiating a production implementation.
+
+    Reuses the production start() pipeline verbatim and only overrides the
+    _extra_instances() hook, so any future change to startup is picked up here
+    automatically (no copy to drift).
+    Dùng lại nguyên pipeline start() của production, chỉ override hook
+    _extra_instances() để không bị drift khi startup thay đổi.
     """
 
     def __init__(
@@ -32,41 +35,8 @@ class _TestStartupOrchestrator(StartupOrchestrator):
         super().__init__(binding, runtime)
         self._overrides = overrides
 
-    async def start(self) -> None:
-        if self._container is not None:
-            raise RuntimeError(
-                "TestApplication is already running. "
-                "Call stop() before starting again."
-            )
-
-        event_bus = EventBus()
-        container = (
-            XimeContainer()
-            .register_instance(RuntimeConfig, self._runtime)
-            .register_instance(EventBus, event_bus)
-            .scan(*self._binding.packages)
-            .bind(self._binding.bindings)
-            .register(*self._binding.explicit_classes)
-        )
-        for cls, instance in self._collect_framework_instances().items():
-            container.register_instance(cls, instance)
-        # Overrides are registered last so they take precedence over everything.
-        # Override đăng ký cuối để có độ ưu tiên cao nhất.
-        for cls, instance in self._overrides.items():
-            container.register_instance(cls, instance)
-        for config_cls in self._binding.config_classes:
-            container.configure(config_cls)
-        if self._binding.order_rules:
-            container.order(*self._binding.order_rules)
-        self._container = container.build()
-
-        self._wire_framework_instances(self._container.get)
-
-        instances = self._container.get_all_in_order()
-        instances.extend(self._build_framework_components(self._container.get))
-
-        self._lifecycle = LifecycleManager(instances)
-        await self._lifecycle.start()
+    def _extra_instances(self) -> dict[type, object]:
+        return self._overrides
 
 
 class TestApplication:

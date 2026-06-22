@@ -212,3 +212,55 @@ class TestPyJwtTokenVerifierRs256:
         ctx = KeyContext(algorithm="RS256", public_key_pem="")
         with pytest.raises(ValueError, match="public_key_pem"):
             PyJwtTokenVerifier().verify("any.token.here", ctx)
+
+
+# ---------------------------------------------------------------------------
+# Audience / Issuer (M5)
+# ---------------------------------------------------------------------------
+
+class TestAudienceIssuer:
+    def setup_method(self):
+        self.verifier = PyJwtTokenVerifier()
+        self.ctx = KeyContext(algorithm="HS256", secret=TEST_SECRET)
+
+    def test_aud_token_accepted_when_audience_not_configured(self):
+        # Functional fix: a token carrying `aud` must NOT be rejected just
+        # because the app didn't configure an expected audience.
+        token = make_token(extra={"aud": "service-A"})
+        claims = self.verifier.verify(token, self.ctx)
+        assert claims["aud"] == "service-A"
+
+    def test_matching_audience_accepted(self):
+        token = make_token(extra={"aud": "service-A"})
+        claims = self.verifier.verify(token, self.ctx, audience="service-A")
+        assert claims["aud"] == "service-A"
+
+    def test_audience_list_membership_accepted(self):
+        token = make_token(extra={"aud": "service-A"})
+        claims = self.verifier.verify(token, self.ctx, audience=["service-A", "service-B"])
+        assert claims["aud"] == "service-A"
+
+    def test_wrong_audience_rejected(self):
+        token = make_token(extra={"aud": "service-A"})
+        with pytest.raises(AuthenticationException):
+            self.verifier.verify(token, self.ctx, audience="service-B")
+
+    def test_audience_configured_but_token_missing_aud_rejected(self):
+        token = make_token()  # no aud claim
+        with pytest.raises(AuthenticationException):
+            self.verifier.verify(token, self.ctx, audience="service-A")
+
+    def test_matching_issuer_accepted(self):
+        token = make_token(extra={"iss": "trust"})
+        claims = self.verifier.verify(token, self.ctx, issuer="trust")
+        assert claims["iss"] == "trust"
+
+    def test_wrong_issuer_rejected(self):
+        token = make_token(extra={"iss": "trust"})
+        with pytest.raises(AuthenticationException):
+            self.verifier.verify(token, self.ctx, issuer="other")
+
+    def test_issuer_not_enforced_when_not_configured(self):
+        token = make_token(extra={"iss": "trust"})
+        claims = self.verifier.verify(token, self.ctx)  # no issuer arg
+        assert claims["iss"] == "trust"

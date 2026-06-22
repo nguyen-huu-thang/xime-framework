@@ -1,14 +1,14 @@
 # Lộ trình phiên bản Xime Framework
 
 > Chỉ mục tổng các mốc phiên bản đã chốt, để tra nhanh "việc X làm ở bản nào".
-> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật 2026-06-21.
-> Hiện tại: 0.4.0 (pyproject đã đồng bộ 0.4.0).
+> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật 2026-06-22.
+> Hiện tại: 0.5.0 (pyproject đã đồng bộ 0.5.0).
 
 | Bản | Chủ đề | Trạng thái |
 | --- | --- | --- |
 | 0.3 | Hardening + hoàn tất gRPC | Đã phát hành (2026-06-20) |
 | 0.4 | Cross-cutting + starters | Đã phát hành (2026-06-20) |
-| 0.5 | Kiểm toán toàn diện + Messaging/IoT (MQTT) + File | Đã chốt mốc (đổi phạm vi 2026-06-21) |
+| 0.5 | Kiểm toán toàn diện + Messaging/IoT (MQTT) + File | Đã phát hành (2026-06-22) |
 | 0.6 | Thay `dependency-injector` + dynamic interface binding | Đã chốt mốc, cần nghiên cứu sâu |
 | 0.7 | Fieldbus công nghiệp (Modbus TCP + OPC UA) | Đã chốt mốc (dời từ 0.5, 2026-06-21) |
 | 0.8 | Dự phòng cho cụm DI / wishlist | Mở |
@@ -39,7 +39,14 @@ Chi tiết kế hoạch: `ke-hoach-0.4.md`. Nguồn ý tưởng: `wishlist-tinh-
 
 ## 0.5 - Kiểm toán toàn diện + Messaging/IoT + File
 
-Chi tiết đầy đủ: `ke-hoach-0.5.md`.
+> **ĐÃ PHÁT HÀNH 2026-06-22.** Cả ba nhóm hoàn tất: audit toàn diện (báo cáo
+> `kiem-toan-0.5.md`, mọi phát hiện đã xử lý), adapter MQTT (pub/sub + RPC over
+> MQTT v5), storage starter (local + s3/MinIO) + streaming web. Test: 1051 passed,
+> 4 skipped. Chi tiết thực thi: `ke-hoach-trien-khai-0.5.md`.
+
+Chi tiết đầy đủ: `ke-hoach-0.5.md`. Kế hoạch THỰC THI chi tiết (thứ tự code,
+file nào, pattern nào) + các quyết định đã chốt 2026-06-22:
+`ke-hoach-trien-khai-0.5.md`.
 
 > **Đổi phạm vi 2026-06-21:** bản gốc (chốt 2026-06-19) là bản KHÔNG thêm tính
 > năng, chỉ kiểm toán. Chủ dự án quyết định gộp thêm hai mảng feature: **adapter
@@ -50,10 +57,11 @@ Chi tiết đầy đủ: `ke-hoach-0.5.md`.
   starters, ghi `docs/kiem-toan-0.5.md`, phân loại theo mức nghiêm trọng rồi mới
   vá. Gồm fix issue context-bleeding khi test ASGI in-process (dental-clinic #001):
   chuyển `RequestContextMiddleware` từ `BaseHTTPMiddleware` sang pure ASGI middleware.
-- **Nhóm B - Adapter MQTT**: pub/sub message-driven (khác RPC), `@subscribe` +
-  `MqttPublisher`, auto-reconnect, extra `xime[mqtt]` (aiomqtt import lười).
+- **Nhóm B - Adapter MQTT**: pub/sub message-driven (`@subscribe`) và RPC over
+  MQTT v5 (`@rpc`), `MqttPublisher`, auto-reconnect, định tuyến bằng Subscription
+  Identifier, extra `xime[mqtt]` (aiomqtt import lười).
 - **Nhóm C - File**: storage starter (Protocol `StorageService`, backend local
-  + cân nhắc s3) theo pattern cache/redis, + streaming upload/download lớn ở web
+  và s3/MinIO) theo pattern cache/redis, kèm streaming upload/download lớn ở web
   adapter (Range, multipart, chunked).
 
 Phạm vi kiểm toán (đọc thật kỹ, không lướt):

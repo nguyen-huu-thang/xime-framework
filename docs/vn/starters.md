@@ -260,6 +260,96 @@ dependency.bind({ CacheService: InMemoryCacheService })
 
 ---
 
+## Storage Starter
+
+`xime.starters.storage`
+
+Định nghĩa `StorageService` - hợp đồng lưu trữ object/blob trung lập backend (một `Protocol`). Business code phụ thuộc `StorageService`; backend cụ thể (filesystem local hoặc S3/MinIO) được bind tường minh trong `config/dependency.py`. Giống `CacheService`, object là `bytes` thô (hoặc stream bytes) - framework không áp đặt cách đặt tên, authorization hay content-type.
+
+Hai dạng truy cập:
+
+- `put` / `get` - bytes nguyên object, tiện cho object nhỏ.
+- `put_stream` / `open_stream` - stream bytes async cho object lớn không nạp hết vào RAM (`open_stream` nhận `offset`/`length` cho HTTP Range).
+
+Kèm `delete`, `exists`, `stat` (size/content-type/etag) và `url` (presigned URL nếu backend hỗ trợ). Key là tương đối; **mọi backend** đều từ chối key rỗng/tuyệt đối/`..` (traversal) như nhau.
+
+### Backend filesystem local — `xime.starters.localfs`
+
+```python
+# config/dependency.py
+from xime.starters.storage import StorageService
+from xime.starters.localfs import LocalFileStorage
+
+dependency.scan("xime.starters.localfs")
+dependency.bind({ StorageService: LocalFileStorage })
+```
+
+```yaml
+# resources/application.yml
+storage:
+  local:
+    root: /var/lib/myapp/objects   # bắt buộc
+```
+
+Ghi nguyên tử (file tạm `.part` rồi `os.replace`); chặn path traversal; IO file chạy trong worker thread. Không cần thư viện thêm. `url()` ném `UnsupportedOperation` - phục vụ file qua helper web bên dưới.
+
+### Backend S3 / MinIO — `xime.starters.s3`
+
+Cài bằng `pip install "xime[s3]"`.
+
+```python
+# config/dependency.py
+from xime.starters.storage import StorageService
+from xime.starters.s3 import S3FileStorage
+
+dependency.scan("xime.starters.s3")
+dependency.bind({ StorageService: S3FileStorage })
+```
+
+```yaml
+# resources/application.yml
+storage:
+  s3:
+    bucket: my-bucket            # bắt buộc
+    region: us-east-1            # tùy chọn
+    endpoint_url: http://minio:9000   # tùy chọn (MinIO / S3-compatible)
+    access_key: ...              # tùy chọn (hoặc lấy từ env / instance role)
+    secret_key: ...
+    addressing_style: path       # tùy chọn: "path" (MinIO) | "virtual"
+```
+
+`S3ClientProvider` mở client async ở `PostConstruct`, đóng ở `PreDestroy`. `put_stream` dùng multipart upload (abort khi lỗi), `open_stream` dùng ranged GET, `url()` trả presigned URL. `aioboto3` được import lười.
+
+### Streaming qua HTTP — `xime.adapters.web.files`
+
+Hai helper stream object lên/xuống HTTP không buffer, gọi trong controller:
+
+```python
+from fastapi import Request, UploadFile
+from xime.adapters.web.routing import get, post
+from xime.adapters.web.files import stream_object, save_upload
+from xime.starters.storage import StorageService
+
+class FileController:
+    def __init__(self, storage: StorageService) -> None:
+        self._storage = storage
+
+    @get("/files/{key:path}")
+    async def download(self, key: str, request: Request):
+        # Tôn trọng HTTP Range -> 206 Partial Content; 404 nếu không có.
+        return await stream_object(self._storage, key, request=request)
+
+    @post("/files/{key:path}")
+    async def upload(self, key: str, file: UploadFile):
+        # Stream theo chunk; vượt giới hạn -> 413 PayloadTooLarge.
+        await save_upload(self._storage, key, file, max_bytes=50 * 1024 * 1024)
+        return {"key": key}
+```
+
+Đổi backend (local ⇆ S3) chỉ là một dòng bind; code controller không đổi.
+
+---
+
 ## Dùng nhiều Starter cùng lúc
 
 Các starter kết hợp tốt với nhau. Một production service điển hình có thể dùng:

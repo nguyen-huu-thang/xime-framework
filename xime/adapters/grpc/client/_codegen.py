@@ -68,7 +68,7 @@ def _framework_xime_version() -> str:
     try:
         return _dist_version("xime")
     except PackageNotFoundError:  # pragma: no cover - chỉ khi chạy từ source chưa cài
-        return "0.4.0"
+        return "0.5.0"
 
 
 def generate_client_sdk(

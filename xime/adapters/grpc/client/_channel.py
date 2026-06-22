@@ -69,6 +69,10 @@ class XimeGrpcChannel:
         self._provider: "GrpcCertificateProvider | None" = None
         self._cert_version: str | None = None
         self._retired: list[grpc.aio.Channel] = []
+        # Strong refs to background close tasks so the event loop does not garbage
+        # -collect them mid-flight (asyncio only holds weak refs to tasks).
+        # Giữ strong-ref các task đóng nền để event loop không thu gom giữa chừng.
+        self._retire_tasks: set[asyncio.Task] = set()
         # Serializes the dynamic check-and-replace below. A threading.Lock (not
         # asyncio.Lock) because _dynamic_channel() is synchronous: under asyncio
         # it is already atomic (no await inside), so this only matters if the
@@ -222,9 +226,14 @@ class XimeGrpcChannel:
                     self._retired.remove(channel)
 
         try:
-            asyncio.get_running_loop().create_task(close_later())
+            task = asyncio.get_running_loop().create_task(close_later())
         except RuntimeError:
-            pass  # no loop — close() sẽ đóng nốt lúc shutdown
+            return  # no loop — close() sẽ đóng nốt lúc shutdown
+        # Hold a strong reference until the task finishes (asyncio keeps only a
+        # weak ref, so without this the close could be GC'd before completing).
+        # Giữ strong-ref tới khi task xong (asyncio chỉ giữ weak-ref).
+        self._retire_tasks.add(task)
+        task.add_done_callback(self._retire_tasks.discard)
 
     def _create_static_channel(self) -> grpc.aio.Channel:
         target = f"{self._config.host}:{self._config.port}"

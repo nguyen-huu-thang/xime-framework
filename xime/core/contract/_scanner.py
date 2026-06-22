@@ -4,6 +4,7 @@ import importlib
 import inspect
 import pkgutil
 
+from xime.core.container.scanner import _module_itself_missing
 from xime.core.contract._decorators import ENDPOINT_ATTR
 
 
@@ -67,9 +68,10 @@ class ControllerScanner:
         ):
             try:
                 module = importlib.import_module(module_name)
-            except ImportError:
-                continue
-
+            except ModuleNotFoundError as exc:
+                if _module_itself_missing(exc, module_name):
+                    continue
+                raise  # a missing dependency inside the module is a real error
             for _name, cls in inspect.getmembers(module, inspect.isclass):
                 # Skip classes imported from elsewhere — only own definitions.
                 # Bỏ qua class import từ nơi khác — chỉ lấy định nghĩa của chính module.

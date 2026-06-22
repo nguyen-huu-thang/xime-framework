@@ -23,20 +23,32 @@ class JwtTokenVerifier(Protocol):
         dependency.bind({JwtTokenVerifier: MyJwksVerifier})
     """
 
-    def verify(self, token: str, key_context: KeyContext) -> dict[str, Any]:
+    def verify(
+        self,
+        token: str,
+        key_context: KeyContext,
+        *,
+        audience: str | list[str] | None = None,
+        issuer: str | None = None,
+    ) -> dict[str, Any]:
         """Verify and decode a JWT token.
 
         Args:
             token: Raw JWT string (without "Bearer " prefix).
             key_context: Key material and algorithm for verification.
                          For asymmetric algorithms, only public_key_pem is needed.
+            audience: Expected `aud` claim. When set it is enforced; when None the
+                      audience is not enforced (tokens with an `aud` claim are
+                      still accepted).
+            issuer: Expected `iss` claim. Enforced when set; not checked when None.
 
         Returns:
             Decoded claims dict.
 
         Raises:
             AuthenticationException: if the token is expired, has an invalid
-                                     signature, or is structurally malformed.
+                                     signature, a mismatched audience/issuer, or
+                                     is structurally malformed.
             ValueError: if key_context is missing required key material.
         """
         ...
@@ -57,13 +69,29 @@ class PyJwtTokenVerifier:
     Also used internally by JwtAuthMiddleware for HTTP Bearer token verification.
     """
 
-    def verify(self, token: str, key_context: KeyContext) -> dict[str, Any]:
+    def verify(
+        self,
+        token: str,
+        key_context: KeyContext,
+        *,
+        audience: str | list[str] | None = None,
+        issuer: str | None = None,
+    ) -> dict[str, Any]:
         verify_key = self._resolve_verify_key(key_context)
+        # When no audience is configured, disable aud verification explicitly:
+        # otherwise PyJWT REJECTS any token that carries an `aud` claim (it raises
+        # InvalidAudienceError when a token has aud but decode() got no audience).
+        # Không cấu hình audience -> tắt verify_aud, nếu không PyJWT TỪ CHỐI mọi
+        # token có claim aud (raise InvalidAudienceError).
+        options = {"verify_aud": audience is not None}
         try:
             return jwt.decode(
                 token,
                 verify_key,
                 algorithms=[key_context.algorithm],
+                audience=audience,
+                issuer=issuer,
+                options=options,
             )
         except ExpiredSignatureError:
             raise AuthenticationException("Token has expired")

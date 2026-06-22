@@ -62,14 +62,34 @@ def is_abstract(cls: type) -> bool:
     return inspect.isabstract(cls)
 
 
+# Dunder methods that carry real contract meaning (a Protocol may declare them
+# as its interface), so binding validation must check them. Everything else
+# starting with '_' is implementation detail / Python-injected machinery.
+# Dunder mang ý nghĩa contract (Protocol có thể khai báo làm interface) -> binding
+# validation phải kiểm; còn lại bắt đầu bằng '_' là chi tiết nội bộ.
+_MEANINGFUL_DUNDERS = frozenset(
+    {"__call__", "__aenter__", "__aexit__", "__anext__", "__aiter__", "__enter__", "__exit__"}
+)
+
+
+def _is_contract_name(name: str) -> bool:
+    return not name.startswith("_") or name in _MEANINGFUL_DUNDERS
+
+
 def get_protocol_methods(protocol_cls: type) -> set[str]:
     """
-    Return the set of public method names declared in a Protocol.
+    Return the set of method names declared in a Protocol that form its contract.
     Used by BindingValidator to verify implementation completeness.
 
-    Only public names (no leading underscore) are returned — private methods
-    (_x) and dunder methods (__x__) are excluded because they are either
-    implementation details or Python-injected machinery.
+    Public names (no leading underscore) plus a whitelist of contract-bearing
+    dunders (__call__, __aenter__, __aexit__, ...) are returned; other private /
+    machinery dunders are excluded. Without the whitelist, a Protocol whose
+    interface IS a dunder (e.g. TransactionManager.__call__) would have its
+    binding validated as having no required methods.
+    Trả tên method tạo nên contract: tên public + danh sách dunder mang ý nghĩa
+    contract; loại các dunder máy móc khác. Thiếu danh sách này, Protocol mà
+    interface CHÍNH là dunder (vd TransactionManager.__call__) sẽ bị validate như
+    không có method bắt buộc.
 
     Uses __protocol_attrs__ (Python 3.12+) as the authoritative source of
     names declared directly in the Protocol, which excludes machinery like
@@ -79,7 +99,7 @@ def get_protocol_methods(protocol_cls: type) -> set[str]:
         return {
             name
             for name in protocol_cls.__protocol_attrs__
-            if not name.startswith("_")
+            if _is_contract_name(name)
         }
 
     # Fallback for Python < 3.12
@@ -89,7 +109,7 @@ def get_protocol_methods(protocol_cls: type) -> set[str]:
         if base in skip:
             continue
         for name, value in vars(base).items():
-            if name.startswith("_"):
+            if not _is_contract_name(name):
                 continue
             if callable(value):
                 members[name] = value

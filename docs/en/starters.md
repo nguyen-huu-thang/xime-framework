@@ -260,6 +260,96 @@ dependency.bind({ CacheService: InMemoryCacheService })
 
 ---
 
+## Storage Starter
+
+`xime.starters.storage`
+
+Defines `StorageService`, a backend-neutral object/blob store contract (a `Protocol`). Business code depends on `StorageService`; the concrete backend (local filesystem or S3/MinIO) is bound explicitly in `config/dependency.py`. Like `CacheService`, objects are raw `bytes` (or raw byte streams) - the framework imposes no naming, authorization, or content-type policy.
+
+It offers two access shapes:
+
+- `put` / `get` - whole-object bytes, convenient for small objects.
+- `put_stream` / `open_stream` - async byte streams for large objects that must not be buffered fully in memory (`open_stream` takes `offset`/`length` for HTTP Range).
+
+Plus `delete`, `exists`, `stat` (size/content-type/etag) and `url` (presigned URL where supported). Keys are backend-relative; **every backend** rejects empty, absolute, and `..` (traversal) keys identically.
+
+### Local filesystem backend — `xime.starters.localfs`
+
+```python
+# config/dependency.py
+from xime.starters.storage import StorageService
+from xime.starters.localfs import LocalFileStorage
+
+dependency.scan("xime.starters.localfs")
+dependency.bind({ StorageService: LocalFileStorage })
+```
+
+```yaml
+# resources/application.yml
+storage:
+  local:
+    root: /var/lib/myapp/objects   # required
+```
+
+Writes are atomic (staged to a `.part` file then `os.replace`); path traversal is rejected; file IO runs in worker threads. No extra dependency. `url()` raises `UnsupportedOperation` - serve files via the web helper below.
+
+### S3 / MinIO backend — `xime.starters.s3`
+
+Install with `pip install "xime[s3]"`.
+
+```python
+# config/dependency.py
+from xime.starters.storage import StorageService
+from xime.starters.s3 import S3FileStorage
+
+dependency.scan("xime.starters.s3")
+dependency.bind({ StorageService: S3FileStorage })
+```
+
+```yaml
+# resources/application.yml
+storage:
+  s3:
+    bucket: my-bucket            # required
+    region: us-east-1            # optional
+    endpoint_url: http://minio:9000   # optional (MinIO / S3-compatible)
+    access_key: ...              # optional (else from env / instance role)
+    secret_key: ...
+    addressing_style: path       # optional: "path" (MinIO) | "virtual"
+```
+
+`S3ClientProvider` opens the async client in `PostConstruct` and closes it in `PreDestroy`. `put_stream` uses multipart upload (aborted on error), `open_stream` issues a ranged GET, and `url()` returns a presigned URL. `aioboto3` is imported lazily.
+
+### Streaming over HTTP — `xime.adapters.web.files`
+
+Two helpers stream stored objects to/from HTTP without buffering, called from inside a controller:
+
+```python
+from fastapi import Request, UploadFile
+from xime.adapters.web.routing import get, post
+from xime.adapters.web.files import stream_object, save_upload
+from xime.starters.storage import StorageService
+
+class FileController:
+    def __init__(self, storage: StorageService) -> None:
+        self._storage = storage
+
+    @get("/files/{key:path}")
+    async def download(self, key: str, request: Request):
+        # Honours HTTP Range -> 206 Partial Content; 404 if missing.
+        return await stream_object(self._storage, key, request=request)
+
+    @post("/files/{key:path}")
+    async def upload(self, key: str, file: UploadFile):
+        # Streams in chunks; over the cap -> 413 PayloadTooLarge.
+        await save_upload(self._storage, key, file, max_bytes=50 * 1024 * 1024)
+        return {"key": key}
+```
+
+Swapping backend (local ⇆ S3) is a one-line binding change; controller code is unchanged.
+
+---
+
 ## Using Multiple Starters
 
 Starters compose cleanly. A typical production service might use:
