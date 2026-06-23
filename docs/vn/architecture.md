@@ -18,7 +18,7 @@ Application Code   ← nghiệp vụ, controller, use case của bạn
 Python Objects
 ```
 
-XIME nằm giữa code ứng dụng và DI container. Nó tự động hóa scanning, xây dựng graph và kết nối dependency để bạn không bao giờ phải viết `providers.Singleton(...)` thủ công.
+XIME nằm giữa code ứng dụng và DI container. Nó tự động hóa scanning, xây dựng graph và kết nối dependency để bạn không bao giờ phải tự dây singleton hay truyền dependency thủ công. Container là một **registry singleton tự viết** (một dict dùng chính class làm key), nên XIME không phụ thuộc thư viện DI bên thứ ba nào.
 
 ---
 
@@ -27,7 +27,7 @@ XIME nằm giữa code ứng dụng và DI container. Nó tự động hóa scan
 ```text
 core/
 ├── bootstrap/    ← Entry point ứng dụng, điều phối startup
-├── container/    ← Package scanning, type resolution, dependency graph
+├── container/    ← Package scanning, type resolution, dependency graph, singleton registry, dynamic binding
 ├── metadata/     ← Tiện ích xử lý type hint
 ├── config/       ← Hệ thống config hai tầng
 ├── lifecycle/    ← PostConstruct / PreDestroy hook

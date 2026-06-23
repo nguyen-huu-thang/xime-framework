@@ -95,7 +95,7 @@ Các mảng cần làm, theo thứ tự ưu tiên:
 ## Cấu trúc dự án
 
 ```text
-core/           ← Không có external dependency ngoài python-dependency-injector
+core/           ← Không phụ thuộc thư viện DI ngoài — registry tự viết (dict + RLock)
 adapters/       ← Tích hợp theo giao thức (FastAPI, gRPC, ...)
 starters/       ← Tích hợp tùy chọn (SQLAlchemy, JWT, ...)
 testing/        ← Test utility

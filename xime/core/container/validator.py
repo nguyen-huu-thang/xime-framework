@@ -140,21 +140,33 @@ class GraphValidator:
     # 4. Binding correctness check
     # ------------------------------------------------------------------
 
-    def _check_bindings(self, bindings: dict[type, type]) -> None:
+    def _check_bindings(
+        self, bindings: dict[type, type | tuple[type, ...]]
+    ) -> None:
         """
-        For every declared binding, verify the implementation has all
-        methods required by the Protocol.
+        For every declared binding, verify the implementation has all methods
+        required by the Protocol.
+
+        A binding value may be a single implementation class or a tuple of
+        classes (dynamic binding). For a tuple, every implementation must satisfy
+        the Protocol — one bad impl fails startup.
+        Value có thể là một class hoặc tuple class (dynamic binding). Với tuple,
+        MỌI impl phải thỏa Protocol - sai một cái là startup fail.
         """
-        for interface, implementation in bindings.items():
+        for interface, target in bindings.items():
             if not is_protocol(interface):
                 continue
 
             required = get_protocol_methods(interface)
-            missing = {m for m in required if not callable(getattr(implementation, m, None))}
-
-            if missing:
-                raise BindingValidationException(
-                    interface.__name__,
-                    implementation.__name__,
-                    sorted(missing),
-                )
+            implementations = target if isinstance(target, tuple) else (target,)
+            for implementation in implementations:
+                missing = {
+                    m for m in required
+                    if not callable(getattr(implementation, m, None))
+                }
+                if missing:
+                    raise BindingValidationException(
+                        interface.__name__,
+                        implementation.__name__,
+                        sorted(missing),
+                    )

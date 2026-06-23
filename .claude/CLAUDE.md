@@ -43,6 +43,7 @@ Trạng thái các mảng lớn (cập nhật 2026-06-22):
 - **Lộ trình phiên bản (0.3 -> 0.8, tra "việc X làm bản nào"):** `docs/lo-trinh-phien-ban.md`
 - **Kế hoạch triển khai 0.5 (đã phát hành 2026-06-22 - feature trước, audit sau):** `docs/ke-hoach-trien-khai-0.5.md`
 - **Báo cáo kiểm toán 0.5 (mọi phát hiện H1/M1-M7/L1-L11/I1-I2 đã xử lý):** `docs/kiem-toan-0.5.md`
+- **Kế hoạch 0.6 (ĐÃ CODE XONG 2026-06-23: Việc 1 thay `dependency-injector` + Việc 2 dynamic interface binding; chờ bump version + CHANGELOG):** `docs/ke-hoach-0.6.md`
 - **Kế hoạch 0.3 (hardening):** `docs/ke-hoach-0.3.md`
 - **Thiết kế tổng thể:** `docs/tai-lieu-thiet-ke.md`
 - **Giới thiệu & triết lý:** `docs/gioi-thieu-framework.md`

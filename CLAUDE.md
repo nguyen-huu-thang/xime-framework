@@ -25,7 +25,7 @@ Python Objects
 **Core** (`core/`) — Nền tảng framework, không phụ thuộc vào adapter:
 
 - `bootstrap/` — Điểm khởi động ứng dụng và điều phối startup
-- `container/` — Logic DI tự viết: quét package, phân giải type hint, xây dựng và kiểm tra dependency graph (lớp lưu trữ/khởi tạo singleton bên dưới dùng `dependency-injector`)
+- `container/` — DI tự viết hoàn toàn: quét package, phân giải type hint, xây dựng và kiểm tra dependency graph, và lớp lưu trữ/khởi tạo singleton (dict dùng class làm key + `RLock`, từ 0.6 không còn dùng `dependency-injector`)
 - `config/` — Hệ thống cấu hình hai tầng (YAML + env vars)
 - `context/` — Dữ liệu theo phạm vi request thông qua `ContextVar`
 - `contract/` — Định nghĩa endpoint contract dùng chung cho Socket và gRPC code-first
@@ -80,9 +80,8 @@ XIME xây dựng trên (không viết lại):
 - **grpc.aio** (qua adapter) — gRPC server
 - **PyJWT** (qua starter) — JWT signing và verification
 - **APScheduler** (qua starter) — Task scheduling
-- **dependency-injector** — chỉ làm lớp lưu trữ provider bên dưới (xem ghi chú phía dưới)
 
-> **Về DI container:** Toàn bộ *logic* DI (quét package, phân giải type hint, dựng/kiểm tra dependency graph, topological sort, phát hiện circular dependency) được **tự viết** trong `core/container/`. Framework chỉ dùng thư viện `dependency-injector` ở một điểm duy nhất — `core/container/registry.py` — làm lớp lưu trữ/khởi tạo singleton bên dưới (`DynamicContainer` + `providers.Singleton`/`providers.Object`). Các tính năng đặc trưng của thư viện (wiring `@inject`/`Provide`, `Configuration`/`Resource`/`Factory` provider, declarative container) **không** được sử dụng, và lớp backend này có thể thay bằng một dict singleton tự viết mà không ảnh hưởng kiến trúc.
+> **Về DI container:** Toàn bộ DI được **tự viết** trong `core/container/` — cả *logic* (quét package, phân giải type hint, dựng/kiểm tra dependency graph, topological sort, phát hiện circular dependency) lẫn *lớp lưu trữ/khởi tạo singleton* (`core/container/registry.py`: một dict dùng chính class làm key + `RLock` double-checked locking). Từ bản 0.6, framework **không còn phụ thuộc** thư viện DI bên thứ ba nào (trước đây `core/container/registry.py` dùng `dependency-injector` làm backend singleton; nay đã thay bằng dict tự viết, API người dùng không đổi).
 
 ---
 

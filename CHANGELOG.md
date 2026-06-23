@@ -5,6 +5,41 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [0.6.0] - 2026-06-23
+
+Bản DI: **tự viết lớp lưu/dựng singleton** (gỡ hẳn thư viện `dependency-injector`)
+và **dynamic interface binding** (một interface bind nhiều implementation, đổi
+được lúc runtime). Không đổi API người dùng đang dùng; dự án cũ chạy nguyên không
+phải sửa. Toàn bộ test: 1084 passed, 4 skipped.
+
+### Added
+
+- **Dynamic interface binding** - `bind` nay chấp nhận value là **tuple nhiều
+  implementation** (phần tử đầu = mặc định) bên cạnh value một class như cũ.
+  Bật/tắt bằng cờ runtime `xime.di.dynamic-binding` trong `application.yml` (mặc
+  định **tắt**). Khi tắt, tuple hành xử y hệt bind phần tử đầu (impl phụ không
+  dựng) - bằng đúng kiến trúc cũ. Khi bật: mọi impl là singleton eager (chạy
+  `PostConstruct`/`PreDestroy`), consumer nhận một **proxy trong suốt**
+  (`DynamicProxy`) nên giữ nguyên code, và một **`Switcher`** (inject được) đổi
+  implementation **toàn cục** lúc runtime qua `use(Interface, Impl)` /
+  `reset(Interface)` / `reset()`. Validate fail-fast: mọi impl trong tuple phải
+  thỏa Protocol. `Switcher` luôn inject được; khi cờ tắt, `use/reset` báo lỗi rõ.
+
+### Changed
+
+- **Gỡ phụ thuộc `dependency-injector`** - lớp lưu/dựng singleton ở
+  `core/container/registry.py` viết lại bằng dict thuần (key là chính class) +
+  `RLock` double-checked locking. API public (`XimeContainer`,
+  `DependencyRegistry.register/get`) không đổi. Lý do: Xime eager-build mọi
+  singleton lúc startup rồi giữ reference qua constructor injection, không gọi
+  provider mỗi request - nên ưu thế Cython của thư viện không phát huy, trong khi
+  vẫn tốn phí sinh tên (md5 + regex) mỗi class và một lớp gián tiếp mỗi `get()`.
+  Bản tự viết bỏ cả hai: `get()` warm là đúng một `dict.get`, lock chỉ chạm khi
+  cache miss (gần như chỉ lúc startup). Benchmark đối chiếu: build ~8x, warm
+  `get()` ~2x nhanh hơn backend cũ. Đã gỡ `dependency-injector` khỏi
+  `pyproject.toml` - Xime không còn phụ thuộc thư viện DI bên thứ ba nào.
+- Bump version `0.5.0` -> `0.6.0`.
+
 ## [0.5.0] - 2026-06-22
 
 Bản kiểm toán toàn diện + hai mảng tính năng mới: **adapter MQTT** (messaging/IoT)
@@ -140,6 +175,7 @@ Bản hoàn thiện đầu tiên: core (DI / lifecycle / config / context / even
 security / transaction), các adapter (web, gRPC code-first + client SDK + mTLS
 động, socket) và các starter (sqlalchemy, jwt, scheduler).
 
+[0.6.0]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.2.0...v0.3.0

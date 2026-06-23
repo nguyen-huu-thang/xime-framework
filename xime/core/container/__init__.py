@@ -1,8 +1,10 @@
 from xime.core.container.config_loader import ConfigClassLoader, FactoryEntry
 from xime.core.container.graph import DependencyGraph
+from xime.core.container.proxy import DynamicProxy
 from xime.core.container.registry import DependencyRegistry
 from xime.core.container.resolver import TypeHintResolver
 from xime.core.container.scanner import PackageScanner
+from xime.core.container.switcher import Switcher
 from xime.core.container.validator import GraphValidator
 from xime.core.metadata.type_utils import is_protocol
 
@@ -27,11 +29,12 @@ class XimeContainer:
 
     def __init__(self) -> None:
         self._packages: list[str] = []
-        self._bindings: dict[type, type] = {}
+        self._bindings: dict[type, type | tuple[type, ...]] = {}
         self._instances: dict[type, object] = {}
         self._explicit_classes: list[type] = []
         self._config_classes: list[type] = []
         self._order_rules: list[list[type]] = []
+        self._dynamic_enabled: bool = False
         self._registry: DependencyRegistry | None = None
         self._topological_order: list[type] = []
 
@@ -45,10 +48,32 @@ class XimeContainer:
         self._packages.extend(package_names)
         return self
 
-    def bind(self, bindings: dict[type, type]) -> "XimeContainer":
-        """Declare explicit Protocol → Implementation mappings."""
+    def bind(self, bindings: dict[type, type | tuple[type, ...]]) -> "XimeContainer":
+        """
+        Declare explicit Protocol → Implementation mappings.
+
+        A value is a single implementation class, or a tuple of classes for
+        dynamic binding (first element is the default). See dynamic_binding().
+        """
         self._guard_not_built("bind")
         self._bindings.update(bindings)
+        return self
+
+    def dynamic_binding(self, enabled: bool) -> "XimeContainer":
+        """
+        Enable or disable runtime switching for tuple-valued bindings.
+
+        When disabled (default), a tuple binding behaves exactly like binding its
+        first element alone — the other impls are never built. When enabled, every
+        impl in the tuple becomes an eager singleton, consumers receive a
+        transparent proxy, and a Switcher can repoint the interface app-wide.
+
+        Khi tắt (mặc định), tuple binding hành xử y hệt bind riêng phần tử đầu -
+        các impl khác không dựng. Khi bật, mọi impl trong tuple là singleton dựng
+        sẵn, consumer nhận proxy trong suốt, và Switcher đổi interface toàn cục.
+        """
+        self._guard_not_built("dynamic_binding")
+        self._dynamic_enabled = enabled
         return self
 
     def register_instance(self, cls: type, instance: object) -> "XimeContainer":
@@ -115,12 +140,17 @@ class XimeContainer:
           4. Resolve type hints for all classes and factory deps
           5. Build dependency graph (includes factory-provided nodes)
           6. Validate (cycles, unresolved protocols, binding correctness)
-          7. Register providers into python-dependency-injector
+          7. Register the build plan into the singleton registry
 
         Raises StartupException (or a subclass) on any validation error.
         Raises RuntimeError if called more than once.
         """
         self._guard_not_built_exclusive()
+
+        # 0. Normalise tuple-valued bindings (dynamic binding). Produces the
+        #    binding maps the resolver and validator expect, and registers the
+        #    Switcher / proxies / framework-managed impls as a side effect.
+        resolver_bindings, validation_bindings = self._prepare_dynamic_binding()
 
         # 1. Scan + merge explicit classes (dedup, preserve order)
         scanned = PackageScanner().scan(*self._packages)
@@ -133,13 +163,13 @@ class XimeContainer:
             factory_entries.extend(loader.load(config_cls))
 
         # 3. Resolve type hints for scanned/explicit classes
-        resolved = TypeHintResolver().resolve(all_classes, self._bindings)
+        resolved = TypeHintResolver().resolve(all_classes, resolver_bindings)
 
         # 4. Merge factory entry dependencies into the resolved map so the
         #    graph and validator can see factory-provided types as nodes.
         for entry in factory_entries:
             resolved[entry.provided_type] = self._resolve_factory_deps(
-                entry.dependencies
+                entry.dependencies, resolver_bindings
             )
 
         # 5. Build dependency graph
@@ -148,7 +178,7 @@ class XimeContainer:
         # 6. Validate
         factory_provided = [e.provided_type for e in factory_entries]
         GraphValidator().validate(
-            resolved, graph, self._bindings, all_classes, self._instances, factory_provided
+            resolved, graph, validation_bindings, all_classes, self._instances, factory_provided
         )
 
         # 7. Register
@@ -216,9 +246,99 @@ class XimeContainer:
                 result.append(cls)
         return result
 
-    def _resolve_factory_deps(self, deps: dict[str, type]) -> dict[str, type]:
+    def _resolve_factory_deps(
+        self, deps: dict[str, type], bindings: dict[type, type]
+    ) -> dict[str, type]:
         """Apply Protocol → Implementation bindings to factory method deps."""
         return {
-            param: (self._bindings[t] if is_protocol(t) and t in self._bindings else t)
+            param: (bindings[t] if is_protocol(t) and t in bindings else t)
             for param, t in deps.items()
         }
+
+    # ------------------------------------------------------------------
+    # Dynamic binding (tuple-valued bindings)
+    # ------------------------------------------------------------------
+
+    def _prepare_dynamic_binding(
+        self,
+    ) -> tuple[dict[type, type], dict[type, type | tuple[type, ...]]]:
+        """
+        Normalise the binding map (which may contain tuple values) into the two
+        forms the rest of the pipeline expects, and register the pieces that make
+        runtime switching work.
+
+        Returns (resolver_bindings, validation_bindings):
+          - resolver_bindings: a pure Protocol→impl map for TypeHintResolver.
+            Single bindings pass through. A tuple collapses to its first element
+            when dynamic binding is OFF; when ON it is omitted so the Protocol
+            stays unresolved and is satisfied instead by an injected proxy.
+          - validation_bindings: what GraphValidator checks. Collapsed-first when
+            OFF; the full tuple when ON (every impl must satisfy the Protocol).
+
+        Side effects:
+          - Always registers a Switcher singleton (disabled when the flag is off).
+          - When ON, auto-registers every impl of a multi-impl interface as an
+            explicit class so they become eager-built singletons, and registers
+            one transparent proxy per interface (keyed by the interface) so
+            consumers injecting that Protocol receive it.
+          - When OFF, registers nothing extra: a tuple behaves exactly like the
+            classic binding to its first element, so the app registers/scans that
+            impl just as it would for any 1-to-1 binding.
+
+        A 1-element tuple is treated as a plain single binding (nothing to switch).
+        """
+        singles: dict[type, type] = {}
+        tuples: dict[type, tuple[type, ...]] = {}
+        for interface, target in self._bindings.items():
+            if isinstance(target, tuple):
+                if not target:
+                    raise ValueError(
+                        f"Binding for '{interface.__name__}' is an empty tuple; "
+                        "provide at least one implementation."
+                    )
+                if len(target) == 1:
+                    singles[interface] = target[0]
+                else:
+                    tuples[interface] = target
+            else:
+                singles[interface] = target
+
+        # The Switcher is always injectable; when the flag is off it refuses
+        # use()/reset() with a clear error instead of being absent.
+        # Switcher luôn inject được; khi tắt cờ, use()/reset() báo lỗi rõ thay vì
+        # vắng mặt.
+        switcher = Switcher(tuples, self._dynamic_enabled)
+        self._instances.setdefault(Switcher, switcher)
+
+        resolver_bindings: dict[type, type] = dict(singles)
+        validation_bindings: dict[type, type | tuple[type, ...]] = dict(singles)
+
+        if self._dynamic_enabled and tuples:
+            managed: list[type] = []
+            for interface, impls in tuples.items():
+                # setdefault: never clobber a pre-registered override (e.g. a test
+                # double) for this interface with a proxy.
+                # setdefault: không đè override đã đăng ký sẵn (vd test double).
+                self._instances.setdefault(
+                    interface, DynamicProxy(interface, switcher, self.get)
+                )
+                managed.extend(impls)
+                validation_bindings[interface] = impls
+            self._register_managed_impls(managed)
+        else:
+            # Flag off: a tuple is identical to binding its first element. No
+            # impl is auto-registered — the app scans/registers it as usual.
+            # Cờ tắt: tuple y hệt bind phần tử đầu. Không auto-register impl nào -
+            # app tự scan/register như mọi binding.
+            for interface, impls in tuples.items():
+                first = impls[0]
+                resolver_bindings[interface] = first
+                validation_bindings[interface] = first
+
+        return resolver_bindings, validation_bindings
+
+    def _register_managed_impls(self, impls: list[type]) -> None:
+        """Add framework-managed impls to the explicit class list (dedup)."""
+        for impl in impls:
+            if impl not in self._explicit_classes:
+                self._explicit_classes.append(impl)

@@ -118,6 +118,66 @@ Binding Validation Failed
 
 `Protocol` uses structural typing — Python cannot tell if a class intentionally implements an interface or just happens to have the same methods. Explicit binding makes the architectural decision visible in code. See [Interface Binding](../en/core-concepts.md) for the full rationale.
 
+### 4.1 Dynamic binding (multiple implementations)
+
+A binding value can be a **tuple** of implementations instead of a single class. The first element is the default. This lets you swap which implementation an interface uses **across the whole application at runtime**, without touching consumer code.
+
+```python
+# config/dependency.py
+dependency.bind({
+    UserRepository: JpaUserRepository,                            # classic 1-to-1
+    PaymentGateway: (StripeGateway, PaypalGateway, MockGateway),  # first = default
+})
+```
+
+The feature is **off by default** and gated by one runtime flag:
+
+```yaml
+# resources/application.yml
+xime:
+  di:
+    dynamic-binding: false   # default; set true to enable runtime switching
+```
+
+| Binding value | Flag | Behaviour |
+| --- | --- | --- |
+| single class | any | Exactly as before. |
+| tuple | **off** | Uses the **first element**, injected statically just like a 1-to-1 binding; the other impls are never built. Identical to the classic architecture. |
+| tuple | **on** | Every impl becomes an eager singleton; consumers receive a **transparent proxy**; a `Switcher` can repoint the interface app-wide. |
+
+**Consumers never change** - in both modes they depend on the Protocol as usual:
+
+```python
+class CheckoutService:
+    def __init__(self, gateway: PaymentGateway):     # unchanged
+        self.gateway = gateway
+
+    async def pay(self, amount: int) -> str:
+        return await self.gateway.charge(amount)     # unchanged
+```
+
+When the flag is on, inject a `Switcher` to swap implementations at runtime:
+
+```python
+from xime.core.container.switcher import Switcher
+
+class AdminService:
+    def __init__(self, switcher: Switcher):
+        self.switcher = switcher
+
+    def failover(self):
+        self.switcher.use(PaymentGateway, PaypalGateway)  # whole app uses Paypal
+        self.switcher.reset(PaymentGateway)               # one interface back to default
+        self.switcher.reset()                             # every interface back to default
+```
+
+**Notes:**
+
+- Switching is **global**: it swaps a shared pointer, so every consumer / request / coroutine sees the new implementation on its next call; a request already in flight is switched mid-way too. There is no request scope.
+- Use it for **system-wide, operational** decisions that apply to all requests and happen rarely: provider failover, kill-switch / maintenance, swapping a provider. When the choice depends on **per-request data** (country, tenant, user) and different requests need different impls at the same time, write a small **router** class that receives every impl via DI and picks per call; do not put `if/case` inside each implementation.
+- **Fail-fast:** when the flag is on, every impl in a tuple must satisfy the Protocol, or startup fails. The `Switcher` is always injectable; with the flag off, `use()`/`reset()` raise a clear error.
+- A 1-element tuple is treated as a plain single binding (nothing to switch).
+
 ---
 
 ## 5. Dependency Scopes

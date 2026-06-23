@@ -78,8 +78,15 @@
   registry/provider này - cân nhắc làm chung đợt.
 
 - **Dynamic interface binding - nhiều implementation cho một interface, đổi
-  được lúc runtime** (ý tưởng, chốt ghi nhận 2026-06-13, CHƯA thiết kế chi
-  tiết, CHƯA làm trong các phiên bản gần đây).
+  được lúc runtime** (ý tưởng, chốt ghi nhận 2026-06-13).
+
+  > **CẬP NHẬT 2026-06-23: ĐÃ CODE XONG cho 0.6** - xem `ke-hoach-0.6.md` mục 2
+  > (thiết kế 2.3-2.6 + ghi chú thực thi 2.7) và `rules/interface-binding.md` mục
+  > 12. API chốt KHÁC mô tả gốc dưới đây: không dùng `bind_many`/`Switchable`, mà
+  > **mở rộng chính `bind`** (value là tuple nhiều impl) + cờ runtime
+  > `xime.di.dynamic-binding` + `Switcher` đổi **toàn cục** qua **proxy trong
+  > suốt** (`DynamicProxy`, consumer giữ nguyên code). Hiện thực:
+  > `core/container/{switcher,proxy}.py`. Phần dưới giữ lại làm bối cảnh lịch sử.
 
   Hiện tại `dependency.bind({Interface: Impl})` chỉ map một interface → một
   implementation duy nhất; framework resolve thành singleton lúc startup và

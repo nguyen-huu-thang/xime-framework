@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.5.0"
+version = "0.6.0"
 description = "Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -31,7 +31,6 @@ classifiers = [
 # Core dependencies — luôn được cài khi `pip install xime`
 dependencies = [
     "fastapi>=0.110.0",
-    "dependency-injector>=4.41.0",
     "pydantic>=2.0",
     "pyyaml>=6.0",
 ]

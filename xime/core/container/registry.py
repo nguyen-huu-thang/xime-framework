@@ -1,25 +1,62 @@
-import hashlib
-import re
-
-from dependency_injector import containers, providers
+import threading
+from typing import Callable
 
 from xime.core.container.config_loader import FactoryEntry
 from xime.core.container.graph import DependencyGraph
 from xime.core.container.resolver import ResolvedMap
 
+# Sentinel distinguishing "not cached yet" from a legitimately cached None.
+# Sentinel phân biệt "chưa cache" với một giá trị None đã được cache hợp lệ.
+_MISSING = object()
+
 
 class DependencyRegistry:
     """
-    Registers all resolved classes into a python-dependency-injector
-    DynamicContainer as Singleton providers, then exposes get(cls).
+    Self-contained singleton registry. Replaces the previous
+    python-dependency-injector backend (DynamicContainer + providers.Object /
+    providers.Singleton) with plain dicts keyed by the class object itself.
+
+    Why hand-rolled instead of the library:
+      - Xime eager-builds every singleton once at startup (topological order)
+        and then holds references through constructor injection. It never calls
+        get() per request, so the library's Cython provider-call speed never
+        pays off, while it does charge a real startup cost (md5 + regex to mint
+        a unique attribute name per class) and an indirection layer per get().
+      - A dict keyed by `type` removes the name-minting entirely and makes a
+        warm get() a single dict lookup.
+
+    Lifecycle preserved from the old backend:
+      - Lazy: register() only records a build plan; instances are created on the
+        first get() (eager build is driven externally by get_all_in_order()).
+      - Cached singleton: same instance returned every time.
+      - Thread-safe: double-checked locking with an RLock guards concurrent
+        cold builds; the warm path (cache hit) never touches the lock.
+      - Pre-built instances (providers.Object equivalent) are returned as-is.
 
     Must call register() before get().
     """
 
     def __init__(self) -> None:
-        self._container = containers.DynamicContainer()
-        # Maps each class → its attribute name on the DynamicContainer
-        self._provider_map: dict[type, str] = {}
+        # Cache of built singletons (also holds pre-built Object instances).
+        # Cache các singleton đã dựng (chứa luôn instance dựng sẵn kiểu Object).
+        self._instances: dict[type, object] = {}
+        # Build plan: cls → {param_name: concrete_dep_type}.
+        # Kế hoạch dựng: cls → {tên_tham_số: kiểu_dep_cụ_thể}.
+        self._plan: dict[type, dict[str, type]] = {}
+        # Callable used to build each cls: its constructor, or a bound factory
+        # method when the type comes from a config class via configure().
+        # Callable để dựng mỗi cls: constructor, hoặc bound factory method khi
+        # kiểu đến từ config class qua configure().
+        self._factory: dict[type, Callable] = {}
+        # Guards against infinite recursion. The validator already rejects
+        # cycles, so this is defensive only.
+        # Chống đệ quy vô hạn. Validator đã loại cycle nên đây chỉ là phòng vệ.
+        self._building: set[type] = set()
+        # Only acquired on a cache miss (essentially only during startup).
+        # Reentrant because _instantiate() recurses into its own dependencies.
+        # Chỉ khóa khi cache miss (gần như chỉ lúc startup). Dùng RLock vì
+        # _instantiate() đệ quy vào chính các dependency của nó.
+        self._lock = threading.RLock()
 
     def register(
         self,
@@ -29,87 +66,92 @@ class DependencyRegistry:
         factory_entries: list[FactoryEntry] | None = None,
     ) -> None:
         """
-        Walk nodes in topological order (dependencies before dependents) so
-        that every provider is created before it is referenced as a kwarg.
+        Record the build plan for every resolved class. Nothing is instantiated
+        here — construction is lazy and happens on the first get().
 
-        Pre-built instances (passed via `instances`) are registered first as
-        providers.Object so they are available when scanned classes are wired up.
+        Pre-built instances (passed via `instances`) seed the cache directly so
+        they are available when scanned classes are wired up, and so a scanned
+        Singleton never overwrites a register_instance()/test override of the
+        same concrete type.
 
-        Factory entries (from configure()) are registered using their bound
-        method as the callable instead of the class constructor.
+        Factory entries (from configure()) register their bound method as the
+        callable instead of the class constructor.
+
+        `graph` is accepted for backward compatibility; topological ordering is
+        no longer needed here because _instantiate() resolves dependencies
+        recursively on demand.
         """
-        instance_keys = set(instances or {})
-        for cls, obj in (instances or {}).items():
-            provider_name = self._unique_name(cls)
-            self._provider_map[cls] = provider_name
-            setattr(self._container, provider_name, providers.Object(obj))
+        # Pre-built instances → seed the cache (replaces providers.Object).
+        # Instance dựng sẵn → nạp thẳng vào cache (thay providers.Object).
+        if instances:
+            self._instances.update(instances)
 
-        factory_map: dict[type, FactoryEntry] = {
-            e.provided_type: e for e in (factory_entries or [])
+        factory_map: dict[type, Callable] = {
+            e.provided_type: e.factory_fn for e in (factory_entries or [])
         }
 
-        for cls in graph.topological_order():
-            # A pre-built instance (register_instance / test override) already
-            # backs this type as an Object provider — never overwrite it with a
-            # scanned Singleton, otherwise the override would be silently ignored
-            # for concrete classes that also live in a scanned package.
-            # Instance dựng sẵn (register_instance / override trong test) đã cấp
-            # provider Object — không ghi đè bằng Singleton từ scan, nếu không
-            # override sẽ bị bỏ qua âm thầm với class cụ thể nằm trong package scan.
-            if cls in instance_keys:
+        for cls, deps in resolved.items():
+            # A pre-built instance already backs this type — never shadow it
+            # with a scanned Singleton, otherwise the override would be silently
+            # ignored for concrete classes that also live in a scanned package.
+            # Instance dựng sẵn đã cấp cho kiểu này — không che bằng Singleton từ
+            # scan, nếu không override sẽ bị bỏ qua âm thầm với class cụ thể nằm
+            # trong package được scan.
+            if cls in self._instances:
                 continue
-            provider_name = self._unique_name(cls)
-            self._provider_map[cls] = provider_name
-            kwargs = self._build_kwargs(resolved.get(cls, {}))
-
-            if cls in factory_map:
-                # Factory-provided: call the bound method, not the constructor.
-                callable_ = factory_map[cls].factory_fn
-            else:
-                callable_ = cls
-
-            setattr(self._container, provider_name, providers.Singleton(callable_, **kwargs))
+            self._plan[cls] = deps
+            self._factory[cls] = factory_map.get(cls, cls)
 
     def get(self, cls: type) -> object:
         """Return the singleton instance for the given class."""
-        provider_name = self._provider_map.get(cls)
-        if provider_name is None:
+        obj = self._instances.get(cls, _MISSING)
+        if obj is not _MISSING:
+            # Warm path: a single dict lookup, no lock, no wrapper.
+            # Đường nóng: đúng một dict lookup, không lock, không wrapper.
+            return obj
+        if cls not in self._factory:
             raise KeyError(
                 f"No provider registered for '{cls.__name__}'. "
                 "Make sure the class is in a scanned package."
             )
-        return getattr(self._container, provider_name)()
+        with self._lock:
+            return self._instantiate(cls)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _build_kwargs(self, deps: dict[str, type]) -> dict[str, providers.Provider]:
+    def _instantiate(self, cls: type) -> object:
         """
-        Convert {param_name: concrete_type} into {param_name: Provider}.
-        Deps outside the provider map are skipped — the validator already
-        ensured all required deps are registered.
+        Build `cls` and its dependencies, caching each result. Called only while
+        holding self._lock. Because eager build walks classes in topological
+        order, dependencies are normally already cached and this degrades to a
+        chain of dict lookups (no deep recursion).
         """
-        return {
-            param: getattr(self._container, self._provider_map[dep_type])
-            for param, dep_type in deps.items()
-            if dep_type in self._provider_map
-        }
-
-    def _unique_name(self, cls: type) -> str:
-        """
-        Convert class to a unique snake_case attribute name.
-        Prefix with module path to avoid collisions when two classes
-        share the same __name__ but live in different modules.
-
-        A 6-char hash suffix guards against the edge case where two
-        different dotted paths produce the same slug after regex substitution
-        (e.g. "app.service.user" and "app.service_user" both become
-        "app_service_user" after replacing [^a-z0-9] with "_").
-
-        e.g. app.service.user_service.UserService → app_service_user_service_user_service_a1b2c3
-        """
-        full = f"{cls.__module__}.{cls.__name__}"
-        slug = re.sub(r"[^a-z0-9]", "_", full.lower())
-        suffix = hashlib.md5(full.encode()).hexdigest()[:6]
-        return f"{slug}_{suffix}"
+        obj = self._instances.get(cls, _MISSING)
+        if obj is not _MISSING:
+            # Double-checked: another coroutine may have built it before we
+            # acquired the lock.
+            # Kiểm tra lại sau khi vào lock: coroutine khác có thể đã dựng xong.
+            return obj
+        if cls in self._building:
+            raise RuntimeError(
+                f"Circular dependency while building '{cls.__name__}'."
+            )
+        self._building.add(cls)
+        try:
+            # Deps outside the plan/cache are skipped — the validator already
+            # ensured every required dep is registered (mirrors the old
+            # _build_kwargs filter).
+            # Dep không nằm trong plan/cache thì bỏ qua — validator đã đảm bảo
+            # mọi dep cần thiết đều được đăng ký (giống filter _build_kwargs cũ).
+            kwargs = {
+                param: self._instantiate(dep_type)
+                for param, dep_type in self._plan[cls].items()
+                if dep_type in self._factory or dep_type in self._instances
+            }
+            instance = self._factory[cls](**kwargs)
+            self._instances[cls] = instance
+            return instance
+        finally:
+            self._building.discard(cls)

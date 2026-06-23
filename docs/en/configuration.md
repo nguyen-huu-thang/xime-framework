@@ -148,6 +148,16 @@ The whole block is optional - omit it to get the defaults above (enabled, `INFO`
 
 **Safety rule:** the framework configures logging **only** when `enabled: true` **and** the root logger has no handler yet. If your app calls `logging.basicConfig`/`dictConfig` itself (or runs under a harness that already set up logging, such as pytest), the framework does **not** override it - your setup always wins. To take full control, set `enabled: false`.
 
+### DI options
+
+```yaml
+xime:
+  di:
+    dynamic-binding: false   # default; set true to enable runtime impl switching
+```
+
+`xime.di.dynamic-binding` turns on [dynamic interface binding](core-concepts.md#41-dynamic-binding-multiple-implementations): when a `bind` value is a tuple of implementations, enabling this flag makes every impl an eager singleton, injects a transparent proxy into consumers, and lets a `Switcher` repoint the interface app-wide at runtime. Off by default; a tuple binding then behaves exactly like binding its first element alone.
+
 ---
 
 ## Accessing Runtime Config in Code

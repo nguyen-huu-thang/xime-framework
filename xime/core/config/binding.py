@@ -20,7 +20,7 @@ class BindingConfig:
 
     def __init__(self) -> None:
         self._packages: list[str] = []
-        self._bindings: dict[type, type] = {}
+        self._bindings: dict[type, type | tuple[type, ...]] = {}
         self._explicit_classes: list[type] = []
         self._config_classes: list[type] = []
         self._order_rules: list[list[type]] = []
@@ -29,10 +29,21 @@ class BindingConfig:
         """Register one or more package paths to scan for DI candidates."""
         self._packages.extend(package_names)
 
-    def bind(self, bindings: dict[type, type]) -> None:
+    def bind(self, bindings: dict[type, type | tuple[type, ...]]) -> None:
         """
         Declare explicit Protocol → Implementation mappings.
         Later calls overwrite earlier bindings for the same key.
+
+        A value may be a single implementation class (the classic 1-to-1
+        binding) OR a tuple of classes for dynamic binding — the first tuple
+        element is the default. Tuple bindings only switch at runtime when
+        'xime.di.dynamic-binding' is enabled; otherwise they behave exactly like
+        binding the first element alone.
+
+        Value có thể là một class impl (binding 1-1 như cũ) HOẶC một tuple class
+        cho dynamic binding - phần tử đầu là mặc định. Tuple chỉ đổi động lúc
+        runtime khi bật 'xime.di.dynamic-binding'; nếu tắt, hành vi y hệt bind
+        riêng phần tử đầu.
         """
         self._bindings.update(bindings)
 
@@ -108,8 +119,11 @@ class BindingConfig:
         return tuple(self._packages)
 
     @property
-    def bindings(self) -> dict[type, type]:
-        """Shallow copy of the current Protocol → Implementation map."""
+    def bindings(self) -> dict[type, type | tuple[type, ...]]:
+        """
+        Shallow copy of the current Protocol → Implementation map. Values are a
+        single class or a tuple of classes (dynamic binding).
+        """
         return dict(self._bindings)
 
     @property

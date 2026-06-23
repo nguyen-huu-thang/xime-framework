@@ -191,3 +191,89 @@ Nguyên tắc này phù hợp với các giá trị cốt lõi của Xime:
 - Easy Debugging
 
 và tôn trọng triết lý Python: **Explicit is better than implicit.**
+
+---
+
+## 12. Dynamic Interface Binding - đổi implementation lúc runtime (0.6)
+
+Một interface có thể bind tới **nhiều implementation** và đổi qua lại **toàn cục**
+lúc runtime, mà **không phá** binding 1-1 cũ và **không bắt sửa dự án đã có**.
+
+### 12.1 Mở rộng `bind`, không thêm API
+
+Value của `bind` giờ là một class (1 impl, y hệt cũ) HOẶC một **tuple class** (nhiều
+impl, **phần tử đầu = mặc định**):
+
+```python
+dependency.bind({
+    UserRepository: JpaUserRepository,                            # 1 impl - như cũ
+    PaymentGateway: (StripeGateway, PaypalGateway, MockGateway),  # nhiều impl
+})
+```
+
+### 12.2 Cờ runtime (mặc định TẮT)
+
+```yaml
+# resources/application.yml
+xime:
+  di:
+    dynamic-binding: false   # mặc định; bật = true
+```
+
+| value | cờ | Hành vi |
+|---|---|---|
+| class (1 impl) | bất kỳ | Y hệt hiện tại. |
+| tuple | **TẮT** | Dùng **phần tử đầu**, inject tĩnh y như `bind` 1-1; impl phụ KHÔNG dựng. Phần tử đầu do app `scan`/`register` như mọi binding cổ điển. ⇒ **== kiến trúc cũ**. |
+| tuple | **BẬT** | Mọi impl là singleton eager; consumer nhận **proxy trong suốt**; đổi động qua `Switcher`. |
+
+Tuple một phần tử `(A,)` quy về binding 1-1 (không có gì để switch).
+
+### 12.3 Consumer KHÔNG đổi code
+
+```python
+class CheckoutService:
+    def __init__(self, gateway: PaymentGateway):   # như code cũ
+        self.gateway = gateway
+    async def pay(self, amount):
+        return await self.gateway.charge(amount)   # như code cũ
+```
+
+Khi bật cờ, `gateway` là một `DynamicProxy` forward mọi truy cập tới impl hiện hành.
+
+### 12.4 `Switcher` - điểm điều khiển (injectable)
+
+```python
+class AdminService:
+    def __init__(self, switcher: Switcher):
+        self.switcher = switcher
+
+    def failover(self):
+        self.switcher.use(PaymentGateway, PaypalGateway)  # cả app dùng Paypal
+        self.switcher.reset(PaymentGateway)               # 1 interface về mặc định
+        self.switcher.reset()                             # MỌI interface về mặc định
+```
+
+- `use(Interface, Impl)`: `Impl` phải thuộc tuple, ngược lại `SwitcherError`.
+- Đổi là **toàn cục**: tráo con trỏ dùng chung (gán dict atomic dưới GIL, không
+  lock); mọi consumer thấy impl mới ở lần gọi kế tiếp - kể cả request đang dở.
+- `Switcher` **luôn inject được**; khi cờ tắt, `use/reset` báo lỗi rõ "Dynamic
+  binding is disabled".
+
+### 12.5 Fail-fast (cờ bật)
+
+- **MỌI** impl trong tuple phải thỏa Protocol, sai một cái → startup fail.
+- Tuple là binding tường minh → không vướng rule "multiple candidate".
+
+### 12.6 Khi nào KHÔNG dùng switcher
+
+Switcher chỉ hợp với quyết định **mức hệ thống/vận hành, áp cho mọi request, xảy
+ra thưa** (failover, kill-switch, maintenance, đổi nhà cung cấp). Khi việc chọn
+impl **phụ thuộc dữ liệu từng request** (theo quốc gia, tenant, user, input) và
+nhiều request cần khác nhau **cùng lúc** → đừng dùng switcher; viết một lớp
+**selector/router** nhận mọi impl qua DI và chọn theo dữ liệu. Chi tiết + ví dụ
+`PaymentRouter` + đối chiếu Spring: `docs/ke-hoach-0.6.md` mục 2.6.
+
+> Hiện thực: `core/container/switcher.py` (`Switcher`, `SwitcherError`),
+> `core/container/proxy.py` (`DynamicProxy`). Chuẩn hóa tuple trong
+> `XimeContainer._prepare_dynamic_binding()`. Ghi chú thực thi: `docs/ke-hoach-0.6.md`
+> mục 2.7.

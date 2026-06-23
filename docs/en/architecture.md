@@ -18,7 +18,7 @@ Application Code   ← your business logic, controllers, use cases
 Python Objects
 ```
 
-XIME sits between your application code and the DI container. It automates scanning, graph building, and wiring so you never write `providers.Singleton(...)` by hand.
+XIME sits between your application code and the DI container. It automates scanning, graph building, and wiring so you never hand-wire singletons or pass dependencies manually. The container is a **hand-rolled singleton registry** (a dict keyed by the class object), so XIME has no third-party DI dependency.
 
 ---
 
@@ -27,7 +27,7 @@ XIME sits between your application code and the DI container. It automates scann
 ```text
 core/
 ├── bootstrap/    ← Application entry point, startup orchestration
-├── container/    ← Package scanning, type resolution, dependency graph
+├── container/    ← Package scanning, type resolution, dependency graph, singleton registry, dynamic binding
 ├── metadata/     ← Type hint utilities
 ├── config/       ← Two-layer config system
 ├── lifecycle/    ← PostConstruct / PreDestroy hooks

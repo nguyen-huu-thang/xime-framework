@@ -9,7 +9,7 @@
 | 0.3 | Hardening + hoàn tất gRPC | Đã phát hành (2026-06-20) |
 | 0.4 | Cross-cutting + starters | Đã phát hành (2026-06-20) |
 | 0.5 | Kiểm toán toàn diện + Messaging/IoT (MQTT) + File | Đã phát hành (2026-06-22) |
-| 0.6 | Thay `dependency-injector` + dynamic interface binding | Đã chốt mốc, cần nghiên cứu sâu |
+| 0.6 | Thay `dependency-injector` + dynamic interface binding | Việc 1 + Việc 2 ĐÃ CODE XONG 2026-06-23; chờ bump version + CHANGELOG để phát hành |
 | 0.7 | Fieldbus công nghiệp (Modbus TCP + OPC UA) | Đã chốt mốc (dời từ 0.5, 2026-06-21) |
 | 0.8 | Dự phòng cho cụm DI / wishlist | Mở |
 
@@ -105,14 +105,23 @@ rồi mới vá. KHÔNG vừa đọc vừa sửa lung tung để tránh bỏ só
 
 ## 0.6 - Thay `dependency-injector` + dynamic interface binding
 
-Chi tiết + toàn bộ phân tích: `wishlist-tinh-nang.md` (mục đầu phần "Core DI /
-Interface Binding").
+Kế hoạch chi tiết: `ke-hoach-0.6.md`. **Cả hai việc ĐÃ CODE XONG 2026-06-23**;
+full suite **1084 passed / 4 skipped**.
 
-- Thay `dependency-injector` bằng registry singleton tự viết (refactor nội bộ,
-  không đổi API người dùng). Phân tích mức phụ thuộc/tốc độ/đa luồng/đa tiến
-  trình đã làm sẵn 2026-06-19.
-- Dynamic interface binding (`bind_many`/`switcher`) - đụng cùng lớp registry,
-  cân nhắc làm chung đợt. Có thể tràn sang 0.8 nếu cần.
+- **Việc 1** - thay `dependency-injector` bằng registry singleton tự viết:
+  `registry.py` viết lại bằng dict + `RLock` double-checked, API không đổi, đã gỡ
+  thư viện khỏi `pyproject.toml`; benchmark build ~8x / warm get() ~2x nhanh hơn
+  backend cũ.
+- **Việc 2** - dynamic interface binding: **mở rộng chính `bind`** - value có thể
+  là tuple nhiều impl (phần tử đầu = mặc định); bật/tắt bằng cờ runtime
+  `xime.di.dynamic-binding` (mặc định tắt = hành vi cũ); khi bật, đổi động **toàn
+  cục** qua `Switcher` (`use`/`reset`) với **proxy trong suốt** (`DynamicProxy`)
+  nên consumer giữ nguyên code. KHÔNG thêm `bind_many`/`Switchable`. Chuẩn hóa
+  binding làm trong `_prepare_dynamic_binding()` (không sửa resolver); `Switcher`
+  luôn đăng ký (disabled khi tắt cờ); cờ tắt không auto-register impl. Chi tiết +
+  ghi chú thực thi: `ke-hoach-0.6.md` mục 2.5/2.7.
+
+Còn lại: bump version + CHANGELOG khi chốt phát hành 0.6.
 
 ## 0.7 - Fieldbus công nghiệp (Modbus TCP + OPC UA)
 

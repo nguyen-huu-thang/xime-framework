@@ -95,7 +95,7 @@ Areas that need work, roughly in priority order:
 ## Project Structure
 
 ```text
-core/           ← No external dependencies except python-dependency-injector
+core/           ← No external DI dependency — registry is hand-rolled (dict + RLock)
 adapters/       ← Protocol-specific integration (FastAPI, gRPC, ...)
 starters/       ← Optional integrations (SQLAlchemy, JWT, ...)
 testing/        ← Test utilities

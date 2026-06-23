@@ -118,6 +118,66 @@ Binding Validation Failed
 
 `Protocol` dùng structural typing — Python không thể biết class có cố ý implement interface hay chỉ tình cờ có cùng method. Binding tường minh làm quyết định kiến trúc rõ ràng trong code. Xem [Interface Binding](../en/core-concepts.md) để biết lý do đầy đủ.
 
+### 4.1 Dynamic binding (nhiều implementation)
+
+Value của binding có thể là một **tuple** implementation thay vì một class. Phần tử đầu là mặc định. Cách này cho phép đổi implementation mà một interface dùng **trên toàn ứng dụng lúc runtime**, mà không phải đụng code consumer.
+
+```python
+# config/dependency.py
+dependency.bind({
+    UserRepository: JpaUserRepository,                            # 1-1 như cũ
+    PaymentGateway: (StripeGateway, PaypalGateway, MockGateway),  # phần tử đầu = mặc định
+})
+```
+
+Tính năng **mặc định tắt**, bật bằng một cờ runtime:
+
+```yaml
+# resources/application.yml
+xime:
+  di:
+    dynamic-binding: false   # mặc định; đặt true để bật đổi động lúc runtime
+```
+
+| Value binding | Cờ | Hành vi |
+| --- | --- | --- |
+| một class | bất kỳ | Y hệt trước đây. |
+| tuple | **tắt** | Dùng **phần tử đầu**, inject tĩnh y như binding 1-1; các impl còn lại không bao giờ dựng. Bằng đúng kiến trúc cũ. |
+| tuple | **bật** | Mọi impl thành singleton eager; consumer nhận một **proxy trong suốt**; một `Switcher` đổi interface toàn cục. |
+
+**Consumer không đổi gì** - cả hai chế độ đều phụ thuộc Protocol như thường:
+
+```python
+class CheckoutService:
+    def __init__(self, gateway: PaymentGateway):     # không đổi
+        self.gateway = gateway
+
+    async def pay(self, amount: int) -> str:
+        return await self.gateway.charge(amount)     # không đổi
+```
+
+Khi bật cờ, inject một `Switcher` để đổi implementation lúc runtime:
+
+```python
+from xime.core.container.switcher import Switcher
+
+class AdminService:
+    def __init__(self, switcher: Switcher):
+        self.switcher = switcher
+
+    def failover(self):
+        self.switcher.use(PaymentGateway, PaypalGateway)  # cả app dùng Paypal
+        self.switcher.reset(PaymentGateway)               # một interface về mặc định
+        self.switcher.reset()                             # mọi interface về mặc định
+```
+
+**Lưu ý:**
+
+- Đổi là **toàn cục**: tráo con trỏ dùng chung nên mọi consumer / request / coroutine thấy implementation mới ở lần gọi kế tiếp; request đang chạy dở cũng bị chuyển giữa chừng. Không có request scope.
+- Dùng cho quyết định **mức hệ thống/vận hành**, áp cho mọi request và xảy ra thưa: failover nhà cung cấp, kill-switch / maintenance, đổi nhà cung cấp. Khi việc chọn phụ thuộc **dữ liệu từng request** (quốc gia, tenant, user) và nhiều request cần khác nhau cùng lúc, hãy viết một lớp **router** nhận mọi impl qua DI rồi chọn theo từng lời gọi; đừng nhét `if/case` vào từng implementation.
+- **Fail-fast:** khi bật cờ, mọi impl trong tuple phải thỏa Protocol, sai thì startup fail. `Switcher` luôn inject được; khi tắt cờ, `use()`/`reset()` báo lỗi rõ.
+- Tuple một phần tử được xử lý như binding 1-1 (không có gì để switch).
+
 ---
 
 ## 5. Dependency Scope

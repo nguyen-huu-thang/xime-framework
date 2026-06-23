@@ -148,6 +148,16 @@ Toàn bộ khối là tùy chọn - không khai báo thì dùng mặc định �
 
 **Quy tắc an toàn:** framework **chỉ** cấu hình khi `enabled: true` **và** root logger chưa có handler nào. Nếu app tự gọi `logging.basicConfig`/`dictConfig` (hoặc chạy dưới một harness đã cấu hình logging như pytest), framework **không** ghi đè - setup của app luôn được ưu tiên. Muốn tự lo hoàn toàn thì đặt `enabled: false`.
 
+### Tùy chọn DI
+
+```yaml
+xime:
+  di:
+    dynamic-binding: false   # mặc định; đặt true để bật đổi implementation lúc runtime
+```
+
+`xime.di.dynamic-binding` bật [dynamic interface binding](core-concepts.md#41-dynamic-binding-nhiều-implementation): khi value của `bind` là một tuple implementation, bật cờ này khiến mọi impl thành singleton eager, inject một proxy trong suốt vào consumer, và cho phép một `Switcher` đổi interface toàn cục lúc runtime. Mặc định tắt - khi đó tuple binding hành xử y hệt bind riêng phần tử đầu.
+
 ---
 
 ## Truy cập Runtime Config trong Code

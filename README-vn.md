@@ -55,7 +55,7 @@ XIME lấp đầy khoảng trống đó. Nó không thay thế FastAPI hay SQLAl
 
 ## Tại sao không dùng dependency-injector, injector hay lagom?
 
-Đây là những thư viện tốt - XIME thực ra dùng `dependency-injector` bên trong làm lớp lưu trữ singleton. Sự khác biệt nằm ở phạm vi:
+Đây là những thư viện tốt. Trước đây XIME dùng `dependency-injector` bên trong làm lớp lưu trữ singleton, nhưng từ bản 0.6 lớp registry được tự viết (một dict đơn giản dùng chính class làm key), nên XIME không còn phụ thuộc thư viện DI bên thứ ba nào. Sự khác biệt nằm ở phạm vi:
 
 | | dependency-injector / injector | lagom | XIME |
 |---|---|---|---|
@@ -222,6 +222,7 @@ Cách tốt nhất để học XIME là đọc code thật. Các dự án mã ng
 | **Constructor Injection** | Khai báo dependency qua tham số constructor - XIME tự kết nối |
 | **Directory-Driven DI** | Vị trí package quyết định vai trò component - không annotation |
 | **Interface Binding** | Ánh xạ `Protocol` → implementation tường minh, validate lúc startup |
+| **Dynamic Binding** | Bind một `Protocol` tới nhiều impl (một tuple) và đổi toàn cục lúc runtime qua `Switcher`; mặc định tắt, consumer giữ nguyên code |
 | **Fail Fast** | Vòng lặp, thiếu implementation, binding mơ hồ → lỗi startup |
 | **Lifecycle Hooks** | `PostConstruct`, `PreDestroy` cho startup/shutdown được quản lý |
 | **Thứ tự khởi tạo** | `dependency.order([A, B, C])` - kiểm soát thứ tự chạy `post_construct()` giữa các class độc lập |
@@ -271,9 +272,9 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 ## Trạng thái dự án
 
-XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI, lifecycle, event bus, security context, configuration, JWT starter (có ép `audience`/`issuer`), scheduler starter, SQLAlchemy starter, Cache + Redis starter, **Storage starter** (filesystem local + S3/MinIO) kèm **streaming file HTTP** (download Range, upload theo chunk), Web adapter (FastAPI + routing, middleware request-context & JWT kiểu pure-ASGI, middleware & exception handler tùy chỉnh), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed + retry tự động), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện.
+XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI (registry singleton tự viết, **không phụ thuộc thư viện DI bên thứ ba**) với **dynamic interface binding** (một Protocol → nhiều impl, đổi được lúc runtime), lifecycle, event bus, security context, configuration, JWT starter (có ép `audience`/`issuer`), scheduler starter, SQLAlchemy starter, Cache + Redis starter, **Storage starter** (filesystem local + S3/MinIO) kèm **streaming file HTTP** (download Range, upload theo chunk), Web adapter (FastAPI + routing, middleware request-context & JWT kiểu pure-ASGI, middleware & exception handler tùy chỉnh), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed + retry tự động), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện.
 
-Core được bao phủ bởi **1050+ test**.
+Core được bao phủ bởi **1080+ test**.
 
 Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 
