@@ -132,6 +132,28 @@
     nới để cho phép khai báo nhiều impl có chủ đích, nhưng vẫn validate mọi
     alternative đều thỏa Protocol lúc startup.
 
+- **Theo dõi sau kiểm toán 0.6 - mức THẤP, KHÔNG phải bug, nghiên cứu lại sau**
+  (ghi nhận 2026-06-23 khi kiểm toán bản 0.6 vừa phát hành; cả hai chỉ là điểm
+  cần để ý, hiện không gây lỗi và test phủ đầy đủ):
+
+  - **(B1) Đọc cờ `xime.di.dynamic-binding` không nhất quán với các cờ khác.**
+    `core/bootstrap/orchestrator.py` đọc bằng
+    `bool(self._runtime.get("xime.di.dynamic-binding", False))`, trong khi các cờ
+    khác (gRPC `tls.enabled`, logging `enabled`...) khai báo qua Pydantic model
+    (`enabled: bool = False`) nên ép kiểu chặt. Với YAML `true/false` thì chạy
+    đúng; chỉ footgun nếu operator viết chuỗi `"false"` (vì `bool("false")` =
+    `True` → bật nhầm). Hướng nghiên cứu: đưa cờ DI về cùng cơ chế ép kiểu/parse
+    boolean như các cờ khác cho nhất quán.
+  - **(B2) Dynamic binding bật: không có cạnh phụ thuộc consumer → impl trong
+    dependency graph** (consumer chỉ phụ thuộc `DynamicProxy` của interface, các
+    impl là root độc lập). Hệ quả: thứ tự `post_construct` giữa một impl và một
+    consumer KHÔNG được đảm bảo. Mọi `post_construct` vẫn chạy đủ lúc startup nên
+    request bình thường (sau startup) không ảnh hưởng. Chỉ rủi ro nếu một consumer
+    gọi method của impl **ngay trong `post_construct` của chính nó** - lúc đó impl
+    có thể đã dựng (constructor) nhưng `post_construct` của impl chưa chạy. Rất
+    hiếm. Hướng nghiên cứu: ghi caveat này vào docstring `DynamicProxy`, hoặc cân
+    nhắc thứ tự build impl trước consumer khi bật cờ.
+
 ## Starters (CHỐT mốc 0.4)
 
 > Bộ starter dự kiến trong thiết kế tổng thể (`tai-lieu-thiet-ke.md` mục 14,

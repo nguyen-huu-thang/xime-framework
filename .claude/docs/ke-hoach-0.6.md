@@ -1,7 +1,8 @@
 # Kế hoạch 0.6 - Thay `dependency-injector` + Dynamic Interface Binding
 
-> Tạo 2026-06-23. Trạng thái: **Việc 1 đã thiết kế chi tiết, sẵn sàng code.
-> Việc 2 để khung trống, thiết kế chi tiết sau (dự kiến vài hôm nữa).**
+> Tạo 2026-06-23. Trạng thái: **ĐÃ PHÁT HÀNH 0.6.0 (2026-06-23).** Cả Việc 1 và
+> Việc 2 đã code xong, full suite 1084 passed / 4 skipped, version + CHANGELOG
+> đồng bộ 0.6.0 (commit `v 0.6.0`).
 > Liên quan: lộ trình `lo-trinh-phien-ban.md` (mục 0.6), phân tích nền
 > `wishlist-tinh-nang.md` (phần "Core DI / Interface Binding").
 
@@ -204,7 +205,7 @@ benchmark, còn lại dọn docs và chạy full suite.
       chạy lại full suite.
 - [x] Dọn tài liệu nhắc tên thư viện (mục 1.5).
 - [x] Cập nhật `lo-trinh-phien-ban.md`: 0.6 Việc 1 = done.
-- [ ] Bump version + CHANGELOG (theo quy ước bản trước) - **chờ chốt phát hành**.
+- [x] Bump version + CHANGELOG (theo quy ước bản trước) - **đã phát hành 0.6.0** (commit `v 0.6.0`).
 
 ---
 
@@ -481,5 +482,5 @@ của chính impl, không phải chọn giữa các impl.)
 
 1. [x] Việc 1 - thay registry (mục 1.9) -> phát hành được độc lập. **Xong 2026-06-23.**
 2. [x] Việc 2 - thiết kế (mục 2.3 -> 2.6) + code (mục 2.5, ghi chú 2.7).
-   **Xong 2026-06-23.** Còn lại chung với Việc 1: bump version + CHANGELOG khi
-   chốt phát hành 0.6.
+   **Xong 2026-06-23.** Đã chung với Việc 1: version + CHANGELOG đồng bộ 0.6.0
+   (commit `v 0.6.0`). **Phát hành 0.6 hoàn tất.**

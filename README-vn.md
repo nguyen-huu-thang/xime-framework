@@ -249,7 +249,7 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 | Starter | Cung cấp gì | Trạng thái |
 | --- | --- | --- |
-| `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager` | ✅ Đã implement |
+| `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager`, `CrudRepository` (CRUD chung) | ✅ Đã implement |
 | `xime.starters.jwt` | JWT signing, verification, middleware | ✅ Đã implement |
 | `xime.starters.scheduler` | Lập lịch tác vụ kiểu cron | ✅ Đã implement |
 | `xime.starters.cache` | Abstraction `CacheService` (trung lập backend) | ✅ Đã implement |
@@ -272,9 +272,9 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 ## Trạng thái dự án
 
-XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI (registry singleton tự viết, **không phụ thuộc thư viện DI bên thứ ba**) với **dynamic interface binding** (một Protocol → nhiều impl, đổi được lúc runtime), lifecycle, event bus, security context, configuration, JWT starter (có ép `audience`/`issuer`), scheduler starter, SQLAlchemy starter, Cache + Redis starter, **Storage starter** (filesystem local + S3/MinIO) kèm **streaming file HTTP** (download Range, upload theo chunk), Web adapter (FastAPI + routing, middleware request-context & JWT kiểu pure-ASGI, middleware & exception handler tùy chỉnh), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed + retry tự động), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện.
+XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI (registry singleton tự viết, **không phụ thuộc thư viện DI bên thứ ba**) với **dynamic interface binding** (một Protocol → nhiều impl, đổi được lúc runtime), lifecycle, event bus, security context, configuration, JWT starter (có ép `audience`/`issuer`), scheduler starter, SQLAlchemy starter, Cache + Redis starter, **Storage starter** (filesystem local + S3/MinIO) kèm **streaming file HTTP** (download Range, upload theo chunk), Web adapter (FastAPI + routing, middleware request-context & JWT kiểu pure-ASGI, middleware & exception handler tùy chỉnh, **middleware lấy được DI/config qua marker `Inject`/`FromConfig` + helper `configure_cors` hạng nhất**), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed + retry tự động), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện.
 
-Core được bao phủ bởi **1080+ test**.
+Core được bao phủ bởi **1090+ test**.
 
 Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 

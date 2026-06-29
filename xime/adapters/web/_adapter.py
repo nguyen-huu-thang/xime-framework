@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, AsyncGenerator
 
 from fastapi import FastAPI
 
+from ._markers import resolve_options
 from ._registry import registry
 from .middleware import RequestContextMiddleware
 from .openapi._builder import build_custom_openapi
@@ -162,7 +163,11 @@ class WebAdapter:
         # CORS preflight chạy trước auth; khai báo trước chạy trước.
         self._add_jwt_middleware(fastapi_app)
         for middleware, options in reversed(registry.get_middlewares(self._server_id)):
-            fastapi_app.add_middleware(middleware, **options)
+            # Phân giải marker Inject/FromConfig (DI service, runtime config) ngay
+            # tại đây — DI container đã dựng xong nên option động lấy được giá trị
+            # thật mà không cần app subclass WebAdapter.
+            resolved = resolve_options(options, xime_app)
+            fastapi_app.add_middleware(middleware, **resolved)
         fastapi_app.add_middleware(RequestContextMiddleware)
 
         # Global exception handlers registered via configure_exception_handlers().

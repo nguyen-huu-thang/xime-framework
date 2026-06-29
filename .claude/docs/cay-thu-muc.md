@@ -35,7 +35,7 @@ xime/                        ← package root (thin re-export layer)
 │       └── routing/
 │
 ├── starters/
-│   ├── sqlalchemy/
+│   ├── sqlalchemy/         ← session/transaction + CrudRepository (CRUD chung)
 │   ├── jwt/
 │   ├── scheduler/
 │   ├── cache/               ← Protocol CacheService
@@ -89,7 +89,7 @@ Tích hợp giao thức. Mỗi adapter chịu trách nhiệm thiết lập reque
 
 Các module quickstart tùy chọn, tương tự `spring-boot-starter-*` trong Spring Boot.
 
-- **`sqlalchemy/`** — Async DB session, `SqlAlchemyTransactionManager`
+- **`sqlalchemy/`** — Async DB session, `SqlAlchemyTransactionManager`, `CrudRepository[T]` (base repository CRUD chung)
 - **`jwt/`** — Xác thực JWT (HS/RSA/EC/EdDSA), middleware, `audience`/`issuer`
 - **`scheduler/`** — Lập lịch tác vụ (APScheduler v4)
 - **`cache/`** — Abstraction `CacheService` (trung lập backend)

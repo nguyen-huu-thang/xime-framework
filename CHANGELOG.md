@@ -5,6 +5,41 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [0.6.1] - 2026-06-29
+
+Bản vá nhỏ cho web adapter: middleware tự viết lấy được dependency từ DI container
+và runtime config qua marker, nên **app không phải subclass `WebAdapter`** nữa;
+thêm helper CORS hạng nhất. Bổ sung `CrudRepository` cho starter SQLAlchemy để app
+hết phải tự viết base repository. Tương thích ngược hoàn toàn, không đổi API cũ.
+Toàn bộ test: 1101 passed, 4 skipped.
+
+### Added
+
+- **`CrudRepository[T]` (starter SQLAlchemy)** - lớp repository nền generic cho
+  sẵn CRUD chung như `JpaRepository`/`CrudRepository` của Spring Data:
+  `find` · `find_or_fail` · `find_all` · `exists` · `count` · `save` · `save_all`
+  · `delete`. App chỉ cần `class CategoryRepository(CrudRepository[Category]):
+  model = Category` rồi viết thêm query đặc thù bằng `select()` - hết lặp lại
+  `BaseRepository` ở mỗi dự án. `model` khai báo dạng abstract property nên chính
+  `CrudRepository` là abstract (`inspect.isabstract` = True) -> DI scanner bỏ qua
+  lớp nền; chỉ subclass concrete (đã set `model`) mới thành singleton, không sinh
+  singleton thừa. Mọi method đọc session đang hoạt động qua `AsyncSessionFactory`
+  nên phải gọi trong `async with self.transaction():`. `find_or_fail` ném
+  `EntityNotFoundError` (lỗi runtime cục bộ của starter) khi không có bản ghi.
+- **Middleware lấy dependency từ DI / runtime config (web adapter)** - hai marker
+  `Inject(SomeType)` và `FromConfig("a.b", default)` dùng làm giá trị option khi
+  gọi `configure_middleware(...)`. Framework phân giải marker lúc `build_app`
+  (sau khi DI container đã dựng): `Inject` lấy singleton từ container,
+  `FromConfig` đọc `RuntimeConfig` theo dot-notation (thiếu thì về default). Nhờ
+  vậy middleware tự viết (vd JWT middleware cần auth/user/blacklist service) khai
+  báo gọn trong `config/web.py`, **không phải subclass `WebAdapter`** để tự gọi
+  `xime_app.get(...)`. Giá trị không phải marker giữ nguyên (tương thích ngược).
+- **`configure_cors(...)`** - helper hạng nhất bật CORS cho web adapter theo
+  pattern `configure_*`. Tham số để trống tự đọc từ `RuntimeConfig` khóa
+  `cors.<tên>` (qua `FromConfig`), thiếu nốt thì về mặc định Starlette - Operator
+  chỉnh CORS qua `application.yml` mà không đụng code. CORS đăng ký như user
+  middleware nên nằm ngoài JwtAuth (preflight OPTIONS xử lý trước xác thực).
+
 ## [0.6.0] - 2026-06-23
 
 Bản DI: **tự viết lớp lưu/dựng singleton** (gỡ hẳn thư viện `dependency-injector`)
@@ -175,6 +210,7 @@ Bản hoàn thiện đầu tiên: core (DI / lifecycle / config / context / even
 security / transaction), các adapter (web, gRPC code-first + client SDK + mTLS
 động, socket) và các starter (sqlalchemy, jwt, scheduler).
 
+[0.6.1]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/nguyen-huu-thang/xime-framework/compare/v0.3.0...v0.4.0

@@ -234,6 +234,44 @@ Middleware của bạn nằm giữa `RequestContextMiddleware` (ngoài cùng) v�
 `JwtAuthMiddleware` (trong cùng), nên ví dụ CORS preflight được xử lý trước
 auth. Trong nhóm middleware của bạn, cái khai báo trước chạy trước.
 
+**Middleware cần service DI / runtime config** (từ 0.6.1) — `configure_middleware`
+chỉ nhận option **tĩnh**. Khi middleware tự viết cần một singleton từ DI container
+hoặc một giá trị từ runtime config (chỉ biết sau khi container dựng xong), dùng
+marker `Inject` / `FromConfig` làm giá trị option thay vì subclass `WebAdapter`.
+Framework phân giải chúng lúc `build_app()`:
+
+```python
+# config/web.py
+from xime.adapters.web import configure_middleware, Inject, FromConfig
+from app.security.jwt_middleware import JwtMiddleware
+from app.service.authentication_service import AuthenticationService
+from app.service.user_service import UserService
+
+configure_middleware(
+    JwtMiddleware,
+    auth_svc=Inject(AuthenticationService),   # → app.get(AuthenticationService)
+    user_svc=Inject(UserService),
+    realm=FromConfig("auth.realm", "default"),  # → RuntimeConfig.get("auth.realm", ...)
+)
+```
+
+- `Inject(SomeType)` phân giải thành singleton DI; thiếu binding → startup báo lỗi ngay.
+- `FromConfig("a.b", default)` đọc `RuntimeConfig` theo dot-notation, thiếu thì về `default`.
+- Giá trị không phải marker giữ nguyên (tương thích ngược hoàn toàn).
+
+**CORS** (từ 0.6.1) — `configure_cors(...)` là helper hạng nhất. Tham số nào để
+trống sẽ được đọc từ `application.yml` ở khóa `cors.<tên>`, thiếu thì về mặc định
+Starlette - Operator chỉnh CORS qua YAML mà không đụng code. Khai báo nó trước các
+middleware khác để nó luôn ở lớp ngoài cùng.
+
+```python
+# config/web.py
+from xime.adapters.web import configure_cors
+
+configure_cors(allow_origins=["http://localhost:3000"], allow_credentials=True)
+# hoặc configure_cors()  → đọc toàn bộ từ khối cors.* trong application.yml
+```
+
 **Exception handler toàn cục** — `configure_exception_handlers({Exc: handler})`:
 
 ```python

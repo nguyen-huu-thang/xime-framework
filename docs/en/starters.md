@@ -60,6 +60,64 @@ class UserRepository:
 
 Transaction is managed by the use case layer, not the repository.
 
+### Built-in CRUD — `CrudRepository[T]`
+
+Instead of every project re-writing the same base repository, the starter ships
+`CrudRepository[T]` — similar to Spring Data's `JpaRepository`/`CrudRepository`.
+A concrete repository only declares its `model` and adds any custom queries:
+
+```python
+from sqlalchemy import select
+from xime.starters.sqlalchemy import CrudRepository
+
+class CategoryRepository(CrudRepository[Category]):
+    model = Category
+
+    # Custom queries via self.session
+    async def find_by_slug(self, slug: str) -> Category | None:
+        result = await self.session.execute(
+            select(Category).where(Category.slug == slug)
+        )
+        return result.scalar_one_or_none()
+```
+
+Provided methods:
+
+| Method | Description |
+| --- | --- |
+| `find(id_)` | Get by primary key, returns `None` if absent |
+| `find_or_fail(id_)` | Like `find` but raises `EntityNotFoundError` when absent |
+| `find_all()` | Return every row of the model |
+| `exists(id_)` | `True`/`False` for the given primary key |
+| `count()` | Total number of rows |
+| `save(entity)` | Add/update then `flush` (entity gets its generated keys) |
+| `save_all(entities)` | Add several entities in one `flush`, returns the list |
+| `delete(entity)` | Delete then `flush` |
+
+Every method reads the active session via `AsyncSessionFactory`, so they **must be
+called inside** `async with self.transaction():` (opened by the use case layer):
+
+```python
+class CategoryService:
+    def __init__(
+        self,
+        transaction: TransactionManager,
+        categories: CategoryRepository,
+    ) -> None:
+        self.transaction = transaction
+        self.categories = categories
+
+    async def rename(self, category_id: int, name: str) -> None:
+        async with self.transaction():
+            category = await self.categories.find_or_fail(category_id)
+            category.name = name
+            await self.categories.save(category)
+```
+
+> `CrudRepository` declares `model` as an abstract property, so **the base class
+> itself is abstract** — the DI scanner skips it; only concrete subclasses (with
+> `model` set) become singletons. No spurious singletons, no extra registration.
+
 ---
 
 ## JWT Starter

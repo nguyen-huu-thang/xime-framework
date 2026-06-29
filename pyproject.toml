@@ -8,8 +8,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.6.0"
-description = "Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot"
+version = "0.6.1"
+description = "A Python backend framework that brings a Spring Boot-style developer experience while respecting Python's philosophy."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }

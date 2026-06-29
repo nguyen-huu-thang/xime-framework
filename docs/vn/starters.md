@@ -60,6 +60,64 @@ class UserRepository:
 
 Transaction được quản lý bởi use case layer, không phải repository.
 
+### Repository CRUD sẵn — `CrudRepository[T]`
+
+Thay vì mỗi dự án tự viết lại một base repository giống hệt nhau, starter cung cấp
+sẵn `CrudRepository[T]` - tương tự `JpaRepository`/`CrudRepository` của Spring Data.
+Repository con chỉ cần khai báo `model` rồi viết thêm query đặc thù:
+
+```python
+from sqlalchemy import select
+from xime.starters.sqlalchemy import CrudRepository
+
+class CategoryRepository(CrudRepository[Category]):
+    model = Category
+
+    # Query đặc thù tự viết qua self.session
+    async def find_by_slug(self, slug: str) -> Category | None:
+        result = await self.session.execute(
+            select(Category).where(Category.slug == slug)
+        )
+        return result.scalar_one_or_none()
+```
+
+Các method có sẵn:
+
+| Method | Mô tả |
+| --- | --- |
+| `find(id_)` | Lấy theo khóa chính, trả `None` nếu không có |
+| `find_or_fail(id_)` | Như `find` nhưng ném `EntityNotFoundError` khi không có |
+| `find_all()` | Lấy toàn bộ bản ghi của model |
+| `exists(id_)` | `True`/`False` theo khóa chính |
+| `count()` | Tổng số bản ghi |
+| `save(entity)` | Thêm/cập nhật rồi `flush` (entity nhận khóa sinh tự động) |
+| `save_all(entities)` | Thêm nhiều entity trong một `flush`, trả lại danh sách |
+| `delete(entity)` | Xóa rồi `flush` |
+
+Mọi method đọc session đang hoạt động qua `AsyncSessionFactory`, nên **phải gọi
+trong** `async with self.transaction():` (transaction do use case layer mở):
+
+```python
+class CategoryService:
+    def __init__(
+        self,
+        transaction: TransactionManager,
+        categories: CategoryRepository,
+    ) -> None:
+        self.transaction = transaction
+        self.categories = categories
+
+    async def rename(self, category_id: int, name: str) -> None:
+        async with self.transaction():
+            category = await self.categories.find_or_fail(category_id)
+            category.name = name
+            await self.categories.save(category)
+```
+
+> `CrudRepository` khai báo `model` là abstract property nên **chính lớp nền là
+> abstract** - DI scanner bỏ qua nó, chỉ repository con (đã set `model`) mới thành
+> singleton. Không sinh singleton thừa, không cần đăng ký gì thêm.
+
 ---
 
 ## JWT Starter

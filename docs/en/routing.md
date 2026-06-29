@@ -234,6 +234,44 @@ Your middleware sits between `RequestContextMiddleware` (outermost) and
 `JwtAuthMiddleware` (innermost), so e.g. CORS preflight is handled before auth.
 Among your middleware, the one declared first runs first.
 
+**Middleware needing DI services / runtime config** (since 0.6.1) — `configure_middleware`
+only takes *static* options. When your own middleware needs a singleton from the
+DI container or a value from runtime config (only known after the container is
+built), use the `Inject` / `FromConfig` markers as option values instead of
+subclassing `WebAdapter`. The framework resolves them at `build_app()`:
+
+```python
+# config/web.py
+from xime.adapters.web import configure_middleware, Inject, FromConfig
+from app.security.jwt_middleware import JwtMiddleware
+from app.service.authentication_service import AuthenticationService
+from app.service.user_service import UserService
+
+configure_middleware(
+    JwtMiddleware,
+    auth_svc=Inject(AuthenticationService),   # → app.get(AuthenticationService)
+    user_svc=Inject(UserService),
+    realm=FromConfig("auth.realm", "default"),  # → RuntimeConfig.get("auth.realm", ...)
+)
+```
+
+- `Inject(SomeType)` resolves to the DI singleton; a missing binding fails fast at startup.
+- `FromConfig("a.b", default)` reads `RuntimeConfig` via dot-notation, falling back to `default`.
+- Non-marker values pass through unchanged (fully backward compatible).
+
+**CORS** (since 0.6.1) — `configure_cors(...)` is a first-class helper. Any
+argument you leave unset is read from `application.yml` under `cors.<name>`,
+falling back to Starlette's defaults, so operators tune CORS via YAML without
+touching code. Declare it before other middleware so it stays outermost.
+
+```python
+# config/web.py
+from xime.adapters.web import configure_cors
+
+configure_cors(allow_origins=["http://localhost:3000"], allow_credentials=True)
+# or configure_cors()  → read everything from the cors.* block in application.yml
+```
+
 **Global exception handlers** — `configure_exception_handlers({Exc: handler})`:
 
 ```python
