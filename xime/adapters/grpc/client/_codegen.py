@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as _dist_version
 
 from google.protobuf import descriptor_pb2
 
@@ -64,11 +62,15 @@ def _framework_xime_version() -> str:
     dependency floor. The SDK imports SdkRuntime from this framework, so it must
     require at least the version that produced it. Falls back when uninstalled.
     Version framework đang chạy - làm floor dependency cho SDK sinh ra.
+
+    Delegates to xime.__version__ so there is a single source of truth (and a
+    single fallback literal to keep in sync with pyproject.toml on each bump).
+    Ủy quyền cho xime.__version__ để chỉ có MỘT nguồn version (và một literal
+    fallback duy nhất cần đồng bộ với pyproject.toml mỗi lần bump).
     """
-    try:
-        return _dist_version("xime")
-    except PackageNotFoundError:  # pragma: no cover - chỉ khi chạy từ source chưa cài
-        return "0.5.0"
+    from xime import __version__
+
+    return __version__
 
 
 def generate_client_sdk(

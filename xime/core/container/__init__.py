@@ -316,12 +316,17 @@ class XimeContainer:
         if self._dynamic_enabled and tuples:
             managed: list[type] = []
             for interface, impls in tuples.items():
-                # setdefault: never clobber a pre-registered override (e.g. a test
-                # double) for this interface with a proxy.
-                # setdefault: không đè override đã đăng ký sẵn (vd test double).
-                self._instances.setdefault(
-                    interface, DynamicProxy(interface, switcher, self.get)
-                )
+                # Only build a proxy when one is actually needed: never clobber a
+                # pre-registered override (e.g. a test double) for this interface,
+                # and don't construct a throwaway DynamicProxy that setdefault
+                # would immediately discard.
+                # Chỉ dựng proxy khi thật sự cần: không đè override đã đăng ký sẵn
+                # (vd test double), và không tạo DynamicProxy thừa rồi bỏ ngay như
+                # setdefault.
+                if interface not in self._instances:
+                    self._instances[interface] = DynamicProxy(
+                        interface, switcher, self.get
+                    )
                 managed.extend(impls)
                 validation_bindings[interface] = impls
             self._register_managed_impls(managed)

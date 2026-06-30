@@ -4,7 +4,7 @@ File này cung cấp hướng dẫn cho Claude Code khi làm việc với dự �
 
 ## Tổng quan dự án
 
-**XIME** là một Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot nhưng vẫn tôn trọng triết lý Python. Đã **phát hành 0.6.1** - toàn bộ core, các adapter (web, gRPC, socket, MQTT) và starters (gồm storage local + S3/MinIO) đã được triển khai đầy đủ và có test. Bản 0.6 **gỡ hẳn thư viện `dependency-injector`** (lớp lưu/dựng singleton viết lại bằng dict tự viết) và thêm **dynamic interface binding** (một interface bind nhiều implementation, đổi được lúc runtime qua `Switcher`). Bản 0.6.1 thêm cho web adapter: middleware lấy được dependency từ DI / runtime config qua marker `Inject`/`FromConfig` và helper `configure_cors` (app không phải subclass `WebAdapter`).
+**XIME** là một Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot nhưng vẫn tôn trọng triết lý Python. Đã **phát hành 0.6.2** - toàn bộ core, các adapter (web, gRPC, socket, MQTT) và starters (gồm storage local + S3/MinIO, mail SMTP) đã được triển khai đầy đủ và có test. Bản 0.6 **gỡ hẳn thư viện `dependency-injector`** (lớp lưu/dựng singleton viết lại bằng dict tự viết) và thêm **dynamic interface binding** (một interface bind nhiều implementation, đổi được lúc runtime qua `Switcher`). Bản 0.6.1 thêm cho web adapter: middleware lấy được dependency từ DI / runtime config qua marker `Inject`/`FromConfig` và helper `configure_cors` (app không phải subclass `WebAdapter`). Bản 0.6.2 thêm **starter `mail`**: Protocol `MailService` + backend SMTP `SmtpMailService` (async qua aiosmtplib, gửi đồng bộ có timeout + `MailSendError`).
 
 XIME không thay thế FastAPI, SQLAlchemy hay gRPC. Nó cung cấp một tầng kiến trúc phía trên các thư viện này để tự động hóa dependency injection, chuẩn hóa cấu trúc dự án và quản lý vòng đời component.
 
@@ -50,6 +50,7 @@ Python Objects
 - `scheduler/` — Lập lịch tác vụ (APScheduler v4), cron và interval jobs
 - `cache/` + `redis/` — Protocol `CacheService` và backend Redis
 - `storage/` + `localfs/` + `s3/` — Protocol `StorageService` và backend filesystem / S3-MinIO (extra `xime[s3]`, aioboto3)
+- `mail/` — Protocol `MailService` + backend SMTP `SmtpMailService` (async, HTML + text; extra `xime[mail]`, aiosmtplib)
 
 **Testing** (`testing/`) — Tiện ích test và DI overrides.
 

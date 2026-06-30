@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.6.1"
+version = "0.6.2"
 description = "A Python backend framework that brings a Spring Boot-style developer experience while respecting Python's philosophy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -53,6 +53,7 @@ xime = "xime.cli._main:main"
 #   pip install xime[redis]
 #   pip install xime[s3]
 #   pip install xime[mqtt]
+#   pip install xime[mail]
 #   pip install xime[all]          # toàn bộ starters
 # ---------------------------------------------------------------------------
 
@@ -90,8 +91,11 @@ s3 = [
 mqtt = [
     "aiomqtt>=2.0",
 ]
+mail = [
+    "aiosmtplib>=3.0",
+]
 all = [
-    "xime[web,sqlalchemy,jwt,scheduler,socket,grpc,redis,s3,mqtt]",
+    "xime[web,sqlalchemy,jwt,scheduler,socket,grpc,redis,s3,mqtt,mail]",
 ]
 
 # Dev: chạy test, lint, type-check, ASGI server

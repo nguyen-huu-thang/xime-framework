@@ -115,6 +115,7 @@ pip install "xime[grpc]"         # gRPC adapter (code-first)
 pip install "xime[socket]"       # IPC qua Unix domain socket
 pip install "xime[mqtt]"         # MQTT adapter (pub/sub + RPC over MQTT v5)
 pip install "xime[s3]"           # backend storage S3 / MinIO
+pip install "xime[mail]"         # gửi email qua SMTP (aiosmtplib)
 pip install "xime[all]"          # tất cả ở trên
 ```
 
@@ -257,6 +258,7 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 | `xime.starters.storage` | Abstraction `StorageService` (object/blob store) | ✅ Đã implement |
 | `xime.starters.localfs` | Backend `StorageService` trên filesystem local | ✅ Đã implement |
 | `xime.starters.s3` | Backend `StorageService` S3 / MinIO (multipart, presigned URL) | ✅ Đã implement |
+| `xime.starters.mail` | Abstraction `MailService` + backend SMTP (async, HTML + text) | ✅ Đã implement |
 
 ---
 

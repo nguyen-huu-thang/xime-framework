@@ -5,6 +5,55 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [0.6.2] - 2026-06-30
+
+Thêm **starter `mail`** - gửi email qua SMTP theo đúng khuôn mẫu starter sẵn có
+(`storage`/`cache`): một Protocol `MailService` + backend `SmtpMailService`, app
+bind trong `config/dependency.py`. Tương thích ngược hoàn toàn. Test starter:
+17 passed.
+
+### Added
+
+- **Starter `mail` (`xime.starters.mail`)** - gửi email bất đồng bộ qua SMTP:
+  - **`MailService` (Protocol)** - contract trung lập: `async def send(message:
+    EmailMessage) -> None`. Logic đồng bộ (await tới khi gửi xong, thành công ->
+    return, thất bại -> raise `MailSendError`, có timeout nội bộ) - dùng cho email
+    bảo mật (OTP, reset mật khẩu). Gửi nền là việc của app (tự bọc
+    `asyncio.create_task(...)`), starter không ôm hàng đợi.
+  - **`SmtpMailService` (backend)** - hiện thực qua **`aiosmtplib`** (async, không
+    chặn event loop; extra `xime[mail]`, import lười). Đọc `mail.from` và
+    `mail.smtp.*` (`host` bắt buộc -> `ValueError` fail-fast; `port` mặc định 587,
+    `timeout` 10s, `use_tls` true) từ `RuntimeConfig`. Mỗi `send()` mở một kết nối
+    SMTP mới rồi đóng (bền hơn pool cho lượng email giao dịch/OTP). Tự chọn
+    STARTTLS (587) hoặc TLS ngầm (465) theo cổng.
+  - **`EmailMessage`** - value object `@dataclass(frozen=True, slots=True)`: `to`,
+    `subject`, `html`, `text`, `cc`, `reply_to`, `sender` (override `mail.from`).
+    Validate lúc tạo: `to` không rỗng và có ít nhất một trong `html`/`text`. Có cả
+    hai -> `multipart/alternative`.
+  - **Exception** `MailError` (base) + `MailSendError` (gửi thất bại: SMTP từ
+    chối, timeout, mất kết nối; giữ lỗi gốc ở `__cause__`) - mẫu
+    `storage._exceptions`.
+  - Dùng: `dependency.scan("xime.starters.mail")` +
+    `dependency.bind({ MailService: SmtpMailService })`.
+
+### Fixed
+
+Hardening sau kiểm toán toàn diện 0.6.2 (chi tiết: `.claude/docs/kiem-toan-0.6.md`).
+Không có lỗi gãy chức năng; toàn bộ là nhất quán / hardening nhỏ. Test: 1125 passed,
+4 skipped.
+
+- **`EmailMessage.to`/`cc` thật sự bất biến**: `__post_init__` snapshot sang
+  `tuple` nên mutate list gốc của caller không ảnh hưởng message frozen (trước
+  đây `frozen=True` chỉ chặn gán lại, không chặn `msg.to.append(...)`).
+- **Mail SMTP `username`/`password` dùng `is not None`** thay falsy-check: chuỗi
+  rỗng cấu hình tường minh vẫn truyền tới server; chỉ giá trị thật sự vắng mới bỏ
+  qua xác thực.
+- **Version fallback đồng bộ**: `xime.__version__` fallback `0.6.1` -> `0.6.2`;
+  generator SDK gRPC (`_codegen.py`) nay ủy quyền `xime.__version__` để chỉ còn
+  một literal version duy nhất (trước trả lệch `"0.5.0"`).
+- **Error message middleware marker sang tiếng Anh** cho nhất quán; xóa sentinel
+  `_NO_DEFAULT` thừa; bỏ tạo `DynamicProxy` thừa khi interface đã có override.
+
 ## [0.6.1] - 2026-06-29
 
 Bản vá nhỏ cho web adapter: middleware tự viết lấy được dependency từ DI container

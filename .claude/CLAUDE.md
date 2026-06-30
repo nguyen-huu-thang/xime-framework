@@ -1,12 +1,13 @@
 # XIME Framework — Hướng dẫn phiên làm việc
 
-Python backend framework đã phát hành **0.6.1**: toàn bộ core, các adapter (web,
-gRPC code-first + client SDK, socket, **MQTT**) và starters (gồm **storage/localfs/s3**)
-đã có code và test (**1101 passed, 4 skipped** trong `tests_temp/`; 4 skip gồm 2 test
-tích hợp MQTT/S3 cần broker/MinIO). Không còn ở giai đoạn thiết kế - khi sửa, đọc
-code thật trong `xime/` và chạy `pytest` trước khi kết luận.
+Python backend framework đã phát hành **0.6.2** (đã **kiểm toán toàn diện
+2026-07-01**, chưa push PyPI): toàn bộ core, các adapter (web, gRPC code-first +
+client SDK, socket, **MQTT**) và starters (gồm **storage/localfs/s3**,
+**mail SMTP**) đã có code và test (**1125 passed, 4 skipped** trong `tests_temp/`;
+4 skip gồm 2 test tích hợp MQTT/S3 cần broker/MinIO). Không còn ở giai đoạn thiết
+kế - khi sửa, đọc code thật trong `xime/` và chạy `pytest` trước khi kết luận.
 
-Trạng thái các mảng lớn (cập nhật 2026-06-29):
+Trạng thái các mảng lớn (cập nhật 2026-06-30):
 
 - **Core DI / lifecycle / config / event bus:** hoàn thành. **Bản 0.6** đã gỡ hẳn
   `dependency-injector` (registry singleton viết lại bằng dict dùng class làm key +
@@ -37,6 +38,15 @@ Trạng thái các mảng lớn (cập nhật 2026-06-29):
 - **Storage starter (0.5):** hoàn thành - Protocol `StorageService` + backend
   `localfs` (chống path traversal, ghi nguyên tử) và `s3` (multipart, presigned,
   MinIO; extra `xime[s3]`). Key chuẩn hóa chung qua `storage/_keys.py`.
+- **Mail starter (0.6.2):** hoàn thành - Protocol `MailService` + backend
+  `SmtpMailService` (aiosmtplib, extra `xime[mail]`, import lười). `send(EmailMessage)`
+  async đồng-bộ-logic: await tới khi gửi xong, timeout nội bộ, thất bại ->
+  `MailSendError` (giữ `__cause__`). `EmailMessage` (frozen dataclass) hỗ trợ
+  HTML + text (cả hai -> multipart/alternative), nhiều người nhận, `cc`, `reply_to`,
+  `sender` override `mail.from`. Mỗi `send()` mở/đóng một kết nối SMTP (không pool),
+  tự chọn STARTTLS (587) / TLS ngầm (465) theo cổng. Đọc `mail.*` từ `RuntimeConfig`
+  (`mail.smtp.host` bắt buộc). Gửi nền là việc của app (tự `create_task`). Hiện thực:
+  `xime/starters/mail/`.
 - **SQLAlchemy starter:** thêm `CrudRepository[T]` (0.6.1) - base repository generic
   cho sẵn `find/find_or_fail/find_all/exists/count/save/save_all/delete`; `model`
   là abstract property nên lớp nền là abstract (scanner bỏ qua), chỉ subclass set
@@ -44,6 +54,9 @@ Trạng thái các mảng lớn (cập nhật 2026-06-29):
   `xime/starters/sqlalchemy/repository.py`.
 - **JWT (0.5):** thêm ép `audience`/`issuer`, phơi claim qua `request_context[JWT_CLAIMS]`.
 - **Kiểm toán toàn diện 0.5:** xem `docs/kiem-toan-0.5.md` (mọi phát hiện đã xử lý).
+- **Kiểm toán toàn diện 0.6.2:** xem `docs/kiem-toan-0.6.md` (không có lỗi CAO;
+  M1a/b/c "thiếu test" là báo động giả - đã có test; M2 version fallback + L1-L5
+  hardening nhỏ đã vá; bài học: kiểm "có test cho X" bằng Grep nội dung, không Glob tên file).
 - **Backlog còn mở:** xem `docs/backlog-sua-loi.md`.
 
 ## Tài liệu cần đọc khi bắt đầu

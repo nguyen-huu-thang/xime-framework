@@ -57,8 +57,24 @@ class TestResolveOptions:
 
     def test_inject_missing_type_raises_clear_error(self):
         app = FakeApp()
-        with pytest.raises(RuntimeError, match="chưa được đăng ký"):
+        with pytest.raises(RuntimeError, match="is not registered"):
             resolve_options({"auth_svc": Inject(AuthService)}, app)
+
+    def test_from_config_no_default_is_none(self):
+        """FromConfig không truyền default + thiếu key -> None (không có chế độ bắt buộc)."""
+        app = FakeApp(config=RuntimeConfig.from_dict({}))
+        resolved = resolve_options({"realm": FromConfig("auth.realm")}, app)
+        assert resolved["realm"] is None
+
+    def test_runtime_config_fetched_once_for_many_from_config(self):
+        """RuntimeConfig chỉ lấy một lần dù nhiều FromConfig (tránh get() lặp)."""
+        from unittest.mock import MagicMock
+
+        config = RuntimeConfig.from_dict({"a": {"b": 1, "c": 2}})
+        app = MagicMock()
+        app.get.return_value = config
+        resolve_options({"x": FromConfig("a.b"), "y": FromConfig("a.c")}, app)
+        assert app.get.call_count == 1
 
     def test_from_config_reads_runtime_value(self):
         config = RuntimeConfig.from_dict({"cors": {"allow_origins": ["https://x"]}})
@@ -149,3 +165,66 @@ class TestConfigureCors:
         entry = next(m for m in fastapi_app.user_middleware if m.cls is CORSMiddleware)
         assert entry.kwargs["allow_origins"] == ["https://app"]
         assert entry.kwargs["allow_credentials"] is True
+
+    def test_separated_by_server_id(self):
+        configure_cors(allow_origins=["http://admin"], server_id="admin")
+        assert registry.get_middlewares("default") == []
+        assert len(registry.get_middlewares("admin")) == 1
+
+    def test_missing_yaml_uses_starlette_defaults(self):
+        """configure_cors() + không có khối cors.* -> mặc định an toàn Starlette."""
+        from starlette.middleware.cors import CORSMiddleware
+        from xime.adapters.web import WebAdapter
+
+        app = FakeApp(config=RuntimeConfig.from_dict({}))
+        configure_cors()
+        fastapi_app = WebAdapter().build_app(app)
+        kwargs = next(
+            m for m in fastapi_app.user_middleware if m.cls is CORSMiddleware
+        ).kwargs
+        assert kwargs["allow_origins"] == ()
+        assert kwargs["allow_methods"] == ("GET",)
+        assert kwargs["allow_credentials"] is False
+        assert kwargs["max_age"] == 600
+
+    def test_explicit_beats_yaml(self):
+        from starlette.middleware.cors import CORSMiddleware
+        from xime.adapters.web import WebAdapter
+
+        config = RuntimeConfig.from_dict({"cors": {"allow_origins": ["http://yaml"]}})
+        app = FakeApp(config=config)
+        configure_cors(allow_origins=["http://explicit"])
+        fastapi_app = WebAdapter().build_app(app)
+        kwargs = next(
+            m for m in fastapi_app.user_middleware if m.cls is CORSMiddleware
+        ).kwargs
+        assert kwargs["allow_origins"] == ["http://explicit"]
+
+    def test_cors_sits_outside_jwt_in_stack(self):
+        """CORS phải outermost hơn JwtAuth: preflight OPTIONS chạy trước xác thực
+        (đúng kịch bản I1 - thứ tự middleware)."""
+        from starlette.middleware.cors import CORSMiddleware
+        from xime.adapters.web import WebAdapter
+        from xime.starters.jwt import (
+            JwtMiddlewareConfig,
+            KeyContext,
+            configure_jwt,
+        )
+        from xime.starters.jwt._config import jwt_registry
+        from xime.starters.jwt._middleware import JwtAuthMiddleware
+
+        try:
+            configure_jwt(
+                JwtMiddlewareConfig(
+                    key_context=KeyContext(algorithm="HS256", secret="x" * 32)
+                )
+            )
+            configure_cors(allow_origins=["http://x"])
+            fastapi_app = WebAdapter().build_app(
+                FakeApp(config=RuntimeConfig.from_dict({}))
+            )
+            classes = [m.cls for m in fastapi_app.user_middleware]
+            # Starlette: add sau = đứng đầu list = outermost. CORS add sau JwtAuth.
+            assert classes.index(CORSMiddleware) < classes.index(JwtAuthMiddleware)
+        finally:
+            jwt_registry.reset()

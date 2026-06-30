@@ -47,14 +47,14 @@ class Inject:
         return f"Inject({name})"
 
 
-# Sentinel để phân biệt "không truyền default" với "default=None".
-_NO_DEFAULT: Any = object()
-
-
 class FromConfig:
     """Marker: resolve this option from RuntimeConfig (dot-notation) at build time.
 
+    A missing key resolves to `default` (None when not given) — there is no
+    "required key" mode; validate required config in the middleware itself.
     Marker: phân giải option này từ RuntimeConfig (dot-notation) lúc build_app.
+    Thiếu key thì trả `default` (None nếu không truyền) - không có chế độ "bắt
+    buộc"; hãy validate config bắt buộc trong chính middleware.
     """
 
     __slots__ = ("key", "default")
@@ -88,9 +88,9 @@ def resolve_options(
             except KeyError:
                 type_name = getattr(value.type, "__name__", value.type)
                 raise RuntimeError(
-                    f"configure_middleware: không thể inject option '{name}' — "
-                    f"{type_name} chưa được đăng ký trong DI container. "
-                    f"Thêm package của nó vào dependency.scan()/register() trong "
+                    f"configure_middleware: cannot inject option '{name}' — "
+                    f"{type_name} is not registered in the DI container. "
+                    f"Add its package to dependency.scan() / register() in "
                     f"config/dependency.py."
                 ) from None
         elif isinstance(value, FromConfig):
