@@ -232,7 +232,7 @@ Cách tốt nhất để học XIME là đọc code thật. Các dự án mã ng
 | **Request Context** | Dữ liệu theo request qua `ContextVar`, được thiết lập bởi adapter |
 | **Security Context** | `AuthenticationManager`, `AuthorizationManager` trong core |
 | **Two-Layer Config** | Framework config (Python) + Runtime config (YAML) |
-| **Transaction API** | `async with self.transaction():` tường minh - không có AOP ẩn |
+| **Transaction API** | `async with self.transaction():` tường minh - không có AOP ẩn; đường đọc dùng `async with self.read_only():` |
 | **Class-Based Controllers** | Controller là DI singleton, method ánh xạ thành route |
 | **Code-First gRPC** | Viết Python DTO, XIME sinh `.proto` + stub; ổn định field number qua lock file |
 | **gRPC Client SDK** | Sinh client Pydantic typed từ `.proto`, inject qua DI; deadline, lỗi typed, retry tự động |
@@ -250,7 +250,7 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 | Starter | Cung cấp gì | Trạng thái |
 | --- | --- | --- |
-| `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager`, `CrudRepository` (CRUD chung) | ✅ Đã implement |
+| `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager`, `SqlAlchemyReadOnlyManager` (khối chỉ đọc), `CrudRepository` (CRUD chung) | ✅ Đã implement |
 | `xime.starters.jwt` | JWT signing, verification, middleware | ✅ Đã implement |
 | `xime.starters.scheduler` | Lập lịch tác vụ kiểu cron | ✅ Đã implement |
 | `xime.starters.cache` | Abstraction `CacheService` (trung lập backend) | ✅ Đã implement |
@@ -291,7 +291,7 @@ Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 | [Khái niệm cốt lõi](docs/vn/core-concepts.md) | DI, interface binding, scope |
 | [Cấu hình](docs/vn/configuration.md) | Framework config + runtime YAML |
 | [Routing](docs/vn/routing.md) | Class-based controller, route decorator |
-| [Transaction](docs/vn/transaction.md) | Quản lý transaction tường minh |
+| [Transaction](docs/vn/transaction.md) | Quản lý transaction tường minh + khối chỉ đọc |
 | [Code-First gRPC](docs/vn/grpc-codefirst.md) | Sinh `.proto` từ Python DTO; ổn định field number; `xime grpc generate/check`; mTLS động |
 | [gRPC Client SDK](docs/vn/grpc-client.md) | Sinh client SDK typed; inject qua DI; deadline, lỗi typed, retry, mTLS động |
 | [Socket Adapter](docs/vn/socket-adapter.md) | IPC qua Unix Domain Socket cho Native Engine cùng máy |

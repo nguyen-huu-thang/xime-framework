@@ -35,6 +35,21 @@ class DynamicProxy:
     non-runtime_checkable Protocol, or dunder access via special-method slots)
     does not see the impl. Everyday services only call declared methods, so this
     is rarely an issue.
+
+    Caveat on startup ordering: a consumer depends on this proxy, not on the
+    implementations, so the dependency graph holds no edge from the consumer to
+    any impl and their relative post_construct order is undefined. Every
+    post_construct still runs during startup, so requests served afterwards are
+    unaffected; the only exposure is a consumer that calls into the impl from
+    inside its own post_construct, where the impl may be constructed but not yet
+    initialised. Do that work lazily (on first use) instead.
+
+    Caveat về thứ tự lúc startup: consumer phụ thuộc proxy này chứ không phụ
+    thuộc các impl, nên dependency graph không có cạnh consumer -> impl và thứ tự
+    post_construct giữa hai bên là không xác định. Mọi post_construct vẫn chạy
+    đủ trong startup nên request sau đó không ảnh hưởng; rủi ro duy nhất là
+    consumer gọi vào impl ngay trong post_construct của chính nó - lúc đó impl có
+    thể đã dựng nhưng chưa khởi tạo xong. Hãy làm việc đó lười (lúc dùng lần đầu).
     """
 
     __slots__ = ("_interface", "_switcher", "_resolver")

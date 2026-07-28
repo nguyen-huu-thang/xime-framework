@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, AsyncGenerator
+from ssl import CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED
+from typing import TYPE_CHECKING, Any, AsyncGenerator
 
 from fastapi import FastAPI
+
+from xime.core.config.runtime import ServerTlsConfig
+from xime.core.exception.framework import StartupException
 
 from ._markers import resolve_options
 from ._registry import registry
@@ -13,6 +18,116 @@ from .openapi._builder import build_custom_openapi
 if TYPE_CHECKING:
     import uvicorn
     from xime.core.bootstrap.application import Application
+
+# Spelled-out cert_reqs values mapped to the stdlib constants uvicorn expects.
+# Imported by name so the module-level `ssl` symbol stays free for the
+# WebAdapter(ssl=...) parameter, which mirrors the `server.ssl` config key.
+# Giá trị cert_reqs dạng chữ ánh xạ sang hằng stdlib mà uvicorn cần. Import theo
+# tên để tên `ssl` ở mức module còn trống cho tham số WebAdapter(ssl=...), vốn
+# đặt theo đúng key cấu hình `server.ssl`.
+_CERT_REQS = {
+    "none": CERT_NONE,
+    "optional": CERT_OPTIONAL,
+    "required": CERT_REQUIRED,
+}
+
+
+def _tls_kwargs(tls: ServerTlsConfig, server_id: str) -> dict[str, Any]:
+    """Validate TLS settings and return the ssl_* kwargs for uvicorn.Config.
+
+    Returns an empty dict when TLS is not configured, so the plain-HTTP path is
+    byte-for-byte what it was before.
+    Trả dict rỗng khi không cấu hình TLS, nên đường HTTP thuần y hệt như trước.
+
+    Everything is validated here rather than left to uvicorn because uvicorn's
+    failures for a half-configured certificate are undebuggable: a missing
+    keyfile surfaces as `SSLError: [SSL] PEM lib`, and a missing certfile as a
+    bare `AssertionError` with no message at all. A server that silently serves
+    plain HTTP while the operator believes it is HTTPS would be worse still, so
+    a bad configuration must stop startup with a message that names the key.
+    Validate ở đây chứ không phó mặc uvicorn vì lỗi của nó khi cert khai nửa vời
+    là không thể debug: thiếu keyfile ra `SSLError: [SSL] PEM lib`, thiếu certfile
+    ra `AssertionError` rỗng message. Tệ hơn nữa là server âm thầm chạy HTTP
+    trong khi operator tưởng đang HTTPS, nên cấu hình sai phải chặn startup kèm
+    thông báo nêu đúng key.
+    """
+    if not tls.enabled:
+        return {}
+
+    where = f"server.ssl (WebAdapter server_id={server_id!r})"
+
+    # Both halves are required: a certificate without its private key cannot
+    # terminate TLS, and vice versa.
+    # Phải có cả hai: cert không có private key thì không kết thúc TLS được, và
+    # ngược lại.
+    missing = [
+        name
+        for name, value in (("certfile", tls.certfile), ("keyfile", tls.keyfile))
+        if not value
+    ]
+    if missing:
+        raise StartupException(
+            f"\nIncomplete TLS Configuration\n"
+            f"  Config  : {where}\n"
+            f"  Missing : {', '.join(missing)}\n"
+            f"  Detail  : certfile and keyfile must both be set to serve HTTPS."
+        )
+
+    for name, path in (
+        ("certfile", tls.certfile),
+        ("keyfile", tls.keyfile),
+        ("ca_certs", tls.ca_certs),
+    ):
+        if not path:
+            continue
+        if not os.path.isfile(path):
+            raise StartupException(
+                f"\nTLS File Not Found\n"
+                f"  Config: {where}.{name}\n"
+                f"  Path  : {path}\n"
+                f"  Detail: the file does not exist or is not a regular file."
+            )
+        # Existing but unreadable is the common real-world failure: certbot
+        # writes privkey.pem as root-only, so an app running as another user
+        # trips over permissions rather than a missing path. Open it now to say
+        # so clearly instead of letting uvicorn raise PermissionError mid-serve.
+        # Tồn tại mà không đọc được mới là lỗi hay gặp thật: certbot ghi
+        # privkey.pem chỉ cho root, app chạy bằng user khác là vấp quyền chứ
+        # không phải thiếu file. Mở thử ngay để báo rõ, thay vì để uvicorn ném
+        # PermissionError giữa lúc serve.
+        try:
+            with open(path, "rb"):
+                pass
+        except OSError as exc:
+            raise StartupException(
+                f"\nTLS File Not Readable\n"
+                f"  Config: {where}.{name}\n"
+                f"  Path  : {path}\n"
+                f"  Detail: {exc.strerror or exc}"
+            ) from exc
+
+    kwargs: dict[str, Any] = {
+        "ssl_certfile": tls.certfile,
+        "ssl_keyfile": tls.keyfile,
+    }
+    # Only forward what was actually configured. uvicorn defaults ssl_cert_reqs
+    # to ssl.CERT_NONE and ssl_ciphers to a non-empty string, so passing None
+    # does not mean "use the default" — it overwrites it and breaks the
+    # handshake (verified: ssl_cert_reqs=None raises "None is not a valid
+    # VerifyMode" while building the context).
+    # Chỉ chuyển tiếp thứ thực sự được cấu hình. uvicorn đặt mặc định
+    # ssl_cert_reqs = ssl.CERT_NONE và ssl_ciphers là chuỗi khác rỗng, nên truyền
+    # None KHÔNG có nghĩa "dùng mặc định" mà ghi đè mất và hỏng handshake (đã
+    # kiểm chứng: ssl_cert_reqs=None ném "None is not a valid VerifyMode").
+    if tls.keyfile_password:
+        kwargs["ssl_keyfile_password"] = tls.keyfile_password
+    if tls.ca_certs:
+        kwargs["ssl_ca_certs"] = tls.ca_certs
+    if tls.cert_reqs is not None:
+        kwargs["ssl_cert_reqs"] = _CERT_REQS[tls.cert_reqs]
+    if tls.ciphers:
+        kwargs["ssl_ciphers"] = tls.ciphers
+    return kwargs
 
 
 class WebAdapter:
@@ -33,6 +148,24 @@ class WebAdapter:
     - server_id="default" (mặc định): host/port đọc từ application.yml khi không truyền.
     - server_id khác "default": host và port bắt buộc phải truyền vào constructor.
     - Không được có hai WebAdapter cùng server_id — Application.use() sẽ báo lỗi.
+
+    HTTPS bật bằng khối server.ssl trong application.yml (để trống = HTTP thuần
+    như cũ):
+
+        server:
+          port: 8107
+          ssl:
+            certfile: "/etc/letsencrypt/live/gym.xime.vn/fullchain.pem"
+            keyfile: "/etc/letsencrypt/live/gym.xime.vn/privkey.pem"
+
+    Mọi WebAdapter kế thừa server.ssl, kể cả server phụ — để server phụ không âm
+    thầm chạy HTTP khi server chính đã HTTPS. Muốn khác thì truyền tường minh:
+
+        app.use(WebAdapter("admin", "0.0.0.0", 8081, ssl=ServerTlsConfig(...)))
+        app.use(WebAdapter("internal", "127.0.0.1", 8082, ssl=ServerTlsConfig()))  # tắt TLS
+
+    Cert phải là cert CA công cộng (certbot...) vì trình duyệt KHÔNG tin CA nội
+    bộ của Trust; cert Trust dành cho mTLS giữa service với nhau.
 
     Controller thuộc server nào khai báo qua class variable server_id:
 
@@ -66,6 +199,7 @@ class WebAdapter:
         server_id: str = "default",
         host: str | None = None,
         port: int | None = None,
+        ssl: ServerTlsConfig | None = None,
     ) -> None:
         if server_id != "default" and (host is None or port is None):
             raise ValueError(
@@ -75,6 +209,7 @@ class WebAdapter:
         self._server_id = server_id
         self._host_override = host
         self._port_override = port
+        self._ssl_override = ssl
         self._server: uvicorn.Server | None = None
 
     # ------------------------------------------------------------------
@@ -108,8 +243,24 @@ class WebAdapter:
             host = self._host_override  # type: ignore[assignment]  # validated in __init__
             port = self._port_override  # type: ignore[assignment]
 
+        # TLS is inherited from server.ssl unless the adapter was given its own.
+        # Inheriting (rather than defaulting to plain HTTP) is deliberate: a
+        # secondary server quietly serving HTTP while the main one serves HTTPS
+        # is a security hole nobody would notice. Pass ssl=ServerTlsConfig() to
+        # opt a secondary server out explicitly.
+        # TLS kế thừa từ server.ssl trừ khi adapter được truyền riêng. Kế thừa
+        # (thay vì mặc định HTTP thuần) là có chủ đích: server phụ âm thầm chạy
+        # HTTP trong khi server chính đã HTTPS là lỗ hổng không ai để ý. Muốn
+        # server phụ không dùng TLS thì truyền ssl=ServerTlsConfig() tường minh.
+        tls = self._ssl_override if self._ssl_override is not None else runtime.server.ssl
+
         fastapi_app = self.build_app(app)
-        config = uvicorn.Config(fastapi_app, host=host, port=port)
+        config = uvicorn.Config(
+            fastapi_app,
+            host=host,
+            port=port,
+            **_tls_kwargs(tls, self._server_id),
+        )
         self._server = uvicorn.Server(config)
         await self._server.serve()
 

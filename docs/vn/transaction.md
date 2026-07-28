@@ -81,7 +81,7 @@ SQLAlchemy starter cung cấp `SqlAlchemyTransactionManager`:
 
 ```python
 # config/dependency.py
-from xime.transaction import TransactionManager
+from xime.core.transaction import TransactionManager
 from xime.starters.sqlalchemy import SqlAlchemyTransactionManager
 
 dependency.bind({
@@ -90,6 +90,99 @@ dependency.bind({
 ```
 
 Business code chỉ phụ thuộc vào interface `TransactionManager` — nó không biết gì về SQLAlchemy.
+
+---
+
+## Khối chỉ đọc: `read_only()` (0.6.3)
+
+Usecase chỉ đọc dùng `ReadOnlyManager` — một manager **riêng, cùng cấp** với
+`TransactionManager`, không phải method của nó:
+
+```python
+from xime.core.transaction import ReadOnlyManager
+
+class ProductService:
+    def __init__(
+        self,
+        read_only: ReadOnlyManager,
+        products: ProductRepository,
+    ) -> None:
+        self.read_only = read_only
+        self.products = products
+
+    async def get_detail(self, product_id: str) -> ProductDto:
+        async with self.read_only():
+            product = await self.products.find_or_fail(product_id)
+        return ProductDto.of(product)
+```
+
+Bind cạnh transaction manager:
+
+```python
+# config/dependency.py
+from xime.core.transaction import ReadOnlyManager, TransactionManager
+from xime.starters.sqlalchemy import (
+    SqlAlchemyReadOnlyManager,
+    SqlAlchemyTransactionManager,
+)
+
+dependency.bind({
+    TransactionManager: SqlAlchemyTransactionManager,
+    ReadOnlyManager: SqlAlchemyReadOnlyManager,
+})
+```
+
+### Nó khác `transaction()` ở chỗ nào
+
+| Tình huống | `transaction()` | `read_only()` |
+| --- | --- | --- |
+| Kết thúc bình thường | COMMIT | luôn hủy, **không bao giờ** commit |
+| Có exception | ROLLBACK | luôn hủy (như trên) |
+| Lồng trong khối đang chạy | mở session mới | **dùng lại** session đang có, thoát ra không làm gì |
+| Khối không đọc gì | vẫn `BEGIN` | không lấy connection nào khỏi pool |
+
+Vì không bao giờ commit, lỡ sửa entity trong khối chỉ đọc thì thay đổi **không
+xuống được database**. Nhưng nó cũng **không báo lỗi** — xem cảnh báo bên dưới.
+
+Việc lồng nhau là có chủ đích: một service chỉ đọc ghép được vào usecase có ghi
+mà không mở thêm connection thứ hai, và không tự đóng session của transaction bao
+ngoài.
+
+### Vì sao là manager riêng, không phải `transaction.read_only()`
+
+Là binding riêng nên về sau trỏ được sang backend khác — **read replica**, mức
+isolation khác, hay một decorator cache — chỉ bằng cách bind
+`ReadOnlyManager` sang implementation khác, **không sửa dòng code nghiệp vụ nào**.
+Nếu nó là method của `TransactionManager` thì nó dính chặt vào engine của đường ghi.
+
+### Cảnh báo: đọc ngoài transaction thì đừng sửa
+
+Framework **không chặn** việc sửa entity đọc được từ khối chỉ đọc. Thay đổi sẽ bị
+bỏ đi im lặng — không lỗi, không log.
+
+> **Quy tắc:** entity đọc trong `read_only()` chỉ để **trả về hoặc render**.
+> Muốn sửa thì mở `transaction()` và **load lại** trong đó.
+
+Đây là lựa chọn có chủ đích: chặn được ca này thì phải hook vào SQLAlchemy event
+và trả phí runtime cho mọi lời đọc — trái nguyên tắc minimal magic của Xime.
+
+### Entity vẫn dùng được sau khi ra khỏi khối
+
+Trước khi hủy session, khối chỉ đọc gỡ mọi entity ra khỏi session
+(`expunge_all()`) rồi mới rollback. Nếu rollback trước, SQLAlchemy sẽ *expire* mọi
+object và lần đọc thuộc tính kế tiếp ném `DetachedInstanceError`. Nhờ gỡ trước,
+các thuộc tính **đã nạp** vẫn đọc bình thường sau khi ra khỏi khối:
+
+```python
+async with self.read_only():
+    product = await self.products.find_or_fail(product_id)
+
+return product.name        # OK — giá trị đã nạp còn nguyên
+return product.category    # LỖI nếu chưa eager-load (dùng selectinload)
+```
+
+Quan hệ chưa nạp thì vẫn lỗi, giống hệt async SQLAlchemy thông thường — cứ
+`selectinload` tường minh như vẫn làm.
 
 ---
 
@@ -104,10 +197,6 @@ Thiết kế hiện tại dùng một session cho mỗi transaction scope. Các 
 Các mở rộng được lên kế hoạch không thay đổi triết lý thiết kế:
 
 ```python
-# Read-only transaction (không commit, có thể dùng replica)
-async with self.transaction.read_only():
-    users = await self.repository.find_all()
-
 # Custom isolation level
 async with self.transaction(isolation="SERIALIZABLE"):
     balance = await self.account_repo.get_balance(account_id)

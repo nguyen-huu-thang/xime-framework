@@ -14,19 +14,27 @@ Starter là module tích hợp tùy chọn, tương tự `spring-boot-starter-*`
 
 `xime.starters.sqlalchemy`
 
-Cung cấp async database session và `SqlAlchemyTransactionManager`.
+Cung cấp async database session, `SqlAlchemyTransactionManager` và
+`SqlAlchemyReadOnlyManager` (khối chỉ đọc).
 
 ### Thiết lập
 
 ```python
 # config/dependency.py
-from xime.transaction import TransactionManager
-from xime.starters.sqlalchemy import SqlAlchemyTransactionManager
+from xime.core.transaction import ReadOnlyManager, TransactionManager
+from xime.starters.sqlalchemy import (
+    SqlAlchemyReadOnlyManager,
+    SqlAlchemyTransactionManager,
+)
 
 dependency.bind({
     TransactionManager: SqlAlchemyTransactionManager,
+    ReadOnlyManager: SqlAlchemyReadOnlyManager,   # tùy chọn, cho usecase chỉ đọc
 })
 ```
+
+> `ReadOnlyManager` là tùy chọn — không bind thì mọi thứ chạy như cũ. Chi tiết ở
+> mục "Khối chỉ đọc" trong [Transaction](transaction.md).
 
 ```yaml
 # resources/application.yml
@@ -40,7 +48,7 @@ database:
 
 ```python
 from sqlalchemy.ext.asyncio import AsyncSession
-from xime.transaction import TransactionManager
+from xime.core.transaction import TransactionManager
 
 class UserRepository:
     def __init__(
@@ -95,7 +103,8 @@ Các method có sẵn:
 | `delete(entity)` | Xóa rồi `flush` |
 
 Mọi method đọc session đang hoạt động qua `AsyncSessionFactory`, nên **phải gọi
-trong** `async with self.transaction():` (transaction do use case layer mở):
+trong** `async with self.transaction():` (đường ghi) hoặc
+`async with self.read_only():` (đường đọc) - khối do use case layer mở:
 
 ```python
 class CategoryService:

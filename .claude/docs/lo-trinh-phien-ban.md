@@ -1,8 +1,8 @@
 # Lộ trình phiên bản Xime Framework
 
 > Chỉ mục tổng các mốc phiên bản đã chốt, để tra nhanh "việc X làm ở bản nào".
-> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật 2026-06-29.
-> Hiện tại: 0.6.1 (pyproject + CHANGELOG đã đồng bộ 0.6.1).
+> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật 2026-07-29.
+> Hiện tại: 0.6.3 (pyproject + CHANGELOG đã đồng bộ 0.6.3).
 
 | Bản | Chủ đề | Trạng thái |
 | --- | --- | --- |
@@ -11,6 +11,8 @@
 | 0.5 | Kiểm toán toàn diện + Messaging/IoT (MQTT) + File | Đã phát hành (2026-06-22) |
 | 0.6 | Thay `dependency-injector` + dynamic interface binding | Đã phát hành (2026-06-23) |
 | 0.6.1 | Web adapter: middleware lấy DI/config qua marker + `configure_cors`; SQLAlchemy starter: `CrudRepository` | Đã phát hành (2026-06-29) |
+| 0.6.2 | Starter `mail` (SMTP) + hardening sau kiểm toán toàn diện | Đã phát hành (2026-06-30) |
+| 0.6.3 | Gỡ chặn app chạy thật: `PEER_APP_ID` (định danh app từ SAN cert) + **TLS/HTTPS cho web adapter** + **khối chỉ đọc `read_only()`**; kèm `get_bool` ép kiểu cờ + metadata gói | Đã phát hành (2026-07-29) |
 | 0.7 | Fieldbus công nghiệp (Modbus TCP + OPC UA) | Đã chốt thiết kế (2026-06-23); chưa code |
 | 0.8 | Multi-process Runtime + Bus liên Worker + config cải thiện | Thiết kế ban đầu chốt 2026-06-27; chưa code |
 | 0.9 | Beta - config nốt + bug fix + phản hồi người dùng | Mở |
@@ -24,7 +26,7 @@
 
 | Bản | Classifier | Lý do |
 | --- | --- | --- |
-| 0.6 / 0.6.1 (hiện tại) | `3 - Alpha` | Đang dùng |
+| 0.6 -> 0.6.3 (hiện tại) | `3 - Alpha` | Đang dùng |
 | 0.7 | `3 - Alpha` | **Vẫn còn thêm tính năng lớn** (Fieldbus). API chưa đông cứng. |
 | 0.8 | `3 - Alpha` | **Vẫn còn thêm tính năng lớn** (Multi-process Runtime). API chưa đông cứng. |
 | 0.9 | `4 - Beta` | Chỉ sửa nhỏ + chờ feedback; API coi như đã chốt, hardening trước 1.0. |
@@ -35,11 +37,9 @@ nốt config + chờ feedback, 1.0 stable.
 
 **Việc cần làm khi phát hành các bản tương ứng** (chỉ sửa `pyproject.toml`):
 
-- **0.7:** giữ `Development Status :: 3 - Alpha`. Nhân tiện vá metadata còn thiếu
-  (phát hiện khi kiểm toán 0.6, xem mục 0.6 bên dưới): thêm classifier
-  `Typing :: Typed` (repo đã ship `xime/py.typed` mà chưa khai báo) và chuyển
-  license sang PEP 639 (`license = "MIT"` + `license-files = ["LICENSE"]`, bỏ dạng
-  bảng `{ file = "LICENSE" }`) để PyPI hiện tag license.
+- **0.7:** giữ `Development Status :: 3 - Alpha`. (Phần vá metadata từng xếp vào
+  đây - classifier `Typing :: Typed` + license PEP 639 - **đã làm ở 0.6.3**, không
+  còn việc.)
 - **0.8:** giữ `Development Status :: 3 - Alpha`.
 - **0.9:** đổi `3 - Alpha` -> `4 - Beta`.
 - **1.0:** đổi `4 - Beta` -> `5 - Production/Stable`.
@@ -176,6 +176,59 @@ tế hai app (`shop`, `dental-clinic` ở `D:\code\Monolithic`) phải subclass
   `model` mới vào DI nên không sinh singleton thừa.
 - Full suite **1101 passed / 4 skipped**. Không có doc kế hoạch riêng; chi tiết
   trong CHANGELOG mục `[0.6.1]`, `rules/config-discovery.md` và `docs/.../starters.md`.
+
+## 0.6.2 - Starter `mail` (SMTP) + hardening sau kiểm toán
+
+Phát hành 2026-06-30. Thêm starter `mail` theo đúng khuôn starter sẵn có
+(Protocol `MailService` + backend `SmtpMailService` qua aiosmtplib, extra
+`xime[mail]`), kèm hardening từ **kiểm toán toàn diện** (`kiem-toan-0.6.md`:
+không có lỗi CAO). Full suite **1125 passed / 4 skipped**. Chi tiết: CHANGELOG
+mục `[0.6.2]`.
+
+## 0.6.3 - Gỡ chặn app chạy thật: `PEER_APP_ID` + TLS web adapter + `read_only()`
+
+Phát hành 2026-07-29. Tương thích ngược hoàn toàn. Full suite **1223 passed /
+5 skipped**. Chi tiết: CHANGELOG mục `[0.6.3]`.
+
+Hai việc đầu xuất phát từ khảo sát "4 mắt xích còn đứt" khi đưa 6 app lên chạy
+thật (`D:\code\xime\.claude\docs\khao-sat-ha-tang-cho-app-chay-that.md`); việc
+thứ ba đến từ phản hồi khi viết app.
+
+- **`PEER_APP_ID` - định danh APPLICATION từ SAN client cert.** Cert của tiến
+  trình thuộc một app mang SAN URI `xime-app://<Base62 33 ký tự>`; framework đọc
+  ra, cắt scheme, lưu cạnh `PEER_CN` trong `request_context`, phơi qua
+  `current_app_id()`. `PEER_CN` = tiến trình gọi, `PEER_APP_ID` = app sở hữu tiến
+  trình đó. SAN là property **nhiều giá trị** nên duyệt hết entry; fail-soft
+  tuyệt đối; framework không giải mã, không kiểm quyền. Bối cảnh + kiểm chứng:
+  `peer-app-id-tu-san-cert.md`.
+- **TLS/HTTPS cho web adapter** (mục A1 của khảo sát). Khối `server.ssl` trong
+  `application.yml` -> `ServerTlsConfig`; để trống = HTTP thuần như cũ.
+  `cert_reqs` dùng chữ (`none`/`optional`/`required`) thay vì số `ssl.CERT_*`.
+  Validate fail-fast trong `_tls_kwargs()` vì lỗi gốc của uvicorn khi cert khai
+  nửa vời là không debug được (`AssertionError` rỗng message). Multi-server:
+  `WebAdapter(..., ssl=...)`, để trống thì **kế thừa** `server.ssl` để server phụ
+  không âm thầm chạy HTTP. **Mức 2 (cert in-memory) đã BỎ HẲN** - nó không tránh
+  được việc key chạm đĩa nên không giải quyết được vấn đề nó sinh ra để giải
+  quyết; thay bằng ghi chú "mức 1.5" (nạp đè `load_cert_chain` lên context đang
+  phục vụ, đã kiểm chứng bằng handshake thật) cho lúc cần gia hạn không restart.
+  Chi tiết + quyết định: `tls-cho-web-adapter.md`.
+- **Khối chỉ đọc `read_only()`** - trước đó mọi truy cập DB, kể cả một câu
+  `SELECT`, đều phải bọc `async with self.transaction():`, nên service chỉ đọc vẫn
+  phải nhận `TransactionManager` và khối transaction xuất hiện dày tới mức không
+  còn cho biết chỗ nào thật sự có ghi. Nay có `ReadOnlyManager` -
+  manager **riêng, cùng cấp** với `TransactionManager` (chốt như vậy để sau này
+  trỏ đường đọc sang read replica chỉ bằng một dòng `bind`). Không bao giờ commit;
+  lồng nhau thì mượn session đang chạy; `expunge_all()` trước `rollback()` để
+  entity còn dùng được sau khối. Framework **không chặn** việc sửa entity đọc
+  ngoài transaction - cố ý, bù bằng quy tắc tài liệu. Chi tiết:
+  `rules/transaction.md`, `docs/{vn,en}/transaction.md`.
+- **`RuntimeConfig.get_bool()`** - vá B1: cờ `xime.di.dynamic-binding` từng đọc
+  bằng `bool()` trần nên `"false"` dạng chuỗi bật nhầm tính năng. Nay ép kiểu
+  bằng chính bộ parse boolean của Pydantic, giá trị lạ -> `StartupException`.
+- **Metadata gói**: classifier `Typing :: Typed` + license PEP 639 (dời từ 0.7).
+  Thêm `cryptography` vào extra `dev` (test TLS cần sinh cert tự ký).
+- **Docstring `DynamicProxy`** - ghi caveat B2 về thứ tự `post_construct` khi bật
+  dynamic binding (không đổi code).
 
 ## 0.7 - Fieldbus công nghiệp (Modbus TCP + OPC UA)
 

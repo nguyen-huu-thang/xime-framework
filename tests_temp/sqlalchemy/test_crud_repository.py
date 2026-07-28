@@ -13,7 +13,8 @@ apps find/find_all/find_or_fail/exists/count/save/save_all/delete for free.
     - CrudRepository itself is abstract → PackageScanner skips it
     - a concrete subclass that sets `model` IS eligible
   Session boundary:
-    - calling a repo method outside a transaction raises RuntimeError
+    - calling a repo method outside any block (transaction or read-only) raises
+      RuntimeError
 """
 import pytest
 import pytest_asyncio

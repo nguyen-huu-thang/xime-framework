@@ -43,7 +43,7 @@ class FakeUserRepository:
 
 ---
 
-## Fake Transaction Manager
+## Fake Transaction / Read-only Manager
 
 `xime.testing` provides a `FakeTransactionManager` that executes the block without a real database transaction:
 
@@ -57,6 +57,21 @@ async def test_create_user_with_transaction():
 
     user = await use_case.execute(CreateUserCommand(name="Bob"))
     assert user.name == "Bob"
+```
+
+Read-only use cases use `FakeReadOnlyManager`, the matching no-op for
+`async with self.read_only():` blocks:
+
+```python
+from xime.testing import FakeReadOnlyManager
+
+async def test_get_product_detail():
+    service = ProductService(
+        read_only=FakeReadOnlyManager(),
+        products=FakeProductRepository(),
+    )
+    detail = await service.get_detail("p-1")
+    assert detail.name == "Keyboard"
 ```
 
 ---
@@ -162,6 +177,7 @@ Use a test database (separate URL, wiped between test runs) rather than mocking 
 | Utility | Description |
 | --- | --- |
 | `FakeTransactionManager` | No-op transaction for unit tests |
+| `FakeReadOnlyManager` | No-op read-only block for unit tests |
 | `override_binding(cls, fake)` | Temporarily replace a DI binding |
 
 More testing utilities will be added as the framework matures.

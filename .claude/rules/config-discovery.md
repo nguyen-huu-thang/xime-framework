@@ -33,6 +33,23 @@ Mọi loại config đều theo pattern này — không có ngoại lệ:
 - CORS → `configure_cors(...)`
 - Exception handler → `configure_exception_handlers(...)`
 
+### Cái gì KHÔNG đi qua `configure_*`
+
+Pattern trên dành cho **Framework config** — quyết định kiến trúc của Developer, viết
+bằng Python. Thứ thuộc về **Operator** thì nằm ở YAML, đừng đi tìm hàm `configure_*`
+tương ứng:
+
+- **TLS/HTTPS của web adapter** → khối `server.ssl` trong `application.yml`
+  (`certfile`/`keyfile`/`ca_certs`/`cert_reqs`...). **Không có `configure_web_tls()`**:
+  đường dẫn cert là việc vận hành, đổi theo môi trường, không phải quyết định kiến trúc.
+  Ngoại lệ duy nhất là server phụ cần cert khác — truyền thẳng
+  `WebAdapter(..., ssl=ServerTlsConfig(...))`, để trống thì kế thừa `server.ssl`.
+- Host/port, chuỗi kết nối DB/Redis, secret → cùng lý do.
+
+Đối chiếu: mTLS của **gRPC** thì CÓ `configure_grpc_tls(provider, server_id)` — vì ở đó
+cert lấy động từ Trust lúc chạy, tức là nối dây một `provider` (quyết định kiến trúc),
+không phải khai một đường dẫn file.
+
 ## Middleware cần dependency từ DI / runtime config
 
 `configure_middleware(cls, **options)` chỉ nhận option **tĩnh**. Khi middleware

@@ -31,8 +31,12 @@ class TransactionManager(Protocol):
     Success flow : BEGIN → operations → COMMIT
     Error flow   : BEGIN → operation raises → ROLLBACK
 
+    For use cases that only read, inject ReadOnlyManager instead - a separate
+    sibling of this Protocol, not a method on it. See core/transaction/readonly.py.
+    Usecase chỉ đọc thì inject ReadOnlyManager - anh em cùng cấp của Protocol này,
+    không phải method của nó.
+
     Planned extensions (does not break current usage):
-        async with self.transaction.read_only(): ...
         async with self.transaction(isolation="SERIALIZABLE"): ...
     """
 

@@ -29,8 +29,11 @@ class AsyncSessionFactory:
                 session = self._sessions.current()
                 session.add(user)
 
-    The session is available only inside 'async with self.transaction():'.
-    Calling current() outside a transaction raises RuntimeError.
+    The session is available inside 'async with self.transaction():' (writes) or
+    'async with self.read_only():' (reads). Calling current() outside both raises
+    RuntimeError.
+    Session dùng được trong 'async with self.transaction():' (ghi) hoặc
+    'async with self.read_only():' (đọc); gọi current() ngoài cả hai -> RuntimeError.
     """
 
     def __init__(self, engine_provider: AsyncEngineProvider) -> None:
@@ -48,12 +51,13 @@ class AsyncSessionFactory:
     def current() -> AsyncSession:
         """
         Return the active session for the current async task.
-        Raises RuntimeError if called outside a transaction context.
+        Raises RuntimeError if called outside a transaction or read-only block.
         """
         session = _current_session.get()
         if session is None:
             raise RuntimeError(
-                "No active database session. "
-                "Call repository methods inside 'async with self.transaction():'."
+                "No active database session. Call repository methods inside "
+                "'async with self.transaction():' (writes) or "
+                "'async with self.read_only():' (reads)."
             )
         return session

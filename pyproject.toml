@@ -1,5 +1,8 @@
 [build-system]
-requires = ["hatchling"]
+# hatchling >= 1.27 is required for PEP 639 license metadata (license = "MIT"
+# + license-files) below.
+# hatchling >= 1.27 mới hiểu metadata license PEP 639 khai báo bên dưới.
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 # ---------------------------------------------------------------------------
@@ -8,11 +11,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.6.2"
+version = "0.6.3"
 description = "A Python backend framework that brings a Spring Boot-style developer experience while respecting Python's philosophy."
 readme = "README.md"
 requires-python = ">=3.12"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Nguyễn Hữu Thắng", email = "nguyen-huu-thang@outlook.com" },
 ]
@@ -26,6 +30,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Framework :: FastAPI",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
 ]
 
 # Core dependencies — luôn được cài khi `pip install xime`
@@ -107,6 +112,7 @@ dev = [
     "asyncpg>=0.29",        # driver PostgreSQL cho test SQLAlchemy
     "aiosqlite>=0.20",      # driver SQLite cho test SQLAlchemy (nhẹ hơn asyncpg)
     "httpx>=0.27",          # test HTTP client (dùng với FastAPI TestClient async)
+    "cryptography>=42",     # sinh cert tự ký cho test TLS của web adapter
 ]
 
 # ---------------------------------------------------------------------------

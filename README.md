@@ -232,12 +232,13 @@ The best way to learn XIME is to read real code. These open-source projects are 
 | **Request Context** | Per-request data via `ContextVar`, set by adapters |
 | **Security Context** | `AuthenticationManager`, `AuthorizationManager` in core |
 | **Two-Layer Config** | Framework config (Python) + Runtime config (YAML) |
-| **Transaction API** | Explicit `async with self.transaction():` - no hidden AOP |
+| **Transaction API** | Explicit `async with self.transaction():` - no hidden AOP; `async with self.read_only():` for reads |
 | **Class-Based Controllers** | Controllers are DI singletons, methods map to routes |
 | **Code-First gRPC** | Write Python DTOs, XIME generates `.proto` + stubs; field-number stability via lock file |
 | **gRPC Client SDK** | Generate a typed Pydantic client from `.proto`, inject via DI; deadlines, typed errors, automatic retry |
+| **HTTPS** | TLS for the HTTP server via a `server.ssl` block in `application.yml`, including client-certificate verification; misconfiguration stops startup instead of silently serving plain HTTP |
 | **Dynamic mTLS** | Certificate rotation without restart for both inbound servers and outbound clients |
-| **Peer Identity** | gRPC reads the verified client-cert CN into request context; `current_caller()` exposes it (fail-soft) |
+| **Peer Identity** | gRPC reads the verified client cert into request context (fail-soft): `current_caller()` gives the calling process (CN), `current_app_id()` the application owning it (`xime-app://` SAN) |
 | **Socket Adapter** | Unix Domain Socket IPC for same-host Native Engine calls (Linux); `@command` / `@stream` |
 | **MQTT Adapter** | Message-driven transport for IoT/embedded: `@subscribe` (pub/sub) + `@rpc` (request/reply over MQTT v5); auto-reconnect; bounded concurrency |
 | **File Storage** | Backend-neutral `StorageService` (local filesystem / S3 / MinIO); bytes + streaming APIs; HTTP Range download and chunked upload helpers |
@@ -250,7 +251,7 @@ Optional modules, similar to `spring-boot-starter-*`:
 
 | Starter | What it provides | Status |
 | --- | --- | --- |
-| `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager`, `CrudRepository` (built-in CRUD) | ✅ Implemented |
+| `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager`, `SqlAlchemyReadOnlyManager` (read-only blocks), `CrudRepository` (built-in CRUD) | ✅ Implemented |
 | `xime.starters.jwt` | JWT signing, verification, middleware | ✅ Implemented |
 | `xime.starters.scheduler` | Cron-style task scheduling | ✅ Implemented |
 | `xime.starters.cache` | `CacheService` abstraction (backend-neutral) | ✅ Implemented |
@@ -291,7 +292,7 @@ See the [CHANGELOG](CHANGELOG.md) for release history.
 | [Core Concepts](docs/en/core-concepts.md) | DI, interface binding, scopes |
 | [Configuration](docs/en/configuration.md) | Framework config + runtime YAML |
 | [Routing](docs/en/routing.md) | Class-based controllers, route decorators |
-| [Transaction](docs/en/transaction.md) | Explicit transaction management |
+| [Transaction](docs/en/transaction.md) | Explicit transaction management + read-only blocks |
 | [Code-First gRPC](docs/en/grpc-codefirst.md) | Generate `.proto` from Python DTOs; field-number stability; `xime grpc generate/check`; dynamic mTLS |
 | [gRPC Client SDK](docs/en/grpc-client.md) | Generate a typed client SDK; inject it via DI; deadlines, typed errors, retry, dynamic mTLS |
 | [Socket Adapter](docs/en/socket-adapter.md) | Unix Domain Socket IPC for same-host Native Engine calls |

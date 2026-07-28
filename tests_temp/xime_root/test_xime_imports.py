@@ -203,6 +203,16 @@ def test_import_sqlalchemy_transaction_context():
     assert SqlAlchemyTransactionContext is not None
 
 
+def test_import_sqlalchemy_read_only():
+    pytest.importorskip("sqlalchemy", reason="SQLAlchemy not installed")
+    from xime.starters.sqlalchemy import (
+        SqlAlchemyReadOnlyContext,
+        SqlAlchemyReadOnlyManager,
+    )
+    assert SqlAlchemyReadOnlyManager is not None
+    assert SqlAlchemyReadOnlyContext is not None
+
+
 # ---------------------------------------------------------------------------
 # xime.starters.scheduler (optional — skip nếu APScheduler chưa cài)
 # ---------------------------------------------------------------------------

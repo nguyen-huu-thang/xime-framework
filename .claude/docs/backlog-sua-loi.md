@@ -1,6 +1,14 @@
 # Backlog - Lỗi cần điều tra/sửa trong framework
 
-> Các vấn đề đã xác nhận. Phiên sau làm việc tại repo này chọn việc từ đây.
+> **TRẠNG THÁI 2026-07-27: KHÔNG CÒN MỤC NÀO MỞ.** Cả 11 mục dưới đây đã đóng.
+> Đừng đọc file này để tìm việc - nó chỉ còn giá trị tra cứu "lỗi X trước đây sửa thế
+> nào, ở file nào, test regression nằm đâu".
+>
+> Hai mục theo dõi B1 (ép kiểu cờ `xime.di.dynamic-binding`) và B2 (thứ tự
+> `post_construct` khi bật dynamic binding) ghi nhận ở kiểm toán 0.6 cũng đã xử lý tại
+> **0.6.3** - xem `wishlist-tinh-nang.md` mục "Core DI / Interface Binding".
+>
+> Nơi tìm việc tiếp theo: `lo-trinh-phien-ban.md` (0.7 Fieldbus) và `wishlist-tinh-nang.md`.
 
 ## Đã sửa (2026-06-13)
 

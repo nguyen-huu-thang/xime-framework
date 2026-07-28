@@ -26,6 +26,14 @@
   - **Authorization** (caller nào được làm gì) vẫn ở app, framework không ôm.
   - Nguồn đề xuất: `Base Platform/notification/DE-XUAT-CAI-TIEN-FRAMEWORK.md` mục 1.
 
+- ~~**Trích thêm SAN `xime-app://` -> `PEER_APP_ID`**~~ - **ĐÃ LÀM ở 0.6.3**
+  (2026-07-27). Đặt 2026-07-26 cho đợt "hồn - xác". Hiện thực: hằng `PEER_APP_ID`
+  và `current_app_id()` ở `core/security/peer.py`, `_read_peer_app_id()` ở
+  `adapters/grpc/interceptors/_context.py` (đọc property
+  `x509_subject_alternative_name` - tên đã kiểm chứng đúng; duyệt mọi entry vì
+  SAN nhiều giá trị; cắt scheme; fail-soft). Chi tiết + bối cảnh:
+  `peer-app-id-tu-san-cert.md`.
+
 - **Tiện ích idempotency dùng chung** (đề xuất notification mục 2, CHƯA đủ chín).
   Nhiều service (notification outbox, payment...) cần dedupe theo key. CHƯA nên
   frameworkize: ngữ nghĩa key/backend/TTL/scope khác nhau nhiều giữa các service
@@ -132,27 +140,25 @@
     nới để cho phép khai báo nhiều impl có chủ đích, nhưng vẫn validate mọi
     alternative đều thỏa Protocol lúc startup.
 
-- **Theo dõi sau kiểm toán 0.6 - mức THẤP, KHÔNG phải bug, nghiên cứu lại sau**
-  (ghi nhận 2026-06-23 khi kiểm toán bản 0.6 vừa phát hành; cả hai chỉ là điểm
-  cần để ý, hiện không gây lỗi và test phủ đầy đủ):
+- ~~**Theo dõi sau kiểm toán 0.6 - mức THẤP, KHÔNG phải bug**~~ - **ĐÃ XỬ LÝ CẢ
+  HAI ở 0.6.3** (2026-07-27). Ghi nhận 2026-06-23 khi kiểm toán bản 0.6:
 
-  - **(B1) Đọc cờ `xime.di.dynamic-binding` không nhất quán với các cờ khác.**
-    `core/bootstrap/orchestrator.py` đọc bằng
-    `bool(self._runtime.get("xime.di.dynamic-binding", False))`, trong khi các cờ
-    khác (gRPC `tls.enabled`, logging `enabled`...) khai báo qua Pydantic model
-    (`enabled: bool = False`) nên ép kiểu chặt. Với YAML `true/false` thì chạy
-    đúng; chỉ footgun nếu operator viết chuỗi `"false"` (vì `bool("false")` =
-    `True` → bật nhầm). Hướng nghiên cứu: đưa cờ DI về cùng cơ chế ép kiểu/parse
-    boolean như các cờ khác cho nhất quán.
-  - **(B2) Dynamic binding bật: không có cạnh phụ thuộc consumer → impl trong
-    dependency graph** (consumer chỉ phụ thuộc `DynamicProxy` của interface, các
+  - ~~**(B1) Đọc cờ `xime.di.dynamic-binding` không nhất quán với các cờ khác.**~~
+    `orchestrator.py` từng đọc bằng `bool(self._runtime.get(...))`, trong khi các
+    cờ khác (gRPC `tls.enabled`, logging `enabled`...) khai báo qua Pydantic model
+    nên ép kiểu chặt. Footgun khi operator viết chuỗi `"false"` (vì
+    `bool("false")` = `True` → bật nhầm). **Đã vá:** thêm
+    `RuntimeConfig.get_bool()` dùng lại bộ parse boolean của Pydantic, giá trị lạ
+    → `StartupException`; orchestrator gọi qua đó.
+  - ~~**(B2) Dynamic binding bật: không có cạnh phụ thuộc consumer → impl trong
+    dependency graph**~~ (consumer chỉ phụ thuộc `DynamicProxy` của interface, các
     impl là root độc lập). Hệ quả: thứ tự `post_construct` giữa một impl và một
     consumer KHÔNG được đảm bảo. Mọi `post_construct` vẫn chạy đủ lúc startup nên
     request bình thường (sau startup) không ảnh hưởng. Chỉ rủi ro nếu một consumer
-    gọi method của impl **ngay trong `post_construct` của chính nó** - lúc đó impl
-    có thể đã dựng (constructor) nhưng `post_construct` của impl chưa chạy. Rất
-    hiếm. Hướng nghiên cứu: ghi caveat này vào docstring `DynamicProxy`, hoặc cân
-    nhắc thứ tự build impl trước consumer khi bật cờ.
+    gọi method của impl **ngay trong `post_construct` của chính nó**. **Đã xử lý**
+    theo hướng nhẹ nhất: ghi caveat vào docstring `DynamicProxy` kèm cách tránh
+    (làm lười lúc dùng lần đầu). Không đổi thứ tự build - rủi ro quá hiếm để đánh
+    đổi độ phức tạp.
 
 ## Starters (CHỐT mốc 0.4)
 

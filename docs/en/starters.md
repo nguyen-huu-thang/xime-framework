@@ -14,19 +14,27 @@ Starters are optional integration modules, similar to `spring-boot-starter-*` in
 
 `xime.starters.sqlalchemy`
 
-Provides async database sessions and the `SqlAlchemyTransactionManager`.
+Provides async database sessions, the `SqlAlchemyTransactionManager` and the
+`SqlAlchemyReadOnlyManager` (read-only blocks).
 
 ### Setup
 
 ```python
 # config/dependency.py
-from xime.transaction import TransactionManager
-from xime.starters.sqlalchemy import SqlAlchemyTransactionManager
+from xime.core.transaction import ReadOnlyManager, TransactionManager
+from xime.starters.sqlalchemy import (
+    SqlAlchemyReadOnlyManager,
+    SqlAlchemyTransactionManager,
+)
 
 dependency.bind({
     TransactionManager: SqlAlchemyTransactionManager,
+    ReadOnlyManager: SqlAlchemyReadOnlyManager,   # optional, for read-only use cases
 })
 ```
+
+> `ReadOnlyManager` is optional — skip the binding and everything behaves as
+> before. See the "Read-only Blocks" section in [Transaction](transaction.md).
 
 ```yaml
 # resources/application.yml
@@ -40,7 +48,7 @@ database:
 
 ```python
 from sqlalchemy.ext.asyncio import AsyncSession
-from xime.transaction import TransactionManager
+from xime.core.transaction import TransactionManager
 
 class UserRepository:
     def __init__(
@@ -95,7 +103,8 @@ Provided methods:
 | `delete(entity)` | Delete then `flush` |
 
 Every method reads the active session via `AsyncSessionFactory`, so they **must be
-called inside** `async with self.transaction():` (opened by the use case layer):
+called inside** `async with self.transaction():` (writes) or
+`async with self.read_only():` (reads) - the block is opened by the use case layer:
 
 ```python
 class CategoryService:

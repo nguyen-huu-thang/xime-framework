@@ -4,7 +4,7 @@ File này cung cấp hướng dẫn cho Claude Code khi làm việc với dự �
 
 ## Tổng quan dự án
 
-**XIME** là một Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot nhưng vẫn tôn trọng triết lý Python. Đã **phát hành 0.6.2** - toàn bộ core, các adapter (web, gRPC, socket, MQTT) và starters (gồm storage local + S3/MinIO, mail SMTP) đã được triển khai đầy đủ và có test. Bản 0.6 **gỡ hẳn thư viện `dependency-injector`** (lớp lưu/dựng singleton viết lại bằng dict tự viết) và thêm **dynamic interface binding** (một interface bind nhiều implementation, đổi được lúc runtime qua `Switcher`). Bản 0.6.1 thêm cho web adapter: middleware lấy được dependency từ DI / runtime config qua marker `Inject`/`FromConfig` và helper `configure_cors` (app không phải subclass `WebAdapter`). Bản 0.6.2 thêm **starter `mail`**: Protocol `MailService` + backend SMTP `SmtpMailService` (async qua aiosmtplib, gửi đồng bộ có timeout + `MailSendError`).
+**XIME** là một Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot nhưng vẫn tôn trọng triết lý Python. Đã **phát hành 0.6.3** - toàn bộ core, các adapter (web, gRPC, socket, MQTT) và starters (gồm storage local + S3/MinIO, mail SMTP) đã được triển khai đầy đủ và có test. Bản 0.6 **gỡ hẳn thư viện `dependency-injector`** (lớp lưu/dựng singleton viết lại bằng dict tự viết) và thêm **dynamic interface binding** (một interface bind nhiều implementation, đổi được lúc runtime qua `Switcher`). Bản 0.6.1 thêm cho web adapter: middleware lấy được dependency từ DI / runtime config qua marker `Inject`/`FromConfig` và helper `configure_cors` (app không phải subclass `WebAdapter`). Bản 0.6.2 thêm **starter `mail`**: Protocol `MailService` + backend SMTP `SmtpMailService` (async qua aiosmtplib, gửi đồng bộ có timeout + `MailSendError`). Bản 0.6.3 gỡ chặn cho app chạy thật: **`PEER_APP_ID`** (đọc định danh APPLICATION từ SAN `xime-app://` của client cert mTLS, lưu cạnh `PEER_CN` trong request context, phơi qua `current_app_id()`), **TLS/HTTPS cho web adapter** (khối `server.ssl` trong `application.yml`, để trống thì vẫn HTTP thuần như cũ) và **khối chỉ đọc `read_only()`** (usecase không ghi khỏi phải bọc transaction; `ReadOnlyManager` là manager riêng cùng cấp với `TransactionManager`), kèm `RuntimeConfig.get_bool()` ép kiểu chặt cho cờ boolean.
 
 XIME không thay thế FastAPI, SQLAlchemy hay gRPC. Nó cung cấp một tầng kiến trúc phía trên các thư viện này để tự động hóa dependency injection, chuẩn hóa cấu trúc dự án và quản lý vòng đời component.
 
@@ -32,13 +32,13 @@ Python Objects
 - `lifecycle/` — Hook khởi động/tắt (`PostConstruct`, `PreDestroy`)
 - `event/` — Event bus nội bộ (fire and forget, async background tasks)
 - `security/` — `SecurityContext`, `AuthenticationManager`, `AuthorizationManager`
-- `transaction/` — `TransactionManager`, `TransactionContext`
+- `transaction/` — `TransactionManager`, `TransactionContext`, và `ReadOnlyManager`/`ReadOnlyContext` cho khối chỉ đọc
 - `metadata/` — Tiện ích type metadata và reflection
 - `exception/` — Hệ thống phân cấp exception của framework
 
 **Adapters** (`adapters/`) — Tích hợp giao thức, mỗi adapter thiết lập request `Context`:
 
-- `web/` — HTTP server (FastAPI), routing decorators (`@get`, `@post`, `@ws`), middleware (pure-ASGI), OpenAPI/Swagger, WebSocket, streaming file (`files/`: Range download, chunked upload)
+- `web/` — HTTP server (FastAPI), routing decorators (`@get`, `@post`, `@ws`), middleware (pure-ASGI), OpenAPI/Swagger, WebSocket, streaming file (`files/`: Range download, chunked upload), TLS/HTTPS qua khối `server.ssl`
 - `grpc/` — gRPC server thông qua `grpc.aio`, code-first proto generation, client SDK, TLS/mTLS động, interceptors
 - `socket/` — Unix domain socket RPC, frame protocol, peer authentication (Linux SO_PEERCRED)
 - `mqtt/` — MQTT pub/sub (`@subscribe`) + RPC over MQTT v5 (`@rpc`), `MqttPublisher`, auto-reconnect (extra `xime[mqtt]`, aiomqtt)

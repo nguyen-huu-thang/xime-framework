@@ -35,7 +35,7 @@ core/
 ├── contract/     ← Shared endpoint contracts for Socket and gRPC code-first
 ├── security/     ← SecurityContext, AuthenticationManager, AuthorizationManager
 ├── event/        ← Internal event bus (fire and forget, background tasks)
-├── transaction/  ← TransactionManager interface, TransactionContext
+├── transaction/  ← TransactionManager + ReadOnlyManager (read-only blocks) and their contexts
 └── exception/    ← Framework exception hierarchy
 ```
 
@@ -71,7 +71,7 @@ Optional integration modules, similar to `spring-boot-starter-*`.
 
 ```text
 starters/
-├── sqlalchemy/   ← AsyncSession, TransactionProvider         ✅ implemented
+├── sqlalchemy/   ← AsyncSession, transaction + read-only, CrudRepository  ✅ implemented
 ├── jwt/          ← JWT sign/verify (PyJWT), middleware        ✅ implemented
 ├── scheduler/    ← Cron-style task runner (APScheduler)      ✅ implemented
 ├── redis/        ← Redis client                              🔲 planned
@@ -178,13 +178,22 @@ async with self.transaction():
 
 `TransactionManager` is a Core interface. `SqlAlchemyTransactionManager` (in the SQLAlchemy starter) is the concrete implementation. Business code only depends on the interface.
 
+Read-only use cases use `ReadOnlyManager`, a separate sibling interface rather than a method on `TransactionManager`:
+
+```python
+async with self.read_only():
+    return await self.repository.find_all()
+```
+
+A read-only block never commits. Keeping it a separate interface means reads can be pointed at a replica later with a single `bind` line. Details: [Transaction](transaction.md).
+
 ---
 
 ## Testing
 
 The `testing/` module provides:
 
-- `FakeTransactionManager` — in-memory transaction for unit tests
+- `FakeTransactionManager` / `FakeReadOnlyManager` — in-memory transaction and read-only block for unit tests
 - DI override helpers — replace a singleton with a test double without touching production config
 
 ```python

@@ -43,7 +43,7 @@ class FakeUserRepository:
 
 ---
 
-## Fake Transaction Manager
+## Fake Transaction / Read-only Manager
 
 `xime.testing` cung cấp `FakeTransactionManager` thực thi khối lệnh mà không có transaction database thực:
 
@@ -57,6 +57,21 @@ async def test_create_user_with_transaction():
 
     user = await use_case.execute(CreateUserCommand(name="Bob"))
     assert user.name == "Bob"
+```
+
+Usecase chỉ đọc dùng `FakeReadOnlyManager` — bản no-op đối xứng cho khối
+`async with self.read_only():`:
+
+```python
+from xime.testing import FakeReadOnlyManager
+
+async def test_get_product_detail():
+    service = ProductService(
+        read_only=FakeReadOnlyManager(),
+        products=FakeProductRepository(),
+    )
+    detail = await service.get_detail("p-1")
+    assert detail.name == "Bàn phím"
 ```
 
 ---
@@ -162,6 +177,7 @@ Dùng test database (URL riêng, xóa sạch giữa các lần chạy test) thay
 | Tiện ích | Mô tả |
 | --- | --- |
 | `FakeTransactionManager` | Transaction no-op cho unit test |
+| `FakeReadOnlyManager` | Khối chỉ đọc no-op cho unit test |
 | `override_binding(cls, fake)` | Tạm thời thay thế DI binding |
 
 Thêm testing utility sẽ được bổ sung khi framework trưởng thành.

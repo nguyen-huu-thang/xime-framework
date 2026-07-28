@@ -35,7 +35,7 @@ xime/                        ← package root (thin re-export layer)
 │       └── routing/
 │
 ├── starters/
-│   ├── sqlalchemy/         ← session/transaction + CrudRepository (CRUD chung)
+│   ├── sqlalchemy/         ← session/transaction/read-only + CrudRepository (CRUD chung)
 │   ├── jwt/
 │   ├── scheduler/
 │   ├── cache/               ← Protocol CacheService
@@ -62,9 +62,9 @@ Nền tảng framework, không phụ thuộc vào bất kỳ adapter hay thư vi
 - **`lifecycle/`** — Hook vòng đời (`PostConstruct`, `PreDestroy`)
 - **`context/`** — Dữ liệu theo phạm vi request thông qua `ContextVar`
 - **`contract/`** — Định nghĩa endpoint contract (`@command`/`@stream`) dùng chung Socket + gRPC code-first
-- **`security/`** — `SecurityContext`, `AuthenticationManager`, `AuthorizationManager`
+- **`security/`** — `SecurityContext`, `AuthenticationManager`, `AuthorizationManager`, và danh tính peer mTLS (`peer.py`: `current_caller()` = tiến trình gọi, `current_app_id()` = app sở hữu nó)
 - **`event/`** — Event bus nội bộ
-- **`transaction/`** — `TransactionManager`, `TransactionContext`
+- **`transaction/`** — `TransactionManager`, `TransactionContext`, và `ReadOnlyManager`/`ReadOnlyContext` (`readonly.py`) cho khối chỉ đọc - manager riêng cùng cấp, không phải method của transaction
 - **`exception/`** — Hệ thống phân cấp exception của framework
 
 ---
@@ -73,7 +73,7 @@ Nền tảng framework, không phụ thuộc vào bất kỳ adapter hay thư vi
 
 Tích hợp giao thức. Mỗi adapter chịu trách nhiệm thiết lập request `Context` và kết nối giao thức với Core.
 
-- **`web/`** — HTTP + WebSocket server qua FastAPI (ASGI)
+- **`web/`** — HTTP + WebSocket server qua FastAPI (ASGI), TLS/HTTPS qua khối `server.ssl`
   - **`openapi/`** — OpenApiConfig, security schemes (JwtBearer, ApiKey...)
   - **`routing/`** — class-based controllers, decorator `@get`/`@post`...
   - **`middleware/`** — `RequestContextMiddleware` (pure-ASGI)
@@ -89,7 +89,7 @@ Tích hợp giao thức. Mỗi adapter chịu trách nhiệm thiết lập reque
 
 Các module quickstart tùy chọn, tương tự `spring-boot-starter-*` trong Spring Boot.
 
-- **`sqlalchemy/`** — Async DB session, `SqlAlchemyTransactionManager`, `CrudRepository[T]` (base repository CRUD chung)
+- **`sqlalchemy/`** — Async DB session, `SqlAlchemyTransactionManager`, `SqlAlchemyReadOnlyManager` (`readonly.py`), `CrudRepository[T]` (base repository CRUD chung)
 - **`jwt/`** — Xác thực JWT (HS/RSA/EC/EdDSA), middleware, `audience`/`issuer`
 - **`scheduler/`** — Lập lịch tác vụ (APScheduler v4)
 - **`cache/`** — Abstraction `CacheService` (trung lập backend)

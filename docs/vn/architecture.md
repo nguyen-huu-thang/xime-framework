@@ -35,7 +35,7 @@ core/
 ├── contract/     ← Endpoint contract dùng chung cho Socket và gRPC code-first
 ├── security/     ← SecurityContext, AuthenticationManager, AuthorizationManager
 ├── event/        ← Internal event bus (fire and forget, background task)
-├── transaction/  ← TransactionManager interface, TransactionContext
+├── transaction/  ← TransactionManager + ReadOnlyManager (khối chỉ đọc), context tương ứng
 └── exception/    ← Hệ thống exception của framework
 ```
 
@@ -71,7 +71,7 @@ Module tích hợp tùy chọn, tương tự `spring-boot-starter-*` trong Sprin
 
 ```text
 starters/
-├── sqlalchemy/   ← AsyncSession, TransactionProvider         ✅ đã implement
+├── sqlalchemy/   ← AsyncSession, transaction + read-only, CrudRepository  ✅ đã implement
 ├── jwt/          ← JWT sign/verify (PyJWT), middleware        ✅ đã implement
 ├── scheduler/    ← Cron-style task runner (APScheduler)      ✅ đã implement
 ├── redis/        ← Redis client                              🔲 đang kế hoạch
@@ -178,13 +178,22 @@ async with self.transaction():
 
 `TransactionManager` là interface của Core. `SqlAlchemyTransactionManager` (trong SQLAlchemy starter) là implementation cụ thể. Business code chỉ phụ thuộc vào interface.
 
+Usecase **chỉ đọc** dùng `ReadOnlyManager` — một interface riêng, cùng cấp, không phải method của `TransactionManager`:
+
+```python
+async with self.read_only():
+    return await self.repository.find_all()
+```
+
+Khối chỉ đọc không bao giờ commit. Tách thành interface riêng để về sau trỏ đường đọc sang read replica chỉ bằng một dòng `bind`. Chi tiết: [Transaction](transaction.md).
+
 ---
 
 ## Testing
 
 Module `testing/` cung cấp:
 
-- `FakeTransactionManager` — transaction in-memory cho unit test
+- `FakeTransactionManager` / `FakeReadOnlyManager` — transaction và khối chỉ đọc in-memory cho unit test
 - DI override helper — thay thế singleton bằng test double mà không đụng vào production config
 
 ```python

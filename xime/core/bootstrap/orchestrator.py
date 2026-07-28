@@ -56,7 +56,7 @@ class StartupOrchestrator:
             XimeContainer()
             .register_instance(RuntimeConfig, self._runtime)
             .register_instance(EventBus, event_bus)
-            .dynamic_binding(bool(self._runtime.get("xime.di.dynamic-binding", False)))
+            .dynamic_binding(self._runtime.get_bool("xime.di.dynamic-binding"))
             .scan(*self._binding.packages)
             .bind(self._binding.bindings)
             .register(*self._binding.explicit_classes)

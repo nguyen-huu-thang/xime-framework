@@ -61,8 +61,10 @@ class CrudRepository(Generic[T], ABC):
       đăng ký, không tốn thêm boilerplate.
 
     All methods read the active session from AsyncSessionFactory.current(), so
-    they must be called inside 'async with self.transaction():'.
-    Mọi method đọc session đang hoạt động -> phải gọi trong transaction.
+    they must be called inside 'async with self.transaction():' (writes) or
+    'async with self.read_only():' (reads).
+    Mọi method đọc session đang hoạt động -> phải gọi trong 'transaction()' (ghi)
+    hoặc 'read_only()' (đọc).
     """
 
     @property
@@ -77,9 +79,9 @@ class CrudRepository(Generic[T], ABC):
 
     @property
     def session(self) -> AsyncSession:
-        """The active session for the current transaction.
+        """The active session for the current transaction or read-only block.
 
-        Raises RuntimeError if accessed outside 'async with self.transaction():'.
+        Raises RuntimeError if accessed outside both.
         """
         return self._sessions.current()
 

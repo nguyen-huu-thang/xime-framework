@@ -3,11 +3,13 @@ Test RuntimeConfig và ServerConfig:
   - giá trị mặc định
   - from_dict() với dữ liệu đầy đủ / một phần / extra keys
   - get() với dot-notation: key hợp lệ, thiếu, nested, default
+  - get_bool() ép kiểu chặt: chuỗi "false" KHÔNG được thành True (0.6.3)
   - ServerConfig validate kiểu dữ liệu
 """
 import pytest
 
 from xime.core.config import RuntimeConfig, ServerConfig
+from xime.core.exception import StartupException
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +109,58 @@ def test_get_path_too_deep_returns_default():
     cfg = RuntimeConfig.from_dict({"server": {"port": 8080}})
     # port là int, không thể đi sâu hơn
     assert cfg.get("server.port.something", "nope") == "nope"
+
+
+# ---------------------------------------------------------------------------
+# get_bool() — ép kiểu boolean chặt (0.6.3)
+# ---------------------------------------------------------------------------
+
+def _flag(value) -> RuntimeConfig:
+    return RuntimeConfig.from_dict({"xime": {"di": {"dynamic-binding": value}}})
+
+
+FLAG = "xime.di.dynamic-binding"
+
+
+def test_get_bool_missing_key_returns_default():
+    cfg = RuntimeConfig()
+    assert cfg.get_bool(FLAG) is False
+    assert cfg.get_bool(FLAG, default=True) is True
+
+
+def test_get_bool_null_value_returns_default():
+    """YAML `dynamic-binding:` không giá trị -> None -> dùng default."""
+    assert _flag(None).get_bool(FLAG) is False
+    assert _flag(None).get_bool(FLAG, default=True) is True
+
+
+def test_get_bool_native_booleans():
+    assert _flag(True).get_bool(FLAG) is True
+    assert _flag(False).get_bool(FLAG) is False
+
+
+@pytest.mark.parametrize("value", ["false", "False", "FALSE", "no", "off", "0", 0])
+def test_get_bool_falsy_spellings_stay_false(value):
+    """Chính là footgun cũ: bool("false") == True nên cờ bị bật nhầm."""
+    assert _flag(value).get_bool(FLAG) is False
+
+
+@pytest.mark.parametrize("value", ["true", "True", "yes", "on", "1", 1])
+def test_get_bool_truthy_spellings_become_true(value):
+    assert _flag(value).get_bool(FLAG) is True
+
+
+@pytest.mark.parametrize("value", ["maybe", "", "2", [], {"a": 1}])
+def test_get_bool_rejects_non_boolean_loudly(value):
+    """Cờ cấu hình sai phải nổ lúc startup, không âm thầm chọn một nhánh."""
+    with pytest.raises(StartupException) as exc:
+        _flag(value).get_bool(FLAG)
+    assert FLAG in str(exc.value)
+
+
+def test_get_bool_does_not_affect_get():
+    """get() vẫn trả giá trị thô, không đổi hành vi cũ."""
+    assert _flag("false").get(FLAG) == "false"
 
 
 # ---------------------------------------------------------------------------

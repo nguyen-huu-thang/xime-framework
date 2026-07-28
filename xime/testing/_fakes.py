@@ -49,3 +49,44 @@ class FakeTransactionManager:
 
     def __call__(self) -> _FakeTransactionContext:
         return _FakeTransactionContext()
+
+
+class _FakeReadOnlyContext:
+    """No-op async context manager returned by FakeReadOnlyManager."""
+
+    async def __aenter__(self) -> "_FakeReadOnlyContext":
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: Any,
+    ) -> None:
+        pass  # nothing was opened — nothing to discard
+
+
+class FakeReadOnlyManager:
+    """
+    No-op ReadOnlyManager for unit and integration tests.
+
+    The read-only counterpart of FakeTransactionManager. Replaces any
+    ReadOnlyManager implementation without a real database, so the
+    ``async with self.read_only()`` boundary in business code still works
+    exactly as written.
+    Bản chỉ-đọc tương ứng của FakeTransactionManager: thay implementation thật mà
+    không cần database, khối ``async with self.read_only()`` trong code nghiệp vụ
+    vẫn chạy y như đã viết.
+
+    Usage with TestApplication::
+
+        async with TestApplication(
+            binding=my_binding,
+            overrides={ReadOnlyManager: FakeReadOnlyManager()},
+        ) as app:
+            service = app.get(ProductService)
+            await service.list_products()  # no DB needed
+    """
+
+    def __call__(self) -> _FakeReadOnlyContext:
+        return _FakeReadOnlyContext()

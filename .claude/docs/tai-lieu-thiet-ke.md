@@ -168,6 +168,12 @@ resources/
 ```yaml
 server:
   port: 8080
+  # Bỏ trống khối ssl -> HTTP thuần. Khai certfile + keyfile -> HTTPS (0.6.3).
+  # Cấu hình nửa vời (thiếu một trong hai, file không tồn tại/không đọc được)
+  # -> StartupException, KHÔNG im lặng rơi về HTTP.
+  ssl:
+    certfile: /etc/letsencrypt/live/example.com/fullchain.pem
+    keyfile: /etc/letsencrypt/live/example.com/privkey.pem
 database:
   host: localhost
 redis:
@@ -297,11 +303,12 @@ Startup fail ngay với thông báo rõ ràng.
 
 Tùy chọn, không bắt buộc:
 
-- SQLAlchemy Starter
+- SQLAlchemy Starter (transaction + khối chỉ đọc + `CrudRepository`)
 - JWT Starter
 - Scheduler Starter
 - Cache Starter + Redis Starter (backend của `CacheService`)
 - Storage Starter + LocalFS / S3 Backend (backend của `StorageService`)
+- Mail Starter (backend SMTP của `MailService`)
 
 Tương tự `spring-boot-starter-*` trong Spring Boot.
 

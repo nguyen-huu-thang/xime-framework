@@ -5,6 +5,157 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [0.6.3] - 2026-07-29
+
+Bản vá tương thích ngược hoàn toàn, tập trung **gỡ chặn cho các app đang chạy
+trên platform**. Ba việc chính: **`PEER_APP_ID`** (cert mTLS của tiến trình
+thuộc một app nay mang định danh app trong SAN, framework đọc ra và đặt vào
+`request_context` để service phía sau phân giải được Subject loại APPLICATION),
+**TLS cho web adapter** (platform cố ý không có gateway, không có nó thì app
+Python không phục vụ được Internet) và **khối chỉ đọc `read_only()`** (usecase
+không ghi thôi phải bọc transaction). Kèm hai điểm hardening ghi nhận từ kiểm
+toán 0.6 và vá metadata gói. Test: **1223 passed, 5 skipped** (+98 test so với
+0.6.2; skip thứ 5 là ca phân quyền file chỉ chạy trên POSIX).
+
+### Added
+
+- **Khối chỉ đọc `read_only()`** - trước bản này mọi truy cập database, kể cả một
+  câu `SELECT`, đều phải nằm trong `async with self.transaction():` vì
+  `AsyncSessionFactory.current()` ném `RuntimeError` khi ngoài transaction. Hệ quả
+  là service chỉ đọc vẫn phải nhận `TransactionManager`, và `async with
+  self.transaction():` xuất hiện dày đến mức không còn mang thông tin gì - nhìn nó
+  không biết được chỗ nào thật sự có ghi.
+- **`ReadOnlyManager` / `ReadOnlyContext`** (`core/transaction/readonly.py`,
+  export ở `xime.core.transaction`) - Protocol cho khối chỉ đọc, **cùng cấp** với
+  `TransactionManager` chứ không phải method của nó:
+
+  ```python
+  async with self.read_only():
+      product = await self.products.find_or_fail(product_id)
+  ```
+
+  Tách thành binding riêng để về sau trỏ đường đọc sang **read replica** / mức
+  isolation khác / decorator cache chỉ bằng một dòng `bind`, không sửa code
+  nghiệp vụ. Là method của `TransactionManager` thì nó dính chặt vào engine của
+  đường ghi.
+- **`SqlAlchemyReadOnlyManager` / `SqlAlchemyReadOnlyContext`**
+  (`starters/sqlalchemy/readonly.py`) - implementation, bind cạnh
+  `TransactionManager`. Bốn đặc điểm:
+  - **Không bao giờ commit.** Thoát khối là hủy, dù thành công hay lỗi. Nên lỡ
+    sửa entity trong khối chỉ đọc thì thay đổi không xuống được database. Framework
+    **không báo lỗi** ca này - xem mục Ranh giới bên dưới.
+  - **Lồng nhau thì mượn session đang chạy** và thoát ra không làm gì. Nhờ vậy một
+    service chỉ đọc ghép được vào usecase có ghi mà không mở connection thứ hai,
+    và không đóng nhầm session của transaction bao ngoài.
+  - **`expunge_all()` trước `rollback()`** để entity còn dùng được sau khi ra khỏi
+    khối. Rollback làm expire mọi object trong session, đọc thuộc tính sau đó sẽ
+    ném `DetachedInstanceError` - kiểm chứng bằng cách xóa đúng dòng đó, hai test
+    chuyển đỏ. Quan hệ chưa eager-load thì vẫn lỗi, y như async SQLAlchemy thường.
+  - **Không gọi `begin()` tường minh**, để SQLAlchemy autobegin: khối không đọc gì
+    thì không lấy connection nào khỏi pool (đo bằng `pool.checkedout()` trong test).
+  - **Ranh giới đã chốt:** framework **không chặn** việc sửa entity đọc được từ
+    khối chỉ đọc - thay đổi bị bỏ đi im lặng, không lỗi, không log. Chặn được thì
+    phải hook SQLAlchemy event và trả phí runtime cho mọi lời đọc, trái nguyên tắc
+    minimal magic; bù bằng quy tắc tài liệu (entity đọc trong `read_only()` chỉ để
+    **trả về hoặc render**, muốn sửa thì mở `transaction()` và **load lại**).
+  - **Tương thích ngược:** đường transaction cũ không đổi một dòng nào; chỗ duy
+    nhất bị nới là `AsyncSessionFactory.current()` (nay khối chỉ đọc cũng đặt được
+    session vào ContextVar), còn `RuntimeError` khi gọi repository ngoài mọi khối
+    thì giữ nguyên. App không bind `ReadOnlyManager` chạy y như cũ - có test boot
+    `Application` thật cho cả hai trường hợp.
+- **`FakeReadOnlyManager`** (`xime.testing`) - bản no-op đối xứng với
+  `FakeTransactionManager`, cho test không cần database.
+
+- **TLS/HTTPS cho web adapter** - trước bản này `uvicorn.Config` được dựng không
+  tham số ssl nào nên mọi app Xime chỉ chạy HTTP thuần. Kiến trúc platform cố ý
+  không có gateway/reverse proxy, mỗi service tự kết thúc TLS.
+  - **`ServerTlsConfig`** (`core/config/runtime.py`, export ở `xime.core.config`
+    và `xime.adapters.web`) - khối `server.ssl` trong `application.yml`:
+    `certfile`, `keyfile`, `keyfile_password`, `ca_certs`, `cert_reqs`,
+    `ciphers`. **Để trống = HTTP thuần, hành vi cũ y nguyên.**
+  - **`cert_reqs` dùng chữ** (`"none"` / `"optional"` / `"required"`) thay vì số
+    `ssl.CERT_*`: operator đọc `cert_reqs: required` trong YAML là hiểu, đọc
+    `cert_reqs: 2` thì không. Framework map sang hằng stdlib; sai chính tả bị
+    Pydantic từ chối ngay.
+  - **Fail-fast khi cấu hình sai.** uvicorn báo lỗi không thể debug cho cert khai
+    nửa vời: thiếu `keyfile` ra `SSLError: [SSL] PEM lib`, thiếu `certfile` ra
+    `AssertionError` **rỗng message**. Nay `_tls_kwargs()` kiểm trước và ném
+    `StartupException` nêu key + đường dẫn + `server_id`: khai một nửa, file
+    không tồn tại, không phải file thường, hoặc **tồn tại mà không đọc được**
+    (certbot ghi `privkey.pem` chỉ cho root - lỗi hay gặp nhất khi triển khai).
+    Không bao giờ im lặng rơi về HTTP: server tưởng HTTPS mà thật ra HTTP là lỗ
+    hổng bảo mật.
+  - **Chỉ forward option thực sự được cấu hình.** uvicorn đặt mặc định
+    `ssl_cert_reqs = CERT_NONE` và `ssl_ciphers` là chuỗi khác rỗng, nên truyền
+    `None` không phải "dùng mặc định" mà ghi đè mất (kiểm chứng:
+    `ssl_cert_reqs=None` ném `ValueError: None is not a valid VerifyMode`).
+  - **Multi-server: `WebAdapter(..., ssl=ServerTlsConfig(...))`**, để trống thì
+    **kế thừa `server.ssl`**. Kế thừa là có chủ đích - server phụ âm thầm chạy
+    HTTP khi server chính đã HTTPS là lỗ hổng không ai để ý; muốn tắt thì truyền
+    `ssl=ServerTlsConfig()` tường minh.
+  - Cert phải là cert **CA công cộng** (certbot...). Cert do CA nội bộ Trust cấp
+    là để service nhận diện nhau qua mTLS, trình duyệt không tin.
+  - Test `tests_temp/web/test_tls.py` (29 pass + 1 skip), gồm một ca **gọi HTTPS
+    thật** vào uvicorn đang chạy với client tin đúng cert tự ký. Thiết kế, phần
+    đã bỏ và hướng nâng cấp: `.claude/docs/tls-cho-web-adapter.md`.
+
+- **`PEER_APP_ID` - định danh APPLICATION đọc từ SAN của client cert.** Một app
+  có nhiều tiến trình, mỗi tiến trình một cert riêng (CN riêng) nhưng chung một
+  định danh app; cert mang định danh đó dưới dạng SAN URI `xime-app://<Base62 33
+  ký tự>`. Framework nay trích ra và lưu cạnh `PEER_CN`:
+  - **`current_app_id()`** (`core/security/peer.py`) - trả định danh app của
+    caller hoặc `None`, đối xứng `current_caller()`. Export ở `xime.core.security`
+    cùng hằng `PEER_APP_ID`.
+  - **`_read_peer_app_id()`** (`adapters/grpc/interceptors/_context.py`) - đọc
+    property `x509_subject_alternative_name` của `auth_context()`. Khác CN, SAN
+    là property **nhiều giá trị** (cert thường còn mang DNS, IP, spiffe) nên
+    duyệt mọi entry, bỏ qua entry không liên quan. Chấp nhận cả URI trần lẫn dạng
+    có tiền tố loại (`URI:xime-app://...`) bằng cách tìm chuỗi con thay vì so đầu
+    chuỗi. Lưu **phần sau scheme** - đúng dạng platform dùng ở REST path và JWT
+    `sub`, consumer không phải tự cắt.
+  - **Fail-soft tuyệt đối** như `PEER_CN`: không mTLS, thiếu entry, giá trị không
+    decode được UTF-8, hay định danh sai độ dài đều trả `None` chứ không ném. Một
+    cert lạ không bao giờ được phép làm hỏng request. Entry hỏng bị bỏ qua chứ
+    không che mất entry hợp lệ đứng sau.
+  - **Ranh giới giữ nguyên:** framework chỉ cấp sự thật thô, không giải mã Base62,
+    không kiểm app có tồn tại, không kiểm quyền - authorization vẫn ở ứng dụng.
+  - `_set_peer_cn` đổi tên thành `_set_peer_identity` (hàm nội bộ) và set cả hai
+    key trong một chỗ, nên hai đường gọi unary/streaming không phải sửa riêng.
+    **Hành vi `PEER_CN` không đổi** - có service đang dựa vào nó.
+
+### Fixed
+
+- **Cờ `xime.di.dynamic-binding` ép kiểu chặt** (B1, ghi nhận khi kiểm toán 0.6).
+  Trước đây đọc bằng `bool(runtime.get(...))`, trong khi mọi cờ khác đi qua model
+  Pydantic. Hệ quả: operator viết `dynamic-binding: "false"` (chuỗi có nháy trong
+  YAML) sẽ **bật nhầm** tính năng, vì `bool("false")` là `True`. Thêm
+  **`RuntimeConfig.get_bool(key, default)`** dùng lại chính bộ parse boolean của
+  Pydantic (`true/false`, `yes/no`, `on/off`, `1/0`, không phân biệt hoa thường)
+  và ném `StartupException` nêu rõ key + giá trị khi gặp thứ không phải boolean -
+  cờ sai phải nổ lúc startup, không hành xử tuỳ tiện về sau. `get()` giữ nguyên
+  hành vi trả giá trị thô.
+- **Metadata gói `pyproject.toml`**: thêm classifier `Typing :: Typed` (repo vẫn
+  ship `xime/py.typed` mà chưa khai báo) và chuyển license sang PEP 639
+  (`license = "MIT"` + `license-files`, thay dạng bảng `{ file = "LICENSE" }`) để
+  PyPI hiện tag license. Kèm `requires = ["hatchling>=1.27"]` vì bản cũ hơn không
+  hiểu metadata PEP 639. Wheel dựng thử xác nhận `License-Expression: MIT` +
+  `License-File: LICENSE`.
+
+### Documentation
+
+- **Caveat thứ tự `post_construct` của `DynamicProxy`** (B2, ghi nhận khi kiểm
+  toán 0.6). Khi bật dynamic binding, consumer phụ thuộc proxy chứ không phụ thuộc
+  impl, nên dependency graph không có cạnh consumer -> impl và thứ tự
+  `post_construct` giữa hai bên là không xác định. Mọi `post_construct` vẫn chạy
+  đủ lúc startup nên request sau đó không ảnh hưởng; rủi ro duy nhất là consumer
+  gọi vào impl ngay trong `post_construct` của chính nó. Đã ghi vào docstring kèm
+  hướng xử lý (làm lười lúc dùng lần đầu). Không đổi code.
+- **Tài liệu transaction viết lại** (`docs/{vn,en}/transaction.md`,
+  `.claude/rules/transaction.md`) - mục "API tương lai" trước đây hứa
+  `transaction.read_only()`; nay đã hiện thực nhưng **dưới dạng manager riêng cùng
+  cấp**, các mục đó được sửa cho khớp và bổ sung phần cảnh báo "đọc ngoài
+  transaction thì đừng sửa".
+
 ## [0.6.2] - 2026-06-30
 
 Thêm **starter `mail`** - gửi email qua SMTP theo đúng khuôn mẫu starter sẵn có
