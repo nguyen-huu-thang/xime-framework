@@ -86,13 +86,13 @@ class GrpcAdapter:
         self._host_override = host
         self._port_override = port
         self._server: grpc.aio.Server | None = None
-        self._app: "Application | None" = None
+        self._app: Application | None = None
 
     # ------------------------------------------------------------------
     # Adapter protocol
     # ------------------------------------------------------------------
 
-    async def start(self, app: "Application") -> None:
+    async def start(self, app: Application) -> None:
         """Build and start the gRPC server.
 
         Called by Application._run_async() after the DI container is fully built,
@@ -159,7 +159,7 @@ class GrpcAdapter:
     # ------------------------------------------------------------------
 
     def _build_credentials(
-        self, app: "Application", config: GrpcServerConfig
+        self, app: Application, config: GrpcServerConfig
     ) -> grpc.ServerCredentials | None:
         """Resolve TLS credentials for this server, or None for insecure.
 
@@ -209,7 +209,7 @@ class GrpcAdapter:
                 "orchestrator)."
             ) from exc
 
-    def _register_codefirst(self, app: "Application") -> None:
+    def _register_codefirst(self, app: Application) -> None:
         """Build + register code-first controllers for this server, if configured.
 
         No-op when configure_grpc_codefirst() was never called. Imports the
@@ -223,11 +223,11 @@ class GrpcAdapter:
         if not packages:
             return
 
-        from xime.core.contract import ControllerScanner
         from xime.adapters.grpc.codefirst._builder import ContractBuilder
         from xime.adapters.grpc.codefirst._lock import LockFile
         from xime.adapters.grpc.codefirst._pb2_loader import load_message_classes
         from xime.adapters.grpc.codefirst._service_builder import CodeFirstGrpcBuilder
+        from xime.core.contract import ControllerScanner
 
         controllers = ControllerScanner().find_controllers(*packages)
         # Only build/serve when at least one controller targets this server.

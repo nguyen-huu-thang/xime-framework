@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable
+from typing import TYPE_CHECKING, Any
 
 import grpc
 import grpc.aio
@@ -57,7 +58,7 @@ _ERROR_KEY = "xime-error"
 class XimeGrpcChannel:
     """Channel for one client_id, configured from grpc.clients.<id> in YAML."""
 
-    def __init__(self, client_id: str, config: "GrpcClientConfig") -> None:
+    def __init__(self, client_id: str, config: GrpcClientConfig) -> None:
         self._client_id = client_id
         self._config = config
         self._channel: grpc.aio.Channel | None = None
@@ -66,7 +67,7 @@ class XimeGrpcChannel:
         # created with; channels replaced on rotation, awaiting graceful close.
         # mTLS động — orchestrator gắn provider sau khi build container;
         # version cert của channel hiện tại; các channel bị thay chờ đóng.
-        self._provider: "GrpcCertificateProvider | None" = None
+        self._provider: GrpcCertificateProvider | None = None
         self._cert_version: str | None = None
         self._retired: list[grpc.aio.Channel] = []
         # Strong refs to background close tasks so the event loop does not garbage
@@ -86,7 +87,7 @@ class XimeGrpcChannel:
     def client_id(self) -> str:
         return self._client_id
 
-    def attach_certificate_provider(self, provider: "GrpcCertificateProvider") -> None:
+    def attach_certificate_provider(self, provider: GrpcCertificateProvider) -> None:
         """Attach the dynamic certificate source (framework wiring, not user API)."""
         self._provider = provider
 
@@ -199,7 +200,7 @@ class XimeGrpcChannel:
                 self._cert_version = version
             return self._channel
 
-    def _create_dynamic_channel(self, certs: "ServerCertificates") -> grpc.aio.Channel:
+    def _create_dynamic_channel(self, certs: ServerCertificates) -> grpc.aio.Channel:
         if not certs.root_ca_pem:
             raise RuntimeError(
                 f"gRPC client '{self._client_id}': the certificate provider "

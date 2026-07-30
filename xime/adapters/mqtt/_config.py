@@ -65,7 +65,7 @@ class MqttConfig(BaseModel):
     lwt: MqttLwtConfig | None = None
 
     @classmethod
-    def resolve(cls, runtime: RuntimeConfig, client_id: str) -> "MqttConfig":
+    def resolve(cls, runtime: RuntimeConfig, client_id: str) -> MqttConfig:
         """Build the config from the 'mqtt' block; fail-fast if host is missing."""
         raw = runtime.get("mqtt")
         raw = raw if isinstance(raw, dict) else {}

@@ -2,7 +2,7 @@
 
 [English](../en/mqtt.md) | **Tiếng Việt**
 
-[← Socket Adapter](socket-adapter.md) · **MQTT Adapter** · [File Storage →](file-storage.md)
+[← Socket Adapter](socket-adapter.md) · **MQTT Adapter** · [Modbus Adapter →](modbus.md)
 
 ---
 
@@ -220,4 +220,4 @@ pip install "xime[mqtt]"   # thêm aiomqtt (kéo theo paho-mqtt)
 
 ---
 
-[← Socket Adapter](socket-adapter.md) · **MQTT Adapter** · [File Storage →](file-storage.md)
+[← Socket Adapter](socket-adapter.md) · **MQTT Adapter** · [Modbus Adapter →](modbus.md)

@@ -39,6 +39,38 @@ Một class chỉ được đăng ký vào DI container khi:
 - Tất cả tham số constructor có type hint (thiếu hint → coi như class đó không đăng kí mà là class ngoài DI)
 - Không thuộc package bị loại trừ: `domain`, `dto`, `entity`, `vo`, `constant`, `exception`
 
+### Tham số có giá trị mặc định = tham số KHÔNG bắt buộc
+
+Nếu một tham số constructor **có default** mà không thứ gì trong container cấp
+được kiểu của nó, framework **bỏ tham số đó ra khỏi kế hoạch dựng** và để Python
+dùng giá trị mặc định. Không báo lỗi.
+
+```python
+class ModbusClient:
+    def __init__(self, device: str = "default") -> None: ...
+
+dependency.register(ModbusClient)     # OK, device = "default"
+```
+
+**Vì sao cần quy tắc này:** container đọc MỌI annotation là một dependency, nên
+trước đây chữ ký trên không đăng ký nổi - startup chết với
+`UnregisteredDependencyException: Dependency: str`, dù chẳng DI container nào
+cấp `str` bao giờ. Đúng lỗi đã xảy ra với `ModbusClient`/`OpcuaClient` ở 0.7.0
+(xem `docs/kiem-toan-0.7.md` mục C2).
+
+Tương đương `@Autowired(required=false)` của Spring.
+
+**Fail-fast vẫn giữ nguyên ở chỗ quan trọng:** tham số **không** có default mà
+thiếu implementation thì startup vẫn nổ - đó là đa số áp đảo dependency thật.
+
+**Đánh đổi đã cân nhắc và chấp nhận:** tham số `Protocol` có default mà thiếu
+binding giờ nhận default thay vì nổ. Chọn quy tắc thống nhất (chứ không tách
+riêng Protocol) để nó gói được trong một câu người đọc nhớ nổi.
+
+Hiện thực: `XimeContainer._drop_unsatisfiable_optional_deps()`. Áp cho cả tham số
+constructor và tham số của factory method trong `dependency.configure(...)`.
+Test canh: `tests_temp/DI/test_08_optional_dependencies.py`.
+
 ### Thiếu type hint = class thường, KHÔNG phải lỗi
 
 **Đây là thiết kế có chủ đích, không phải bug.**

@@ -69,7 +69,7 @@ class FromConfig:
 
 def resolve_options(
     options: dict[str, Any],
-    app: "Application",
+    app: Application,
 ) -> dict[str, Any]:
     """Trả về bản sao của options với mọi marker Inject/FromConfig đã được phân giải.
 

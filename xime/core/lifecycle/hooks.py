@@ -15,6 +15,18 @@ class PostConstruct(Protocol):
     Typical uses: warm up caches, open connection pools, validate config,
     register event listeners.
 
+    CONTRACT for partial failure (decided 2026-07-30): pre_destroy() is only
+    called for instances whose post_construct() COMPLETED - running it on a
+    half-initialised object would raise a second error that buries the first.
+    So a post_construct that opens a resource and then fails at a later step
+    must close that resource itself before re-raising; it is the only code
+    that knows how far it got. For several resources, use
+    contextlib.AsyncExitStack with pop_all() on success.
+    HỢP ĐỒNG khi hỏng giữa chừng: pre_destroy() chỉ gọi cho instance đã chạy
+    XONG post_construct(). Mở tài nguyên rồi hỏng ở bước sau thì chính
+    post_construct phải tự đóng trước khi ném tiếp - chỉ nó biết đã mở tới đâu.
+    Nhiều tài nguyên thì dùng AsyncExitStack + pop_all() lúc thành công.
+
     Example:
         class UserService:
             def __init__(self, repository: UserRepository): ...

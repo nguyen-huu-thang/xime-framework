@@ -26,6 +26,17 @@ XIME reads the type hints, resolves each dependency, and creates the object — 
 **Rules:**
 
 - Every parameter must have a type hint. A missing hint means XIME cannot resolve it, and the class is treated as outside the DI system.
+- **A parameter with a default value is OPTIONAL.** When nothing in the container can supply its type, XIME drops the parameter and Python applies the default rather than failing at startup. That is what lets the signature below register normally, even though no DI container ever supplies a `str`:
+
+  ```python
+  class ModbusClient:
+      def __init__(self, device: str = "default") -> None: ...
+
+  dependency.register(ModbusClient)     # OK, device = "default"
+  ```
+
+  Same intent as Spring's `@Autowired(required=false)`. **Fail-fast is preserved where it matters:** a parameter with **no** default and no implementation still stops startup - and that is the overwhelming majority of real dependencies.
+
 - No `@inject`, no `@autowired`, no field injection.
 
 ---
@@ -245,24 +256,55 @@ With `__all__` present, only the listed classes are scanned. Without it, everyth
 
 ## 8. Lifecycle Hooks
 
-Classes can hook into the application lifecycle:
+A class hooks into the application lifecycle by **naming the methods correctly** - no registration call, no decorator. `PostConstruct` and `PreDestroy` are `Protocol`s; the framework checks with `isinstance` at startup/shutdown:
 
 ```python
-from xime.lifecycle import PostConstruct, PreDestroy
-
 class DatabasePool:
     def __init__(self) -> None:
         self._pool = None
 
-    async def on_start(self) -> None:   # called after all singletons are created
+    async def post_construct(self) -> None:   # called after ALL singletons are created
         self._pool = await create_pool()
 
-    async def on_stop(self) -> None:    # called before shutdown
+    async def pre_destroy(self) -> None:      # called before shutdown
         await self._pool.close()
-
-PostConstruct.register(DatabasePool, "on_start")
-PreDestroy.register(DatabasePool, "on_stop")
 ```
+
+Ordering: `post_construct()` runs in topological order (dependencies before dependents); `pre_destroy()` runs in reverse. Two classes with no dependency between them that still need an order declare `dependency.order([A, B])`.
+
+### The rule that matters: clean up as far as you opened
+
+`pre_destroy()` **is only called for instances whose `post_construct()` COMPLETED**. This is deliberate (decided 2026-07-30): running `pre_destroy` on a half-initialised object raises a second error (`AttributeError` on a field that never got set) that buries the original one - exactly when you most need to read the original.
+
+Consequence: when `post_construct()` **fails midway** - a resource was opened, then a later step raised - nothing closes that resource. The clean-up responsibility lives inside `post_construct` itself, the only place that knows how far it got:
+
+```python
+async def post_construct(self) -> None:
+    self._pool = await create_pool()      # step 1 - opens a resource
+    try:
+        await self._warm_cache()          # step 2 - may fail
+    except Exception:
+        await self._pool.close()          # undo step 1, then re-raise
+        raise
+```
+
+When several resources open in sequence, `AsyncExitStack` beats nested try/except:
+
+```python
+from contextlib import AsyncExitStack
+
+async def post_construct(self) -> None:
+    async with AsyncExitStack() as stack:
+        self._pool = await stack.enter_async_context(create_pool())
+        self._mq = await stack.enter_async_context(connect_broker())
+        await self._warm_cache()          # fails here -> stack closes both
+        self._stack = stack.pop_all()     # success -> keep them open
+
+async def pre_destroy(self) -> None:
+    await self._stack.aclose()
+```
+
+`pop_all()` is the crux: reaching the end of the block hands ownership to `pre_destroy`; failing midway lets `AsyncExitStack` close everything already opened, in reverse order.
 
 ---
 
@@ -273,7 +315,7 @@ The internal event bus decouples components that should not directly depend on e
 task and returns immediately without waiting for them to complete.
 
 ```python
-from xime.event import EventBus, EventHandler
+from xime.core.event import EventBus, EventHandler
 
 class UserCreatedEvent:
     def __init__(self, user_id: int) -> None:
@@ -324,20 +366,29 @@ assert notification_mock.called
 Request-scoped data flows through `ContextVar`, not through function parameters or global state:
 
 ```python
-from xime.context import current_user, request_id
+from xime.core.context import request_context
 ```
+
+`request_context` is a key-value store for the **current async context** - one dict per request, holding whatever you put in it (trace id, locale, correlation id, feature flags).
 
 Adapters (middleware) set context at the start of each request. Business code reads it:
 
 ```python
 class AuditService:
     async def log(self, action: str) -> None:
-        user = current_user.get()
-        rid = request_id.get()
-        await self._repository.save_log(user.id, rid, action)
+        rid = request_context.get("request_id")
+        await self._repository.save_log(rid, action)
 ```
 
-Because `ContextVar` is async-safe, each concurrent request has its own isolated context.
+Who the caller is travels separately, through `SecurityContext`, not through this key-value store:
+
+```python
+from xime.core.security import identity
+
+user_id = identity.get()
+```
+
+Because `ContextVar` is async-safe, each concurrent request has its own isolated context. Every `set()` builds a NEW dict rather than mutating in place, so a child task spawned with `asyncio.create_task` keeps its own snapshot and is not emptied when the parent clears its context.
 
 ### Peer identity (mTLS)
 

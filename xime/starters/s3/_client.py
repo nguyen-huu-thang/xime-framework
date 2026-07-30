@@ -69,7 +69,7 @@ class S3ClientProvider:
         return self._bucket
 
     @property
-    def client(self) -> "S3Client":
+    def client(self) -> S3Client:
         """The live async S3 client. Available after post_construct()."""
         if self._client is None:
             raise RuntimeError(

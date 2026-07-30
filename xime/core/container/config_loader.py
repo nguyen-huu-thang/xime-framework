@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import inspect
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, get_type_hints
+from typing import get_type_hints
 
 from xime.core.exception.framework import StartupException
 

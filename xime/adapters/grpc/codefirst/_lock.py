@@ -79,7 +79,7 @@ class LockFile:
     # ------------------------------------------------------------------
 
     @classmethod
-    def load(cls, path: str) -> "LockFile":
+    def load(cls, path: str) -> LockFile:
         """Load a lock file, or return an empty one if it does not exist."""
         if not os.path.exists(path):
             return cls()

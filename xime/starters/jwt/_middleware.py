@@ -126,7 +126,14 @@ class JwtAuthMiddleware:
 
     def _extract_bearer_token(self, request: Request) -> str | None:
         auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith(_BEARER_PREFIX):
+        # The scheme is case-insensitive per RFC 7235; some clients and gateways
+        # send "bearer". Matching only the capitalised spelling turned a valid
+        # request into a 401 whose message ("Missing authorization token") says
+        # the header is absent when it is right there.
+        # Theo RFC 7235 tên scheme không phân biệt hoa thường; một số client gửi
+        # "bearer". Chỉ khớp đúng chữ hoa thì request hợp lệ bị 401 với thông báo
+        # "thiếu token" trong khi header nằm ngay đó.
+        if auth_header[: len(_BEARER_PREFIX)].lower() != _BEARER_PREFIX.lower():
             return None
-        token = auth_header[len(_BEARER_PREFIX):]
+        token = auth_header[len(_BEARER_PREFIX):].strip()
         return token if token else None

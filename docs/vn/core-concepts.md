@@ -26,6 +26,17 @@ XIME đọc type hint, giải quyết từng dependency và tạo object — b�
 **Quy tắc:**
 
 - Mỗi tham số phải có type hint. Thiếu hint đồng nghĩa XIME không thể giải quyết nó, class đó được coi là nằm ngoài DI system.
+- **Tham số có giá trị mặc định là tham số KHÔNG bắt buộc.** Nếu không thứ gì trong container cấp được kiểu của nó, XIME bỏ qua tham số đó và Python dùng giá trị mặc định - thay vì báo lỗi lúc startup. Nhờ vậy chữ ký dưới đây đăng ký được bình thường, dù không DI container nào cấp `str`:
+
+  ```python
+  class ModbusClient:
+      def __init__(self, device: str = "default") -> None: ...
+
+  dependency.register(ModbusClient)     # OK, device = "default"
+  ```
+
+  Tương đương `@Autowired(required=false)` của Spring. **Fail-fast vẫn nguyên ở chỗ quan trọng:** tham số **không** có mặc định mà thiếu implementation thì startup vẫn nổ - và đó là đa số áp đảo các dependency thật.
+
 - Không `@inject`, không `@autowired`, không field injection.
 
 ---
@@ -245,24 +256,55 @@ Khi có `__all__`, chỉ class được liệt kê mới được scan. Không c
 
 ## 8. Lifecycle Hooks
 
-Class có thể hook vào vòng đời ứng dụng:
+Class hook vào vòng đời ứng dụng bằng cách **đặt đúng tên method** - không đăng ký gì thêm, không decorator. `PostConstruct` và `PreDestroy` là `Protocol`; framework kiểm bằng `isinstance` lúc startup/shutdown:
 
 ```python
-from xime.lifecycle import PostConstruct, PreDestroy
-
 class DatabasePool:
     def __init__(self) -> None:
         self._pool = None
 
-    async def on_start(self) -> None:   # gọi sau khi tất cả singleton được tạo
+    async def post_construct(self) -> None:   # gọi sau khi TẤT CẢ singleton được tạo
         self._pool = await create_pool()
 
-    async def on_stop(self) -> None:    # gọi trước khi shutdown
+    async def pre_destroy(self) -> None:      # gọi trước khi shutdown
         await self._pool.close()
-
-PostConstruct.register(DatabasePool, "on_start")
-PreDestroy.register(DatabasePool, "on_stop")
 ```
+
+Thứ tự: `post_construct()` chạy theo thứ tự topo (dependency trước, dependent sau); `pre_destroy()` chạy ngược lại. Hai class không phụ thuộc nhau mà vẫn cần thứ tự thì khai `dependency.order([A, B])`.
+
+### Quy tắc quan trọng: mở được đến đâu, tự dọn đến đó
+
+`pre_destroy()` **chỉ được gọi cho instance đã chạy XONG `post_construct()`**. Đây là lựa chọn có chủ đích (chốt 2026-07-30): gọi `pre_destroy` trên một object khởi tạo dở sẽ ném lỗi thứ hai (`AttributeError` vì field chưa tồn tại) và che mất lỗi gốc - đúng lúc bạn cần đọc lỗi gốc nhất.
+
+Hệ quả: nếu `post_construct()` **hỏng ở giữa** - đã mở tài nguyên rồi mới lỗi ở bước sau - thì tài nguyên đó không ai đóng. Trách nhiệm dọn nằm ở chính `post_construct`, nơi duy nhất biết nó đã mở tới đâu:
+
+```python
+async def post_construct(self) -> None:
+    self._pool = await create_pool()      # bước 1 - mở tài nguyên
+    try:
+        await self._warm_cache()          # bước 2 - có thể hỏng
+    except Exception:
+        await self._pool.close()          # dọn bước 1 rồi mới ném tiếp
+        raise
+```
+
+Mở **nhiều** tài nguyên tuần tự thì `AsyncExitStack` gọn hơn chuỗi try/except lồng nhau:
+
+```python
+from contextlib import AsyncExitStack
+
+async def post_construct(self) -> None:
+    async with AsyncExitStack() as stack:
+        self._pool = await stack.enter_async_context(create_pool())
+        self._mq = await stack.enter_async_context(connect_broker())
+        await self._warm_cache()          # hỏng ở đây -> stack tự đóng cả hai
+        self._stack = stack.pop_all()     # thành công -> giữ lại, KHÔNG đóng
+
+async def pre_destroy(self) -> None:
+    await self._stack.aclose()
+```
+
+`pop_all()` là mấu chốt: đi hết block mà không lỗi thì quyền đóng được chuyển sang `pre_destroy`; lỗi giữa chừng thì `AsyncExitStack` đóng mọi thứ đã mở, theo thứ tự ngược.
 
 ---
 
@@ -273,7 +315,7 @@ Event bus nội bộ tách biệt các component không nên phụ thuộc trự
 background task độc lập, publisher trả về ngay mà không chờ handler hoàn thành.
 
 ```python
-from xime.event import EventBus, EventHandler
+from xime.core.event import EventBus, EventHandler
 
 class UserCreatedEvent:
     def __init__(self, user_id: int) -> None:
@@ -324,20 +366,29 @@ assert notification_mock.called
 Dữ liệu theo phạm vi request chạy qua `ContextVar`, không qua tham số hàm hay global state:
 
 ```python
-from xime.context import current_user, request_id
+from xime.core.context import request_context
 ```
+
+`request_context` là một kho key-value cho **context async hiện tại** - một dict cho mỗi request, nhận key bất kỳ (trace id, locale, correlation id, feature flag...).
 
 Adapter (middleware) thiết lập context lúc bắt đầu mỗi request. Business code đọc nó:
 
 ```python
 class AuditService:
     async def log(self, action: str) -> None:
-        user = current_user.get()
-        rid = request_id.get()
-        await self._repository.save_log(user.id, rid, action)
+        rid = request_context.get("request_id")
+        await self._repository.save_log(rid, action)
 ```
 
-Vì `ContextVar` an toàn với async, mỗi request đồng thời có context được cô lập riêng.
+Danh tính người dùng đi đường riêng, qua `SecurityContext`, chứ không nằm trong kho key-value này:
+
+```python
+from xime.core.security import identity
+
+user_id = identity.get()
+```
+
+Vì `ContextVar` an toàn với async, mỗi request đồng thời có context được cô lập riêng. Mỗi lần `set()` tạo một dict MỚI thay vì sửa tại chỗ, nên task con sinh ra bằng `asyncio.create_task` giữ được ảnh chụp của mình và không bị task cha dọn context mất.
 
 ### Danh tính peer (mTLS)
 

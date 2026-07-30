@@ -1,5 +1,5 @@
-from ._config import ApiKey, JwtBearer, OpenApiConfig, SecurityScheme
 from .._registry import registry
+from ._config import ApiKey, JwtBearer, OpenApiConfig, SecurityScheme
 
 
 def configure_openapi(config: OpenApiConfig, server_id: str = "default") -> None:

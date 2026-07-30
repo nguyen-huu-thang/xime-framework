@@ -23,7 +23,7 @@ class SqlAlchemyTransactionContext:
         self._session = session
         self._token: Token[AsyncSession | None] | None = None
 
-    async def __aenter__(self) -> "SqlAlchemyTransactionContext":
+    async def __aenter__(self) -> SqlAlchemyTransactionContext:
         self._token = _current_session.set(self._session)
         try:
             await self._session.begin()

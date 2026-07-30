@@ -17,7 +17,7 @@ class TransactionContext(Protocol):
             await self.repository.save_profile()
     """
 
-    async def __aenter__(self) -> "TransactionContext": ...
+    async def __aenter__(self) -> TransactionContext: ...
 
     async def __aexit__(
         self,

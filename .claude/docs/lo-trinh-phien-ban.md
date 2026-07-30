@@ -2,7 +2,7 @@
 
 > Chỉ mục tổng các mốc phiên bản đã chốt, để tra nhanh "việc X làm ở bản nào".
 > Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật 2026-07-29.
-> Hiện tại: 0.6.3 (pyproject + CHANGELOG đã đồng bộ 0.6.3).
+> Hiện tại: **0.7.0** (pyproject + CHANGELOG + `xime/__init__.py` đã đồng bộ 0.7.0).
 
 | Bản | Chủ đề | Trạng thái |
 | --- | --- | --- |
@@ -13,7 +13,7 @@
 | 0.6.1 | Web adapter: middleware lấy DI/config qua marker + `configure_cors`; SQLAlchemy starter: `CrudRepository` | Đã phát hành (2026-06-29) |
 | 0.6.2 | Starter `mail` (SMTP) + hardening sau kiểm toán toàn diện | Đã phát hành (2026-06-30) |
 | 0.6.3 | Gỡ chặn app chạy thật: `PEER_APP_ID` (định danh app từ SAN cert) + **TLS/HTTPS cho web adapter** + **khối chỉ đọc `read_only()`**; kèm `get_bool` ép kiểu cờ + metadata gói | Đã phát hành (2026-07-29) |
-| 0.7 | Fieldbus công nghiệp (Modbus TCP + OPC UA) | Đã chốt thiết kế (2026-06-23); chưa code |
+| 0.7 | Fieldbus công nghiệp (Modbus TCP + OPC UA) | **Code xong (2026-07-30), chưa commit** - 1463 test. Đã kiểm toán trước khi đẩy PyPI, xem `kiem-toan-0.7.md` |
 | 0.8 | Multi-process Runtime + Bus liên Worker + config cải thiện | Thiết kế ban đầu chốt 2026-06-27; chưa code |
 | 0.9 | Beta - config nốt + bug fix + phản hồi người dùng | Mở |
 
@@ -26,7 +26,7 @@
 
 | Bản | Classifier | Lý do |
 | --- | --- | --- |
-| 0.6 -> 0.6.3 (hiện tại) | `3 - Alpha` | Đang dùng |
+| 0.6 -> 0.7 (hiện tại) | `3 - Alpha` | Đang dùng |
 | 0.7 | `3 - Alpha` | **Vẫn còn thêm tính năng lớn** (Fieldbus). API chưa đông cứng. |
 | 0.8 | `3 - Alpha` | **Vẫn còn thêm tính năng lớn** (Multi-process Runtime). API chưa đông cứng. |
 | 0.9 | `4 - Beta` | Chỉ sửa nhỏ + chờ feedback; API coi như đã chốt, hardening trước 1.0. |
@@ -37,9 +37,9 @@ nốt config + chờ feedback, 1.0 stable.
 
 **Việc cần làm khi phát hành các bản tương ứng** (chỉ sửa `pyproject.toml`):
 
-- **0.7:** giữ `Development Status :: 3 - Alpha`. (Phần vá metadata từng xếp vào
-  đây - classifier `Typing :: Typed` + license PEP 639 - **đã làm ở 0.6.3**, không
-  còn việc.)
+- **0.7:** ✅ đã giữ `Development Status :: 3 - Alpha` khi phát hành. (Phần vá
+  metadata từng xếp vào đây - classifier `Typing :: Typed` + license PEP 639 -
+  đã làm ở 0.6.3.)
 - **0.8:** giữ `Development Status :: 3 - Alpha`.
 - **0.9:** đổi `3 - Alpha` -> `4 - Beta`.
 - **1.0:** đổi `4 - Beta` -> `5 - Production/Stable`.
@@ -233,7 +233,16 @@ thứ ba đến từ phản hồi khi viết app.
 ## 0.7 - Fieldbus công nghiệp (Modbus TCP + OPC UA)
 
 Chi tiết đầy đủ + thiết kế đã chốt: `ke-hoach-0.7.md`. Dời từ 0.5 (quyết 2026-06-21).
-**Thiết kế chốt 2026-06-23** (chủ dự án trả lời hết câu hỏi mở).
+**Thiết kế chốt 2026-06-23** (chủ dự án trả lời hết câu hỏi mở); **bốn điểm chờ
+quyết cuối cùng chốt 2026-07-29** - không còn gì chặn việc bắt tay code.
+
+- **Chốt 2026-07-29:** pool connection Modbus **key theo TÊN LOGIC** của thiết bị
+  (`modbus.devices.<tên>`, đúng khuôn `client_id` của MQTT); `read(device)` **gom
+  nhiều range** thay vì một block lớn (block lớn quét trúng địa chỉ thiết bị không
+  có -> ILLEGAL DATA ADDRESS, hỏng cả lần đọc); slave **tách datastore theo
+  `unit_id`**; phát hành **trọn gói `0.7.0`** cả Modbus lẫn OPC UA. Kèm **bước 0**
+  bắt buộc: cài `pymodbus` (nay đã 3.14) + `asyncua` và xác minh API thật trước
+  khi viết codec.
 
 - Xime đóng vai client/master chủ động đọc PLC/thiết bị nhà máy - mô hình
   polling/subscribe, khác cả RPC lẫn pub/sub của MQTT.

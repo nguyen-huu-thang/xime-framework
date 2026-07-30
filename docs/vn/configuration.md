@@ -165,7 +165,7 @@ xime:
 Inject `RuntimeConfig` như dependency:
 
 ```python
-from xime.config import RuntimeConfig
+from xime.core.config import RuntimeConfig
 
 class DatabasePool:
     def __init__(self, config: RuntimeConfig) -> None:

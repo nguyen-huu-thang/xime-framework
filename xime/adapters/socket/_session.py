@@ -10,7 +10,6 @@ from xime.core.exception.framework import SessionTimeout
 
 from ._protocol import MessageType, encode_frame
 
-
 # ---------------------------------------------------------------------------
 # Queue sentinels
 # ---------------------------------------------------------------------------
@@ -79,10 +78,10 @@ class UploadStream(BaseUploadStream):
     Được cấp dữ liệu bởi queue của session, do read loop của connection bơm vào.
     """
 
-    def __init__(self, queue: "asyncio.Queue") -> None:
+    def __init__(self, queue: asyncio.Queue) -> None:
         self._queue = queue
 
-    def __aiter__(self) -> "UploadStream":
+    def __aiter__(self) -> UploadStream:
         return self
 
     async def __anext__(self) -> bytes:
@@ -115,7 +114,7 @@ class DownloadStream(BaseDownloadStream):
         self,
         conn: ConnectionWriter,
         session_id: int,
-        session: "Session | None" = None,
+        session: Session | None = None,
     ) -> None:
         self._conn = conn
         self._session_id = session_id
@@ -142,7 +141,7 @@ class Session:
     """A single in-flight stream on a connection."""
 
     session_id: int
-    queue: "asyncio.Queue"
+    queue: asyncio.Queue
     task: asyncio.Task | None = None
     last_active: float = field(default_factory=time.monotonic)
 

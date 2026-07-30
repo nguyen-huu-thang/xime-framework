@@ -52,6 +52,13 @@ class MqttAdapter:
 
     def __init__(self, client_id: str = "default", path: str | None = None) -> None:
         self._client_id = client_id
+        # Identity used by Application.use() to reject a duplicate registration.
+        # MQTT makes this worse than a wasted connection: a broker only allows
+        # one session per client id and kicks the older one off, so two adapters
+        # on the same id fight each other in a reconnect loop.
+        # MQTT chỉ cho MỘT phiên trên mỗi client id và đá phiên cũ ra, nên hai
+        # adapter cùng id sẽ đánh nhau trong vòng lặp reconnect.
+        self._server_id = client_id
         self._config: MqttConfig | None = None
         self._connection = mqtt_registry.connection(client_id)
         # Claim the client_id at construction (app.use time), well before any
@@ -69,7 +76,7 @@ class MqttAdapter:
     # Adapter protocol
     # ------------------------------------------------------------------
 
-    async def start(self, app: "Application") -> None:
+    async def start(self, app: Application) -> None:
         """Build the route table, then connect/subscribe/dispatch with reconnect."""
         try:
             import aiomqtt  # noqa: F401

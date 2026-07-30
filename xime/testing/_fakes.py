@@ -6,7 +6,7 @@ from typing import Any
 class _FakeTransactionContext:
     """No-op async context manager returned by FakeTransactionManager."""
 
-    async def __aenter__(self) -> "_FakeTransactionContext":
+    async def __aenter__(self) -> _FakeTransactionContext:
         return self
 
     async def __aexit__(
@@ -54,7 +54,7 @@ class FakeTransactionManager:
 class _FakeReadOnlyContext:
     """No-op async context manager returned by FakeReadOnlyManager."""
 
-    async def __aenter__(self) -> "_FakeReadOnlyContext":
+    async def __aenter__(self) -> _FakeReadOnlyContext:
         return self
 
     async def __aexit__(

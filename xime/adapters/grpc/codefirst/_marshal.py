@@ -77,7 +77,7 @@ def _sanitize(value: Any) -> Any:
         # Timestamp proto cần offset timezone; datetime naive không có nên coi
         # như UTC để ParseDict không lỗi.
         if value.tzinfo is None:
-            value = value.replace(tzinfo=datetime.timezone.utc)
+            value = value.replace(tzinfo=datetime.UTC)
         return value.isoformat()
     if isinstance(value, datetime.date):
         return value.isoformat()

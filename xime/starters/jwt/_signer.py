@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-import jwt
-
 from ._key_context import KeyContext
+from ._pyjwt import pyjwt
 
 
 class JwtTokenSigner(Protocol):
@@ -77,7 +76,7 @@ class PyJwtTokenSigner:
         if key_context.key_id is not None:
             headers["kid"] = key_context.key_id
 
-        return jwt.encode(
+        return pyjwt().encode(
             payload,
             signing_key,
             algorithm=key_context.algorithm,

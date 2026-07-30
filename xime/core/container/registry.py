@@ -1,5 +1,5 @@
 import threading
-from typing import Callable
+from collections.abc import Callable
 
 from xime.core.container.config_loader import FactoryEntry
 from xime.core.container.graph import DependencyGraph

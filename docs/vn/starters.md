@@ -138,61 +138,101 @@ Cung cấp JWT token signing, verification và HTTP middleware xác thực reque
 ### Thiết lập
 
 ```python
-# config/dependency.py
-from xime.starters.jwt import configure_jwt, JwtConfig
+# config/jwt.py
+import os
+from xime.starters.jwt import configure_jwt, JwtMiddlewareConfig, KeyContext
 
-configure_jwt(JwtConfig(
-    secret_key="your-secret-key",
-    algorithm="HS256",
-    expiry_seconds=3600,
+configure_jwt(JwtMiddlewareConfig(
+    key_context=KeyContext(
+        algorithm="RS256",
+        public_key_pem=os.environ["JWT_PUBLIC_KEY"],   # chỉ cần khóa CÔNG KHAI để verify
+    ),
+    identity_claim="sub",
+    audience="data-service",
+    issuer="https://identity.internal",
+    public_paths=["/auth/login", "/auth/refresh", "/health"],
 ))
 ```
 
-```yaml
-# resources/application.yml
-jwt:
-  secret_key: ${JWT_SECRET}
-  algorithm: HS256
-  expiry_seconds: 3600
-```
+`WebAdapter` đọc đăng ký này lúc dựng app và tự gắn middleware - không phải gọi thêm hàm nào khác. Bỏ qua `configure_jwt` thì không có middleware nào được gắn.
+
+`KeyContext` khai **tường minh** thuật toán và chất liệu khóa, không tự suy ra từ khóa:
+
+| Nhóm thuật toán | Field cần điền |
+| --- | --- |
+| HMAC (`HS256`...) | `secret` |
+| RSA / EC / EdDSA (`RS256`, `ES256`, `EdDSA`...) | `private_key_pem` để ký, `public_key_pem` để verify |
+
+**Nên đặt `audience`.** Bỏ trống thì token phát cho service khác nhưng ký bằng cùng khóa vẫn được chấp nhận.
 
 ### Ký Token
 
 ```python
-from xime.starters.jwt import JwtSigner
+from xime.starters.jwt import JwtTokenSigner, KeyContext
 
 class AuthUseCase:
-    def __init__(self, signer: JwtSigner) -> None:
+    def __init__(self, signer: JwtTokenSigner) -> None:
         self._signer = signer
+        self._key = KeyContext(
+            algorithm="RS256",
+            private_key_pem=os.environ["JWT_PRIVATE_KEY"],
+            key_id="key-2025",
+        )
 
     async def login(self, credentials: LoginCommand) -> str:
         user = await self._authenticate(credentials)
-        return self._signer.sign({"sub": str(user.id), "email": user.email})
+        return self._signer.sign(
+            {
+                "sub": str(user.id),
+                "aud": "data-service",
+                "iss": "https://identity.internal",
+                "exp": datetime.now(UTC) + timedelta(minutes=30),
+            },
+            self._key,
+        )
+```
+
+Payload do **bạn** dựng hoàn toàn - framework không tự thêm claim nào, kể cả `exp`.
+
+```python
+# config/dependency.py
+dependency.scan("xime.starters.jwt")     # đăng ký PyJwtTokenSigner / PyJwtTokenVerifier
 ```
 
 ### Xác minh Token
 
 ```python
-from xime.starters.jwt import JwtVerifier
+from xime.starters.jwt import JwtTokenVerifier, KeyContext
 
 class TokenUseCase:
-    def __init__(self, verifier: JwtVerifier) -> None:
+    def __init__(self, verifier: JwtTokenVerifier) -> None:
         self._verifier = verifier
+        self._key = KeyContext(algorithm="RS256", public_key_pem=os.environ["JWT_PUBLIC_KEY"])
 
     async def verify(self, token: str) -> dict:
-        return self._verifier.verify(token)
+        return self._verifier.verify(
+            token, self._key, audience="data-service", issuer="https://identity.internal"
+        )
 ```
+
+Token hết hạn, sai chữ ký, lệch `aud`/`iss` đều ném `AuthenticationException`.
 
 ### JWT Middleware
 
-Middleware tự động trích xuất và validate header `Authorization: Bearer <token>`, điền vào `SecurityContext`:
+Middleware được gắn bởi chính `configure_jwt(...)` ở trên. Nó trích header `Authorization: Bearer <token>`, verify, rồi điền `SecurityContext` và đặt toàn bộ claim vào request context:
 
 ```python
-# config/security.py
-from xime.starters.jwt import configure_jwt_middleware
+from xime.core.context import request_context
+from xime.core.security import identity
+from xime.starters.jwt._middleware import JWT_CLAIMS
 
-configure_jwt_middleware(public_paths=["/auth/login", "/health"])
+user_id = identity.get()                    # claim identity_claim (mặc định "sub")
+claims  = request_context.get(JWT_CLAIMS)   # toàn bộ claim đã verify
 ```
+
+Đường dẫn trong `public_paths` bỏ qua xác thực hoàn toàn. **So khớp là chính xác từng đường dẫn**, không phải theo tiền tố: khai `/docs` thì `/docs/oauth2-redirect` vẫn bị bảo vệ. Bật JWT mà muốn xem Swagger thì khai đủ cả `/docs` và `/openapi.json`.
+
+> **Cần extra:** `pip install "xime[jwt]"`. Thiếu nó mà vẫn gọi `configure_jwt` thì app **nổ lúc khởi động** kèm câu lệnh cần chạy, chứ không đợi tới request đầu tiên mang token.
 
 ---
 
@@ -428,8 +468,12 @@ dependency.bind({
     UserRepository: JpaUserRepository,
 })
 
-# config/security.py
-configure_jwt_middleware(public_paths=["/auth/login", "/health"])
+# config/jwt.py
+configure_jwt(JwtMiddlewareConfig(
+    key_context=KeyContext(algorithm="RS256", public_key_pem=os.environ["JWT_PUBLIC_KEY"]),
+    audience="my-service",
+    public_paths=["/auth/login", "/health"],
+))
 
 # config/routing.py
 configure_controllers("api.rest")

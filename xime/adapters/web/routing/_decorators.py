@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 # Attribute name used to mark route methods — internal to the framework.
 ROUTE_ATTR = "_xime_route_info"

@@ -116,6 +116,8 @@ pip install "xime[socket]"       # Unix domain socket IPC
 pip install "xime[mqtt]"         # MQTT adapter (pub/sub + RPC over MQTT v5)
 pip install "xime[s3]"           # S3 / MinIO storage backend
 pip install "xime[mail]"         # SMTP email sending (aiosmtplib)
+pip install "xime[modbus]"       # Modbus TCP adapter (master + slave)
+pip install "xime[opcua]"        # OPC UA adapter (client + server)
 pip install "xime[all]"          # everything above
 ```
 
@@ -241,6 +243,8 @@ The best way to learn XIME is to read real code. These open-source projects are 
 | **Peer Identity** | gRPC reads the verified client cert into request context (fail-soft): `current_caller()` gives the calling process (CN), `current_app_id()` the application owning it (`xime-app://` SAN) |
 | **Socket Adapter** | Unix Domain Socket IPC for same-host Native Engine calls (Linux); `@command` / `@stream` |
 | **MQTT Adapter** | Message-driven transport for IoT/embedded: `@subscribe` (pub/sub) + `@rpc` (request/reply over MQTT v5); auto-reconnect; bounded concurrency |
+| **Modbus Adapter** | Talk to PLCs directly: declarative device model that decodes registers (endianness, word order, scale), safe read planning, `@poll` / `@on_change`, and slave mode (`@serve` / `@on_write`) |
+| **OPC UA Adapter** | Client and server for the modern industrial protocol: node models, real subscriptions (`@on_node_change`), all three security levels |
 | **File Storage** | Backend-neutral `StorageService` (local filesystem / S3 / MinIO); bytes + streaming APIs; HTTP Range download and chunked upload helpers |
 
 ---
@@ -275,9 +279,9 @@ Optional modules, similar to `spring-boot-starter-*`:
 
 ## Project Status
 
-XIME is in **active development**. The following are implemented: core DI (hand-rolled singleton registry, **no third-party DI dependency**) with **dynamic interface binding** (one Protocol → many impls, swapped at runtime), lifecycle, event bus, security context, configuration, JWT starter (with audience/issuer enforcement), scheduler starter, SQLAlchemy starter, Cache + Redis starters, **Storage starter** (local filesystem + S3/MinIO) with **HTTP file streaming** (Range download, chunked upload), Web adapter (FastAPI + routing, pure-ASGI request-context & JWT middleware, custom middleware & exception handlers, **DI/config-aware middleware via `Inject`/`FromConfig` markers + first-class `configure_cors`**), gRPC adapter (proto-first + **code-first**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors + automatic retry), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial.
+XIME is in **active development**. The following are implemented: core DI (hand-rolled singleton registry, **no third-party DI dependency**) with **dynamic interface binding** (one Protocol → many impls, swapped at runtime), lifecycle, event bus, security context, configuration, JWT starter (with audience/issuer enforcement), scheduler starter, SQLAlchemy starter, Cache + Redis starters, **Storage starter** (local filesystem + S3/MinIO) with **HTTP file streaming** (Range download, chunked upload), Web adapter (FastAPI + routing, pure-ASGI request-context & JWT middleware, custom middleware & exception handlers, **DI/config-aware middleware via `Inject`/`FromConfig` markers + first-class `configure_cors`**), gRPC adapter (proto-first + **code-first**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors + automatic retry), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), **Modbus adapter** (declarative device model, master polling + slave mode), **OPC UA adapter** (node models, subscriptions, server mode, full security), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial.
 
-The core is covered by **1090+ tests**.
+The core is covered by **1400+ tests**.
 
 See the [CHANGELOG](CHANGELOG.md) for release history.
 
@@ -297,6 +301,8 @@ See the [CHANGELOG](CHANGELOG.md) for release history.
 | [gRPC Client SDK](docs/en/grpc-client.md) | Generate a typed client SDK; inject it via DI; deadlines, typed errors, retry, dynamic mTLS |
 | [Socket Adapter](docs/en/socket-adapter.md) | Unix Domain Socket IPC for same-host Native Engine calls |
 | [MQTT Adapter](docs/en/mqtt.md) | Message-driven pub/sub + RPC over MQTT v5 for IoT/embedded |
+| [Modbus Adapter](docs/en/modbus.md) | Declarative device models, read planning, polling and slave mode for PLCs |
+| [OPC UA Adapter](docs/en/opcua.md) | Node models, subscriptions, server mode, and all three security levels |
 | [File Storage](docs/en/file-storage.md) | `StorageService` (local / S3 / MinIO) + HTTP Range download & chunked upload |
 | [Starters](docs/en/starters.md) | SQLAlchemy, JWT, Scheduler, Cache, Redis, Storage (local / S3 + HTTP streaming) |
 | [Testing](docs/en/testing.md) | DI overrides, fakes, test utilities |

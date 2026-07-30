@@ -31,8 +31,11 @@ xime/                        ← package root (thin re-export layer)
 │   │   └── tls/             ← mTLS động
 │   ├── socket/              ← Unix domain socket IPC (Linux)
 │   │   └── routing/
-│   └── mqtt/                ← MQTT pub/sub + RPC over MQTT v5
-│       └── routing/
+│   ├── mqtt/                ← MQTT pub/sub + RPC over MQTT v5
+│   │   └── routing/
+│   ├── modbus/              ← Modbus TCP master (@poll/@on_change) + slave (@serve/@on_write)
+│   │   └── routing/
+│   └── opcua/               ← OPC UA client (@on_node_change) + server (@serve_nodes)
 │
 ├── starters/
 │   ├── sqlalchemy/         ← session/transaction/read-only + CrudRepository (CRUD chung)
@@ -82,6 +85,8 @@ Tích hợp giao thức. Mỗi adapter chịu trách nhiệm thiết lập reque
 - **`grpc/`** — gRPC server qua `grpc.aio`: code-first (sinh proto/SDK), client SDK, interceptors, mTLS động
 - **`socket/`** — Unix domain socket IPC (Linux, SO_PEERCRED), dùng chung contract với gRPC code-first
 - **`mqtt/`** — MQTT pub/sub (`@subscribe`) + RPC over MQTT v5 (`@rpc`), `MqttPublisher`, auto-reconnect
+- **`modbus/`** — Modbus TCP. `_model.py` Device Model khai báo (`@device` + `Holding/Input/Coil/Discrete`), `_codec.py` giải mã thanh ghi (endian/word/scale), `_planner.py` gom field thành lệnh đọc theo `max_gap`, `_adapter.py` vòng poll, `_server.py` chế độ slave (`SimData`/`SimDevice`)
+- **`opcua/`** — OPC UA. `_model.py` Node Model (`@node_model` + `Node`), `_client.py` đọc/ghi (batch một request), `_adapter.py` subscription, `_server.py` chế độ server, `_security.py` ba mức None/Sign/SignAndEncrypt
 
 ---
 

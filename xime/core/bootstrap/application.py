@@ -65,13 +65,13 @@ class Application:
         self._resources_dir = resources_dir
         self._config_module = config_module
         self._orchestrator: StartupOrchestrator | None = None
-        self._adapters: list["Adapter"] = []
+        self._adapters: list[Adapter] = []
 
     # ------------------------------------------------------------------
     # Adapter registration
     # ------------------------------------------------------------------
 
-    def use(self, adapter: "Adapter") -> "Application":
+    def use(self, adapter: Adapter) -> Application:
         """Register an adapter to run when app.run() is called.
 
         Adapters start concurrently after the DI container is built.
@@ -127,7 +127,7 @@ class Application:
     # Async context manager
     # ------------------------------------------------------------------
 
-    async def __aenter__(self) -> "Application":
+    async def __aenter__(self) -> Application:
         await self.start()
         return self
 
@@ -369,7 +369,7 @@ class Application:
 
     @staticmethod
     def _configure_logging(
-        runtime: RuntimeConfig, root: "logging.Logger | None" = None
+        runtime: RuntimeConfig, root: logging.Logger | None = None
     ) -> None:
         """Apply a sane default root logging config from the `logging:` block.
 

@@ -156,6 +156,21 @@ async def test_bearer_without_token_value_returns_401(transport):
     assert response.status_code == 401
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scheme", ["bearer", "BEARER", "BeArEr"])
+async def test_the_scheme_name_is_case_insensitive(transport, scheme):
+    # RFC 7235 makes the auth scheme case-insensitive, and clients and gateways
+    # do send lowercase. Matching only "Bearer " rejected a perfectly valid
+    # request with "Missing authorization token" - a message that says the
+    # header is absent while it is sitting right there in the request.
+    token = make_token()
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/protected", headers={"Authorization": f"{scheme} {token}"}
+        )
+    assert response.status_code == 200
+
+
 # ---------------------------------------------------------------------------
 # Valid token
 # ---------------------------------------------------------------------------

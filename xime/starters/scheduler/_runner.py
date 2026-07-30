@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from contextlib import suppress
-from typing import Any, Callable
+from typing import Any
 
 from apscheduler import AsyncScheduler
 from apscheduler.triggers.cron import CronTrigger

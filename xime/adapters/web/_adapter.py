@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from ssl import CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED
-from typing import TYPE_CHECKING, Any, AsyncGenerator
+from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI
 
@@ -17,6 +18,7 @@ from .openapi._builder import build_custom_openapi
 
 if TYPE_CHECKING:
     import uvicorn
+
     from xime.core.bootstrap.application import Application
 
 # Spelled-out cert_reqs values mapped to the stdlib constants uvicorn expects.
@@ -216,7 +218,7 @@ class WebAdapter:
     # Adapter protocol
     # ------------------------------------------------------------------
 
-    async def start(self, app: "Application") -> None:
+    async def start(self, app: Application) -> None:
         """Build the FastAPI app, resolve host/port, and run uvicorn.
 
         Blocks until the server is stopped (via stop() or SIGINT).
@@ -273,7 +275,7 @@ class WebAdapter:
     # FastAPI app builder (also used for testing)
     # ------------------------------------------------------------------
 
-    def build_app(self, xime_app: "Application") -> FastAPI:
+    def build_app(self, xime_app: Application) -> FastAPI:
         """Build and return the configured FastAPI ASGI app.
 
         Unlike start(), this does NOT run uvicorn. Use it in integration
@@ -352,23 +354,33 @@ class WebAdapter:
 
     @staticmethod
     def _add_jwt_middleware(app: FastAPI) -> None:
+        # Reading the registry runs on EVERY web start-up, including apps that
+        # never touch JWT — so this import must not require the [jwt] extra.
+        # Đọc registry chạy ở MỌI lần khởi động web, kể cả app không dùng JWT -
+        # nên import này không được đòi extra [jwt].
         from xime.starters.jwt._config import jwt_registry
+
         jwt_config = jwt_registry.get()
         if jwt_config is None:
             return
-        try:
-            from xime.starters.jwt._middleware import JwtAuthMiddleware
-        except ImportError:
-            raise RuntimeError(
-                "JWT middleware is configured via configure_jwt() but PyJWT is not installed. "
-                "Run: pip install pyjwt"
-            )
+
+        # configure_jwt() was called, so PyJWT is genuinely required. Probe it
+        # here, at start-up: PyJWT is now imported lazily inside the verifier, so
+        # without this the app would boot fine and only fail on the first request
+        # that carries a token.
+        # Đã gọi configure_jwt() nghĩa là thật sự cần PyJWT. Dò ngay lúc khởi
+        # động: verifier giờ nạp PyJWT lười nên thiếu nó app vẫn lên, chỉ chết ở
+        # request đầu tiên mang token.
+        from xime.starters.jwt._middleware import JwtAuthMiddleware
+        from xime.starters.jwt._pyjwt import pyjwt
+
+        pyjwt()
         app.add_middleware(JwtAuthMiddleware, config=jwt_config)
 
     @staticmethod
     def _register_controllers(
         app: FastAPI,
-        xime_app: "Application",
+        xime_app: Application,
         server_id: str = "default",
     ) -> None:
         """Discover controller classes and register their routes into the FastAPI app.
@@ -379,9 +391,9 @@ class WebAdapter:
         Runs after application.start() so that the DI container is fully built
         and controller instances are available via xime_app.get(cls).
         """
+        from .routing._builder import RouteBuilder
         from .routing._config import controller_registry
         from .routing._scanner import ControllerScanner
-        from .routing._builder import RouteBuilder
 
         packages = controller_registry.get_packages()
         if not packages:

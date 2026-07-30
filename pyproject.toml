@@ -11,7 +11,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.6.3"
+version = "0.7.0"
 description = "A Python backend framework that brings a Spring Boot-style developer experience while respecting Python's philosophy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -34,10 +34,26 @@ classifiers = [
 ]
 
 # Core dependencies — luôn được cài khi `pip install xime`
+#
+# Each floor below was checked by installing it, not guessed. What was proven,
+# on Python 3.14 (2026-07-30): fastapi 0.110.1 + pydantic 2.12.0 + pyyaml 6.0.1
+# installs and passes the full suite. The three floors are NOT arbitrary:
+#   fastapi  0.110.0 pins starlette 0.36.3, whose TestClient calls
+#            httpx.Client(app=...) — removed in httpx 0.28 — so every test an
+#            application writes against its own routes dies with TypeError.
+#            0.110.1 is the first release that does not.
+#   pydantic 2.0-2.4 predate Python 3.12, our own requires-python floor, so no
+#            supported interpreter can install them. 2.5 is the first with 3.12
+#            support. (2.5-2.11 cannot be exercised here: they have no 3.14
+#            wheels and pydantic-core does not build from source on 3.14.)
+#   pyyaml   6.0 fails to build on any modern CPython ('build_ext' object has no
+#            attribute 'cython_sources'). 6.0.1 is the first that builds.
+#
+# Mỗi mốc dưới đây đều đã CÀI THỬ chứ không phỏng đoán - xem lý do từng dòng ở trên.
 dependencies = [
-    "fastapi>=0.110.0",
-    "pydantic>=2.0",
-    "pyyaml>=6.0",
+    "fastapi>=0.110.1",
+    "pydantic>=2.5",
+    "pyyaml>=6.0.1",
 ]
 
 [project.urls]
@@ -59,12 +75,21 @@ xime = "xime.cli._main:main"
 #   pip install xime[s3]
 #   pip install xime[mqtt]
 #   pip install xime[mail]
+#   pip install xime[modbus]
+#   pip install xime[opcua]
 #   pip install xime[all]          # toàn bộ starters
 # ---------------------------------------------------------------------------
 
 [project.optional-dependencies]
 web = [
     "uvicorn[standard]>=0.27",
+    # Required by save_upload() and any multipart/form-data route. FastAPI ships
+    # it only in its own `standard` extra, which xime does not pull in, so
+    # without this line the documented upload helper fails at request time with
+    # "Form data requires python-multipart to be installed".
+    # Cần cho save_upload() và mọi route multipart/form-data. FastAPI chỉ kéo nó
+    # trong extra `standard` của chính nó, mà xime không dùng extra đó.
+    "python-multipart>=0.0.7",
 ]
 sqlalchemy = [
     "sqlalchemy[asyncio]>=2.0",
@@ -99,8 +124,18 @@ mqtt = [
 mail = [
     "aiosmtplib>=3.0",
 ]
+# Fieldbus công nghiệp (0.7). Floor đặt ở 3.14 vì API decode đã đổi hẳn trong
+# nhánh 3.x: `pymodbus.payload.BinaryPayloadDecoder` bị xóa, thay bằng
+# `ModbusClientMixin.convert_from_registers`; tham số slave đổi tên thành
+# `device_id`. Bản thấp hơn sẽ ImportError/TypeError lúc chạy.
+modbus = [
+    "pymodbus>=3.14",
+]
+opcua = [
+    "asyncua>=2.0",
+]
 all = [
-    "xime[web,sqlalchemy,jwt,scheduler,socket,grpc,redis,s3,mqtt,mail]",
+    "xime[web,sqlalchemy,jwt,scheduler,socket,grpc,redis,s3,mqtt,mail,modbus,opcua]",
 ]
 
 # Dev: chạy test, lint, type-check, ASGI server
@@ -123,6 +158,33 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["xime"]
+
+# sdist: whitelist tường minh, KHÔNG để mặc định.
+# Mặc định của hatchling là "mọi thứ không bị .gitignore che", nghĩa là mỗi thư
+# mục mới thêm vào repo đều tự động chui vào gói phát hành. Bản 0.7.0 vì thế
+# từng nuốt cả `.claude/` (tài liệu chiến lược nội bộ, đường dẫn máy cá nhân) và
+# `tests_temp/` - 400 file trong khi mã nguồn chỉ 190.
+# Whitelist thay vì blacklist: thư mục mới mặc định NẰM NGOÀI gói, phải khai mới
+# vào. Sai sót nghiêng về phía an toàn.
+#
+# sdist: explicit whitelist, never the default.
+# Hatchling's default is "everything not gitignored", so any new directory ends
+# up shipped. Whitelisting makes new files default to excluded instead.
+# Patterns are .gitignore-style: a bare name matches at ANY depth, so "docs"
+# also pulled in `.claude/docs/` (27 internal design documents). The leading
+# slash anchors each pattern to the project root — keep it.
+# Mẫu theo kiểu .gitignore: tên trần khớp ở MỌI độ sâu, nên "docs" kéo theo cả
+# `.claude/docs/` (27 tài liệu thiết kế nội bộ). Dấu / đầu neo mẫu vào gốc dự án.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/xime",
+    "/docs",
+    "/README.md",
+    "/README-vn.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+    "/pyproject.toml",
+]
 
 # ---------------------------------------------------------------------------
 # Pytest

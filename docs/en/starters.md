@@ -133,66 +133,106 @@ class CategoryService:
 
 `xime.starters.jwt`
 
-Provides JWT token signing, verification, and an HTTP middleware that authenticates requests.
+Provides JWT token signing, verification and HTTP request-authentication middleware.
 
 ### Setup
 
 ```python
-# config/dependency.py
-from xime.starters.jwt import configure_jwt, JwtConfig
+# config/jwt.py
+import os
+from xime.starters.jwt import configure_jwt, JwtMiddlewareConfig, KeyContext
 
-configure_jwt(JwtConfig(
-    secret_key="your-secret-key",
-    algorithm="HS256",
-    expiry_seconds=3600,
+configure_jwt(JwtMiddlewareConfig(
+    key_context=KeyContext(
+        algorithm="RS256",
+        public_key_pem=os.environ["JWT_PUBLIC_KEY"],   # verifying needs only the PUBLIC key
+    ),
+    identity_claim="sub",
+    audience="data-service",
+    issuer="https://identity.internal",
+    public_paths=["/auth/login", "/auth/refresh", "/health"],
 ))
 ```
 
-```yaml
-# resources/application.yml
-jwt:
-  secret_key: ${JWT_SECRET}
-  algorithm: HS256
-  expiry_seconds: 3600
-```
+`WebAdapter` reads this registration while building the app and attaches the middleware itself - there is no second function to call. Skip `configure_jwt` and no middleware is attached.
 
-### Signing a Token
+`KeyContext` states the algorithm and key material **explicitly**; nothing is inferred from the key:
+
+| Algorithm family | Field to set |
+| --- | --- |
+| HMAC (`HS256`...) | `secret` |
+| RSA / EC / EdDSA (`RS256`, `ES256`, `EdDSA`...) | `private_key_pem` to sign, `public_key_pem` to verify |
+
+**Set `audience`.** Left unset, a token minted for a different service but signed with the same key is still accepted.
+
+### Signing tokens
 
 ```python
-from xime.starters.jwt import JwtSigner
+from xime.starters.jwt import JwtTokenSigner, KeyContext
 
 class AuthUseCase:
-    def __init__(self, signer: JwtSigner) -> None:
+    def __init__(self, signer: JwtTokenSigner) -> None:
         self._signer = signer
+        self._key = KeyContext(
+            algorithm="RS256",
+            private_key_pem=os.environ["JWT_PRIVATE_KEY"],
+            key_id="key-2025",
+        )
 
     async def login(self, credentials: LoginCommand) -> str:
         user = await self._authenticate(credentials)
-        return self._signer.sign({"sub": str(user.id), "email": user.email})
+        return self._signer.sign(
+            {
+                "sub": str(user.id),
+                "aud": "data-service",
+                "iss": "https://identity.internal",
+                "exp": datetime.now(UTC) + timedelta(minutes=30),
+            },
+            self._key,
+        )
 ```
 
-### Verifying a Token
+**You** build the payload in full - the framework adds no claims of its own, not even `exp`.
 
 ```python
-from xime.starters.jwt import JwtVerifier
+# config/dependency.py
+dependency.scan("xime.starters.jwt")     # registers PyJwtTokenSigner / PyJwtTokenVerifier
+```
+
+### Verifying tokens
+
+```python
+from xime.starters.jwt import JwtTokenVerifier, KeyContext
 
 class TokenUseCase:
-    def __init__(self, verifier: JwtVerifier) -> None:
+    def __init__(self, verifier: JwtTokenVerifier) -> None:
         self._verifier = verifier
+        self._key = KeyContext(algorithm="RS256", public_key_pem=os.environ["JWT_PUBLIC_KEY"])
 
     async def verify(self, token: str) -> dict:
-        return self._verifier.verify(token)
+        return self._verifier.verify(
+            token, self._key, audience="data-service", issuer="https://identity.internal"
+        )
 ```
 
-### JWT Middleware
+An expired token, a bad signature, or a mismatched `aud`/`iss` all raise `AuthenticationException`.
 
-The middleware automatically extracts and validates the `Authorization: Bearer <token>` header, populating `SecurityContext`:
+### JWT middleware
+
+The middleware is attached by `configure_jwt(...)` above. It extracts the `Authorization: Bearer <token>` header, verifies it, fills `SecurityContext`, and puts every verified claim into the request context:
 
 ```python
-# config/security.py
-from xime.starters.jwt import configure_jwt_middleware
+from xime.core.context import request_context
+from xime.core.security import identity
+from xime.starters.jwt._middleware import JWT_CLAIMS
 
-configure_jwt_middleware(public_paths=["/auth/login", "/health"])
+user_id = identity.get()                    # the identity_claim (default "sub")
+claims  = request_context.get(JWT_CLAIMS)   # every verified claim
 ```
+
+Paths listed in `public_paths` bypass authentication entirely. **Matching is exact, not by prefix**: listing `/docs` leaves `/docs/oauth2-redirect` protected. With JWT on, list both `/docs` and `/openapi.json` to keep Swagger reachable.
+
+> **Needs the extra:** `pip install "xime[jwt]"`. Without it, calling `configure_jwt` makes the app **fail at startup** with the command to run, rather than waiting for the first request carrying a token.
 
 ---
 
@@ -428,8 +468,12 @@ dependency.bind({
     UserRepository: JpaUserRepository,
 })
 
-# config/security.py
-configure_jwt_middleware(public_paths=["/auth/login", "/health"])
+# config/jwt.py
+configure_jwt(JwtMiddlewareConfig(
+    key_context=KeyContext(algorithm="RS256", public_key_pem=os.environ["JWT_PUBLIC_KEY"]),
+    audience="my-service",
+    public_paths=["/auth/login", "/health"],
+))
 
 # config/routing.py
 configure_controllers("api.rest")

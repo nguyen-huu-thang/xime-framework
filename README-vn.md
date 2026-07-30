@@ -116,6 +116,8 @@ pip install "xime[socket]"       # IPC qua Unix domain socket
 pip install "xime[mqtt]"         # MQTT adapter (pub/sub + RPC over MQTT v5)
 pip install "xime[s3]"           # backend storage S3 / MinIO
 pip install "xime[mail]"         # gửi email qua SMTP (aiosmtplib)
+pip install "xime[modbus]"       # adapter Modbus TCP (master + slave)
+pip install "xime[opcua]"        # adapter OPC UA (client + server)
 pip install "xime[all]"          # tất cả ở trên
 ```
 
@@ -240,6 +242,8 @@ Cách tốt nhất để học XIME là đọc code thật. Các dự án mã ng
 | **Danh tính peer** | gRPC đọc CN client cert đã verify vào request context; `current_caller()` truy xuất (fail-soft) |
 | **Socket Adapter** | IPC qua Unix Domain Socket cho Native Engine cùng máy (Linux); `@command` / `@stream` |
 | **MQTT Adapter** | Transport message-driven cho IoT/embedded: `@subscribe` (pub/sub) + `@rpc` (request/reply qua MQTT v5); auto-reconnect; giới hạn đồng thời |
+| **Modbus Adapter** | Nói chuyện thẳng với PLC: device model khai báo tự giải mã thanh ghi (endian, thứ tự word, scale), lập kế hoạch đọc an toàn, `@poll` / `@on_change`, và chế độ slave (`@serve` / `@on_write`) |
+| **OPC UA Adapter** | Client và server cho chuẩn công nghiệp hiện đại: node model, subscription thật (`@on_node_change`), đủ ba mức bảo mật |
 | **File Storage** | `StorageService` trung lập backend (filesystem local / S3 / MinIO); API bytes + streaming; helper download HTTP Range và upload theo chunk |
 
 ---
@@ -274,9 +278,9 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 ## Trạng thái dự án
 
-XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI (registry singleton tự viết, **không phụ thuộc thư viện DI bên thứ ba**) với **dynamic interface binding** (một Protocol → nhiều impl, đổi được lúc runtime), lifecycle, event bus, security context, configuration, JWT starter (có ép `audience`/`issuer`), scheduler starter, SQLAlchemy starter, Cache + Redis starter, **Storage starter** (filesystem local + S3/MinIO) kèm **streaming file HTTP** (download Range, upload theo chunk), Web adapter (FastAPI + routing, middleware request-context & JWT kiểu pure-ASGI, middleware & exception handler tùy chỉnh, **middleware lấy được DI/config qua marker `Inject`/`FromConfig` + helper `configure_cors` hạng nhất**), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed + retry tự động), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện.
+XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI (registry singleton tự viết, **không phụ thuộc thư viện DI bên thứ ba**) với **dynamic interface binding** (một Protocol → nhiều impl, đổi được lúc runtime), lifecycle, event bus, security context, configuration, JWT starter (có ép `audience`/`issuer`), scheduler starter, SQLAlchemy starter, Cache + Redis starter, **Storage starter** (filesystem local + S3/MinIO) kèm **streaming file HTTP** (download Range, upload theo chunk), Web adapter (FastAPI + routing, middleware request-context & JWT kiểu pure-ASGI, middleware & exception handler tùy chỉnh, **middleware lấy được DI/config qua marker `Inject`/`FromConfig` + helper `configure_cors` hạng nhất**), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed + retry tự động), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), **Modbus adapter** (device model khai báo, master polling + chế độ slave), **OPC UA adapter** (node model, subscription, chế độ server, đủ mức bảo mật), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện.
 
-Core được bao phủ bởi **1090+ test**.
+Core được bao phủ bởi **1400+ test**.
 
 Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 
@@ -296,6 +300,8 @@ Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 | [gRPC Client SDK](docs/vn/grpc-client.md) | Sinh client SDK typed; inject qua DI; deadline, lỗi typed, retry, mTLS động |
 | [Socket Adapter](docs/vn/socket-adapter.md) | IPC qua Unix Domain Socket cho Native Engine cùng máy |
 | [MQTT Adapter](docs/vn/mqtt.md) | Pub/sub message-driven + RPC over MQTT v5 cho IoT/embedded |
+| [Modbus Adapter](docs/vn/modbus.md) | Device model khai báo, lập kế hoạch đọc, polling và chế độ slave cho PLC |
+| [OPC UA Adapter](docs/vn/opcua.md) | Node model, subscription, chế độ server và đủ ba mức bảo mật |
 | [File Storage](docs/vn/file-storage.md) | `StorageService` (local / S3 / MinIO) + download HTTP Range & upload theo chunk |
 | [Starters](docs/vn/starters.md) | SQLAlchemy, JWT, Scheduler, Cache, Redis, Storage (local / S3 + streaming HTTP) |
 | [Testing](docs/vn/testing.md) | DI override, fake, test utilities |

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import uuid
 from pathlib import Path
@@ -14,16 +15,18 @@ from ._config import SocketServerConfig, socket_registry
 from ._peercred import authorize_peer, secure_socket_file
 from ._protocol import Frame, MessageType, read_frame
 from ._session import (
+    _END,
     ConnectionWriter,
     DownloadStream,
     SessionManager,
     UploadStream,
-    _END,
 )
 from .routing._builder import ResolvedEndpoint, SocketEndpointBuilder
 
 if TYPE_CHECKING:
     from xime.core.bootstrap.application import Application
+
+logger = logging.getLogger("xime.socket")
 
 # How often the reaper scans for idle sessions (seconds).
 # Tần suất reaper quét session idle (giây).
@@ -77,7 +80,7 @@ class SocketAdapter:
     # Adapter protocol
     # ------------------------------------------------------------------
 
-    async def start(self, app: "Application") -> None:
+    async def start(self, app: Application) -> None:
         """Build the endpoint table, bind the socket, and serve until stopped."""
         try:
             import msgpack  # noqa: F401
@@ -132,7 +135,12 @@ class SocketAdapter:
             try:
                 await self._server.wait_closed()
             except Exception:
-                pass
+                # Shutdown must stay best-effort — a failure here must not stop
+                # the rest of the teardown — but swallowing it without a trace
+                # makes a stuck close() indistinguishable from a clean one.
+                # Tắt máy vẫn phải best-effort, nhưng nuốt im lặng thì close()
+                # treo trông y hệt close() sạch.
+                logger.debug("Socket server close failed", exc_info=True)
             self._server = None
         for task in list(self._command_tasks):
             task.cancel()
@@ -141,7 +149,9 @@ class SocketAdapter:
             try:
                 os.remove(self._actual_path)
             except OSError:
-                pass
+                logger.debug(
+                    "Could not remove socket file %s", self._actual_path, exc_info=True
+                )
 
     # ------------------------------------------------------------------
     # Connection handling

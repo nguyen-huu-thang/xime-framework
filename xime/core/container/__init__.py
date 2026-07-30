@@ -1,10 +1,19 @@
+import inspect
+
 from xime.core.container.config_loader import ConfigClassLoader, FactoryEntry
 from xime.core.container.graph import DependencyGraph
-from xime.core.container.proxy import DynamicProxy
+from xime.core.container.proxy import DynamicProxy as DynamicProxy
 from xime.core.container.registry import DependencyRegistry
-from xime.core.container.resolver import TypeHintResolver
+from xime.core.container.resolver import ResolvedMap, TypeHintResolver
 from xime.core.container.scanner import PackageScanner
-from xime.core.container.switcher import Switcher
+
+# Switcher and DynamicProxy are user-facing (an application injects Switcher to
+# flip a dynamic binding), so they carry PEP 484's explicit re-export marker.
+# The rest of the imports in this file are internal machinery used by
+# XimeContainer below, not part of the public surface of this package.
+# Switcher và DynamicProxy là API người dùng chạm tới nên mang dấu re-export.
+# Các import còn lại chỉ là bộ máy nội bộ mà XimeContainer bên dưới dùng.
+from xime.core.container.switcher import Switcher as Switcher
 from xime.core.container.validator import GraphValidator
 from xime.core.metadata.type_utils import is_protocol
 
@@ -172,6 +181,16 @@ class XimeContainer:
                 entry.dependencies, resolver_bindings
             )
 
+        # 4b. A parameter with a default value is OPTIONAL: if nothing in the
+        #     container can supply its type, drop it so the default applies
+        #     instead of failing startup.
+        available = (
+            set(all_classes)
+            | set(self._instances)
+            | {entry.provided_type for entry in factory_entries}
+        )
+        self._drop_unsatisfiable_optional_deps(resolved, available, factory_entries)
+
         # 5. Build dependency graph
         graph = DependencyGraph(resolved)
 
@@ -253,6 +272,72 @@ class XimeContainer:
         return {
             param: (bindings[t] if is_protocol(t) and t in bindings else t)
             for param, t in deps.items()
+        }
+
+    @staticmethod
+    def _drop_unsatisfiable_optional_deps(
+        resolved: ResolvedMap,
+        available: set[type],
+        factory_entries: list[FactoryEntry],
+    ) -> None:
+        """Remove parameters that have a default and that nothing can supply.
+
+        A default value is the developer stating that the parameter is optional,
+        so the container honours it: when no scanned class, pre-built instance or
+        factory provides that type, the parameter is dropped from the build plan
+        and Python applies the default. Same intent as Spring's
+        `@Autowired(required=false)`.
+        Giá trị mặc định là lời tuyên bố của developer rằng tham số đó KHÔNG bắt
+        buộc, nên container tôn trọng: không ai cấp được kiểu đó thì bỏ tham số ra
+        khỏi kế hoạch dựng và để Python dùng default.
+
+        Without this, a perfectly ordinary signature could not be registered at
+        all, because the container read every annotation as a dependency:
+
+            class ModbusClient:
+                def __init__(self, device: str = "default") -> None: ...
+
+            dependency.register(ModbusClient)
+            # -> UnregisteredDependencyException: Dependency: str
+
+        Không có bước này, một chữ ký hoàn toàn bình thường lại không đăng ký nổi
+        vì container đọc MỌI annotation là một dependency.
+
+        The trade-off, accepted deliberately: a Protocol parameter that has a
+        default and no binding is now injected as its default instead of failing
+        startup. Fail-fast is preserved everywhere it matters - a parameter with
+        NO default still fails loudly, which is the overwhelming majority of
+        dependencies.
+        Đánh đổi đã cân nhắc: tham số Protocol có default mà thiếu binding giờ
+        nhận default thay vì nổ lúc startup. Fail-fast vẫn giữ nguyên ở chỗ quan
+        trọng - tham số KHÔNG có default vẫn nổ, và đó là đa số áp đảo.
+        """
+        factory_fns = {entry.provided_type: entry.factory_fn for entry in factory_entries}
+        for cls, deps in resolved.items():
+            target = factory_fns.get(cls) or getattr(cls, "__init__", None)
+            if target is None:
+                continue
+            optional = XimeContainer._params_with_defaults(target)
+            if not optional:
+                continue
+            for param in [
+                name
+                for name, dep_type in deps.items()
+                if name in optional and dep_type not in available
+            ]:
+                del deps[param]
+
+    @staticmethod
+    def _params_with_defaults(target: object) -> set[str]:
+        """Names of `target`'s parameters that declare a default value."""
+        try:
+            sig = inspect.signature(target)  # type: ignore[arg-type]
+        except (TypeError, ValueError):  # pragma: no cover - builtins/slot wrappers
+            return set()
+        return {
+            name
+            for name, param in sig.parameters.items()
+            if name != "self" and param.default is not inspect.Parameter.empty
         }
 
     # ------------------------------------------------------------------

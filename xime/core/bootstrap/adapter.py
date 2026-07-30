@@ -21,7 +21,7 @@ class Adapter(Protocol):
         4. app.run() calls app.stop()      — PreDestroy hooks, DI dispose
     """
 
-    async def start(self, app: "Application") -> None:
+    async def start(self, app: Application) -> None:
         """Start the adapter. Called after the DI container is fully built.
 
         Should block until the adapter is stopped (e.g. uvicorn.Server.serve(),

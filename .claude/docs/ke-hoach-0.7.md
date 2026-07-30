@@ -19,25 +19,172 @@
 >    adapter** (adapter tự chạy vòng poll, tái dùng hạ tầng concurrency của MQTT),
 >    KHÔNG dựa scheduler starter.
 
+## Tiến độ code (cập nhật 2026-07-29)
+
+> **0.7.0 ĐÃ PHÁT HÀNH 2026-07-29.** Toàn bộ 6 bước hoàn tất trong một phiên.
+
+| Bước | Nội dung | Trạng thái |
+| --- | --- | --- |
+| 0 | Xác minh API pymodbus 3.14 / asyncua 2.0.1 | ✅ xong - 4 chỗ lệch, xem mục "Bước 0" |
+| 1 | `_model.py` + `_codec.py` + `_planner.py` + test thuần | ✅ xong - 81 test |
+| 2 | `_errors.py` + `_config.py` + `_runtime.py` + `_client.py` | ✅ xong - 18 test (server pymodbus thật) |
+| 3 | `_decorators.py` + `routing/` + `_adapter.py` vòng poll | ✅ xong - 30 test |
+| 4 | `_server.py` slave (`SimData`/`SimDevice`) + `@serve`/`@on_write` | ✅ xong - 15 test |
+| 5 | `opcua/` toàn bộ (model, client, subscribe, server, security) | ✅ xong - 60 test |
+| 6 | Docs vn/en + CHANGELOG + bump `0.7.0` | ✅ xong |
+
+Full suite sau khi xong: **1427 passed / 5 skipped** (+204 so với 0.6.3).
+
+> **Cập nhật 2026-07-30:** đợt kiểm toán trước khi đẩy PyPI đã tìm ra và vá
+> **hai lỗi mức Cao trong chính mã 0.7** - `dependency.register(ModbusClient)`
+> chết lúc khởi động, và server OPC UA không công bố được node không phải
+> `float`. Cùng vài lỗi nhỏ hơn. Con số hiện tại là **1463 passed / 5
+> skipped**. Chi tiết: `kiem-toan-0.7.md` mục NHÓM C.
+Modbus 144 test, OPC UA 60 test. Ruff sạch trên toàn bộ code mới.
+
+### Ba điều phát hiện lúc code, không có trong thiết kế
+
+1. **`serve_forever()` của pymodbus chờ tới lúc server DỪNG**, không phải tới lúc
+   sẵn sàng - phải gọi `serve_forever(background=True)`. Thiếu chỗ này thì treo
+   vô hạn, không có thông báo gì.
+2. **`ModbusSequentialDataBlock` trên 3.14 lệch địa chỉ một đơn vị** (lớp tương
+   thích của nó gọi `SimData(address - 1)` nên `address=0` nổ `TypeError`). Thêm
+   một lý do dùng thẳng `SimData`/`SimDevice`.
+3. **`read_values()` của asyncua vứt bỏ StatusCode từng node** - NodeId sai trả
+   về `None` im lặng, trông y hệt node chưa có giá trị. Framework đọc bằng
+   `read_attributes()` và tự kiểm status.
+
 ---
 
-## ⚠ CÂU HỎI CẦN HỎI LẠI CHỦ DỰ ÁN TRƯỚC KHI CODE (chưa chốt)
+## ✅ BỐN ĐIỂM CHỜ QUYẾT - ĐÃ CHỐT 2026-07-29
 
-> Chủ dự án (2026-06-23) yêu cầu: KHÔNG tự quyết ba điểm dưới đây. Khi bắt tay code
-> 0.7, **hỏi lại chủ dự án trước**, ghi câu trả lời vào doc này rồi mới làm. Đây là
-> ghi nhớ có chủ đích, không phải việc tồn đọng bị quên.
+> Ba câu đầu là ghi nhớ có chủ đích từ 2026-06-23 (chủ dự án yêu cầu KHÔNG tự
+> quyết). Câu thứ tư nảy ra khi khảo sát code trước lúc bắt tay 0.7. Chủ dự án đã
+> trả lời hết ngày **2026-07-29**; ghi lại đây làm căn cứ khi code.
 
-1. **Modbus nhiều slave - pool connection theo `host:port` thế nào?**
-   Một `ModbusClient` chỉ tới một slave hay quản lý nhiều slave/nhiều host? Cơ chế
-   pool/registry connection (giống `mqtt_registry.connection(client_id)`) ra sao,
-   key theo `host:port` hay theo tên device?
-2. **`ModbusClient.read(device)` - đọc một block tối ưu hay gộp nhiều range rời?**
-   Khi một Device Model có các field rải địa chỉ không liền nhau: đọc thành một
-   block lớn (đơn giản, có thể đọc thừa) hay gom thành nhiều lệnh đọc range tối ưu
-   (phức tạp hơn, ít byte hơn)?
-3. **Server (slave) - một datastore chung hay tách theo `unit_id`?**
-   Khi Xime giả lập slave phục vụ nhiều unit_id: dùng một datastore chung cho mọi
-   unit hay mỗi unit_id một datastore riêng?
+1. **Modbus nhiều slave - pool connection key theo gì?**
+   → **Key theo TÊN LOGIC của thiết bị**, không theo `host:port` thô, không phải
+   một-client-một-thiết-bị. Đúng khuôn `client_id` của MQTT và `server_id` của
+   gRPC/web - khuôn duy nhất đã có tiền lệ trong framework
+   (`mqtt_registry.connection(client_id)` giải đúng bài tương tự).
+
+   ```yaml
+   modbus:
+     devices:
+       inverter_1: { host: 10.0.0.5, port: 502, unit: 1 }
+       meter_a:    { host: 10.0.0.6, port: 502, unit: 3 }
+   ```
+
+   ```python
+   app.use(ModbusAdapter("inverter_1"))
+   ```
+
+   Kéo theo: `modbus_registry.connection(name)` giữ một `ModbusConnection` dùng
+   chung mỗi tên; `ModbusConfig.resolve(runtime, name)` đọc `modbus.devices.<name>`;
+   `ModbusClient` bám tên mặc định giống `MqttPublisher` bám `client_id` mặc định
+   (kể cả cơ chế `mark_served()` để fail fast khi không adapter nào phục vụ tên đó).
+
+2. **`ModbusClient.read(device)` khi field rải địa chỉ không liền nhau?**
+   → **GOM NHIỀU RANGE**, không đọc một block lớn. Sắp field theo địa chỉ, gộp các
+   field cách nhau không quá `max_gap` thành một lệnh, xa hơn thì tách lệnh.
+
+   Lý do quyết định KHÔNG phải tiết kiệm byte mà là **tính đúng đắn**: block lớn
+   quét trúng địa chỉ thiết bị không có → slave trả exception ILLEGAL DATA ADDRESS
+   → **hỏng cả lần đọc** dù mọi field khai báo đều hợp lệ. Đây là lỗi khó chẩn đoán
+   (Device Model đúng, cấu hình đúng, vẫn đọc lỗi). Block lớn còn vướng giới hạn
+   125 thanh ghi/lệnh nên đằng nào cũng phải viết logic chia.
+
+   Kéo theo: `_codec.py` (hoặc `_planner.py`) có bước **lập kế hoạch đọc** - nhóm
+   field theo vùng nhớ TRƯỚC (coil / discrete / holding / input là bốn không gian
+   địa chỉ tách biệt, function code khác nhau, không bao giờ gộp chung lệnh), rồi
+   trong mỗi vùng mới gom range. Thêm tham số `max_gap` vào `ModbusConfig`.
+
+3. **Server (slave) - datastore chung hay tách theo `unit_id`?**
+   → **TÁCH THEO `unit_id`**: mỗi `@device(unit=N)` một datastore riêng, Xime đóng
+   vai gateway phục vụ nhiều thiết bị sau một cổng. Lý do chính là nhất quán ngữ
+   nghĩa - Device Model đã mang sẵn `@device(unit=1)`, chọn datastore chung thì con
+   số đó bị bỏ qua ở phía server, rất khó giải thích cho người dùng framework. Chi
+   phí thêm chỉ là một dict thay vì một object.
+
+4. **Phạm vi phát hành 0.7** (câu mới, từ khảo sát 2026-07-29)
+   → **TRỌN GÓI `0.7.0`**: cả Modbus và OPC UA trong một lần phát hành, đúng như
+   phạm vi đã chốt 2026-06-23, KHÔNG tách `0.7.0` Modbus + `0.7.1` OPC UA.
+
+   Ghi chú khối lượng để liệu sức: MQTT (bản 0.5) một mình đã 1247 dòng code +
+   783 dòng test, mà nó KHÔNG có codec và KHÔNG có server. 0.7 là hai adapter, mỗi
+   cái đều có thêm cả codec lẫn server, cộng ba mức security cho OPC UA - ước
+   chừng **gấp 2.5-3 lần khối lượng của MQTT**. Đây là bản lớn nhất kể từ 0.5, cần
+   chia nhiều phiên và làm xong Modbus trọn vẹn rồi mới sang OPC UA.
+
+---
+
+## ✅ Bước 0 ĐÃ LÀM 2026-07-29 - API thật của pymodbus 3.14 / asyncua 2.0.1
+
+Đã cài `pymodbus 3.14.0` + `asyncua 2.0.1` và soi API thật. **Bốn chỗ lệch so với
+giả định của doc này**, đều ảnh hưởng trực tiếp tới code:
+
+1. **`pymodbus.payload` (`BinaryPayloadDecoder`/`BinaryPayloadBuilder`) ĐÃ BỊ XÓA.**
+   Thay bằng hai **classmethod** trên `ModbusClientMixin`:
+
+   ```python
+   from pymodbus.client.mixin import ModbusClientMixin
+   ModbusClientMixin.convert_from_registers(registers, DATATYPE.FLOAT32, word_order="big")
+   ModbusClientMixin.convert_to_registers(220.5, DATATYPE.FLOAT32, word_order="big")
+   ```
+
+   Là classmethod nên **không cần client sống** -> codec unit-test được hoàn toàn
+   không cần network, không cần server. Đây là tin tốt cho thứ tự code (bước 1).
+
+2. **Tham số slave nay tên là `device_id`** (keyword-only), không phải `slave=`
+   cũng không phải `unit=`:
+   `read_holding_registers(address, *, count=1, device_id=1)`.
+
+3. **`convert_*` CHỈ có `word_order`, KHÔNG có `byte_order`.** Modbus spec quy
+   định mỗi register truyền big-endian nên pymodbus không đụng tới byte order.
+   Nhưng thiết bị đảo byte (mid-endian) có tồn tại, và doc này đã hứa
+   `byte_order`, nên **Xime tự cài đặt**: hoán hai byte trong từng register trước
+   khi decode / sau khi encode (`swap_bytes()` trong `_codec.py`, 1 dòng).
+
+4. **`ModbusServerContext` / `ModbusDeviceContext` (đổi tên từ
+   `ModbusSlaveContext`) đã DEPRECATED, sẽ bị xóa ở pymodbus v4.** Đường thay thế
+   là `SimData` / `SimDevice` trong `pymodbus.simulator`:
+
+   ```python
+   from pymodbus.simulator import SimData, SimDevice
+   SimData(address, count=1, values=0, datatype=DataType.UINT16, readonly=False)
+   SimDevice(id, simdata, ...)          # id CHÍNH LÀ unit_id
+   ModbusTcpServer(context: SimDevice | list[SimDevice], address=(host, port))
+   ```
+
+   => **Phần server (nhóm 1c) phải viết theo `SimData`/`SimDevice` ngay từ đầu**,
+   đừng dùng API cũ rồi phải viết lại khi pymodbus v4 ra. Ghi chú thêm: `SimDevice.id`
+   map thẳng vào `unit_id`, và `ModbusTcpServer` nhận **`list[SimDevice]`** - tức
+   quyết định 3 (tách datastore theo `unit_id`) khớp đúng khuôn thư viện.
+
+`asyncua 2.0.1` thì đúng như giả định: `Client(url, timeout=...)`,
+`Client.set_security_string(...)`, `Server.set_security_policy(...)`,
+`ua.SecurityPolicyType` có đủ NoSecurity / *_Sign / *_SignAndEncrypt.
+
+---
+
+## Thay đổi API so với doc gốc: cách khai địa chỉ (chốt 2026-07-29)
+
+Doc gốc viết `Holding(40001, ...)` và `Input(30010, ...)` - tức số **Modicon** in
+trên datasheet. Nhưng trên dây, giao thức dùng **offset 0-based**: 40001 chính là
+thanh ghi số 0. Nếu một tham số nhận nhập nhèm cả hai thì `Holding(40001)` sẽ đọc
+nhầm thanh ghi trên thiết bị thật sự có 40002 thanh ghi - **giá trị sai, không có
+lỗi nào báo**. Đây đúng loại bug mà cả bản 0.7 sinh ra để diệt.
+
+Nên tách thành **hai đường vào tường minh, không bao giờ đoán**:
+
+```python
+Holding(2)              # địa chỉ giao thức, 0-based
+Holding(modicon=40003)  # số in trên datasheet -> framework tự trừ, ra 2
+```
+
+Truyền cả hai, hoặc không truyền gì, hoặc `Coil(modicon=40001)` (prefix Modicon
+không khớp vùng) đều **nổ ngay lúc định nghĩa class**. Ví dụ trong doc này đã
+được cập nhật theo.
 
 ---
 
@@ -86,17 +233,24 @@ from xime.adapters.modbus import device, Holding, Coil, Input
 
 @device(unit=1)                       # slave / unit id
 class Inverter:
-    voltage:    float = Holding(40001, type="float32", word_order="big", scale=0.1)
-    current:    float = Holding(40003, type="float32")
-    run_state:  bool  = Coil(1)
-    fault_code: int   = Input(30010, type="uint16")
+    voltage:    float = Holding(modicon=40001, type="float32", scale=0.1)
+    current:    float = Holding(2, type="float32")       # = modicon 40003
+    run_state:  bool  = Coil(0)                          # = modicon 1
+    fault_code: int   = Input(9, type="uint16")          # = modicon 30010
 ```
 
-Field descriptor (`Holding`/`Coil`/`Input`/`Discrete`) mang: address, kiểu
-(`int16/uint16/int32/uint32/float32/float64/bool/string`), `word_order`/
-`byte_order` (override mặc định toàn cục), `scale`/`offset`, `count` (string/array).
-Codec (`modbus/_codec.py`) lo encode/decode hai chiều. Đây là tầng "framework làm
-nhiều việc".
+Field descriptor (`Holding`/`Coil`/`Input`/`Discrete`) mang: address (hai đường
+vào tường minh, xem mục "Thay đổi API" ở trên), kiểu
+(`int16/uint16/int32/uint32/int64/uint64/float32/float64/bool/string`),
+`word_order`/`byte_order` (override mặc định toàn cục), `scale`/`offset`,
+`count` (string/array). Codec (`modbus/_codec.py`) lo encode/decode hai chiều.
+Đây là tầng "framework làm nhiều việc".
+
+Field là **data descriptor**: `Inverter.voltage` trả về chính field (cho
+`@on_change(...)` và `write(...)` khỏi cần chuỗi ma thuật), còn
+`instance.voltage` trả về giá trị đã decode. Đánh đổi giống declarative column
+của SQLAlchemy: annotation mô tả kiểu *giá trị* nên type checker tưởng
+`Inverter.voltage` là `float`.
 
 OPC UA dùng khái niệm tương đương nhưng key là NodeId thay vì address:
 
@@ -158,23 +312,36 @@ class PlcEmulator:
 
 ### Runtime config (`modbus.*`)
 
+Cập nhật 2026-07-29 theo quyết định 1 (key theo tên logic) và quyết định 2
+(`max_gap` cho việc gom range). Khối `devices` là bắt buộc; thiếu tên mà adapter
+đang phục vụ -> fail-fast.
+
 ```yaml
 modbus:
-  host: 10.0.0.5          # client: bắt buộc, thiếu -> fail-fast
-  port: 502
-  unit_id: 1
+  # Mặc định dùng chung cho mọi device, từng device override được.
   timeout: 3.0
   byte_order: big         # mặc định toàn cục
   word_order: big         # field có thể override
   reconnect_delay: 3.0
   max_concurrency: 16     # cho luồng @poll
+  max_gap: 8              # gom range: field cách nhau <= 8 thanh ghi thì chung 1 lệnh
+  devices:                # key = TÊN LOGIC, giống client_id của MQTT
+    inverter_1:
+      host: 10.0.0.5      # bắt buộc, thiếu -> fail-fast
+      port: 502
+      unit: 1
+    meter_a:
+      host: 10.0.0.6
+      port: 502
+      unit: 3
+      timeout: 5.0        # override riêng thiết bị này
   server:                 # chỉ khi bật slave
     listen: 0.0.0.0:5020
 ```
 
-> Ba câu hỏi mở của nhóm Modbus (pool connection nhiều slave, chiến lược đọc
-> block/range, datastore server theo unit_id) đã gom lên mục "⚠ CÂU HỎI CẦN HỎI
-> LẠI CHỦ DỰ ÁN TRƯỚC KHI CODE" ở đầu doc - hỏi chủ dự án trước khi làm.
+```python
+app.use(ModbusAdapter("inverter_1")).use(ModbusAdapter("meter_a"))
+```
 
 ## Nhóm 2 - OPC UA
 
@@ -235,6 +402,7 @@ xime/adapters/modbus/
   _decorators.py         # @poll @on_change @serve @on_write -> _xime_modbus_info
   _model.py              # @device + field descriptors
   _codec.py              # encode/decode register <-> giá trị typed (endian/word/scale)
+  _planner.py            # gom field thành các lệnh đọc (theo vùng nhớ, rồi max_gap)
   _config.py             # ModbusConfig.resolve() + modbus_registry
   _runtime.py            # ModbusConnection dùng chung (như MqttConnection)
   routing/_scanner.py _builder.py
@@ -255,9 +423,17 @@ xime/adapters/opcua/
 
 ## Thứ tự code đề xuất
 
-1. `modbus/_model.py` + `_codec.py` + test codec thuần (không cần network) - nền.
+0. ✅ **XONG 2026-07-29** - cài `pymodbus` + `asyncua`, xác minh API thật (bốn
+   chỗ lệch đã ghi ở mục "Bước 0" đầu doc).
+1. ✅ **XONG 2026-07-29** - `modbus/_model.py` + `_codec.py` + `_planner.py` +
+   test thuần (không cần network). **81 test pass**
+   (`tests_temp/modbus/test_model.py` 33, `test_codec.py` 28, `test_planner.py` 20);
+   full suite **1304 passed / 5 skipped**. Extra `xime[modbus]` / `xime[opcua]`
+   đã thêm vào `pyproject.toml` (floor `pymodbus>=3.14` vì API decode đã đổi).
 2. `modbus/_config.py` + `_runtime.py` + `_client.py` (on-demand) + test với
-   `StartAsyncTcpServer`.
+   `StartAsyncTcpServer`. `_config.py` đọc `modbus.devices.<tên>`,
+   `_runtime.py` giữ `ModbusConnection` theo tên (kèm `mark_served()` như
+   `MqttConnection`). **Nhớ dùng `device_id=` chứ không phải `slave=`.**
 3. `modbus/_adapter.py` vòng `@poll`/`@on_change` + scanner/builder (mượn mqtt).
 4. `modbus/_server.py` slave + `@serve`/`@on_write`.
 5. `opcua/` lặp lại cấu trúc: model -> client read/subscribe -> server -> security.

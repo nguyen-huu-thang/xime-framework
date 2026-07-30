@@ -2,7 +2,7 @@
 
 [English](../en/file-storage.md) | **Tiếng Việt**
 
-[← MQTT Adapter](mqtt.md) · **File Storage** · [Testing →](testing.md)
+[← OPC UA Adapter](opcua.md) · **File Storage** · [Testing →](testing.md)
 
 ---
 
@@ -171,4 +171,4 @@ pip install "xime[s3]"   # backend S3 / MinIO (thêm aioboto3)
 
 ---
 
-[← MQTT Adapter](mqtt.md) · **File Storage** · [Testing →](testing.md)
+[← OPC UA Adapter](opcua.md) · **File Storage** · [Testing →](testing.md)

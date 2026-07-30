@@ -2,12 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-import jwt
-from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
-
 from xime.core.exception.framework import AuthenticationException
 
 from ._key_context import KeyContext
+from ._pyjwt import pyjwt
 
 
 class JwtTokenVerifier(Protocol):
@@ -84,6 +82,7 @@ class PyJwtTokenVerifier:
         # Không cấu hình audience -> tắt verify_aud, nếu không PyJWT TỪ CHỐI mọi
         # token có claim aud (raise InvalidAudienceError).
         options = {"verify_aud": audience is not None}
+        jwt = pyjwt()
         try:
             return jwt.decode(
                 token,
@@ -93,9 +92,9 @@ class PyJwtTokenVerifier:
                 issuer=issuer,
                 options=options,
             )
-        except ExpiredSignatureError:
+        except jwt.ExpiredSignatureError:
             raise AuthenticationException("Token has expired")
-        except InvalidTokenError as exc:
+        except jwt.InvalidTokenError as exc:
             raise AuthenticationException(f"Invalid token: {exc}")
 
     def _resolve_verify_key(self, key_context: KeyContext) -> str | bytes:

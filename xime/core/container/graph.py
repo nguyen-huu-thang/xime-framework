@@ -23,7 +23,21 @@ class DependencyGraph:
     """
 
     def __init__(self, resolved: ResolvedMap):
-        self._nodes: set[type] = set(resolved.keys())
+        # Insertion order is kept alongside the membership set and used for every
+        # iteration below. `set` iteration order for types depends on their id(),
+        # which differs from process to process, so seeding Kahn's algorithm from
+        # the set made the construction order of MUTUALLY INDEPENDENT singletons
+        # vary between runs — and with it the order their post_construct() hooks
+        # fired. Every order was valid, but a bug that depends on one of them
+        # would reproduce only sometimes. Iterating the declared order instead
+        # costs one list and makes startup repeatable.
+        # Thứ tự chèn được giữ song song với set và dùng cho MỌI vòng duyệt dưới
+        # đây. Thứ tự duyệt `set` của type phụ thuộc id() nên đổi theo từng
+        # process -> thứ tự dựng các singleton ĐỘC LẬP với nhau (và thứ tự chạy
+        # post_construct của chúng) đổi theo từng lần chạy. Order nào cũng hợp lệ,
+        # nhưng bug phụ thuộc vào một order cụ thể sẽ chỉ tái hiện thỉnh thoảng.
+        self._order: list[type] = list(resolved.keys())
+        self._nodes: set[type] = set(self._order)
 
         # Build adjacency: cls → {dep1, dep2, ...} (only known deps)
         self._edges: AdjacencyMap = {
@@ -31,10 +45,12 @@ class DependencyGraph:
             for cls, deps in resolved.items()
         }
 
-        # Reverse map used by topological sort: dep → [classes that need it]
-        self._dependents: dict[type, list[type]] = {n: [] for n in self._nodes}
-        for cls, deps in self._edges.items():
-            for dep in deps:
+        # Reverse map used by topological sort: dep → [classes that need it].
+        # Built by walking self._order so each dependent list is in declared
+        # order regardless of how the edge sets happen to iterate.
+        self._dependents: dict[type, list[type]] = {n: [] for n in self._order}
+        for cls in self._order:
+            for dep in self._edges[cls]:
                 self._dependents[dep].append(cls)
 
     # ------------------------------------------------------------------
@@ -66,7 +82,7 @@ class DependencyGraph:
         path: list[type] = []   # current DFS path, mirrors the call stack
         cycles: list[list[type]] = []
 
-        for start in self._nodes:
+        for start in self._order:
             if color[start] != WHITE:
                 continue
 
@@ -106,8 +122,8 @@ class DependencyGraph:
         If there are cycles, the cyclic nodes are omitted from the result —
         call detect_cycles() first and fail before reaching this method.
         """
-        dep_count = {n: len(self._edges[n]) for n in self._nodes}
-        queue: deque[type] = deque(n for n in self._nodes if dep_count[n] == 0)
+        dep_count = {n: len(self._edges[n]) for n in self._order}
+        queue: deque[type] = deque(n for n in self._order if dep_count[n] == 0)
         result: list[type] = []
 
         while queue:
@@ -155,21 +171,21 @@ class DependencyGraph:
         # Rule [A, B, C] yields pairs (A, B) and (B, C) meaning "A before B", "B before C".
         # To enforce "A before B" in topological order, B must "depend on" A,
         # so we add A to B's dependency set.
-        combined: AdjacencyMap = {n: set(self._edges[n]) for n in self._nodes}
+        combined: AdjacencyMap = {n: set(self._edges[n]) for n in self._order}
         for rule in rules:
             for i in range(len(rule) - 1):
                 before, after = rule[i], rule[i + 1]
                 combined[after].add(before)
 
         # Rebuild reverse map (dep → dependents) for the combined graph
-        dependents: dict[type, list[type]] = {n: [] for n in self._nodes}
-        for cls, deps in combined.items():
-            for dep in deps:
+        dependents: dict[type, list[type]] = {n: [] for n in self._order}
+        for cls in self._order:
+            for dep in combined[cls]:
                 dependents[dep].append(cls)
 
         # Kahn's algorithm on combined graph
-        dep_count = {n: len(combined[n]) for n in self._nodes}
-        queue: deque[type] = deque(n for n in self._nodes if dep_count[n] == 0)
+        dep_count = {n: len(combined[n]) for n in self._order}
+        queue: deque[type] = deque(n for n in self._order if dep_count[n] == 0)
         result: list[type] = []
 
         while queue:

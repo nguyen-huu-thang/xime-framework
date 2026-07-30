@@ -1,3 +1,10 @@
 .pytest_cache/
 __pycache__/
 *.pyc
+
+# Két sắt token PyPI - đã mã hóa nhưng KHÔNG BAO GIỜ commit
+# PyPI token vault - encrypted, but never commit it
+pypi_token.py
+pypi_token.py.tmp
+*.token
+.pypirc

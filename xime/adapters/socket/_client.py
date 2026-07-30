@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from xime.core.exception.framework import SocketCommandError
 
 from ._protocol import MessageType, read_frame
-from ._session import ConnectionWriter, _END, _ErrorSignal
+from ._session import _END, ConnectionWriter, _ErrorSignal
 
 
 class SocketClient:
@@ -61,7 +61,7 @@ class SocketClient:
             self._conn.close()
             self._conn = None
 
-    async def __aenter__(self) -> "SocketClient":
+    async def __aenter__(self) -> SocketClient:
         await self.connect()
         return self
 
@@ -83,7 +83,7 @@ class SocketClient:
         await self._send(MessageType.COMMAND_REQUEST, sid, payload)
         return await fut
 
-    def upload(self, endpoint: str, request: BaseModel) -> "ClientUpload":
+    def upload(self, endpoint: str, request: BaseModel) -> ClientUpload:
         """Open an upload stream as an async context manager."""
         sid = next(self._next_session)
         return ClientUpload(self, sid, endpoint, request)
@@ -192,7 +192,7 @@ class ClientUpload:
         self._request = request
         self._fut: asyncio.Future | None = None
 
-    async def __aenter__(self) -> "ClientUpload":
+    async def __aenter__(self) -> ClientUpload:
         import msgpack
 
         self._fut = asyncio.get_running_loop().create_future()

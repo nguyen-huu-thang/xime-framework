@@ -127,7 +127,7 @@ class TestApplication:
     # Async context manager
     # ------------------------------------------------------------------
 
-    async def __aenter__(self) -> "TestApplication":
+    async def __aenter__(self) -> TestApplication:
         await self.start()
         return self
 

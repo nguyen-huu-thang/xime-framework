@@ -7,7 +7,13 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel
 
-from xime.core.contract import ENDPOINT_ATTR, DownloadStream, EndpointInfo, EndpointKind, UploadStream
+from xime.core.contract import (
+    ENDPOINT_ATTR,
+    DownloadStream,
+    EndpointInfo,
+    EndpointKind,
+    UploadStream,
+)
 from xime.core.exception.framework import StartupException
 
 from ._lock import LockFile

@@ -7,8 +7,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
-from xime.core.contract import ENDPOINT_ATTR, EndpointInfo, EndpointKind
-from xime.core.contract import DownloadStream, UploadStream
+from xime.core.contract import (
+    ENDPOINT_ATTR,
+    DownloadStream,
+    EndpointInfo,
+    EndpointKind,
+    UploadStream,
+)
 from xime.core.exception.framework import StartupException
 
 if typing.TYPE_CHECKING:
@@ -66,7 +71,7 @@ class SocketEndpointBuilder:
     theo tên endpoint. Chỉ gồm controller khớp server_id.
     """
 
-    def __init__(self, app: "Application", server_id: str) -> None:
+    def __init__(self, app: Application, server_id: str) -> None:
         self._app = app
         self._server_id = server_id
 

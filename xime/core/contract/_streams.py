@@ -21,7 +21,7 @@ class UploadStream(abc.ABC):
     """
 
     @abc.abstractmethod
-    def __aiter__(self) -> "UploadStream":
+    def __aiter__(self) -> UploadStream:
         ...
 
     @abc.abstractmethod

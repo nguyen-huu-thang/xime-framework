@@ -110,7 +110,7 @@ class GrpcClientConfig(BaseModel):
     retry: GrpcRetryConfig = Field(default_factory=GrpcRetryConfig)
 
     @classmethod
-    def from_runtime(cls, runtime: "RuntimeConfig", client_id: str) -> GrpcClientConfig:
+    def from_runtime(cls, runtime: RuntimeConfig, client_id: str) -> GrpcClientConfig:
         """Read grpc.clients.<client_id>; fail fast with a clear message when absent."""
         raw = runtime.get("grpc")
         clients = raw.get("clients") if isinstance(raw, dict) else None
@@ -197,7 +197,7 @@ class GrpcClientChannels:
             await channel.close()
 
 
-def build_client_instances(runtime: "RuntimeConfig") -> dict[type, object]:
+def build_client_instances(runtime: RuntimeConfig) -> dict[type, object]:
     """Build channels + client instances for every registered client_id.
 
     Called by StartupOrchestrator before the DI container is built; the result

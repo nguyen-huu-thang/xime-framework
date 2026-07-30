@@ -36,7 +36,7 @@ class CodeFirstGrpcBuilder:
 
     def __init__(
         self,
-        app: "Application",
+        app: Application,
         model: ContractModel,
         messages: dict[str, type],
     ) -> None:
@@ -174,7 +174,7 @@ class _GrpcUploadStream(UploadStream):
         first = await self._it.__anext__()
         return pb2_to_pydantic(first.metadata, self._request_py)
 
-    def __aiter__(self) -> "_GrpcUploadStream":
+    def __aiter__(self) -> _GrpcUploadStream:
         return self
 
     async def __anext__(self) -> bytes:

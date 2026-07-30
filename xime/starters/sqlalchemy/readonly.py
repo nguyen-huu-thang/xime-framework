@@ -45,7 +45,7 @@ class SqlAlchemyReadOnlyContext:
         self._session: AsyncSession | None = None
         self._token: Token[AsyncSession | None] | None = None
 
-    async def __aenter__(self) -> "SqlAlchemyReadOnlyContext":
+    async def __aenter__(self) -> SqlAlchemyReadOnlyContext:
         # Nested inside a transaction or another read-only block: borrow that
         # session and leave its lifecycle to whoever opened it.
         # Lồng trong transaction hoặc khối chỉ-đọc khác: mượn session đó, vòng

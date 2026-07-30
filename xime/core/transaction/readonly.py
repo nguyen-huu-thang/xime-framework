@@ -19,7 +19,7 @@ class ReadOnlyContext(Protocol):
             return await self.repository.find_all()
     """
 
-    async def __aenter__(self) -> "ReadOnlyContext": ...
+    async def __aenter__(self) -> ReadOnlyContext: ...
 
     async def __aexit__(
         self,

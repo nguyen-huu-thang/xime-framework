@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 # Attribute name used to mark MQTT handler methods — internal to the framework.
 # Mirrors ROUTE_ATTR (web) / ENDPOINT_ATTR (contract).

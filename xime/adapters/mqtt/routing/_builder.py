@@ -53,7 +53,7 @@ class MqttRouteBuilder:
     signature, fail-fast on misuse, and return the list of routes.
     """
 
-    def __init__(self, app: "Application") -> None:
+    def __init__(self, app: Application) -> None:
         self._app = app
 
     def build(self, controllers: list[type]) -> list[ResolvedMqttRoute]:

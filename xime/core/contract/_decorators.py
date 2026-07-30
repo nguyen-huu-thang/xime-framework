@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import enum
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 # Attribute name used to mark endpoint methods — internal to the framework.
 # Tên attribute đánh dấu method là endpoint — nội bộ framework.

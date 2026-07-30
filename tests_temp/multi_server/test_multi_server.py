@@ -413,3 +413,71 @@ class TestWebAdapterRegisterControllersServerIdFiltering:
             WebAdapter._register_controllers(fastapi_app, xime_app, "default")
 
             MockScanner.assert_not_called()
+
+
+class TestDuplicateDetectionCoversEveryAdapter:
+    """Every adapter type must be covered by the duplicate guard, not just three.
+
+    The guard reads a `_server_id` attribute, and mqtt/modbus/opcua originally
+    named their identity `_client_id` / `_device` / `_server` — so two adapters
+    on the same broker, PLC or OPC UA server were accepted silently. The result
+    is two poll loops hammering one device, two clients replacing each other on
+    one shared connection, and (for MQTT) a broker that kicks one session off
+    because a client id may only have one.
+    """
+
+    def _make_app(self):
+        app = Application.__new__(Application)
+        app._adapters = []
+        app._binding = None
+        app._resources_dir = "resources"
+        app._config_module = None
+        app._orchestrator = None
+        return app
+
+    def test_two_modbus_adapters_on_one_device_raise(self):
+        from xime.adapters.modbus import ModbusAdapter
+
+        app = self._make_app()
+        app.use(ModbusAdapter("inverter_1"))
+        with pytest.raises(ValueError, match="ModbusAdapter"):
+            app.use(ModbusAdapter("inverter_1"))
+
+    def test_two_modbus_adapters_on_different_devices_are_fine(self):
+        from xime.adapters.modbus import ModbusAdapter
+
+        app = self._make_app()
+        app.use(ModbusAdapter("inverter_1")).use(ModbusAdapter("meter_a"))
+        assert len(app._adapters) == 2
+
+    def test_two_opcua_adapters_on_one_server_raise(self):
+        from xime.adapters.opcua import OpcuaAdapter
+
+        app = self._make_app()
+        app.use(OpcuaAdapter("plant"))
+        with pytest.raises(ValueError, match="OpcuaAdapter"):
+            app.use(OpcuaAdapter("plant"))
+
+    def test_two_mqtt_adapters_on_one_client_id_raise(self):
+        from xime.adapters.mqtt import MqttAdapter
+
+        app = self._make_app()
+        app.use(MqttAdapter("sensors"))
+        with pytest.raises(ValueError, match="MqttAdapter"):
+            app.use(MqttAdapter("sensors"))
+
+    def test_two_modbus_servers_raise(self):
+        from xime.adapters.modbus import ModbusServerAdapter
+
+        app = self._make_app()
+        app.use(ModbusServerAdapter())
+        with pytest.raises(ValueError, match="ModbusServerAdapter"):
+            app.use(ModbusServerAdapter())
+
+    def test_two_opcua_servers_raise(self):
+        from xime.adapters.opcua import OpcuaServerAdapter
+
+        app = self._make_app()
+        app.use(OpcuaServerAdapter())
+        with pytest.raises(ValueError, match="OpcuaServerAdapter"):
+            app.use(OpcuaServerAdapter())

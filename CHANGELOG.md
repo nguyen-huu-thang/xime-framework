@@ -5,6 +5,235 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [0.7.0] - 2026-07-30
+
+**Fieldbus công nghiệp: adapter Modbus TCP và OPC UA.** Xime nhắm tới công
+nghiệp / IIoT, và MQTT (0.5) chỉ nói chuyện được với thiết bị **đã biết nói
+MQTT**. Máy móc thật trong nhà máy - PLC, biến tần, đồng hồ đo - nói hai giao
+thức khác. Chủ dự án đã chốt **không dùng edge gateway**, nên hai adapter này
+là con đường duy nhất tới tầng tiếp xúc.
+
+Đây là **mô hình giao tiếp thứ ba** của framework: web/gRPC/socket là
+request/response, MQTT là pub/sub, còn ở đây **framework là bên chủ động** đi
+đọc thiết bị theo nhịp. Vì vậy có decorator riêng (`@poll`/`@on_change`) chứ
+không tái dùng `@subscribe`.
+
+Tương thích ngược hoàn toàn: không có gì thay đổi với ứng dụng không dùng hai
+extra mới. Test: **1454 passed, 5 skipped** (+231 test so với 0.6.3).
+
+Bản này cũng mang theo kết quả một đợt **kiểm toán toàn bộ mã nguồn trước khi
+đẩy lên PyPI** - xem hai mục `Fixed` và `Changed` bên dưới. Mọi lỗi trong đó đều
+được tái hiện bằng thực nghiệm trước khi vá, và đều có từ các bản **đã phát hành**
+(0.6.3 trở về trước).
+
+### Added
+
+- **Adapter Modbus TCP** (`xime/adapters/modbus/`, extra `xime[modbus]`).
+
+  - **Device Model khai báo** - trục chính của cả bản này. Modbus **không mang
+    thông tin kiểu**: mỗi lần đọc chỉ trả về mảng word 16-bit thô, và việc ghép
+    hai word thành `float32` (đúng thứ tự byte, đúng thứ tự word, đúng hệ số
+    scale) là nguồn bug số một khi làm việc với PLC - sai bước nào cũng ra một
+    con số trông rất hợp lý chứ không ra lỗi. `@device(unit=...)` +
+    `Holding/Input/Coil/Discrete` khai kiến thức đó một lần, dùng cho cả bốn
+    chiều: client đọc, client ghi, polling, và làm slave.
+  - **Địa chỉ có hai đường vào tường minh, không bao giờ đoán**: `Holding(2)` là
+    địa chỉ giao thức 0-based, `Holding(modicon=40003)` là số in trên datasheet.
+    Nếu một tham số nhận nhập nhèm cả hai thì trên thiết bị có hơn 40002 thanh
+    ghi, `Holding(40001)` sẽ đọc nhầm thanh ghi **mà không có lỗi nào báo**.
+  - **Lập kế hoạch đọc theo `max_gap`** (`_planner.py`) - đây là chuyện **đúng
+    sai**, không phải tối ưu: đọc một block lớn từ địa chỉ nhỏ nhất tới lớn nhất
+    thì chỉ cần một địa chỉ ở giữa không tồn tại là slave trả
+    `ILLEGAL DATA ADDRESS` và hỏng **cả** lần đọc, dù mọi field khai đều hợp lệ.
+    Planner gom field gần nhau, tách field xa nhau, tự chia khi vượt trần giao
+    thức (125 thanh ghi / 2000 bit), và nổ lúc startup nếu một field đơn lẻ lớn
+    hơn trần đó.
+  - **`@poll` / `@on_change`** + `ModbusAdapter`: một vòng lặp cho mỗi cặp
+    `(model, interval)` nên hai handler cùng model, cùng nhịp không gây hai lần
+    đọc; `@on_change` quan sát giá trị vòng poll đã lấy (bám vòng **nhanh
+    nhất**) chứ không tự gửi lệnh; lần đọc đầu chỉ là **mốc** (bắn ở đó nghĩa là
+    mọi handler kêu lúc khởi động - nhiễu, không phải tin tức); `deadband` lọc
+    nhiễu đo cho giá trị analog; nhịp không trôi (trừ thời gian chu kỳ khỏi lần
+    sleep sau); một chu kỳ lỗi được log rồi chạy tiếp.
+  - **Chế độ slave** (`ModbusServerAdapter`, `@serve` / `@on_write`): mỗi
+    `@device(unit=N)` là một `SimDevice` riêng nên một tiến trình đóng vai nhiều
+    thiết bị sau một cổng. Giá trị **đẩy theo nhịp** (hỏi handler lúc master đọc
+    sẽ để code nghiệp vụ chạy trong đường phản hồi giao thức), lệnh ghi tới qua
+    **hook**. Địa chỉ ngoài vùng khai báo cố ý để trống -> master nhận
+    `ILLEGAL DATA ADDRESS` thay vì một số 0 trông có vẻ hợp lệ.
+  - **Thiết bị đánh địa chỉ bằng TÊN LOGIC** (`modbus.devices.<tên>`), đúng
+    khuôn `client_id` của MQTT và `server_id` của gRPC/web.
+  - Ba nhóm exception tách riêng vì cách phản ứng khác nhau:
+    `ModbusConnectionError` (thử lại được) / `ModbusDeviceError` (thiết bị từ
+    chối, thử lại vô ích - kèm diễn giải mã lỗi thành lời) / `ModbusCodecError`.
+
+- **Adapter OPC UA** (`xime/adapters/opcua/`, extra `xime[opcua]`).
+
+  - **Node Model** (`@node_model` + `Node("ns=2;s=Tank.Level")`) - ở đây model
+    **không phải để giải mã** (OPC UA đã mang kiểu) mà để **đặt tên** cho
+    NodeId. NodeId được kiểm dạng ngay lúc định nghĩa class.
+  - **`OpcuaClient`**: `read` / `read_node` / `read_model` / `write` /
+    `write_model`. `read_model` gộp mọi node vào **một** request - OPC UA round
+    trip có độ trễ thật, đọc lẻ mười node là nhân độ trễ lên mười lần.
+  - **`@on_node_change` + `OpcuaAdapter`**: subscription thật, không polling.
+    Giá trị đầu tiên chỉ là **mốc** (mặc định `initial=False`) để giống hệt quy
+    tắc `@on_change` của Modbus; `deadband` dùng chung một hàm so sánh với
+    Modbus nên hai adapter hành xử giống nhau. Handler chạy trong task riêng vì
+    `asyncua` giao thông báo qua callback **đồng bộ** - await thẳng trong đó sẽ
+    chặn vòng nhận của thư viện.
+  - **Bảo mật đủ ba mức** None / Sign / SignAndEncrypt (`Basic256Sha256`).
+    Thiếu cert khi chọn Sign/SignAndEncrypt thì **nổ lúc startup**, không âm
+    thầm tụt xuống kết nối không bảo vệ. Server đặt ở mức `Sign` vẫn nhận client
+    mang `SignAndEncrypt`. Có **`application_uri`** cho cả client lẫn server: ở
+    hai mức bảo mật này, server đối chiếu URI client khai lúc mở session với URI
+    trong SubjectAltName của cert, mà `asyncua` để mặc định URI của chính nó và
+    không tự đọc từ cert - thiếu tuỳ chọn này thì cert tự sinh gần như chắc chắn
+    bị từ chối với `BadCertificateUriInvalid`, một thông báo không hề nhắc tới URI.
+  - **Kiểu của node phía server suy từ annotation trong model.** Biến OPC UA lấy
+    kiểu dữ liệu từ giá trị lúc tạo và về sau không nhận giá trị khác kiểu, nên
+    `running: bool = Node(...)` phải tạo ra node kiểu Boolean chứ không phải
+    Double. Không suy được kiểu và cũng không có `default=` thì **nổ lúc khởi
+    động kèm tên node**, chứ không đoán rồi để lần đẩy đầu tiên chết lặng lẽ
+    trong `BadTypeMismatch`.
+  - **Chế độ server** (`OpcuaServerAdapter`, `@serve_nodes` / `@on_node_write`):
+    cùng cách chia như server Modbus. Node có `@on_node_write` thì **client làm
+    chủ giá trị**, vòng refresh không ghi đè - nếu ghi đè thì framework đá nhau
+    với người vừa đặt giá trị và mọi thông báo ghi đều mơ hồ.
+
+- **`encode_field(..., allow_read_only=True)`** trong codec Modbus: ở vai
+  **slave**, input register và discrete input chính là thứ phải công bố, trong
+  khi ở vai client thì tuyệt đối không được ghi. Cờ tường minh thay vì đổi tạm
+  thuộc tính của field.
+
+- **Tài liệu**: `docs/{vn,en}/modbus.md` và `docs/{vn,en}/opcua.md`.
+
+### Fixed
+
+Những lỗi dưới đây có từ các bản **đã phát hành** (0.6.3 trở về trước), tìm ra
+trong đợt kiểm toán trước khi đẩy PyPI. Mỗi lỗi đều được tái hiện bằng thực
+nghiệm trước khi vá, và đều có test canh.
+
+- **Web app không cài extra `[jwt]` sập lúc khởi động** (có từ **0.2.0**, còn
+  nguyên ở cả 10 bản đã lên PyPI). `WebAdapter` đọc registry JWT ở **mọi** lần
+  khởi động chỉ để xem `configure_jwt()` có được gọi hay không, mà import
+  submodule đó lại kéo theo `__init__` của package, vốn `import jwt` ở mức
+  module. Hệ quả: `pip install xime[web]` rồi chạy một app **không hề đụng tới
+  JWT** vẫn chết với `ModuleNotFoundError: No module named 'jwt'`. PyJWT nay
+  được nạp lười (`starters/jwt/_pyjwt.py`); app thật sự gọi `configure_jwt()`
+  thì adapter dò PyJWT **ngay lúc khởi động** chứ không đợi request đầu tiên
+  mang token.
+
+- **`Application.use()` chỉ chặn được trùng adapter ở ba trong sáu loại.** Chốt
+  chặn đọc thuộc tính `_server_id`, mà `MqttAdapter` đặt tên định danh của mình
+  là `_client_id` (Modbus/OPC UA mới thêm ở bản này cũng vậy). Đăng ký hai
+  adapter cho cùng một `client_id` được chấp nhận im lặng - trong khi broker MQTT
+  chỉ cho **một** phiên trên mỗi client id và đá phiên cũ ra, nên hai adapter
+  đánh nhau trong vòng lặp reconnect. Cả sáu loại adapter nay đều được chặn.
+
+- **Scheme `Bearer` nay không phân biệt hoa thường** (RFC 7235). Client gửi
+  `bearer <token>` từng nhận 401 kèm thông báo "Missing authorization token" -
+  nói header không có trong khi nó nằm ngay đó.
+
+- **`__all__` không còn phá `mypy --strict` của người dùng.** Gói ship `py.typed`
+  và khai classifier `Typing :: Typed`, nhưng `__all__` bị dùng để điều khiển DI
+  scanner nên chính những dòng import mà tài liệu hướng dẫn lại bị báo "does not
+  explicitly export attribute". Đã đánh dấu re-export theo chuẩn PEP 484 - cơ
+  chế DI **không đổi một chút nào**.
+
+- **Import thiếu extra nay nói rõ phải cài gì.** `xime.adapters.grpc`,
+  `xime.starters.sqlalchemy` và `xime.starters.jwt` từng ném
+  `ModuleNotFoundError` trần. Riêng `No module named 'jwt'` còn dẫn người dùng
+  đi sai đường rất tệ: trên PyPI có một package tên đúng là `jwt`, khác hẳn
+  PyJWT, nên `pip install jwt` cài nhầm thư viện rồi hỏng theo cách khó lần ra.
+
+- **Tài liệu nêu API không tồn tại.** Toàn bộ mục JWT trong `docs/*/starters.md`
+  mô tả một API khác hẳn thực tế (`JwtConfig`, `JwtSigner`, `JwtVerifier`,
+  `configure_jwt_middleware` - không cái nào tồn tại), và bốn chỗ khác trỏ
+  `xime.config` / `xime.lifecycle` / `xime.event` / `xime.context` thay vì
+  `xime.core.*`. Đã viết lại theo API thật; nay **cả 343 dòng import trong toàn
+  bộ tài liệu đều chạy được**, có script kiểm chứng.
+
+- Lỗi lúc đóng socket server không còn bị nuốt im lặng (nay `logger.debug` kèm
+  traceback), khớp với cách mọi adapter khác xử lý teardown.
+
+### Changed
+
+- **Tham số constructor có giá trị mặc định nay là tham số KHÔNG bắt buộc.**
+  Container đọc mọi annotation là một dependency, nên trước đây một chữ ký hoàn
+  toàn bình thường lại không đăng ký nổi:
+
+  ```python
+  class ModbusClient:
+      def __init__(self, device: str = "default") -> None: ...
+
+  dependency.register(ModbusClient)
+  # cũ: UnregisteredDependencyException - Dependency: str
+  # mới: OK, device = "default"
+  ```
+
+  Không thứ gì trong một DI container cấp `str` bao giờ, mà developer đã tuyên bố
+  tham số đó không bắt buộc bằng cách cho nó giá trị mặc định. Tương đương
+  `@Autowired(required=false)` của Spring. Áp cho cả tham số của factory method
+  trong `dependency.configure(...)`.
+
+  **Fail-fast vẫn nguyên ở chỗ quan trọng:** tham số **không** có mặc định mà
+  thiếu implementation thì startup vẫn nổ - đó là đa số áp đảo dependency thật.
+  **Đánh đổi đã cân nhắc:** tham số `Protocol` có mặc định mà thiếu binding giờ
+  nhận mặc định thay vì nổ.
+
+- **Thứ tự dựng singleton nay xác định giữa các lần chạy.** `DependencyGraph`
+  duyệt theo thứ tự khai báo thay vì duyệt `set` của type - thứ tự duyệt `set`
+  phụ thuộc `id()` nên đổi theo từng process, khiến thứ tự chạy `post_construct()`
+  giữa các singleton **độc lập với nhau** đổi theo từng lần chạy. Order nào cũng
+  hợp lệ, nhưng một bug phụ thuộc order sẽ chỉ tái hiện thỉnh thoảng.
+
+- **Hai server adapter (Modbus, OPC UA) nay chặn trên số handler ghi chạy đồng
+  thời** (`max_concurrency`, mặc định 16) và **từ chối `refresh <= 0`**. Master
+  ghi nhanh hơn handler nói chuyện với database rất nhiều; trước đây mỗi lệnh ghi
+  sinh một task không giới hạn. Phía master đã có chặn trên này từ đầu.
+
+- **Extra `[web]` kéo thêm `python-multipart`.** Helper upload file có tài liệu
+  (`save_upload`) cần nó, mà FastAPI chỉ đưa gói này vào extra `standard` của
+  chính nó - `pip install xime[web]` không có, nên upload chết lúc chạy với
+  "Form data requires python-multipart to be installed".
+
+- **Floor dependency nay là con số đã cài thử, không phải phỏng đoán.**
+  `fastapi>=0.110.1` (0.110.0 ghim starlette 0.36.3, `TestClient` của nó gọi
+  `httpx.Client(app=...)` - đã bị xoá ở httpx 0.28, nên mọi test app tự viết cho
+  route của mình đều chết `TypeError`), `pydantic>=2.5` (2.0-2.4 ra trước Python
+  3.12, chính là mốc `requires-python` của Xime, nên không interpreter được hỗ
+  trợ nào cài nổi), `pyyaml>=6.0.1` (6.0 không build được trên CPython hiện
+  đại). Đã chạy **full suite với đúng bộ floor này**.
+
+- **sdist chỉ còn mã nguồn và tài liệu**: 400 file / 620 KB xuống 230 file /
+  354 KB. Trước đây gói phát hành nuốt cả `.claude/` (39 file tài liệu chiến
+  lược nội bộ + đường dẫn máy cá nhân) và `tests_temp/` (130 file), vì hatchling
+  mặc định đóng gói **mọi thứ không bị `.gitignore` che**. Nay khai whitelist
+  neo vào gốc dự án, nên thư mục mới thêm vào repo mặc định nằm ngoài gói.
+
+### Notes
+
+Bốn chỗ API của `pymodbus` đã đổi so với thiết kế 2026-06-23, đều đã xác minh
+trên `pymodbus 3.14.0` trước khi viết code (chi tiết:
+`.claude/docs/ke-hoach-0.7.md`):
+
+- `pymodbus.payload` (`BinaryPayloadDecoder`/`Builder`) **đã bị xóa** - thay
+  bằng classmethod `ModbusClientMixin.convert_from_registers/to_registers`. Vì
+  là classmethod nên codec **unit-test được hoàn toàn không cần network**.
+- Tham số slave nay tên là **`device_id`** (keyword-only).
+- `convert_*` chỉ có `word_order`, **không có `byte_order`** - Xime tự cài đặt
+  phần hoán byte trong từng thanh ghi (`swap_bytes`).
+- `ModbusServerContext`/`ModbusDeviceContext` **đã deprecated, sẽ xóa ở
+  pymodbus v4** - phần slave viết thẳng theo `SimData`/`SimDevice` ngay từ đầu.
+  `SimDevice.id` map đúng vào `unit_id`.
+
+Với `asyncua`, framework đọc bằng `read_attributes()` chứ **không** dùng
+`read_values()`: hàm sau vứt bỏ StatusCode của từng node, nên gõ sai một NodeId
+trả về `None` **im lặng**, trông y hệt một node chưa có giá trị.
+
+Floor phiên bản: `pymodbus>=3.14`, `asyncua>=2.0`. Classifier vẫn
+`Development Status :: 3 - Alpha` (0.7 còn thêm tính năng lớn).
+
 ## [0.6.3] - 2026-07-29
 
 Bản vá tương thích ngược hoàn toàn, tập trung **gỡ chặn cho các app đang chạy

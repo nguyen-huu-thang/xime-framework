@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from xime.core.context import request_context
 from xime.core.security import clear_security

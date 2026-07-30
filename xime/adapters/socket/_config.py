@@ -48,7 +48,7 @@ class SocketServerConfig(BaseModel):
         runtime: RuntimeConfig,
         server_id: str,
         path_override: str | None,
-    ) -> "SocketServerConfig":
+    ) -> SocketServerConfig:
         """Build the config for a server, merging YAML, defaults and overrides.
 
         Path precedence:

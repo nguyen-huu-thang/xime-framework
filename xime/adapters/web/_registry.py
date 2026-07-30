@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .openapi._config import OpenApiConfig
@@ -8,16 +9,16 @@ if TYPE_CHECKING:
 
 class _WebRegistry:
     def __init__(self) -> None:
-        self._openapi: dict[str, "OpenApiConfig"] = {}
+        self._openapi: dict[str, OpenApiConfig] = {}
         # (middleware_class, options) in declaration order, per server_id.
         # (class middleware, options) theo thứ tự khai báo, theo từng server_id.
         self._middlewares: dict[str, list[tuple[type, dict[str, Any]]]] = {}
         self._exception_handlers: dict[str, dict[type[Exception], Callable]] = {}
 
-    def set_openapi(self, config: "OpenApiConfig", server_id: str = "default") -> None:
+    def set_openapi(self, config: OpenApiConfig, server_id: str = "default") -> None:
         self._openapi[server_id] = config
 
-    def get_openapi(self, server_id: str = "default") -> "OpenApiConfig | None":
+    def get_openapi(self, server_id: str = "default") -> OpenApiConfig | None:
         return self._openapi.get(server_id)
 
     def add_middleware(
