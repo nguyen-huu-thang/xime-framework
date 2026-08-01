@@ -9,6 +9,13 @@
 
 ---
 
+> **Kế hoạch vá (chốt 2026-08-01, chưa thi công):**
+> [`ke-hoach-va-bao-mat-2026-08-01.md`](ke-hoach-va-bao-mat-2026-08-01.md) - 5 đợt, code cụ thể
+> cho từng mục, cách kiểm chứng, và 4 quyết định của chủ dự án. **Hai sự thật ở mục 1 của file
+> đó phải đọc trước khi sửa bất cứ gì**: `xime` cài editable và không app nào có venv riêng, nên
+> một lần sửa framework là chạm 31 app ngay lập tức; và `xime.__version__` đang trả 0.6.3 trong
+> khi code là 0.7.0, nên đừng dùng nó để xác nhận bản vá.
+
 # PHẦN I - KẾ HOẠCH
 
 ## 1. Vì sao đợt này tồn tại
@@ -315,7 +322,7 @@ thật** khóa `..\..\` mà lớp kiểm tra thứ nhất cho lọt (PoC 7).
 |---|---|---|---|
 | **A1** | 🔴 NGHIÊM TRỌNG | Không có khóa JWT -> app KHÔNG cài middleware xác thực, vẫn chạy | 21 codebase |
 | **A2** | 🟠 CAO | `allow_origin_regex` khớp **mọi IPv4 công cộng**, kèm `allow_credentials: true` | 23 codebase |
-| **A3** | 🟠 CAO | `shop` ký JWT HS256 bằng secret **nằm trong git**, production không đè | 1 app đã deploy |
+| **A3** | 🟠 CAO | Sáu app Monolithic ký JWT HS256 bằng **cùng một secret literal**; ở `shop` nó nằm trong git và app đã deploy | 6 app |
 | **F1** | 🟠 CAO | WebSocket đi thẳng qua `JwtAuthMiddleware` | framework (chưa app nào dùng WS) |
 | **F2** | 🟠 CAO | `save_upload` tin Content-Type của client, `stream_object` phát lại inline -> XSS lưu trữ | framework |
 | **F3** | 🟠 CAO | Sàn dependency cho phép bộ thư viện có **26 CVE**, gồm PyJWT 2.8.0 | mọi bản cài mới |
@@ -440,7 +447,7 @@ còn lại thì cấu hình dev **chính là** cấu hình production.
 đã có ở 15 repo và không dùng khi deploy). Nếu vẫn muốn giữ tiện lợi khi dev thì siết regex về
 đúng dải riêng: `127\.0\.0\.1|localhost|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.`.
 
-## 🟠 A3 - `shop` ký JWT bằng một secret nằm sẵn trong git
+## 🟠 A3 - Sáu app Monolithic ký JWT bằng cùng một secret, và ở `shop` nó nằm sẵn trong git
 
 **Chỗ:** `Monolithic/shop/backend/resources/application.yml:19` (file này **có trong git**):
 
@@ -462,9 +469,35 @@ mật khẩu, không cần chạm vào máy chủ.
 
 App này đang chạy thật: `application-production.yml` khai origin `https://shop.scime.click`.
 
-**Đề xuất:** coi secret này là **đã lộ** - đổi ngay và vô hiệu mọi token đang sống, đừng chỉ sửa
-file. Sau đó dứt secret ra khỏi file trong git (xem A6 - chỗ tài liệu bảo để secret vào là một
-file framework không đọc).
+### Bổ sung sau khi rà lại (cùng ngày): cả SÁU app Monolithic dùng CHUNG một chuỗi ký
+
+Không chỉ `shop`. `auto-garage`, `dental-clinic`, `english-center`, `rental-management`, `spa`
+đều có **đúng cùng một giá trị** trong `backend/resources/application.yml`:
+
+```
+secret: "dev-secret-CHANGE-IN-PRODUCTION-use-32chars-minimum"
+```
+
+Khác biệt về mức độ, phải nói cho chính xác:
+
+- **`shop`**: giá trị nằm **trong git** và app **đã deploy**. Đây là chỗ nghiêm trọng.
+- **5 app còn lại**: chưa phải repo git (`git rev-parse` báo không phải repo), chưa có
+  `application-production.yml`, nên chưa deploy. Nhưng giá trị thì y hệt, và nó là một literal
+  đoán được, xuất hiện cả trong code làm giá trị fallback.
+
+**Kiểm và ĐẠT một chỗ, ghi lại để không lo thừa:** `validate_token` của cả sáu app **có** ép
+`audience` + `issuer` và `options={"require": ["jti","exp","iss","aud"]}`, mỗi app một `aud` riêng
+(`https://garage.scime.click`...). Nên token của app này **không** dùng lại được ở app kia. Việc
+dùng chung secret không tạo ra lỗ hổng chéo app.
+
+Nhưng nó không cứu được gì trước việc lộ secret: biết secret thì tự ký một token với đúng `aud`
+của app đích là xong. Ép `aud` chặn tái sử dụng token, không chặn giả mạo token.
+
+**Đề xuất:** coi secret này là **đã lộ** - đổi ngay và vô hiệu mọi token đang sống của `shop`,
+đừng chỉ sửa file. Năm app còn lại đổi trước khi deploy, mỗi app một giá trị ngẫu nhiên riêng
+(`secrets.token_urlsafe(32)`), và **bỏ luôn giá trị fallback trong code** để thiếu cấu hình là
+nổ chứ không phải im lặng dùng chuỗi đoán được. Sau đó dứt secret ra khỏi file trong git (xem A6
+- chỗ tài liệu bảo để secret vào là một file framework không bao giờ đọc).
 
 ## 🟡 A4 - `/docs`, `/redoc`, `/openapi.json` mở công khai ở toàn bộ app
 
