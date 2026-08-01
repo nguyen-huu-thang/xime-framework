@@ -87,7 +87,7 @@ Các mảng cần làm, theo thứ tự ưu tiên:
 | **MQ adapter** | Tích hợp RabbitMQ / Kafka | Cao |
 | **Savepoint (nested transaction)** | Hỗ trợ nested transaction thực sự | Cao |
 | **Đăng ký job bằng decorator** | Decorator `@job` tùy chọn thay cho `SchedulerConfig` | Thấp |
-| **Publish lên PyPI** | Package và publish lên PyPI | Thấp |
+| **Tự động hóa phát hành** | XIME đã có trên PyPI, nhưng mỗi bản vẫn phát hành thủ công. Một workflow CI tự build, kiểm và đẩy khi có git tag sẽ bỏ được các bước làm tay | Thấp |
 | **Cải thiện tài liệu** | Thêm ví dụ, tutorial, API reference | Thấp |
 
 ---

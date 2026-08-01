@@ -1,10 +1,32 @@
 # XIME Framework — Hướng dẫn phiên làm việc
 
-Python backend framework, bản đang làm là **0.7.0** - **chưa commit, chưa lên
-PyPI** (tag git cuối cùng vẫn là `v0.6.3`; đừng đánh số thành 0.7.1, không có
-bản 0.7.0 nào đã phát hành để mà vá). **Các bản 0.1.0 - 0.6.3 ĐÃ có trên PyPI** -
-kiểm chứng 2026-07-29 qua PyPI JSON API, đừng tin lại dòng "chưa push PyPI" ở tài
-liệu cũ. Hệ quả: API đã có người tải về dùng, đổi API phải theo semver.
+Python backend framework, bản mới nhất là **0.7.0 - ĐÃ COMMIT VÀ ĐÃ LÊN PyPI**
+(kiểm chứng 2026-08-01 qua PyPI JSON API: 11 bản `0.1.0` -> `0.7.0`; commit
+`bd2c594 v0.7.0` ở repo phát triển, `99036ae v0.7.0` ở repo phát hành). Vá lỗi
+của bản này thì đánh số **0.7.1**. Hệ quả: API đã có người tải về dùng, đổi API
+phải theo semver.
+
+> **Dòng "0.7.0 chưa commit, chưa lên PyPI" ở tài liệu cũ là SAI, đừng tin lại.**
+> Nó đúng lúc viết (2026-07-30) rồi bị bỏ quên sau khi phát hành. Cùng loại với
+> lỗi "chưa push PyPI" trước đó. Kiểm bằng lệnh, đừng kiểm bằng trí nhớ:
+> `python -c "import urllib.request,json; print(sorted(json.load(urllib.request.urlopen('https://pypi.org/pypi/xime/json'))['releases']))"`
+>
+> Ghi chú: **cả hai repo chưa có git tag nào** dù bước 8 của hướng dẫn phát hành
+> yêu cầu `git tag v0.7.0`. Commit có, tag không.
+
+## Ba thư mục, đừng nhầm (đổi cấu trúc 2026-08-01)
+
+| Thư mục | Là gì |
+| --- | --- |
+| `d:\code\xime\xime framework` | **repo PHÁT TRIỂN** (chỗ này): code, `tests_temp/`, `.claude/`, két token `pypi_token.py`. Remote GitHub `nguyen-huu-thang/xime-framework` |
+| `D:\code\xime framework\upload` | **repo PHÁT HÀNH**: chỉ thứ đóng gói. Build + upload PyPI ở đây. Repo git riêng, **không có remote** |
+| `D:\code\xime framework\website` | **trang xime-framework.org** (Next.js xuất tĩnh). Không dính gì tới gói PyPI |
+
+Trước 2026-08-01 repo phát hành nằm thẳng ở `D:\code\xime framework`; nay lùi
+vào `upload/` để nhường chỗ cho `website/`. `.git` + `.gitignore` chuyển theo nên
+`upload/` vẫn tự chứa, build cho kết quả y hệt (đã kiểm: sdist 230 file,
+`twine check` PASSED). Lệnh upload nay là
+`python pypi_token.py --upload "D:/code/xime framework/upload/dist"`.
 
 Toàn bộ core, các adapter (web, gRPC code-first + client SDK, socket, **MQTT**,
 **Modbus TCP**, **OPC UA**) và starters (gồm **storage/localfs/s3**,
@@ -222,11 +244,15 @@ Trạng thái các mảng lớn (cập nhật 2026-07-29):
 > **Lưu ý cũ đã SAI, đừng tin lại:** "chưa push PyPI". Thực tế đã có **10 bản**
 > (0.1.0 - 0.6.3) trên PyPI từ trước.
 >
-> Két sắt token + hướng dẫn phát hành 8 bước: `pypi_token.py` ở gốc repo (trong
-> `.gitignore`), xem bằng `python pypi_token.py --guide`.
+> Két sắt token + hướng dẫn phát hành 8 bước: `pypi_token.py` ở gốc repo PHÁT
+> TRIỂN (trong `.gitignore`), xem bằng `python pypi_token.py --guide`. Hướng dẫn
+> đã cập nhật đường dẫn `upload/` ngày 2026-08-01.
 
-Sau đợt kiểm toán trên, **không còn việc nào đang chờ** - 0.7.0 sẵn sàng commit
-và đẩy PyPI. Trước đó, hai mắt xích đặt ngày 2026-07-27 đã làm xong ở **0.6.3**:
+Sau đợt kiểm toán trên, **0.7.0 đã commit và đã lên PyPI** (xác nhận 2026-08-01),
+không còn việc nào chờ ở mảng phát hành. Việc mới mở ngày **2026-08-01**: dựng
+trang **xime-framework.org** ở `D:\code\xime framework\website` (Next.js xuất
+tĩnh, host tĩnh giá rẻ, ưu tiên SEO). Trước đó, hai mắt xích đặt ngày 2026-07-27
+đã làm xong ở **0.6.3**:
 
 > - **`PEER_APP_ID`** (`docs/peer-app-id-tu-san-cert.md`) - mắt xích tiếp theo của đợt
 >   "hồn - xác" nằm ở **data-service**, không phải repo này.

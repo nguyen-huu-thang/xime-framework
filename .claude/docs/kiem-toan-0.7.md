@@ -5,6 +5,14 @@
 >
 > Bối cảnh: repo phát hành là thư mục RIÊNG `D:\code\xime framework`; chủ dự án
 > copy mã từ repo này sang khi bên này ổn.
+>
+> ⚠ **Đường dẫn đã đổi 2026-08-01** (sau khi báo cáo này viết xong): repo phát
+> hành lùi vào `D:\code\xime framework\upload`, còn gốc thêm `website/` cho trang
+> xime-framework.org. Mọi đường dẫn `D:\code\xime framework\...` trong báo cáo
+> này là **ghi chép lịch sử đúng tại thời điểm kiểm toán** - đừng sửa, nhưng khi
+> làm theo thì chèn `upload\` vào. Hướng dẫn phát hành trong `pypi_token.py` đã
+> cập nhật. Đã kiểm chứng sau khi chuyển: sdist vẫn 230 file, `twine check`
+> PASSED, `git status` trong `upload/` sạch.
 
 ---
 

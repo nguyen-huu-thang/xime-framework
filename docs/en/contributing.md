@@ -87,7 +87,7 @@ Areas that need work, roughly in priority order:
 | **MQ adapter** | RabbitMQ / Kafka integration | High |
 | **Savepoints (nested transactions)** | True nested transaction support | High |
 | **Decorator-based job registration** | Optional `@job` decorator as an alternative to `SchedulerConfig` | Low |
-| **PyPI publish** | Package and publish to PyPI | Low |
+| **Release automation** | XIME is already on PyPI, but each release is cut by hand. A CI workflow that builds, verifies and publishes on a git tag would remove the manual steps | Low |
 | **Documentation improvements** | More examples, tutorials, API reference | Low |
 
 ---

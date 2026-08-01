@@ -2,6 +2,15 @@
 
 File này cung cấp hướng dẫn cho Claude Code khi làm việc với dự án này.
 
+> **Chạy service Base / đổi cấu hình service đang chạy (áp dụng cho MỌI phiên):**
+> `D:\code\xime\tools\chay-base\chay-base.bat` khởi động cả 9 service Base theo đúng thứ tự phụ thuộc ·
+> `trang-thai.bat` xem đang chạy gì · `dung-base.bat` dừng.
+> **Đọc `D:\temp\xime\service base\trang-thai.md` TRƯỚC khi tự khởi động bất cứ service nào** -
+> đó là nơi mọi phiên biết cái gì đang chạy, khỏi tranh cổng nhau.
+> Cập nhật danh bạ app, cert, key, quyền, callback thì **gọi kênh admin, ĐỪNG khởi động lại**:
+> [`../.claude/docs/khoi-dong-va-kenh-admin.md`](../.claude/docs/khoi-dong-va-kenh-admin.md)
+> (có bảng "API hay khởi động lại" - thứ trong database thì có API, thứ trong `application.yml` thì không).
+
 ## Tổng quan dự án
 
 **XIME** là một Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot nhưng vẫn tôn trọng triết lý Python. Đã **phát hành 0.7.0** - toàn bộ core, các adapter (web, gRPC, socket, MQTT, **Modbus TCP**, **OPC UA**) và starters (gồm storage local + S3/MinIO, mail SMTP) đã được triển khai đầy đủ và có test. Bản 0.6 **gỡ hẳn thư viện `dependency-injector`** (lớp lưu/dựng singleton viết lại bằng dict tự viết) và thêm **dynamic interface binding** (một interface bind nhiều implementation, đổi được lúc runtime qua `Switcher`). Bản 0.6.1 thêm cho web adapter: middleware lấy được dependency từ DI / runtime config qua marker `Inject`/`FromConfig` và helper `configure_cors` (app không phải subclass `WebAdapter`). Bản 0.6.2 thêm **starter `mail`**: Protocol `MailService` + backend SMTP `SmtpMailService` (async qua aiosmtplib, gửi đồng bộ có timeout + `MailSendError`). Bản 0.6.3 gỡ chặn cho app chạy thật: **`PEER_APP_ID`** (đọc định danh APPLICATION từ SAN `xime-app://` của client cert mTLS, lưu cạnh `PEER_CN` trong request context, phơi qua `current_app_id()`), **TLS/HTTPS cho web adapter** (khối `server.ssl` trong `application.yml`, để trống thì vẫn HTTP thuần như cũ) và **khối chỉ đọc `read_only()`** (usecase không ghi khỏi phải bọc transaction; `ReadOnlyManager` là manager riêng cùng cấp với `TransactionManager`), kèm `RuntimeConfig.get_bool()` ép kiểu chặt cho cờ boolean. Bản **0.7.0** thêm **fieldbus công nghiệp**: adapter **Modbus TCP** (Device Model khai báo tự giải mã thanh ghi, lập kế hoạch đọc an toàn theo `max_gap`, `@poll`/`@on_change`, và chế độ slave `@serve`/`@on_write`) và adapter **OPC UA** (Node Model, subscription thật `@on_node_change`, chế độ server, đủ ba mức bảo mật None/Sign/SignAndEncrypt).
