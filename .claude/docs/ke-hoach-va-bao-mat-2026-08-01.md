@@ -7,6 +7,10 @@
 
 ---
 
+> **Phần CHƯA quyết nằm ở file riêng:** [`cho-quyet-bao-mat-2026-08-01.md`](cho-quyet-bao-mat-2026-08-01.md)
+> - 5 mục, kèm khuyến nghị và thứ mỗi mục đang chặn. Mục 1 ở đó (**secret để ở file nào**) đang
+> chặn đúng đường găng của đợt 0, quyết nó trước.
+
 ## 0. Bốn quyết định của chủ dự án (chốt 2026-08-01)
 
 | Câu hỏi | Đã chốt | Kéo theo gì |
