@@ -191,6 +191,44 @@ message DownloadChunk { bytes chunk = 1; }
 rpc Download(DownloadRequest) returns (stream DownloadChunk);
 ```
 
+Dạng này dành cho **byte**: tải file, xuất dữ liệu thô. Muốn stream **bản ghi có kiểu** thì
+dùng dạng ngay dưới.
+
+### `@stream` + `yield` — server streaming CÓ KIỂU (0.7.1)
+
+Handler là một **async generator**, mỗi `yield` là một message:
+
+```python
+from collections.abc import AsyncIterator
+
+@stream("watch_changed_accounts")
+async def watch_changed_accounts(
+    self, request: WatchRequest
+) -> AsyncIterator[AccountChanged]:
+    async for event in self.feed.follow(request.after_sequence):
+        yield AccountChanged(sequence=event.sequence, account_id=event.account_id)
+```
+
+Proto sinh ra **không có wrapper** — response chính là DTO của bạn:
+
+```protobuf
+rpc WatchChangedAccounts(WatchRequest) returns (stream AccountChanged);
+```
+
+Nhờ vậy một peer Java đọc `.proto` là hiểu ngay, không cần biết quy ước chunk của xime.
+
+Ba ràng buộc, đều báo lỗi lúc **khởi động** chứ không phải lúc gọi RPC đầu tiên:
+
+| Viết sai | Lỗi |
+| --- | --- |
+| `@command` mà có `yield` | `@command` nợ đúng một response, không được là async generator |
+| Vừa có `DownloadStream` vừa có `yield` | Chọn một: byte hoặc bản ghi có kiểu |
+| Thiếu annotation `-> AsyncIterator[<BaseModel>]` | Model yield ra chính là message của stream, không suy ra được nếu không khai |
+
+**Dọn dẹp khi client bỏ đi:** framework gọi `aclose()` trên generator của bạn ngay khi
+client huỷ, nên khối `finally:` (đóng session DB, nhả khoá) chạy đúng lúc đó — không chờ
+tới lượt thu gom rác. Cứ viết `try/finally` như bình thường.
+
 ---
 
 ## Ổn định Field Number
@@ -372,7 +410,7 @@ grpc:
 ```
 
 **mTLS động (cert xoay không restart).** Khi cert được cấp động (ví dụ từ một
-Trust Service và xoay định kỳ), đăng ký một `GrpcCertificateProvider` thay cho
+một CA nội bộ và xoay định kỳ), đăng ký một `GrpcCertificateProvider` thay cho
 khai file. Provider đọc cert hiện hành từ bộ nhớ; framework hỏi lại nó ở **mỗi
 TLS handshake mới**, nên cert xoay không cần restart và không cắt phiên đang mở:
 
@@ -380,7 +418,7 @@ TLS handshake mới**, nên cert xoay không cần restart và không cắt phi�
 # config/grpc.py
 from xime.adapters.grpc import configure_grpc_tls
 
-configure_grpc_tls(provider=TrustGrpcCertificateProvider)
+configure_grpc_tls(provider=MyCertificateProvider)
 #   provider là class trong DI, có version() -> str và current() -> ServerCertificates
 ```
 

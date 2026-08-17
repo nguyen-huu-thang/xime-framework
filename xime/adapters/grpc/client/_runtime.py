@@ -20,11 +20,14 @@ SDK sinh ra mang theo FileDescriptorSet (_descriptors.binpb) thay vì *_pb2.py:
 message class được dựng lúc import trong DescriptorPool RIÊNG, nên hai SDK
 trong cùng process không bao giờ đụng tên module và không đụng sys.path.
 
-Streaming follows the xime chunk-wrapper convention (see _stream_convention.py):
-upload sends wrapper(metadata=...) first then wrapper(chunk=...); download
-yields wrapper.chunk per message.
-Streaming theo quy ước chunk-wrapper của xime: upload gửi wrapper(metadata=...)
-trước rồi wrapper(chunk=...); download yield wrapper.chunk mỗi message.
+Byte streaming follows the xime chunk-wrapper convention (see
+_stream_convention.py): upload sends wrapper(metadata=...) first then
+wrapper(chunk=...); download yields wrapper.chunk per message. A typed server
+stream has no wrapper — each message is the response DTO itself.
+Streaming byte theo quy ước chunk-wrapper của xime: upload gửi
+wrapper(metadata=...) trước rồi wrapper(chunk=...); download yield
+wrapper.chunk mỗi message. Stream CÓ KIỂU không dùng wrapper — mỗi message
+chính là DTO response.
 """
 
 
@@ -118,6 +121,32 @@ class SdkRuntime:
         )
         async for item in call(pydantic_to_pb2(request, req_cls)):
             yield item.chunk
+
+    async def server_stream_typed(
+        self,
+        channel: Any,
+        path: str,
+        request: BaseModel,
+        request_message: str,
+        response_model: type[BaseModel],
+        response_message: str,
+    ) -> AsyncIterator[BaseModel]:
+        """Server stream of DTOs — same marshalling as `unary`, one per message.
+
+        Separate from server_stream() on purpose: that one carries raw bytes
+        through a chunk wrapper (file download) and must keep doing so.
+        Tách khỏi server_stream() có chủ đích: hàm kia truyền byte thô qua
+        chunk-wrapper (tải file) và phải giữ nguyên như vậy.
+        """
+        req_cls = self.message_class(request_message)
+        resp_cls = self.message_class(response_message)
+        call = channel.unary_stream(
+            path,
+            request_serializer=_serialize,
+            response_deserializer=resp_cls.FromString,
+        )
+        async for item in call(pydantic_to_pb2(request, req_cls)):
+            yield pb2_to_pydantic(item, response_model)
 
 
 def _serialize(message: Any) -> bytes:

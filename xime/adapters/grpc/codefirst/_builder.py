@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections.abc
 import enum
 import inspect
 import typing
@@ -35,6 +36,15 @@ from ._stream_convention import (
     upload_wrapper_name,
 )
 from ._type_map import map_type, python_hint
+
+# Return annotations accepted on a typed-stream handler. typing.AsyncIterator[X]
+# and collections.abc.AsyncIterator[X] both report the abc as their origin.
+# Annotation return chấp nhận cho handler stream có kiểu.
+_ASYNC_ITER_ORIGINS = (
+    collections.abc.AsyncIterator,
+    collections.abc.AsyncIterable,
+    collections.abc.AsyncGenerator,
+)
 
 
 def _unresolved_hint(cls: type) -> str:
@@ -290,7 +300,19 @@ class ContractBuilder:
                 endpoint_name=info.name,
             )
 
-        # SERVER_STREAM (download)
+        if stream_kind is StreamKind.SERVER_STREAM_TYPED:
+            # No wrapper: the yielded model IS the streamed message, so the
+            # response side of the rpc is an ordinary DTO. That is what makes
+            # `rpc Watch(Req) returns (stream Resp)` readable to a Java peer.
+            # Không wrapper: model yield ra CHÍNH LÀ message của stream.
+            response_msg = registry.register_message(response_type)  # type: ignore[arg-type]
+            return MethodContract(
+                rpc_name, request_msg, response_msg, StreamKind.SERVER_STREAM_TYPED,
+                handler_attr=attr_name, request_py=request_type, response_py=response_type,
+                endpoint_name=info.name,
+            )
+
+        # SERVER_STREAM (byte download)
         wrapper = download_wrapper_name(rpc_name)
         registry.add_message(
             MessageContract(
@@ -331,22 +353,24 @@ class ContractBuilder:
     def _resolve(
         self, cls: type, attr_name: str, info: EndpointInfo, func: Any
     ) -> tuple[type[BaseModel], type | None, StreamKind, str]:
-        # Every handler (unary, client-stream, server-stream) is invoked with
-        # `await bound(...)` by the serving glue, so it must be a coroutine
-        # function. A plain `def` — or an `async def` with `yield` (async
-        # generator) — would otherwise start fine but crash at the first RPC
-        # with "object NoneType can't be used in 'await' expression". Fail fast.
-        # Mọi handler đều được serving glue gọi bằng `await bound(...)`, nên phải
-        # là coroutine function. Viết `def` (hoặc async generator) sẽ qua được
-        # startup nhưng crash lúc RPC đầu tiên — chặn ngay từ startup.
-        if not inspect.iscoroutinefunction(func):
+        # Handlers come in two shapes and the serving glue calls them
+        # differently: a coroutine function is awaited once, an async generator
+        # is iterated (typed server stream). Anything else — a plain `def` —
+        # would start fine but crash at the first RPC with "object NoneType
+        # can't be used in 'await' expression". Fail fast.
+        # Handler có hai dạng, glue gọi khác nhau: coroutine thì `await` một
+        # lần, async generator thì lặp (stream có kiểu). Dạng khác — `def`
+        # thường — qua được startup nhưng crash ở RPC đầu tiên.
+        is_async_gen = inspect.isasyncgenfunction(func)
+        if not inspect.iscoroutinefunction(func) and not is_async_gen:
             raise StartupException(
                 self._err(
                     cls,
                     attr_name,
                     "endpoint handler must be an `async def` coroutine function "
-                    "(a plain `def` or an `async def` with `yield` would crash at "
-                    "the first RPC when the server awaits it)",
+                    "(or, for a typed server stream, an `async def` with `yield` "
+                    "returning AsyncIterator[<BaseModel>]); a plain `def` would "
+                    "crash at the first RPC when the server awaits it",
                 )
             )
         try:
@@ -386,17 +410,59 @@ class ContractBuilder:
         if info.kind is EndpointKind.COMMAND:
             if stream_param_type is not None:
                 raise StartupException(self._err(cls, attr_name, "@command must not take an Upload/DownloadStream"))
+            if is_async_gen:
+                raise StartupException(
+                    self._err(
+                        cls, attr_name,
+                        "@command must return one response, so it cannot be an async "
+                        "generator — use @stream for a typed server stream",
+                    )
+                )
             self._require_response(cls, attr_name, return_type)
             return request_type, return_type, StreamKind.UNARY, ""
 
         # @stream
+        if stream_param_type is not None and is_async_gen:
+            raise StartupException(
+                self._err(
+                    cls, attr_name,
+                    f"@stream takes either an {stream_param_type.__name__} parameter or "
+                    "`yield` (typed stream), not both",
+                )
+            )
         if stream_param_type is UploadStream:
             self._require_response(cls, attr_name, return_type)
             return request_type, return_type, StreamKind.CLIENT_STREAM, stream_param_name
         if stream_param_type is DownloadStream:
             return request_type, None, StreamKind.SERVER_STREAM, stream_param_name
+        if is_async_gen:
+            # Typed server stream: the yielded model comes from the return
+            # annotation, the only place it is written down.
+            # Stream có kiểu: model lấy từ annotation return — chỗ duy nhất khai.
+            yielded = self._yielded_model(cls, attr_name, return_type)
+            return request_type, yielded, StreamKind.SERVER_STREAM_TYPED, ""
         raise StartupException(
-            self._err(cls, attr_name, "@stream must take exactly one UploadStream or DownloadStream parameter")
+            self._err(
+                cls, attr_name,
+                "@stream must take exactly one UploadStream or DownloadStream parameter, "
+                "or `yield` models (typed server stream: `async def ... -> "
+                "AsyncIterator[<BaseModel>]` with `yield`)",
+            )
+        )
+
+    def _yielded_model(self, cls: type, attr_name: str, return_type: Any) -> type[BaseModel]:
+        """Extract Resp from AsyncIterator[Resp] on a typed-stream handler."""
+        origin = typing.get_origin(return_type)
+        args = typing.get_args(return_type)
+        if origin in _ASYNC_ITER_ORIGINS and args and self._is_basemodel(args[0]):
+            return args[0]  # type: ignore[no-any-return]
+        raise StartupException(
+            self._err(
+                cls, attr_name,
+                f"a typed server stream must be annotated `-> AsyncIterator[<BaseModel>]` "
+                f"(got {return_type!r}). The yielded model is the streamed message, so "
+                f"the generator cannot be built without it.",
+            )
         )
 
     # ------------------------------------------------------------------

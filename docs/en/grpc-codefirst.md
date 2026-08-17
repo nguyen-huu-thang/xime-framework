@@ -184,6 +184,46 @@ message DownloadChunk { bytes chunk = 1; }
 rpc Download(DownloadRequest) returns (stream DownloadChunk);
 ```
 
+This form is for **bytes** - file download, raw export. To stream **typed records**, use
+the form below.
+
+### `@stream` + `yield` — TYPED server streaming (0.7.1)
+
+The handler is an **async generator**; every `yield` is one message:
+
+```python
+from collections.abc import AsyncIterator
+
+@stream("watch_changed_accounts")
+async def watch_changed_accounts(
+    self, request: WatchRequest
+) -> AsyncIterator[AccountChanged]:
+    async for event in self.feed.follow(request.after_sequence):
+        yield AccountChanged(sequence=event.sequence, account_id=event.account_id)
+```
+
+The generated proto has **no wrapper** - the response is your own DTO:
+
+```protobuf
+rpc WatchChangedAccounts(WatchRequest) returns (stream AccountChanged);
+```
+
+So a Java peer reads the `.proto` and understands it without knowing anything about
+xime's chunk convention.
+
+Three constraints, all reported at **startup** rather than on the first RPC:
+
+| Mistake | Error |
+| --- | --- |
+| `@command` containing `yield` | `@command` owes exactly one response, so it cannot be an async generator |
+| Both a `DownloadStream` parameter and `yield` | Pick one: bytes or typed records |
+| Missing `-> AsyncIterator[<BaseModel>]` | The yielded model IS the streamed message; it cannot be inferred |
+
+**Cleanup when the client leaves:** the framework calls `aclose()` on your generator as
+soon as the client cancels, so a `finally:` block (closing a DB session, releasing a lock)
+runs right then instead of whenever the garbage collector gets to it. Write `try/finally`
+as usual.
+
 ---
 
 ## Field Number Stability
@@ -361,7 +401,8 @@ grpc:
 ```
 
 **Dynamic mTLS (rotation without restart).** When certificates are issued
-dynamically (e.g. from a Trust Service and rotated periodically), register a
+dynamically (e.g. by an internal certificate authority, and rotated
+periodically), register a
 `GrpcCertificateProvider` instead of declaring files. The provider reads the
 current cert from memory; the framework re-asks it on **every new TLS
 handshake**, so rotation needs no restart and never cuts established sessions:
@@ -370,7 +411,7 @@ handshake**, so rotation needs no restart and never cuts established sessions:
 # config/grpc.py
 from xime.adapters.grpc import configure_grpc_tls
 
-configure_grpc_tls(provider=TrustGrpcCertificateProvider)
+configure_grpc_tls(provider=MyCertificateProvider)
 #   provider is a DI class with version() -> str and current() -> ServerCertificates
 ```
 
@@ -383,7 +424,8 @@ grpc:
 
 The provider applies to every server; override one server with
 `configure_grpc_tls(provider=PublicCaProvider, server_id="public")` (e.g.
-internal servers use Trust-issued certs, the public server uses a public CA).
+internal servers use certs from a private CA, the public server uses a public
+CA).
 
 ---
 

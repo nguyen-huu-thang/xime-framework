@@ -1,16 +1,24 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import socket
 import struct
 
 from xime.core.context import request_context
 
+_log = logging.getLogger(__name__)
+
 # struct of SO_PEERCRED on Linux: pid, uid, gid (three native ints).
 # struct SO_PEERCRED trên Linux: pid, uid, gid (ba int).
 _UCRED_FORMAT = "3i"
 _UCRED_SIZE = struct.calcsize(_UCRED_FORMAT)
+
+# Guard so the "cannot verify the peer" warning is logged once per process
+# instead of once per connection - a busy socket would drown the log.
+# Cờ để cảnh báo "không xác minh được peer" chỉ in một lần cho cả tiến trình.
+_warned_no_peercred = False
 
 
 def read_peer_cred(writer: asyncio.StreamWriter) -> tuple[int, int, int] | None:
@@ -53,6 +61,15 @@ def authorize_peer(
     if cred is None:
         # Cannot verify (non-Linux) → rely on file permissions only.
         # Không xác minh được → dựa vào file permission.
+        global _warned_no_peercred
+        if not _warned_no_peercred:
+            _warned_no_peercred = True
+            _log.warning(
+                "Socket adapter cannot read peer credentials (SO_PEERCRED is "
+                "unavailable on this platform): the allowed-UID list is NOT "
+                "enforced and access depends entirely on the socket file "
+                "permissions. Every connection is accepted.",
+            )
         return True
 
     pid, uid, _gid = cred

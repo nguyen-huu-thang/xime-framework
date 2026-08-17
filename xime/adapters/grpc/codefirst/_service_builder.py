@@ -66,7 +66,9 @@ class CodeFirstGrpcBuilder:
                 handlers[method.rpc_name] = self._unary_handler(method, bound)
             elif method.kind is StreamKind.CLIENT_STREAM:
                 handlers[method.rpc_name] = self._client_stream_handler(method, bound)
-            else:  # SERVER_STREAM
+            elif method.kind is StreamKind.SERVER_STREAM_TYPED:
+                handlers[method.rpc_name] = self._server_stream_typed_handler(method, bound)
+            else:  # SERVER_STREAM (byte download)
                 handlers[method.rpc_name] = self._server_stream_handler(method, bound)
         return handlers
 
@@ -134,6 +136,43 @@ class CodeFirstGrpcBuilder:
                 # huỷ task handler để nó không chạy mồ côi.
                 if not task.done():
                     task.cancel()
+
+        return grpc.unary_stream_rpc_method_handler(
+            behavior,
+            request_deserializer=req_pb2.FromString,
+            response_serializer=_serialize,
+        )
+
+    def _server_stream_typed_handler(
+        self, method: MethodContract, bound: Any
+    ) -> grpc.RpcMethodHandler:
+        """Serve `async def handler(...) -> AsyncIterator[Model]` (one message per yield).
+
+        No queue and no background task, unlike the byte-download handler: the
+        handler IS the generator, so gRPC's own backpressure reaches business
+        code directly and a cancelled client stops it at the next `yield`.
+        Không queue, không task nền như handler tải file: handler CHÍNH LÀ
+        generator, nên backpressure của gRPC chạm thẳng code nghiệp vụ và client
+        huỷ thì nó dừng ngay tại `yield` kế tiếp.
+        """
+        req_pb2 = self._messages[method.request_message]
+        resp_pb2 = self._messages[method.response_message]
+
+        async def behavior(request: Any, context: grpc.aio.ServicerContext):
+            req_model = pb2_to_pydantic(request, method.request_py)
+            stream = bound(request=req_model)
+            try:
+                async for item in stream:
+                    yield pydantic_to_pb2(item, resp_pb2)
+            finally:
+                # Close the handler's generator explicitly so its `finally:`
+                # (DB session, file handle) runs now. Left to the garbage
+                # collector it would run whenever asyncio finalizes async
+                # generators — which on a cancelled long-lived watch stream can
+                # be much later.
+                # Đóng generator của handler tường minh để `finally:` của nó
+                # chạy ngay; để GC dọn thì có thể muộn hơn nhiều.
+                await stream.aclose()
 
         return grpc.unary_stream_rpc_method_handler(
             behavior,

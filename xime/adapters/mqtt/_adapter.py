@@ -111,7 +111,35 @@ class MqttAdapter:
             if (route_id := r.subscription_id) is not None
         ]
 
+        self._warn_insecure_mode()
         await self._run_forever()
+
+    def _warn_insecure_mode(self) -> None:
+        """Say out loud, once, that this connection is not protected.
+
+        MQTT without TLS is a defensible default for a lab broker on localhost,
+        but sending a username and password over it is not: they travel in the
+        clear in the CONNECT packet, and so does every payload afterwards.
+        MQTT không TLS là mặc định chấp nhận được với broker trong phòng lab,
+        nhưng gửi kèm tài khoản/mật khẩu thì không: chúng đi trên dây dạng rõ
+        ngay trong gói CONNECT, và mọi payload sau đó cũng vậy.
+        """
+        cfg = self._config
+        if cfg is None or cfg.tls is not None:
+            return
+        if cfg.username is not None or cfg.password is not None:
+            logger.warning(
+                "MQTT client '%s' sends credentials to %s:%d over a PLAINTEXT "
+                "connection - username and password travel in the clear. "
+                "Configure mqtt.tls.",
+                cfg.client_id, cfg.host, cfg.port,
+            )
+        else:
+            logger.warning(
+                "MQTT client '%s' is connected to %s:%d without TLS: payloads "
+                "are unencrypted and the broker's identity is not verified.",
+                cfg.client_id, cfg.host, cfg.port,
+            )
 
     async def stop(self) -> None:
         """Stop reconnecting, cancel in-flight handlers, drop the connection."""

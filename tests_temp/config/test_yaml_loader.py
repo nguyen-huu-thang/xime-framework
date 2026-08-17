@@ -123,3 +123,40 @@ def test_detect_env_returns_none_when_unset(monkeypatch):
     monkeypatch.delenv("XIME_ENV", raising=False)
     monkeypatch.delenv("APP_ENV", raising=False)
     assert detect_env() is None
+
+
+# ---------------------------------------------------------------------------
+# F7 - thiếu file profile thì phải nói ra
+# ---------------------------------------------------------------------------
+
+def test_missing_profile_file_warns(tmp_path, caplog):
+    """Im lặng rơi về application.yml là cách một service production chạy bằng
+    giá trị dev mà không ai biết."""
+    write_yaml(tmp_path / "application.yml", "server:\n  port: 8080\n")
+    loader = YamlConfigLoader(tmp_path)
+
+    with caplog.at_level("WARNING", logger="xime.core.config.loader"):
+        data = loader.load(env="production")
+
+    assert data == {"server": {"port": 8080}}          # hành vi không đổi
+    assert "application-production.yml" in caplog.text
+    assert "NOT being applied" in caplog.text
+
+
+def test_existing_profile_file_does_not_warn(tmp_path, caplog):
+    write_yaml(tmp_path / "application.yml", "server:\n  port: 8080\n")
+    write_yaml(tmp_path / "application-production.yml", "server:\n  port: 443\n")
+    loader = YamlConfigLoader(tmp_path)
+
+    with caplog.at_level("WARNING", logger="xime.core.config.loader"):
+        data = loader.load(env="production")
+
+    assert data["server"]["port"] == 443
+    assert caplog.text == ""
+
+
+def test_no_env_requested_does_not_warn(tmp_path, caplog):
+    write_yaml(tmp_path / "application.yml", "server:\n  port: 8080\n")
+    with caplog.at_level("WARNING", logger="xime.core.config.loader"):
+        YamlConfigLoader(tmp_path).load()
+    assert caplog.text == ""

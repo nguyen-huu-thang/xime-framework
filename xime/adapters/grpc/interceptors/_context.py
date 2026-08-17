@@ -9,21 +9,7 @@ import grpc.aio
 
 from xime.core.context import request_context
 from xime.core.security import clear_security
-from xime.core.security.peer import PEER_APP_ID, PEER_CN
-
-# URI scheme a peer certificate uses to carry the identity of the application
-# owning the process. Certificates of processes that belong to no application
-# simply do not have such an entry.
-# Scheme URI cert peer dùng để mang định danh app sở hữu tiến trình. Cert của
-# tiến trình không thuộc app nào thì đơn giản là không có entry này.
-_APP_ID_SCHEME = "xime-app://"
-
-# Expected length of the identity that follows the scheme. Used only as a cheap
-# shape check so a malformed SAN is dropped instead of propagating downstream;
-# the framework never decodes or validates the identity itself.
-# Độ dài định danh đứng sau scheme. Chỉ dùng để kiểm hình dạng cho rẻ, SAN dị
-# dạng bị bỏ thay vì lọt xuống dưới; framework không giải mã hay kiểm nội dung.
-_APP_ID_LENGTH = 33
+from xime.core.security.peer import PEER_CN, PEER_SANS
 
 
 def _auth_values(auth: Any, property_name: str) -> list[Any]:
@@ -73,60 +59,50 @@ def _read_peer_cn(context: Any) -> str | None:
     return str(value)
 
 
-def _read_peer_app_id(context: Any) -> str | None:
-    """Return the application identity carried by the client certificate, or None.
+def _read_peer_sans(context: Any) -> tuple[str, ...]:
+    """Return every Subject Alternative Name of the client certificate.
 
-    Reads the Subject Alternative Names of a verified client certificate and
-    returns the identity behind the `xime-app://` URI entry, with the scheme
-    stripped so consumers get the identity in the same form the platform uses
-    everywhere else. Unlike the CN, SANs are a multi-valued property (a
-    certificate typically also carries DNS, IP and spiffe entries), so every
-    entry is examined and unrelated ones are skipped.
-    Đọc SAN của client cert đã verify và trả định danh nằm sau entry URI
-    `xime-app://`, đã cắt scheme để consumer nhận đúng dạng platform vẫn dùng.
-    Khác CN, SAN là property nhiều giá trị (cert thường còn mang DNS, IP,
-    spiffe), nên phải duyệt mọi entry và bỏ qua entry không liên quan.
+    Unlike the CN, SANs are a multi-valued property, and gRPC hands them over as
+    a FLAT, UNTAGGED list: DNS names, IP addresses and URIs arrive mixed together
+    with nothing marking which is which. So this returns all of them, decoded and
+    in the order gRPC supplied, and interprets nothing — picking out a particular
+    entry is the caller's job, because only the caller knows what it is looking
+    for.
+    Khác CN, SAN là property nhiều giá trị, và gRPC trả về một danh sách PHẲNG,
+    KHÔNG GẮN NHÃN: tên DNS, địa chỉ IP và URI lẫn vào nhau, không có gì phân
+    biệt. Nên hàm này trả HẾT, đã decode, giữ nguyên thứ tự gRPC đưa, và không
+    diễn giải gì — chọn ra entry nào là việc của bên gọi, vì chỉ bên gọi biết
+    mình đang tìm cái gì.
 
-    Fail-soft by design, exactly like _read_peer_cn: no mTLS, no such entry, an
-    undecodable value or an identity of unexpected length all yield None instead
-    of raising. A strange certificate must never be able to break a request.
-    Cố ý fail-soft y như _read_peer_cn: không mTLS, không có entry, giá trị không
-    decode được hay định danh sai độ dài đều trả None chứ không ném. Một cert lạ
-    không bao giờ được phép làm hỏng request.
+    Fail-soft by design, exactly like _read_peer_cn: no mTLS, no such property or
+    an unreadable context all yield an empty tuple instead of raising. Individual
+    entries that do not decode as UTF-8 are skipped, so one bad entry can never
+    hide a good one behind it. A strange certificate must never be able to break
+    a request.
+    Cố ý fail-soft y như _read_peer_cn: không mTLS, không có property, context
+    không đọc được đều trả tuple rỗng chứ không ném. Entry nào không decode được
+    UTF-8 thì bỏ qua, nên một entry rác không bao giờ che được entry hợp lệ đứng
+    sau nó.
     """
     if context is None:
-        return None
+        return ()
     try:
         auth = context.auth_context()
     except Exception:
-        return None
+        return ()
     if not auth:
-        return None
+        return ()
 
+    entries: list[str] = []
     for value in _auth_values(auth, "x509_subject_alternative_name"):
         if isinstance(value, bytes):
             try:
-                entry = value.decode("utf-8")
+                entries.append(value.decode("utf-8"))
             except UnicodeDecodeError:
                 continue
         else:
-            entry = str(value)
-
-        # Search for the scheme rather than matching the start of the entry:
-        # grpc may hand the URI over bare or prefixed with its SAN type (the
-        # "URI:" form openssl prints), and both must work.
-        # Tìm scheme thay vì so đầu chuỗi: grpc có thể trả URI trần hoặc kèm
-        # tiền tố loại SAN (dạng "URI:" như openssl in), cả hai đều phải chạy.
-        position = entry.find(_APP_ID_SCHEME)
-        if position < 0:
-            continue
-
-        app_id = entry[position + len(_APP_ID_SCHEME):]
-        if len(app_id) != _APP_ID_LENGTH:
-            continue
-        return app_id
-
-    return None
+            entries.append(str(value))
+    return tuple(entries)
 
 
 def _set_peer_identity(handler_args: tuple[Any, ...]) -> None:
@@ -135,20 +111,28 @@ def _set_peer_identity(handler_args: tuple[Any, ...]) -> None:
     gRPC handlers are invoked as (request, context) / (request_iterator, context),
     so the ServicerContext is the second positional argument. Two neutral keys are
     written when the certificate supplies them: PEER_CN identifies the calling
-    process, PEER_APP_ID the application owning it. Both stay raw - the CN may be
-    a service id OR an application identity, and callers interpret them
-    themselves.
+    process, PEER_SANS carries every Subject Alternative Name. Both stay raw and
+    uninterpreted — the framework reports what the certificate said, nothing more.
     Handler được gọi dạng (request, context) nên context là tham số thứ hai. Ghi
-    hai key trung tính khi cert có: PEER_CN định danh tiến trình gọi, PEER_APP_ID
-    định danh app sở hữu nó. Cả hai giữ nguyên dạng thô - app tự diễn giải.
+    hai key trung tính khi cert có: PEER_CN định danh tiến trình gọi, PEER_SANS
+    chở mọi SAN. Cả hai giữ nguyên dạng thô - framework thuật lại đúng thứ cert
+    khai, không hơn.
+
+    Neither key is written when there is nothing to report, so an absent key means
+    "the certificate did not supply this" rather than "supplied and empty". The
+    question of whether the call arrived over mTLS at all is already answered by
+    PEER_CN, so PEER_SANS does not have to carry it too.
+    Không key nào được ghi khi không có gì để thuật, nên key VẮNG MẶT nghĩa là
+    "cert không cấp thứ này" chứ không phải "có mà rỗng". Câu "lời gọi có qua mTLS
+    hay không" đã do PEER_CN trả lời, nên PEER_SANS không phải chở thêm nghĩa đó.
     """
     context = handler_args[1] if len(handler_args) > 1 else None
     cn = _read_peer_cn(context)
     if cn is not None:
         request_context.set(PEER_CN, cn)
-    app_id = _read_peer_app_id(context)
-    if app_id is not None:
-        request_context.set(PEER_APP_ID, app_id)
+    sans = _read_peer_sans(context)
+    if sans:
+        request_context.set(PEER_SANS, sans)
 
 
 class RequestContextInterceptor(grpc.aio.ServerInterceptor):

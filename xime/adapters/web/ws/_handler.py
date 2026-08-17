@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import WebSocket
-from starlette.websockets import WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect
 
 from xime.core.context import request_context
 from xime.core.security import clear_security

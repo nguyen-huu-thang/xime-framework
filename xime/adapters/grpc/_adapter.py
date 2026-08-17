@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import grpc.aio
@@ -15,6 +16,8 @@ from .tls._credentials import build_server_credentials
 
 if TYPE_CHECKING:
     from xime.core.bootstrap.application import Application
+
+_log = logging.getLogger(__name__)
 
 
 class GrpcAdapter:
@@ -117,7 +120,10 @@ class GrpcAdapter:
         bind_host = self._host_override or "[::]"
         interceptors = self._build_interceptors()
 
-        self._server = grpc.aio.server(interceptors=interceptors)
+        self._server = grpc.aio.server(
+            interceptors=interceptors,
+            options=config.keepalive.server_options(),
+        )
 
         # Validate packages are importable before trying to fetch instances.
         scanner = GrpcServiceScanner()
@@ -140,6 +146,7 @@ class GrpcAdapter:
             self._server.add_secure_port(f"{bind_host}:{config.port}", credentials)
         else:
             self._server.add_insecure_port(f"{bind_host}:{config.port}")
+        self._warn_insecure_mode(config, secure=credentials is not None)
 
         await self._server.start()
         await self._server.wait_for_termination()
@@ -208,6 +215,33 @@ class GrpcAdapter:
                 "(e.g. by a PostConstruct bootstrap such as a Trust startup "
                 "orchestrator)."
             ) from exc
+
+    def _warn_insecure_mode(self, config: GrpcServerConfig, secure: bool) -> None:
+        """Say out loud, once at startup, that this server is not protected.
+
+        The framework's defaults are permissive (TLS off) on purpose - a dev
+        machine must work with an empty application.yml. The danger is that the
+        permissive mode is also SILENT, so a production service that lost its
+        TLS block looks exactly like a healthy one in the log.
+        Mặc định của framework là dễ dãi (TLS tắt) có chủ đích - máy dev phải
+        chạy được với application.yml rỗng. Cái nguy là chế độ dễ dãi đó còn IM
+        LẶNG, nên service thật mất khối TLS trông y hệt service khoẻ mạnh.
+        """
+        if not secure:
+            _log.warning(
+                "gRPC server '%s' on port %d is serving PLAINTEXT: traffic is "
+                "unencrypted and any client may call it. Set grpc.tls.enabled "
+                "(+ mutual: true for mTLS) in application.yml.",
+                self._server_id, config.port,
+            )
+        elif not config.tls.mutual:
+            _log.warning(
+                "gRPC server '%s' on port %d has TLS but not mTLS "
+                "(grpc.tls.mutual is false): traffic is encrypted, yet the "
+                "server does not verify WHO is calling - any client that trusts "
+                "the CA can invoke every RPC.",
+                self._server_id, config.port,
+            )
 
     def _register_codefirst(self, app: Application) -> None:
         """Build + register code-first controllers for this server, if configured.

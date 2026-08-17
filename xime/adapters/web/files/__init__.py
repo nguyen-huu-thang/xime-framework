@@ -23,10 +23,11 @@ NOT scanned into the DI container. Pair them with a StorageService backend
 
 from ._download import stream_object
 from ._errors import PayloadTooLarge
-from ._upload import save_upload
+from ._upload import DEFAULT_MAX_BYTES, save_upload
 
 __all__ = [
     "stream_object",
     "save_upload",
+    "DEFAULT_MAX_BYTES",
     "PayloadTooLarge",
 ]

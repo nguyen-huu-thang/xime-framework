@@ -123,9 +123,9 @@ File env-specific được **merge** lên base file. Key không có trong env fi
 Set môi trường bằng env var trước khi khởi động:
 
 ```bash
-XIME_ENV=prod python app/main.py
+XIME_ENV=prod python -m app.main
 # hoặc
-APP_ENV=prod python app/main.py
+APP_ENV=prod python -m app.main
 ```
 
 XIME kiểm tra `XIME_ENV` trước, sau đó fallback về `APP_ENV`. Mặc định là `dev` nếu không set.

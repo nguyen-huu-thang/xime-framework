@@ -479,10 +479,12 @@ class TestErrorMappingInterceptorIntercept:
         await result.unary_unary("req", mock_context)
 
         # Unmapped → generic message, never the internal str(exc) "boom".
+        # F12: the class NAME is internal too (it names libraries and layers),
+        # so an unmapped error reports "InternalError", not its real type.
         mock_context.abort.assert_called_once_with(
             grpc.StatusCode.INTERNAL,
             "Internal server error",
-            trailing_metadata=(("xime-error", "_UnmappedException"),),
+            trailing_metadata=(("xime-error", "InternalError"),),
         )
 
     @pytest.mark.asyncio

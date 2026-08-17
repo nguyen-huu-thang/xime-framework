@@ -27,7 +27,7 @@ def configure_middleware(
 
     Example:
         from xime.adapters.web import configure_middleware
-        from starlette.middleware.cors import CORSMiddleware
+        from fastapi.middleware.cors import CORSMiddleware
 
         configure_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"])
     """

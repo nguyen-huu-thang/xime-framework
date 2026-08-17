@@ -63,9 +63,15 @@ dependency.bind({ StorageService: LocalFileStorage })
 storage:
   local:
     root: /var/lib/myapp/objects   # required - missing it fails fast at startup
+    file_mode: "0600"              # optional, default 0600 (owner only)
+    dir_mode:  "0700"              # optional, default 0700
 ```
 
-- **Atomic writes:** `put_stream` stages to a `.part` temp file then `os.replace`, so a reader never sees a half-written object.
+> Write the modes as **quoted strings**: YAML reads an unquoted `0600` as the
+> decimal number 600, which is a meaningless mode. Both keys are ignored on
+> Windows.
+
+- **Atomic writes:** both `put` and `put_stream` stage to a temp file then `os.replace`, so a reader never sees a half-written object. The temp name carries a `uuid4`, so two writes of the same key never share it.
 - **Path-traversal guard:** keys are rejected if they would escape `root` (including via symlinks, checked after `realpath`).
 - **No blocking event loop:** file IO runs in worker threads (`asyncio.to_thread`) - no `aiofiles` dependency, no extra install needed.
 - `url()` raises `UnsupportedOperation` - serve files via the web helper below.
@@ -134,13 +140,37 @@ class FileController:
 - Looks up metadata via `stat()`; a missing object yields **404**.
 - With a satisfiable `Range` header → **206 Partial Content** + `Content-Range`; otherwise a full **200** stream.
 - A malformed `Range` header is **ignored** (full 200, per RFC 7233); a syntactically-valid but unsatisfiable range → **416** with `Content-Range: */<total>`.
-- Sets `Accept-Ranges`, `Content-Length`, `ETag` (when known), and `Content-Disposition` (`inline`, or `attachment` when `download=True` and a `filename` is given).
+- Sets `Accept-Ranges`, `Content-Length`, `ETag` (when known), `Content-Disposition` and `X-Content-Type-Options`.
 - Reads lazily from `open_stream` - large objects never load fully into memory.
 
-### `save_upload(storage, key, upload_file, *, max_bytes=None, content_type=None)`
+**Two stored-XSS defences (0.7.1), always on:**
+
+1. `X-Content-Type-Options: nosniff` on **every** response.
+2. Any type **outside the inline-safe list** is forced to
+   `Content-Disposition: attachment`, even with `download=False` and even when
+   no `filename` is known. Inline-safe: PNG, JPEG, GIF, WebP, BMP, AVIF, PDF,
+   MP4, WebM, MP3, OGG, WAV, `text/plain`.
+
+`image/svg+xml` is **deliberately not** on that list: SVG can run script, so
+rendering a user-uploaded SVG in place is XSS on the app's own origin. To serve
+SVG you produced yourself, pass an explicit `content_type=`, or serve it from a
+separate domain.
+
+Non-ASCII file names work: the header follows RFC 6266 (`filename=` ASCII form
+plus `filename*=UTF-8''...`). Before 0.7.1, downloading `Hóa đơn.pdf` was an
+HTTP 500.
+
+### `save_upload(storage, key, upload_file, *, max_bytes=32MiB, content_type=None)`
 
 - Streams the `UploadFile` in chunks straight into `put_stream` - never fully buffered.
 - If the running total exceeds `max_bytes`, raises `PayloadTooLarge` (HTTP **413**) before the whole body is read. The partial object is cleaned up (local `.part` removed; S3 multipart aborted).
+- **The default cap is 32 MiB** (since 0.7.1; previously unlimited). Pass
+  `max_bytes=None` explicitly for no limit.
+- **The stored content type comes from the FILE NAME**, not from the multipart
+  part's `Content-Type` header - that header is caller-controlled, and an S3
+  backend hands it straight back on download. An unrecognised extension is
+  stored as `application/octet-stream`. Pass `content_type=` when the caller
+  genuinely knows better.
 - Returns the number of bytes written.
 
 ---

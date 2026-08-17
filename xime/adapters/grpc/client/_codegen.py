@@ -19,11 +19,14 @@ Output: a self-contained Python package (the SDK):
     |- _descriptors.binpb   # FileDescriptorSet - loaded by SdkRuntime at import
 
 With a sidecar the SDK mirrors the original Python contract 1:1 (method names,
-Decimal/UUID/date fidelity, streaming). Without one (foreign/Java services)
-only unary methods are generated and types follow plain proto mapping.
+Decimal/UUID/date fidelity, every stream kind). Without one (foreign/Java
+services) unary and server-streaming methods are generated - a server stream
+yields the response message - while client-streaming is skipped, and types
+follow plain proto mapping.
 Có sidecar thì SDK lật gương contract Python gốc 1:1 (tên method, fidelity
-Decimal/UUID/date, streaming). Không có (service Java) thì chỉ sinh method
-unary và kiểu theo map proto thuần.
+Decimal/UUID/date, mọi loại stream). Không có (service Java) thì sinh method
+unary và server-stream (yield message response), bỏ qua client-stream, kiểu
+theo map proto thuần.
 """
 
 _F = descriptor_pb2.FieldDescriptorProto
@@ -54,7 +57,7 @@ _HINT_PY = {"decimal": "Decimal", "uuid": "UUID", "date": "datetime.date"}
 @dataclass
 class ClientGenResult:
     written: list[str] = field(default_factory=list)
-    skipped_methods: list[str] = field(default_factory=list)  # streaming without sidecar
+    skipped_methods: list[str] = field(default_factory=list)  # client-streaming without sidecar
 
 
 def _framework_xime_version() -> str:
@@ -388,14 +391,23 @@ def _emit_client_class(
         meta = methods_meta.get(method.name)
 
         if meta is None:
-            # No sidecar entry: proto-only fallback supports unary methods.
-            # Không có sidecar: fallback proto-only chỉ hỗ trợ unary.
-            if method.client_streaming or method.server_streaming:
+            # No sidecar entry: proto-only fallback. Unary and server-streaming
+            # map cleanly (a server stream is just messages of the response
+            # type). Client-streaming cannot: the xime upload convention needs
+            # the sidecar to say which message is the metadata wrapper, and a
+            # foreign proto may not follow that convention at all.
+            # This path is how a Python service consumes a stream from a JAVA
+            # service — the case the feature was asked for.
+            # Không có sidecar: unary và server-stream map thẳng được (stream
+            # chỉ là các message kiểu response). Client-stream thì không: quy
+            # ước upload của xime cần sidecar chỉ ra message nào là wrapper.
+            # Đây đúng là đường một service Python tiêu thụ luồng từ service JAVA.
+            if method.client_streaming:
                 result.skipped_methods.append(path)
                 continue
             meta = {
                 "name": _snake(method.name),
-                "kind": "unary",
+                "kind": "server_stream_typed" if method.server_streaming else "unary",
                 "request": _short_name(method.input_type),
                 "response": _short_name(method.output_type),
             }
@@ -439,7 +451,27 @@ def _emit_client_class(
                 "            chunks,",
                 "        )",
             ]
-        else:  # server_stream
+        elif kind == "server_stream_typed":
+            has_streaming = True
+            response = meta["response"]
+            used_models.add(response)
+            # Not `async def`: an async generator would have to be awaited
+            # before iterating. Returning the runtime's generator lets callers
+            # write `async for x in client.watch(req)` directly.
+            # Không dùng `async def`: trả thẳng generator để người gọi viết
+            # `async for x in client.watch(req)` mà không phải await trước.
+            lines += [
+                f"    def {py_name}(self, request: {request}) -> AsyncIterator[{response}]:",
+                "        return _runtime.server_stream_typed(",
+                "            self._channel,",
+                f'            "{path}",',
+                "            request,",
+                f'            "{request}",',
+                f"            {response},",
+                f'            "{response}",',
+                "        )",
+            ]
+        else:  # server_stream (byte download)
             has_streaming = True
             wrapper = meta["wrapper"]
             lines += [

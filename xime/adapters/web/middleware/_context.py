@@ -14,13 +14,15 @@ class RequestContextMiddleware:
 
     Why not BaseHTTPMiddleware: it runs the downstream app in a separate
     anyio task, so ContextVar set/clear here would NOT share the handler's
-    context - security/identity could leak to a later request (dental-clinic
-    #001). A pure ASGI middleware calls downstream in the SAME context, so set
-    and clear are consistent and nothing bleeds.
+    context - security/identity could leak to a later request. This is not
+    theoretical: it was a real bug reported against 0.4 and is the reason this
+    middleware is pure ASGI. A pure ASGI middleware calls downstream in the SAME
+    context, so set and clear are consistent and nothing bleeds.
     Vì sao không dùng BaseHTTPMiddleware: nó chạy app downstream trong task anyio
     riêng nên set/clear ContextVar ở đây không cùng context với handler -> identity
-    có thể rò sang request sau (dental-clinic #001). Pure ASGI gọi downstream
-    NGAY trong cùng context nên set/clear nhất quán, không rò.
+    có thể rò sang request sau. Đây không phải lo xa: đó là lỗi thật đã bị báo ở
+    bản 0.4 và là lý do middleware này viết dạng pure ASGI. Pure ASGI gọi
+    downstream NGAY trong cùng context nên set/clear nhất quán, không rò.
 
     Startup:
       - assign a request_id (UUID) into request_context.

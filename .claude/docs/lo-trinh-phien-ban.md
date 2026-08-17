@@ -1,8 +1,10 @@
 # Lộ trình phiên bản Xime Framework
 
 > Chỉ mục tổng các mốc phiên bản đã chốt, để tra nhanh "việc X làm ở bản nào".
-> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật 2026-07-29.
-> Hiện tại: **0.7.0** (pyproject + CHANGELOG + `xime/__init__.py` đã đồng bộ 0.7.0).
+> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật **2026-08-17**.
+> Hiện tại: **0.7.0 trên PyPI**; trong repo đã là **0.7.1** (code xong 2026-08-03,
+> **chưa commit, chưa đẩy PyPI** - chủ dự án tự đẩy). Vì `xime` cài **editable** nên
+> 0.7.1 đã có hiệu lực ngay với cả 31 app dù PyPI chưa có.
 
 | Bản | Chủ đề | Trạng thái |
 | --- | --- | --- |
@@ -12,9 +14,11 @@
 | 0.6 | Thay `dependency-injector` + dynamic interface binding | Đã phát hành (2026-06-23) |
 | 0.6.1 | Web adapter: middleware lấy DI/config qua marker + `configure_cors`; SQLAlchemy starter: `CrudRepository` | Đã phát hành (2026-06-29) |
 | 0.6.2 | Starter `mail` (SMTP) + hardening sau kiểm toán toàn diện | Đã phát hành (2026-06-30) |
-| 0.6.3 | Gỡ chặn app chạy thật: `PEER_APP_ID` (định danh app từ SAN cert) + **TLS/HTTPS cho web adapter** + **khối chỉ đọc `read_only()`**; kèm `get_bool` ép kiểu cờ + metadata gói | Đã phát hành (2026-07-29) |
-| 0.7 | Fieldbus công nghiệp (Modbus TCP + OPC UA) | **Code xong (2026-07-30), chưa commit** - 1463 test. Đã kiểm toán trước khi đẩy PyPI, xem `kiem-toan-0.7.md` |
-| 0.8 | Multi-process Runtime + Bus liên Worker + config cải thiện | Thiết kế ban đầu chốt 2026-06-27; chưa code |
+| 0.6.3 | Gỡ chặn app chạy thật: ~~`PEER_APP_ID`~~ + **TLS/HTTPS cho web adapter** + **khối chỉ đọc `read_only()`**; kèm `get_bool` ép kiểu cờ + metadata gói | Đã phát hành (2026-07-29). ⛔ **`PEER_APP_ID` đã bị GỠ ở 0.7.1** vì mang khái niệm của nền tảng vào framework - thay bằng `PEER_SANS`, xem [`go-phu-thuoc-khai-niem-2026-08-17.md`](go-phu-thuoc-khai-niem-2026-08-17.md) |
+| 0.7.0 | Fieldbus công nghiệp (Modbus TCP + OPC UA) | **Đã phát hành PyPI** (2026-08-01) - 1463 test. Kiểm toán trước khi đẩy: `kiem-toan-0.7.md` |
+| 0.7.1 | Server-stream có kiểu (`@stream`) + đợt 2 vá bảo mật (F2/F4/F5/F6/F7/F8/F11/F12/F13/F16) + lỗi đua khi tắt scheduler + ⛔ **GỠ PHỤ THUỘC KHÁI NIỆM (BREAKING)** + khai 3 phụ thuộc bắc cầu | **Code xong, CHƯA commit, CHƯA đẩy PyPI** - **1516 passed / 11 skipped**. Xem `ket-qua-0.7.1-2026-08-03.md`, [`go-phu-thuoc-khai-niem-2026-08-17.md`](go-phu-thuoc-khai-niem-2026-08-17.md), [`phu-thuoc-bac-cau-chua-khai-2026-08-17.md`](phu-thuoc-bac-cau-chua-khai-2026-08-17.md) |
+| 0.7.x | **Vá, không chạm API**: A1 keyset JWT · F3 nâng sàn deps · F14/F15/F17 · F1 WebSocket | Chưa làm. Bảng đầy đủ ở [`../CLAUDE.md`](../CLAUDE.md). ⚠ **F10 đã chuyển sang 0.8** · ⛔ **F9 đã bị XOÁ** (không còn chuỗi nào để neo sau khi gỡ phụ thuộc khái niệm) |
+| 0.8 | **Đa tiến trình + đổi API adapter một lượt** | ⚠ **Thiết kế đổi hẳn 2026-08-16** - bản 2026-06-27 (Bus Manager, DI scope `global`) phần lớn không còn dùng. Chưa code |
 | 0.9 | Beta - config nốt + bug fix + phản hồi người dùng | Mở |
 
 ---
@@ -256,36 +260,47 @@ quyết cuối cùng chốt 2026-07-29** - không còn gì chặn việc bắt t
   `@on_write` trong adapter (tái dùng hạ tầng concurrency của MQTT), KHÔNG dựa
   scheduler. Hai adapter độc lập, import lười, extra `xime[modbus]`/`xime[opcua]`.
 
-## 0.8 - Multi-process Runtime + Bus liên Worker + config cải thiện
+## 0.8 - Đa tiến trình + đổi API adapter một lượt
 
-Trạng thái: **Thiết kế ban đầu chốt 2026-06-27**, chưa code. Chi tiết đầy đủ:
-`ke-hoach-0.8.md`.
+> ⚠⚠ **THIẾT KẾ ĐỔI HẲN NGÀY 2026-08-16.** Mục này trước đây mô tả bản thiết kế
+> 2026-06-27 (Bus Manager, shared queue, DI scope `global`/`worker`, mặc định TẮT).
+> **Phần lớn bản đó không còn cần** - đọc hai tài liệu mới, đừng đọc
+> [`ke-hoach-0.8.md`](ke-hoach-0.8.md) như hiện trạng:
+>
+> - [`da-tien-trinh-main-va-cau-hinh-2026-08-16.md`](da-tien-trinh-main-va-cau-hinh-2026-08-16.md)
+>   - mô hình chạy, `main.py`, cấu hình, adapter
+> - [`cache-lien-tien-trinh-2026-08-16.md`](cache-lien-tien-trinh-2026-08-16.md) -
+>   kho liên tiến trình (LMDB + shared memory), lý do hoãn đa luồng
+>
+> `ke-hoach-0.8.md` **nên được viết lại chứ không bổ sung**.
 
-Hai mảng chính:
+Trạng thái: **thiết kế phần lớn đã chốt 2026-08-16**, chưa code.
 
-**Mảng 1 - Multi-process Runtime với Bus liên Worker** (tính năng mới lớn):
+**Nguyên tắc chia bản (chốt 2026-08-16):**
 
-- **Mặc định TẮT** - phải bật tường minh trong cấu hình (giống dynamic-binding
-  0.6); khi tắt, ứng dụng chạy single-process như hiện tại, không ảnh hưởng gì.
-- N worker process (mặc định = số nhân CPU), mỗi worker: FastAPI app + DI
-  container + singleton + event loop, hoàn toàn độc lập về dữ liệu.
-- Một shared queue duy nhất + mutex ghi (không phải per-worker SPSC) - đủ vì
-  traffic inter-worker thấp (config sync, cert rotation, cache invalidation).
-- Bus Manager quản lý queue, route message, quản lý lifecycle worker.
-- DI scope mới: `global` (một instance duy nhất toàn hệ thống, sống ở Worker 0;
-  worker khác inject vào → startup fail; Worker 0 chết → restart, không được →
-  crash toàn chương trình) và `worker` (mặc định, một instance mỗi worker).
-- API 0.8 chỉ có broadcast; point-to-point để sau.
-- Transport abstraction (SharedMemory / UnixSocket / Redis / TCP) giữ nguyên
-  như ý tưởng ban đầu; 0.8 implement SharedMemoryTransport.
-- `core/event/` (intra-process) và Bus này (inter-process) độc lập nhau.
-- Còn mở: tên các hàm API Bus, cú pháp khai báo scope trong DI, HTTP request
-  routing đến worker (defer hẳn).
+> **0.7.x không đổi API công khai một dòng nào; mọi thay đổi API gom vào 0.8.**
+> Chủ dự án chốt *"đổi dứt khoát, không giữ hai đường"* - mà đổi dứt khoát rải rác
+> qua nhiều bản patch là thứ tệ nhất cho 31 app dùng chung một cây mã editable.
 
-**Mảng 2 - Config cải thiện** (nhỏ, phần còn lại để 0.9):
+| Nhóm | Gồm |
+|---|---|
+| **Mô hình chạy** | Supervisor **giữ socket nhưng không phục vụ** · `share_load()` · con là `python -m app.main` chạy lại với `XIME_PROCESS_ID`, sinh bằng `multiprocessing` · thăng cấp primary · kênh cha-con |
+| **Cấu hình** | Khối `processes` ba/bốn tầng · `add_config(module)` thay `config_module` · `count: N` · `shared: true` |
+| **Đổi API adapter một lượt** | Tên định danh thống nhất · tách `client_id` khỏi `server_id` · cổng đến từ cấu hình chứ không từ constructor · hạng nhân bản là dữ liệu · **vòng đời + tín hiệu ready (F10, chuyển từ đợt 3 của kế hoạch bảo mật)** |
+| **Fieldbus** | Tách **loại** khỏi **thực thể** · `@poll` chạy per-instance · log khi bỏ qua adapter · lỗi rõ khi gọi thiết bị không thuộc tiến trình mình |
+| **MQTT** | Ba việc ở 5.7.4 của tài liệu đa tiến trình - đều **chỉ có nghĩa khi có nhiều tiến trình** |
+| **Kho liên tiến trình** | **LMDB** (nhóm 2: cần nguyên tử, không có nguồn bền vững) + **shared memory hai-bản-đổi-con-trỏ** (nhóm 1: đọc nhiều, ghi hiếm, có nguồn bền vững) |
+| **Bus** | **Viết lại** theo vai mới: chở **tín hiệu** (không chở dữ liệu), có **phản hồi**, đi qua kênh cha-con. Ca dùng đầu tiên: **lệnh điều khiển fieldbus** |
+| ⛔ **Còn treo, chặn phần thăng cấp** | **`post_construct` ở tiến trình phụ** - chưa có lời giải. Không cắt được ở mức tiến trình (cắt luôn pool DB, key JWT) **và cũng không cắt được ở mức class** vì hook đặt trên method |
 
-- Rà pattern `configure_*`, ranh giới hai tầng Framework/Runtime config.
-- Chi tiết xác định khi bắt tay code.
+**Ba thứ của bản 2026-06-27 KHÔNG còn dùng:** Bus Manager + shared queue + transport
+abstraction (bus đổi vai) · DI scope `global`/`worker` (nay **DI dựng đủ ở mọi tiến
+trình, cái nào không được chạy thì tắt bằng cờ**) · "Worker 0 chết thì crash toàn
+chương trình" (nay supervisor **thăng cấp** một con đang chạy).
+
+**Đường cắt nếu 0.8 quá dài:** ba nhóm đầu là hạ tầng nền, đủ cho một app web/gRPC
+chạy nhiều tiến trình. Ba nhóm fieldbus/MQTT/bus phục vụ hướng IoT-nhà máy, mà **hôm
+nay chưa app nào dùng Modbus/OPC UA/MQTT thật** nên chúng không chặn ai.
 
 ## 0.9 - Beta: config nốt + bug fix + phản hồi người dùng
 

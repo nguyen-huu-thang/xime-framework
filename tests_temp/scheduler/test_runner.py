@@ -14,7 +14,8 @@ Test SchedulerRunner (yêu cầu apscheduler>=4.0.0a6 - API v4):
     - IntervalTrigger giữ đúng timedelta tương ứng với hours/minutes/seconds
 
   post_construct():
-    - Happy path: __aenter__ được gọi, add_schedule được gọi, task được tạo
+    - Happy path: __aenter__ được gọi, add_schedule được gọi, vòng lặp chạy nền
+    - KHÔNG tự create_task(run_until_stopped()) - phải qua start_in_background()
     - Không có job → scheduler vẫn start, add_schedule không được gọi
     - resolver được gọi đúng với job_class
     - Dùng tên class làm id khi id=None
@@ -27,9 +28,8 @@ Test SchedulerRunner (yêu cầu apscheduler>=4.0.0a6 - API v4):
   pre_destroy():
     - stop() được gọi trên scheduler
     - self._scheduler là None sau khi gọi
-    - self._task là None sau khi gọi
-    - An toàn khi gọi lúc chưa start (scheduler=None, task=None)
-    - Không gọi cancel() — để task thoát tự nhiên sau stop()
+    - __aexit__ được gọi để đóng task group nội bộ của APScheduler
+    - An toàn khi gọi lúc chưa start (scheduler=None)
 """
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -186,13 +186,27 @@ class TestSchedulerRunnerPostConstruct:
         patch_async_scheduler.add_schedule.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_happy_path_creates_background_task(self, patch_async_scheduler):
+    async def test_happy_path_starts_loop_in_background(self, patch_async_scheduler):
         config = SchedulerConfig(jobs=[CronJob(job_class=_GoodJob, cron="0 0 * * *")])
         runner = SchedulerRunner(config, MagicMock(return_value=_GoodJob()))
 
         await runner.post_construct()
 
-        assert runner._task is not None
+        patch_async_scheduler.start_in_background.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_does_not_spawn_its_own_task(self, patch_async_scheduler):
+        """post_construct KHÔNG được tự create_task(run_until_stopped()).
+
+        Hàm đó trả về trước khi vòng lặp kịp chạy, nên tắt nhanh sẽ dọn dịch vụ
+        dưới chân một task chưa khởi động. Canh bằng cách chặn chính run_until_stopped.
+        """
+        config = SchedulerConfig(jobs=[CronJob(job_class=_GoodJob, cron="0 0 * * *")])
+        runner = SchedulerRunner(config, MagicMock(return_value=_GoodJob()))
+
+        await runner.post_construct()
+
+        patch_async_scheduler.run_until_stopped.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_no_jobs_starts_scheduler_without_add_schedule(self, patch_async_scheduler):
@@ -203,7 +217,7 @@ class TestSchedulerRunnerPostConstruct:
 
         patch_async_scheduler.__aenter__.assert_called_once()
         patch_async_scheduler.add_schedule.assert_not_called()
-        assert runner._task is not None
+        patch_async_scheduler.start_in_background.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_resolver_called_with_correct_job_class(self, patch_async_scheduler):
@@ -315,14 +329,16 @@ class TestSchedulerRunnerPreDestroy:
         assert runner._scheduler is None
 
     @pytest.mark.asyncio
-    async def test_task_is_none_after_pre_destroy(self, patch_async_scheduler):
+    async def test_exits_scheduler_context_after_stop(self, patch_async_scheduler):
+        """Thoát context của APScheduler để task group nội bộ được đóng đúng cách."""
         config = SchedulerConfig(jobs=[CronJob(job_class=_GoodJob, cron="0 0 * * *")])
         runner = SchedulerRunner(config, MagicMock(return_value=_GoodJob()))
         await runner.post_construct()
 
         await runner.pre_destroy()
 
-        assert runner._task is None
+        patch_async_scheduler.stop.assert_awaited_once()
+        patch_async_scheduler.__aexit__.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_pre_destroy_safe_when_never_started(self):
@@ -332,18 +348,3 @@ class TestSchedulerRunnerPreDestroy:
         await runner.pre_destroy()  # không raise
 
         assert runner._scheduler is None
-        assert runner._task is None
-
-    @pytest.mark.asyncio
-    async def test_pre_destroy_does_not_cancel_task(self, patch_async_scheduler):
-        """Task phải được await tự nhiên sau stop(), không bị cancel() ngắt."""
-        config = SchedulerConfig(jobs=[CronJob(job_class=_GoodJob, cron="0 0 * * *")])
-        runner = SchedulerRunner(config, MagicMock(return_value=_GoodJob()))
-        await runner.post_construct()
-
-        task = runner._task
-        await runner.pre_destroy()
-
-        # Task đã hoàn thành tự nhiên (mock run_until_stopped trả về ngay)
-        # và không bị cancel từ phía pre_destroy
-        assert not task.cancelled()

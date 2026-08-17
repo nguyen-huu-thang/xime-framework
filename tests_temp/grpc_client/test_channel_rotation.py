@@ -82,12 +82,14 @@ class TestDynamicChannelRotation:
                 private_key=b"KEY_V1",
                 certificate_chain=b"CERT_V1",
             )
-            mock_secure.assert_called_once_with("localhost:9090", mock_creds.return_value)
+            mock_secure.assert_called_once_with(
+                "localhost:9090", mock_creds.return_value, options=[]
+            )
         assert provider.current_calls == 1
 
     def test_same_version_reuses_channel(self):
         channel, provider = _dynamic_channel()
-        with patch("grpc.aio.secure_channel", side_effect=lambda *a: _mock_grpc_channel()):
+        with patch("grpc.aio.secure_channel", side_effect=lambda *a, **kw: _mock_grpc_channel()):
             first = channel._grpc_channel()
             second = channel._grpc_channel()
         assert first is second
@@ -96,7 +98,7 @@ class TestDynamicChannelRotation:
     @pytest.mark.asyncio
     async def test_rotation_rebuilds_and_retires_old_channel(self):
         channel, provider = _dynamic_channel()
-        with patch("grpc.aio.secure_channel", side_effect=lambda *a: _mock_grpc_channel()):
+        with patch("grpc.aio.secure_channel", side_effect=lambda *a, **kw: _mock_grpc_channel()):
             old = channel._grpc_channel()
             provider.rotate("v2", ServerCertificates("KEY_V2", "CERT_V2", "CA_V2"))
             new = channel._grpc_channel()
@@ -111,7 +113,7 @@ class TestDynamicChannelRotation:
     @pytest.mark.asyncio
     async def test_close_also_closes_retired_channels(self):
         channel, provider = _dynamic_channel()
-        with patch("grpc.aio.secure_channel", side_effect=lambda *a: _mock_grpc_channel()):
+        with patch("grpc.aio.secure_channel", side_effect=lambda *a, **kw: _mock_grpc_channel()):
             old = channel._grpc_channel()
             # retire khi KHÔNG có background close (giả lập bằng cách chặn create_task)
             provider.rotate("v2", ServerCertificates("K2", "C2", "CA2"))
@@ -138,7 +140,7 @@ class TestDynamicChannelRotation:
             except BaseException as exc:  # noqa: BLE001 - surfaced via errors
                 errors.append(exc)
 
-        with patch("grpc.aio.secure_channel", side_effect=lambda *a: _mock_grpc_channel()) as mock_secure:
+        with patch("grpc.aio.secure_channel", side_effect=lambda *a, **kw: _mock_grpc_channel()) as mock_secure:
             threads = [threading.Thread(target=worker) for _ in range(20)]
             for t in threads:
                 t.start()

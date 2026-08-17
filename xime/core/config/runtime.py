@@ -15,6 +15,16 @@ _NOT_FOUND: Any = object()
 # hệt cờ khai báo dạng `enabled: bool` trên các model có kiểu ở trên.
 _BOOL_ADAPTER = TypeAdapter(bool)
 
+# Key-name fragments whose VALUE is never printed by RuntimeConfig.__repr__.
+# Matching by NAME (not by value) is what makes this work for app-level keys the
+# framework has never heard of - which is where most secrets live. Module level,
+# not a class attribute: a leading underscore inside a Pydantic model becomes a
+# ModelPrivateAttr, not a plain tuple.
+# Khớp theo TÊN khoá để che được cả khoá do app tự khai. Đặt ở mức module vì
+# thuộc tính bắt đầu bằng gạch dưới trong model Pydantic sẽ thành ModelPrivateAttr.
+_SENSITIVE_KEY_FRAGMENTS = ("secret", "password", "passwd", "token", "key", "credential")
+_MASK = "***"
+
 
 class ServerTlsConfig(BaseModel):
     """TLS (HTTPS) for the HTTP adapter, off unless certfile/keyfile are set.
@@ -117,6 +127,38 @@ class RuntimeConfig(BaseModel):
     def from_dict(cls, data: dict[str, Any]) -> RuntimeConfig:
         """Build a RuntimeConfig from a raw dict (e.g. from YamlConfigLoader)."""
         return cls.model_validate(data)
+
+    def __repr__(self) -> str:
+        """Print the config with secret-looking values masked.
+
+        Pydantic's default repr dumps every field, so a single
+        `logger.debug("config=%s", config)` - or an unhandled exception whose
+        traceback shows local variables - writes jwt.secret and the database
+        password into the log file in clear text. Masking here costs nothing:
+        get() is untouched, so code still reads the real values.
+        Repr mặc định của Pydantic in mọi field, nên một dòng log debug hay một
+        traceback là đủ để đẩy jwt.secret và mật khẩu DB ra file log dạng rõ.
+        get() không đổi - code vẫn đọc được giá trị thật.
+        """
+        return f"{type(self).__name__}({self._redacted(self._dump)!r})"
+
+    __str__ = __repr__
+
+    @classmethod
+    def _redacted(cls, value: Any, key: str = "") -> Any:
+        lowered = key.lower()
+        if key and any(f in lowered for f in _SENSITIVE_KEY_FRAGMENTS):
+            # A sensitive NAME holding a dict (e.g. `keys:`) is still walked, so
+            # the structure stays readable while the leaves are masked.
+            # Tên nhạy cảm mà giá trị là dict thì vẫn duyệt tiếp - giữ được cấu
+            # trúc để đọc, chỉ che phần lá.
+            if not isinstance(value, dict):
+                return _MASK
+        if isinstance(value, dict):
+            return {k: cls._redacted(v, str(k)) for k, v in value.items()}
+        if isinstance(value, list):
+            return [cls._redacted(item, key) for item in value]
+        return value
 
     def get(self, key: str, default: Any = None) -> Any:
         """

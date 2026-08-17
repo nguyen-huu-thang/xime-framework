@@ -1,6 +1,30 @@
 # PEER_APP_ID: đọc định danh APPLICATION từ SAN của client cert
 
-> **Trạng thái: ĐÃ LÀM ở 0.6.3** (2026-07-27). Giữ lại làm tài liệu thiết kế + bối cảnh.
+> ## ⛔⛔ TÍNH NĂNG NÀY ĐÃ BỊ GỠ HẲN Ở 0.7.1 (2026-08-17)
+>
+> **Đừng đọc file này như hiện trạng.** `PEER_APP_ID` và `current_app_id()` không còn tồn
+> tại; thay bằng `PEER_SANS` / `current_peer_sans()` trả **mọi** entry SAN, thô, không lọc.
+> Hiện trạng + lý do:
+> [`go-phu-thuoc-khai-niem-2026-08-17.md`](go-phu-thuoc-khai-niem-2026-08-17.md).
+>
+> Lý do gỡ: hai hằng số `xime-app://` và **độ dài 33** là quy ước của **Xime Platform**,
+> không phải khái niệm phổ quát, nên chúng không thuộc về một framework dùng chung. Chủ dự
+> án ra nguyên tắc 2026-08-17: *"framework không được phụ thuộc gì khái niệm ngoài cả"*.
+>
+> ⭐ **Giữ nguyên file này, KHÔNG sửa nội dung bên dưới**, vì hai mục của nó là bằng chứng
+> quan trọng nhất về việc coupling đã lọt vào bằng đường nào:
+>
+> - **Mục 4.4** - câu *"đây là kiểm định dạng, không phải kiểm nghiệp vụ, nên vẫn đúng ranh
+>   giới framework"* chính là chỗ ranh giới bị trượt. `33` không phải một định dạng phổ
+>   quát; nó là hệ quả của việc application-service chọn KSUID 24 byte.
+> - **Mục 8** - ràng buộc *"key trung tính... framework không gắn ngữ nghĩa nghiệp vụ"* cho
+>   thấy **kỷ luật đã có sẵn** nhưng bị áp vào **cái tên** thay vì **cái giá trị**.
+>
+> Bài học rút ra: coupling không lọt vào qua sự cẩu thả - nó lọt vào khi được dán nhãn là
+> chuyện kỹ thuật thuần tuý, và khi framework bị xếp vào cùng danh sách công việc với các
+> service của nền tảng (*"mắt xích đầu tiên trong 4 mắt xích còn đứt"*, mục 1 bên dưới).
+
+> **Trạng thái lúc viết: ĐÃ LÀM ở 0.6.3** (2026-07-27). Giữ lại làm tài liệu thiết kế + bối cảnh.
 >
 > Đặt 2026-07-27, sau khi Trust đã khắc định danh app vào cert thật và 6 app đang chạy
 > với cert đó. Framework là **mắt xích đầu tiên** trong 4 mắt xích còn đứt.

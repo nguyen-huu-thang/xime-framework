@@ -3,7 +3,9 @@
 > Phát hiện gốc: [`kiem-toan-bao-mat-0.7.md`](kiem-toan-bao-mat-0.7.md) (24 mục, 12 PoC).
 > File này trả lời câu khác: **sửa cái gì, ở đâu, theo thứ tự nào, và kiểm chứng ra sao.**
 >
-> Trạng thái: **KẾ HOẠCH, CHƯA THI CÔNG.** Cập nhật cột trạng thái khi làm.
+> Trạng thái: **ĐỢT 2 XONG 2026-08-03** (bản 0.7.1) - mười mục framework đã vá,
+> có test canh, PoC chạy lại đạt. **Đợt 0, 1, 3, 4, 5 chưa thi công.**
+> Kết quả chi tiết + bốn thứ đổi hành vi: [`ket-qua-0.7.1-2026-08-03.md`](ket-qua-0.7.1-2026-08-03.md).
 
 ---
 
@@ -150,6 +152,42 @@ Mỗi app **một giá trị riêng** - đừng sinh một chuỗi rồi dán c�
 lợi ích lớn nhất trên mỗi giờ bỏ ra.
 
 ### 1.1. A1 - đảo fail-open thành fail-closed (21 codebase)
+
+> #### 📊 ĐO LẠI 2026-08-04 bởi phiên framework - **19/21 còn hở, 2 đã vá**
+>
+> Đọc mã cả 21 file thay vì chép lại con số cũ:
+>
+> ```text
+> 21 file  app/config/jwt.py
+> 19 file  VẪN fail-open  (keyset is None -> log warning -> return, KHÔNG cài middleware)
+>  2 file  ĐÃ VÁ          san-the-thao · cho-thue-thiet-bi
+> ```
+>
+> **a. Đã có bản mẫu chạy được, chép thẳng - đừng thiết kế lại.**
+> `Application Layer/san-the-thao/backend/app/config/jwt.py` hiện thực đúng khối mã bên dưới,
+> kèm `logger.critical` khi cờ dev bật. Họ dùng đúng `get_bool(...)` chứ không `get(...)`.
+>
+> **b. ⚠ `saas-foundation/template` NẰM TRONG NHÓM 19 CHƯA VÁ - vá nó TRƯỚC.**
+> 18 file kia là nợ **đứng yên**; template là nợ **đang sinh sôi**, vì mọi app clone từ nay đều
+> thừa hưởng lỗ hổng. Vá template là **chặn nguồn**, đáng tách thành việc riêng làm trước.
+>
+> **c. Gốc rễ nằm ở framework, không phải ở 21 app.** Vì sao cả 21 repo tự viết
+> `TrustJwtAuthMiddleware` thay vì dùng `configure_jwt`: `JwtMiddlewareConfig.key_context` là
+> **đúng một khoá tĩnh**, và `grep kid` trong `starters/jwt/` chỉ ra **một** chỗ - `_signer.py`
+> lúc KÝ. Phía verify **không có dòng nào** xử lý `kid`. Framework ký được kèm `kid` nhưng
+> không verify theo `kid`, không giữ bộ nhiều khoá, không làm tươi khi Trust xoay khoá.
+>
+> > **A1 không phải 21 lỗi độc lập. Nó là MỘT khoảng trống của framework, nhân lên 21 lần** -
+> > phần khó nhất của thứ mọi app phải tự viết là *"không có khoá thì làm gì"*, và 19/21 quyết
+> > định sai theo cùng một kiểu. Vá 19 file xong, app thứ 22 vẫn sẽ tự viết và tự quyết lại.
+>
+> **Đề xuất kèm theo (CHƯA LÀM, chờ chủ dự án):** đưa keyset nhiều khoá theo `kid` + tự làm tươi
+> + fail-closed vào starter JWT của framework, để quyết định đó được quyết **một lần, một chỗ**.
+> Xếp vào loại hỏi chủ dự án vì nó thêm API công khai vào gói MIT đã phát hành, và vì fail-closed
+> mặc định có thể làm app đang chạy dừng khởi động.
+>
+> ⚠ Giới hạn của phép đo: khớp theo **hình dạng mã** (`keyset is None` rồi `return`). Repo viết
+> fail-open theo hình dạng khác thì phép dò **không kêu**. Nên **19 là cận dưới**.
 
 **Sửa ở đâu:** `app/config/jwt.py`, hàm `configure()`, nhánh `if keyset is None`.
 
@@ -438,6 +476,19 @@ Rà trước, hoặc chọn ngưỡng cao hơn.
 
 ## ĐỢT 3 - F10: cô lập adapter (việc thiết kế, không phải sửa một dòng)
 
+> ⚠⚠ **CHUYỂN SANG 0.8 (quyết 2026-08-16). Đừng làm ở 0.7.x.**
+>
+> Chính mục này viết: *"Phải mở rộng protocol - **đây là đổi API cho mọi adapter**,
+> gồm cả adapter người dùng tự viết."* Mà 0.8 đã có một đợt đổi API adapter một lượt
+> (tên định danh, tách `client_id`, cổng từ cấu hình, hạng nhân bản), **và supervisor
+> đa tiến trình cần đúng tín hiệu "ready" này** để biết khi nào con sẵn sàng - xem
+> [`da-tien-trinh-main-va-cau-hinh-2026-08-16.md`](da-tien-trinh-main-va-cau-hinh-2026-08-16.md)
+> mục 4.5.
+>
+> Làm ở 0.7.x là **đổi API adapter hai lần trong hai bản liên tiếp**. Gộp vào 0.8.
+>
+> Ba câu hỏi thiết kế dưới đây **vẫn nguyên giá trị**, chỉ đổi chỗ thi công.
+
 Chủ dự án đã chốt hướng: **lỗi trước khi phục vụ thì sập luôn; lỗi sau khi đã phục vụ thì cô
 lập.** Nhưng chốt hướng không có nghĩa là chốt cách làm - còn ba câu phải trả lời khi bắt tay:
 
@@ -509,18 +560,18 @@ trong `.claude/scripts/`.
 | 0.2 | Chốt chỗ để secret (A6) | - | 1 giờ | ⬜ |
 | 0.1 | `shop` đổi secret (A3) | **cần 0.2 xong trước** | 1 giờ | ⬜ |
 | 0.3 | 5 app Monolithic đổi secret (A3) | 0.2 | 1 giờ | ⬜ |
-| 1.1 | A1 fail-closed, 21 codebase | - | nửa ngày | ⬜ |
+| 1.1 | A1 fail-closed, 21 codebase | - | nửa ngày | 🔄 **2/21 xong** (đo 2026-08-04). ⚠ `saas-foundation/template` còn hở -> vá TRƯỚC, xem mục 1.1 |
 | 1.2 | A2 gỡ regex CORS, 23 codebase | - | 2 giờ | ⬜ |
 | 1.3 | A4 đóng `/docs` | - | 1 giờ | ⬜ |
-| 2.1 | F2 XSS lưu trữ | - | 2 giờ | ⬜ |
-| 2.2 | F8 Content-Disposition | - | 1 giờ | ⬜ |
-| 2.3 | F4 CORS ép kiểu | nên sau 1.2 | 1 giờ | ⬜ |
-| 2.4 | F5 che secret khi in | - | 1 giờ | ⬜ |
-| 2.5 | F6 cảnh báo chế độ mở | - | 2 giờ | ⬜ |
-| 2.6 | F7 cảnh báo thiếu profile | - | 30 phút | ⬜ |
-| 2.7 | F11 cảnh báo thiếu audience | - | 15 phút | ⬜ |
-| 2.8 | F12 metadata lỗi gRPC | - | 15 phút | ⬜ |
-| 2.9 | F13+F16 dọn localfs | - | 2 giờ | ⬜ |
+| 2.1 | F2 XSS lưu trữ | - | 2 giờ | ✅ 0.7.1 |
+| 2.2 | F8 Content-Disposition | - | 1 giờ | ✅ 0.7.1 |
+| 2.3 | F4 CORS ép kiểu | nên sau 1.2 | 1 giờ | ✅ 0.7.1 |
+| 2.4 | F5 che secret khi in | - | 1 giờ | ✅ 0.7.1 |
+| 2.5 | F6 cảnh báo chế độ mở | - | 2 giờ | ✅ 0.7.1 |
+| 2.6 | F7 cảnh báo thiếu profile | - | 30 phút | ✅ 0.7.1 |
+| 2.7 | F11 cảnh báo thiếu audience | - | 15 phút | ✅ 0.7.1 |
+| 2.8 | F12 metadata lỗi gRPC | - | 15 phút | ✅ 0.7.1 |
+| 2.9 | F13+F16 dọn localfs | - | 2 giờ | ✅ 0.7.1 |
 | 3 | F10 cô lập adapter | sau đợt 2 | 1,5 ngày | ⬜ |
 | 4 | F3 nâng sàn dependency | - | nửa ngày | ⬜ |
 | 5 | Phần còn lại | - | tùy lúc | ⬜ |

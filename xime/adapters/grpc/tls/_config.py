@@ -7,10 +7,10 @@ class _GrpcTlsRegistry:
     Keyed by server_id. A provider registered under "default" applies to ALL
     gRPC servers of the application unless a server_id-specific registration
     overrides it (e.g. a public server using a public-CA provider while
-    internal servers use the Trust-issued certificate).
+    internal servers use one issued by a private CA).
     Khóa theo server_id. Provider đăng ký dưới "default" áp dụng cho MỌI server
     gRPC trừ khi có đăng ký riêng theo server_id override (vd server public
-    dùng cert public CA, server internal dùng cert do Trust cấp).
+    dùng cert public CA, server internal dùng cert do CA nội bộ cấp).
     """
 
     def __init__(self) -> None:
@@ -66,7 +66,7 @@ def configure_grpc_tls(provider: type, server_id: str = "default") -> None:
     Example:
         from xime.adapters.grpc import configure_grpc_tls
 
-        configure_grpc_tls(provider=TrustGrpcCertificateProvider)
+        configure_grpc_tls(provider=MyCertificateProvider)
         configure_grpc_tls(provider=PublicCaProvider, server_id="public")
     """
     grpc_tls_registry.set_provider(provider, server_id)

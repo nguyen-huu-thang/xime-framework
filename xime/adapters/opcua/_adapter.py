@@ -115,6 +115,13 @@ class OpcuaAdapter:
             self._server, self._config.endpoint, self._config.security,
             len(self._watches),
         )
+        if str(self._config.security).lower() == "none":
+            logger.warning(
+                "OPC UA client '%s' connects to %s with security=None: the "
+                "session is neither signed nor encrypted, and neither side "
+                "proves who it is. Use Sign or SignAndEncrypt outside a lab.",
+                self._server, self._config.endpoint,
+            )
         await self._run_forever()
 
     async def stop(self) -> None:

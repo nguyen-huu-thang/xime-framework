@@ -61,7 +61,10 @@ def _method_entry(method: MethodContract, wrappers: set[str]) -> dict:
         "name": method.endpoint_name or _snake(method.rpc_name),
         "kind": method.kind.value,
     }
-    if method.kind is StreamKind.UNARY:
+    if method.kind in (StreamKind.UNARY, StreamKind.SERVER_STREAM_TYPED):
+        # Typed stream: both sides are ordinary DTOs, no wrapper. Only `kind`
+        # tells the SDK generator to emit an iterator instead of an await.
+        # Stream có kiểu: hai đầu đều là DTO thường, không wrapper.
         entry["request"] = method.request_message
         entry["response"] = method.response_message
     elif method.kind is StreamKind.CLIENT_STREAM:
@@ -72,7 +75,7 @@ def _method_entry(method: MethodContract, wrappers: set[str]) -> dict:
         entry["response"] = method.response_message
         entry["wrapper"] = method.request_message
         wrappers.add(method.request_message)
-    else:  # SERVER_STREAM
+    else:  # SERVER_STREAM (byte download)
         entry["request"] = method.request_message
         entry["wrapper"] = method.response_message
         wrappers.add(method.response_message)

@@ -92,6 +92,54 @@ class GrpcRetryConfig(BaseModel):
     retryable_status: list[str] = Field(default_factory=lambda: ["UNAVAILABLE"])
 
 
+class GrpcKeepaliveConfig(BaseModel):
+    """HTTP/2 keepalive pings for the outbound channel (off by default).
+
+        grpc:
+          clients:
+            user:
+              keepalive:
+                time_ms: 30000            # ping every 30s; 0 = off (default)
+                timeout_ms: 20000         # no ping ack within this → drop the connection
+                permit_without_calls: true  # keep pinging while no RPC is active
+
+    Why it matters for long-lived streams: without keepalive a connection that
+    died silently (NAT timeout, peer power loss) is only noticed when something
+    is finally written. A watch stream writes nothing for hours, so it can sit
+    on a dead socket indefinitely.
+    Vì sao cần cho luồng dài: không có keepalive thì kết nối chết âm thầm (NAT
+    hết hạn, peer mất điện) chỉ lộ ra khi có gì đó được ghi. Luồng theo dõi
+    hàng giờ không ghi gì, nên có thể ôm một socket đã chết mãi mãi.
+
+    permit_without_calls=true also lifts the client's ping budget
+    (grpc.http2.max_pings_without_data). The SERVER must allow that rate or it
+    replies GOAWAY "too_many_pings" - keep the interval >= the server's
+    min_ping_interval_without_data_ms (see grpc.keepalive on the server side).
+    permit_without_calls=true còn nới hạn ping của client. SERVER phải cho phép
+    nhịp đó, nếu không nó trả GOAWAY "too_many_pings".
+    """
+
+    time_ms: int = 0
+    timeout_ms: int = 20000
+    permit_without_calls: bool = False
+
+    def channel_options(self) -> list[tuple[str, int]]:
+        """gRPC channel args; empty when keepalive is off (keeps defaults intact)."""
+        if self.time_ms <= 0:
+            return []
+        options: list[tuple[str, int]] = [
+            ("grpc.keepalive_time_ms", self.time_ms),
+            ("grpc.keepalive_timeout_ms", self.timeout_ms),
+            ("grpc.keepalive_permit_without_calls", 1 if self.permit_without_calls else 0),
+        ]
+        if self.permit_without_calls:
+            # Default is 2 pings without data, after which the client stops
+            # pinging - exactly the case we enabled keepalive for. 0 = no cap.
+            # Mặc định chỉ 2 ping khi không có dữ liệu rồi client ngừng ping.
+            options.append(("grpc.http2.max_pings_without_data", 0))
+        return options
+
+
 class GrpcClientConfig(BaseModel):
     """One target service, read from grpc.clients.<client_id> in application.yml.
 
@@ -100,14 +148,26 @@ class GrpcClientConfig(BaseModel):
             trust:
               host: trust.internal
               port: 9090
-              deadline_ms: 3000   # default per-call deadline; 0 disables
+              deadline_ms: 3000          # default per-call deadline; 0 disables
+              stream_deadline_ms: 0      # server-streaming calls; 0 = no deadline
     """
 
     host: str = "localhost"
     port: int
     deadline_ms: int = 5000
+    # Server-streaming calls get their own budget, because a stream's lifetime
+    # has nothing to do with a request/response round trip: a watch feed lives
+    # for hours and a file download for as long as the file takes, while
+    # deadline_ms is tuned to catch a hung unary call in seconds. Default 0 =
+    # no deadline (gRPC's own default for a stream).
+    # Call server-streaming có ngân sách riêng, vì tuổi thọ của luồng không liên
+    # quan gì tới một vòng request/response: luồng theo dõi sống hàng giờ, tải
+    # file kéo dài tuỳ kích thước, trong khi deadline_ms được chỉnh để bắt call
+    # unary treo trong vài giây. Mặc định 0 = không deadline.
+    stream_deadline_ms: int = 0
     tls: GrpcClientTlsConfig = Field(default_factory=GrpcClientTlsConfig)
     retry: GrpcRetryConfig = Field(default_factory=GrpcRetryConfig)
+    keepalive: GrpcKeepaliveConfig = Field(default_factory=GrpcKeepaliveConfig)
 
     @classmethod
     def from_runtime(cls, runtime: RuntimeConfig, client_id: str) -> GrpcClientConfig:

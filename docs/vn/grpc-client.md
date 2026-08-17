@@ -199,7 +199,7 @@ grpc:
 
 ```python
 # config/grpc.py — provider dùng chung cho cả server lẫn client
-configure_grpc_tls(provider=TrustGrpcCertificateProvider)
+configure_grpc_tls(provider=MyCertificateProvider)
 configure_grpc_clients("trust", KeyClient)
 ```
 
@@ -254,8 +254,11 @@ Client class phản ánh đúng kiểu stream của endpoint:
 # upload (client streaming): truyền request + iterator các chunk bytes
 async def push_doc(self, request: PushMeta, chunks: AsyncIterator[bytes]) -> PushDone: ...
 
-# download (server streaming): trả về iterator các chunk bytes
+# download (server streaming, byte): trả về iterator các chunk bytes
 def pull_doc(self, request: PullQuery) -> AsyncIterator[bytes]: ...
+
+# server streaming CÓ KIỂU (0.7.1): trả về iterator các DTO
+def watch_changed_accounts(self, request: WatchRequest) -> AsyncIterator[AccountChanged]: ...
 ```
 
 ```python
@@ -267,10 +270,79 @@ done = await client.push_doc(PushMeta(name="tai-lieu"), chunks())
 
 async for chunk in client.pull_doc(PullQuery(parts=3)):
     process(chunk)
+
+async for event in client.watch_changed_accounts(WatchRequest(after_sequence=0)):
+    revoke(event.account_id)          # event là DTO Pydantic, không phải bytes
 ```
 
-Quy ước chunk-wrapper (metadata trước, chunk sau) được framework xử lý hoàn toàn
-- business code không thấy message bọc.
+Quy ước chunk-wrapper (metadata trước, chunk sau) do framework xử lý hoàn toàn,
+business code không thấy message bọc. Stream có kiểu thì không có wrapper nào
+cả: mỗi message chính là DTO.
+
+### Deadline của stream - khác với deadline của call thường
+
+```yaml
+grpc:
+  clients:
+    user:
+      deadline_ms: 3000          # call unary
+      stream_deadline_ms: 0      # server streaming; 0 = không giới hạn (mặc định)
+```
+
+Hai khoá tách rời có chủ đích: `deadline_ms` được chỉnh để bắt một vòng gọi bị
+treo trong vài giây, mà tuổi thọ của luồng thì không liên quan gì tới điều đó -
+luồng theo dõi sống hàng giờ, tải file kéo dài tuỳ kích thước. Nếu stream dùng
+chung `deadline_ms` thì nó chết sau vài giây, **mọi lần**.
+
+Muốn giới hạn thì đặt `stream_deadline_ms` thành số dương (ví dụ `3600000` cho
+một giờ).
+
+### Luồng bị đứt là chuyện THƯỜNG, không phải sự cố
+
+Đừng viết như thể luồng sống mãi. Với `tls.dynamic: true`, `XimeGrpcChannel`
+**thay channel mỗi lần cert mTLS xoay** và channel cũ chỉ được ân hạn 30 giây.
+Luồng nào sống lâu hơn thế kể từ lúc cert xoay thì **chắc chắn bị cắt giữa
+chừng**. Cộng thêm restart phía server, mạng chập chờn, cân bằng tải.
+
+Nên khuôn đúng là: người tiêu thụ **giữ con trỏ** (số thứ tự đã xử lý tới đâu),
+bắt lỗi, rồi nối lại **từ con trỏ đó**:
+
+```python
+cursor = load_cursor()
+while True:
+    try:
+        async for event in client.watch_changed_accounts(WatchRequest(after_sequence=cursor)):
+            handle(event)
+            cursor = event.sequence
+            save_cursor(cursor)
+    except (RemoteServiceUnavailable, RemoteCallError):
+        await asyncio.sleep(backoff())   # rồi nối lại từ cursor
+```
+
+Framework **không** tự nối lại: nó không biết con trỏ của bạn nằm ở đâu, và nối
+lại sai chỗ thì mất hoặc lặp bản ghi. Retry tự động cũng cố ý **không** áp cho
+streaming vì lý do đó.
+
+### Keepalive (tuỳ chọn)
+
+Một kết nối chết âm thầm (NAT hết hạn, peer mất điện) chỉ lộ ra khi có gì đó
+được ghi - mà luồng theo dõi thì hàng giờ không ghi gì. Bật ping định kỳ:
+
+```yaml
+grpc:
+  clients:
+    user:
+      keepalive:
+        time_ms: 30000              # ping mỗi 30 giây; 0 = tắt (mặc định)
+        timeout_ms: 20000           # không có ack trong khoảng này → bỏ kết nối
+        permit_without_calls: true  # vẫn ping khi không có RPC nào chạy
+```
+
+> ⚠ **Server phải cho phép nhịp đó.** gRPC server mặc định chỉ chấp nhận ping
+> cách nhau 5 phút, nhanh hơn thì nó trả GOAWAY `too_many_pings` - giết đúng
+> những luồng dài mà keepalive sinh ra để bảo vệ. Phía server (nếu cũng là app
+> Xime) khai `grpc.keepalive.min_ping_interval_without_data_ms` bằng `time_ms`
+> của client hoặc thấp hơn.
 
 ---
 
@@ -283,8 +355,10 @@ làm phẳng mất:
 - **Có sidecar** (service đích là Xime): SDK lật gương 1:1 - tên method gốc, kiểu
   `Decimal`/`UUID`/`date` đúng như DTO gốc, đủ cả unary lẫn streaming.
 - **Không có sidecar** (service đích viết bằng Java, chỉ có `.proto`): generator
-  fallback proto-only - chỉ sinh method unary, kiểu theo map proto thuần
-  (`Decimal` thành `str`...). Streaming bị bỏ qua kèm cảnh báo.
+  fallback proto-only - sinh method **unary** và **server streaming** (mỗi
+  message là DTO của response), kiểu theo map proto thuần (`Decimal` thành
+  `str`...). Chỉ **client streaming** bị bỏ qua kèm cảnh báo, vì quy ước upload
+  của xime cần sidecar mới biết message nào là wrapper metadata.
 
 Để dùng SDK gọi một service Java, chỉ cần copy `.proto` của nó vào `contracts/`
 rồi `xime grpc client` như bình thường.
@@ -323,6 +397,8 @@ cần dựng PyPI riêng. Phiên bản quản lý bằng git tag.
 | Sinh SDK dạng package | thêm `--package <tên> [--package-version <v>]` |
 | Đăng ký vào DI | `configure_grpc_clients("<id>", ClientA, ClientB)` |
 | Địa chỉ + deadline | `grpc.clients.<id>.{host,port,deadline_ms}` (YAML) |
+| Deadline cho stream | `grpc.clients.<id>.stream_deadline_ms` (0 = không giới hạn) |
+| Keepalive | `grpc.clients.<id>.keepalive.{time_ms,timeout_ms,permit_without_calls}` |
 | mTLS động | `tls.dynamic: true` + `configure_grpc_tls(provider=...)` |
 | mTLS tĩnh | `tls.{ca_file,cert_file,key_file}` (YAML) |
 | Override deadline 1 call | `await client.method(req, timeout=<giây>)` |

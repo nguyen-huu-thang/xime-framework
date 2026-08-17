@@ -16,13 +16,19 @@ Sinh SDK từ .proto (+ contract.json sidecar nếu có):
 
 from ._channel import XimeGrpcChannel
 from ._codegen import ClientGenResult, generate_client_sdk
-from ._config import GrpcClientConfig, GrpcClientTlsConfig, configure_grpc_clients
+from ._config import (
+    GrpcClientConfig,
+    GrpcClientTlsConfig,
+    GrpcKeepaliveConfig,
+    configure_grpc_clients,
+)
 from ._runtime import SdkRuntime
 
 __all__ = [
     "ClientGenResult",
     "GrpcClientConfig",
     "GrpcClientTlsConfig",
+    "GrpcKeepaliveConfig",
     "SdkRuntime",
     "XimeGrpcChannel",
     "configure_grpc_clients",

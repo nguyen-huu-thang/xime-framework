@@ -205,7 +205,7 @@ grpc:
 
 ```python
 # config/grpc.py — one provider for both server and client
-configure_grpc_tls(provider=TrustGrpcCertificateProvider)
+configure_grpc_tls(provider=MyCertificateProvider)
 configure_grpc_clients("trust", KeyClient)
 ```
 
@@ -262,8 +262,11 @@ The client class reflects the endpoint's stream kind:
 # upload (client streaming): pass the request + an async iterator of byte chunks
 async def push_doc(self, request: PushMeta, chunks: AsyncIterator[bytes]) -> PushDone: ...
 
-# download (server streaming): returns an async iterator of byte chunks
+# download (server streaming, bytes): returns an async iterator of byte chunks
 def pull_doc(self, request: PullQuery) -> AsyncIterator[bytes]: ...
+
+# TYPED server streaming (0.7.1): returns an async iterator of DTOs
+def watch_changed_accounts(self, request: WatchRequest) -> AsyncIterator[AccountChanged]: ...
 ```
 
 ```python
@@ -275,10 +278,82 @@ done = await client.push_doc(PushMeta(name="document"), chunks())
 
 async for chunk in client.pull_doc(PullQuery(parts=3)):
     process(chunk)
+
+async for event in client.watch_changed_accounts(WatchRequest(after_sequence=0)):
+    revoke(event.account_id)          # a Pydantic DTO, not bytes
 ```
 
 The chunk-wrapper convention (metadata first, chunks after) is fully handled by
-the framework - business code never sees the wrapper message.
+the framework - business code never sees the wrapper message. A typed stream has
+no wrapper at all: every message is the DTO.
+
+### A stream's deadline is not a call's deadline
+
+```yaml
+grpc:
+  clients:
+    user:
+      deadline_ms: 3000          # unary calls
+      stream_deadline_ms: 0      # server streaming; 0 = unlimited (default)
+```
+
+Two separate keys on purpose: `deadline_ms` is tuned to catch a hung round trip
+within seconds, and a stream's lifetime has nothing to do with that - a watch
+feed lives for hours, a download for as long as the file takes. Sharing
+`deadline_ms` would kill every stream after a few seconds, every time.
+
+Set `stream_deadline_ms` to a positive value (e.g. `3600000` for one hour) if
+you do want a cap.
+
+### A broken stream is the NORMAL path, not an incident
+
+Do not write code that assumes a stream lives forever. With `tls.dynamic: true`,
+`XimeGrpcChannel` **replaces the channel whenever the mTLS certificate rotates**,
+and the old channel gets a 30 second grace. Any stream older than that at
+rotation time **is cut mid-flight** - plus server restarts, flaky networks, load
+balancers.
+
+So the correct shape is: the consumer **keeps a cursor**, catches the error, and
+resumes **from that cursor**:
+
+```python
+cursor = load_cursor()
+while True:
+    try:
+        async for event in client.watch_changed_accounts(WatchRequest(after_sequence=cursor)):
+            handle(event)
+            cursor = event.sequence
+            save_cursor(cursor)
+    except (RemoteServiceUnavailable, RemoteCallError):
+        await asyncio.sleep(backoff())   # then resume from cursor
+```
+
+The framework does **not** reconnect for you: it does not know where your cursor
+lives, and resuming at the wrong place drops or duplicates records. Automatic
+retry deliberately does not cover streaming for the same reason.
+
+### Keepalive (optional)
+
+A connection that died silently (NAT timeout, peer power loss) only surfaces when
+something is written - and a watch stream writes nothing for hours. Enable
+periodic pings:
+
+```yaml
+grpc:
+  clients:
+    user:
+      keepalive:
+        time_ms: 30000              # ping every 30s; 0 = off (default)
+        timeout_ms: 20000           # no ack within this → drop the connection
+        permit_without_calls: true  # keep pinging while no RPC is active
+```
+
+> ⚠ **The server must allow that rate.** gRPC servers accept a ping every 5
+> minutes by default and answer GOAWAY `too_many_pings` to anything faster,
+> killing exactly the long-lived streams keepalive was meant to protect. On the
+> server side (if it is a Xime app too) set
+> `grpc.keepalive.min_ping_interval_without_data_ms` to the client's `time_ms`
+> or lower.
 
 ---
 
@@ -292,8 +367,11 @@ what proto flattens away:
   names, `Decimal`/`UUID`/`date` types exactly as in the source DTOs, both unary
   and streaming.
 - **No sidecar** (target written in Java, only `.proto`): the generator falls
-  back to proto-only - unary methods only, types follow plain proto mapping
-  (`Decimal` becomes `str`...). Streaming methods are skipped with a warning.
+  back to proto-only - **unary** and **server-streaming** methods are generated
+  (each message is the response DTO), types follow plain proto mapping
+  (`Decimal` becomes `str`...). Only **client streaming** is skipped with a
+  warning, because xime's upload convention needs the sidecar to say which
+  message is the metadata wrapper.
 
 To call a Java service, just copy its `.proto` into `contracts/` and run
 `xime grpc client` as usual.
@@ -332,6 +410,8 @@ private PyPI required. Versions are managed with git tags.
 | Generate as package | add `--package <name> [--package-version <v>]` |
 | Wire into DI | `configure_grpc_clients("<id>", ClientA, ClientB)` |
 | Address + deadline | `grpc.clients.<id>.{host,port,deadline_ms}` (YAML) |
+| Stream deadline | `grpc.clients.<id>.stream_deadline_ms` (0 = unlimited) |
+| Keepalive | `grpc.clients.<id>.keepalive.{time_ms,timeout_ms,permit_without_calls}` |
 | Dynamic mTLS | `tls.dynamic: true` + `configure_grpc_tls(provider=...)` |
 | Static mTLS | `tls.{ca_file,cert_file,key_file}` (YAML) |
 | Override one deadline | `await client.method(req, timeout=<seconds>)` |

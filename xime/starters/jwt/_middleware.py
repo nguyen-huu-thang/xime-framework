@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from starlette.requests import Request
-from starlette.responses import JSONResponse
+from fastapi import Request
+from fastapi.responses import JSONResponse
 
 from xime.core.context import request_context
 from xime.core.exception.framework import AuthenticationException
@@ -29,12 +29,12 @@ class JwtAuthMiddleware:
     Why pure ASGI: authenticate() must set identity in the SAME context as the
     handler, and RequestContextMiddleware (outermost) must be able to clear that
     context after the request. BaseHTTPMiddleware runs downstream in a separate
-    task, breaking both - identity could leak between requests (dental-clinic
-    #001).
+    task, breaking both - identity could leak between requests. This was a real
+    bug reported against 0.4, not a theoretical concern.
     Vì sao pure ASGI: authenticate() phải set identity vào đúng context của handler,
     và RequestContextMiddleware (ngoài cùng) phải dọn được context đó sau request.
     BaseHTTPMiddleware chạy downstream ở task riêng nên phá cả hai -> identity có
-    thể rò giữa các request (dental-clinic #001).
+    thể rò giữa các request. Đây là lỗi thật đã bị báo ở bản 0.4, không phải lo xa.
 
     Added automatically by WebAdapter.build_app() when the developer calls
     configure_jwt(). Runs inside RequestContextMiddleware (request_id already set).

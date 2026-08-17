@@ -92,9 +92,44 @@ def poc_2_cors_string_from_yaml():
         print(f"    Access-Control-Allow-Origin      : {aco!r}")
         print(f"    Access-Control-Allow-Credentials : {acc!r}")
         if aco == test_origin and acc == "true":
-            print("    => THỦNG: trình duyệt CHO PHÉP đọc phản hồi kèm cookie\n")
+            print("    => THỦNG (hành vi của Starlette): trình duyệt CHO PHÉP đọc phản hồi kèm cookie\n")
         else:
             print("    => không khai thác được\n")
+
+    # Hai ca trên là hành vi của Starlette, không sửa được. Thứ framework làm
+    # được là KHÔNG cho cấu hình đó đi vào production - chặn lúc khởi động.
+    print("  --- qua configure_cors + WebAdapter.build_app của xime ---")
+    from xime.adapters.web import configure_cors
+    from xime.adapters.web._registry import registry as web_registry
+    from xime.core.config.runtime import RuntimeConfig
+    from xime.core.exception.framework import StartupException
+
+    class _App:
+        def __init__(self, config):
+            self._config = config
+
+        def get(self, cls):
+            if cls is RuntimeConfig:
+                return self._config
+            raise KeyError(cls)
+
+    for label, yaml_block, kwargs in [
+        ("allow_origins là chuỗi trong YAML",
+         {"cors": {"allow_origins": "https://app.example.com"}}, {}),
+        ("allow_origins ['*'] + credentials", {}, {"allow_origins": ["*"], "allow_credentials": True}),
+        ("cấu hình đúng (danh sách origin)", {}, {"allow_origins": ["https://app.example.com"]}),
+    ]:
+        web_registry.reset()
+        configure_cors(**kwargs)
+        from xime.adapters.web import WebAdapter
+        try:
+            WebAdapter().build_app(_App(RuntimeConfig.from_dict(yaml_block)))
+            print(f"    {label:38} -> khởi động BÌNH THƯỜNG")
+        except StartupException as exc:
+            first = str(exc).strip().splitlines()[0]
+            print(f"    {label:38} -> CHẶN lúc khởi động: {first}")
+    web_registry.reset()
+    print()
 
 
 # ---------------------------------------------------------------------------
@@ -123,25 +158,43 @@ def poc_3_content_disposition():
         print(f"  {label:24} {filename!r}")
         print(f"      {note}")
 
-    # Chứng minh 500 thật khi tên file có dấu tiếng Việt
+    # Đường đi THẬT của framework: stream_object() dựng header ra sao.
+    # (Ba dòng trên chỉ minh hoạ vì sao f-string trần là sai.)
+    from xime.adapters.web.files import stream_object
+    from xime.starters.storage import StorageStat
+
+    class _Storage:
+        async def stat(self, key):
+            return StorageStat(size=4, content_type="application/pdf", etag=None)
+
+        def open_stream(self, key, *, offset=0, length=None):
+            async def _iter():
+                yield b"data"
+            return _iter()
+
     async def endpoint(request):
-        async def body():
-            yield b"data"
-        return StreamingResponse(
-            body(),
-            headers={"Content-Disposition": 'inline; filename="Hóa đơn.pdf"'},
+        return await stream_object(
+            _Storage(), "hoa-don.pdf", request=request,
+            filename=request.query_params.get("name", "Hóa đơn.pdf"),
         )
 
     app = Starlette(routes=[Route("/f", endpoint)])
     client = TestClient(app, raise_server_exceptions=False)
-    try:
-        r = client.get("/f")
-        print(f"\n  Tải file tên 'Hóa đơn.pdf' -> HTTP {r.status_code}")
-        if r.status_code >= 500:
-            print("  => LỖI: tên file tiếng Việt làm hỏng phản hồi")
-    except Exception as exc:
-        print(f"\n  Tải file tên 'Hóa đơn.pdf' -> ném {type(exc).__name__}: {exc}")
-        print("  => LỖI: tên file tiếng Việt làm hỏng phản hồi")
+    for label, name in cases.items():
+        try:
+            r = client.get("/f", params={"name": name})
+            header = r.headers.get("content-disposition")
+            print(f"\n  qua stream_object: {label:22} -> HTTP {r.status_code}")
+            print(f"      Content-Disposition = {header!r}")
+            if r.status_code >= 500:
+                print("  => LỖI: tên file làm hỏng phản hồi")
+            elif header and ("\r" in header or "\n" in header):
+                print("  => LỖI: còn CRLF trong header")
+            else:
+                print("  => ĐẠT")
+        except Exception as exc:
+            print(f"\n  qua stream_object: {label:22} -> ném {type(exc).__name__}: {exc}")
+            print("  => LỖI")
     print()
 
 

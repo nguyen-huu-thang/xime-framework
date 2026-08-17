@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 import os
 import stat as stat_module
+import time
 from collections.abc import AsyncIterator
 from pathlib import Path, PurePosixPath
+from uuid import uuid4
 
 from xime.core.config.runtime import RuntimeConfig
 from xime.starters.storage import (
@@ -21,6 +23,25 @@ from xime.starters.storage._keys import validate_object_key
 _CHUNK_SIZE = 64 * 1024
 
 
+def _parse_mode(value: object, default: int) -> int:
+    """Read a POSIX mode from YAML, where 0600 is a STRING and 600 is decimal.
+
+    YAML has no octal literal in the shape people expect: `file_mode: 0600`
+    parses as the integer 600 (decimal), which as a mode means 0o1130 - a
+    nonsense the operator never intended. So a string is read as octal and a
+    plain integer is taken as-is, letting `0o600` in Python config work too.
+    YAML không có literal bát phân như người ta tưởng: `file_mode: 0600` ra số
+    600 hệ mười. Nên chuỗi thì đọc theo bát phân, số nguyên thì giữ nguyên.
+    """
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return int(value, 8)
+    if isinstance(value, int):
+        return value
+    raise ValueError(f"storage.local mode must be a string or int, got {value!r}")
+
+
 class LocalFileStorage:
     """StorageService backend that stores objects as files under a root directory.
 
@@ -29,6 +50,13 @@ class LocalFileStorage:
         storage:
           local:
             root: /var/lib/xime/objects
+            file_mode: "0600"   # optional, default 0600 (owner only)
+            dir_mode:  "0700"   # optional, default 0700
+
+    Modes are POSIX; write them as QUOTED strings, because YAML reads an
+    unquoted 0600 as the decimal number 600. They are ignored on Windows.
+    Quyền là POSIX; viết dạng CHUỖI có nháy vì YAML đọc 0600 không nháy thành
+    số 600 hệ mười. Windows bỏ qua.
 
     Keys are backend-relative POSIX-style paths ("avatars/u123.png"). Every key
     is resolved against the root and rejected if it would escape it (path
@@ -58,6 +86,13 @@ class LocalFileStorage:
                 "storage.local.root is not configured. "
                 "Add 'storage.local.root' to resources/application.yml."
             )
+        # Objects are customer data. The process umask usually produces 0644,
+        # i.e. readable by every account on the machine - including any other
+        # service that happens to share the host.
+        # Object là dữ liệu của khách. umask mặc định thường ra 0644, tức là mọi
+        # tài khoản trên máy đọc được - kể cả service khác dùng chung máy chủ.
+        self._file_mode: int = _parse_mode(config.get("storage.local.file_mode"), 0o600)
+        self._dir_mode: int = _parse_mode(config.get("storage.local.dir_mode"), 0o700)
         # Resolve once at startup so every key is checked against a canonical
         # root (symlinks/.. already collapsed).
         # Phân giải root một lần lúc startup để mọi key kiểm tra trên root chuẩn.
@@ -95,8 +130,15 @@ class LocalFileStorage:
     async def put(
         self, key: str, data: bytes, *, content_type: str | None = None
     ) -> None:
-        path = self._resolve(key)
-        await asyncio.to_thread(self._write_bytes, path, data)
+        # Same staging path as put_stream: a reader must never observe a
+        # half-written object, and the two entry points must not differ in that
+        # (the class docstring promises atomic writes for both).
+        # Đi chung đường staging với put_stream: người đọc không bao giờ được
+        # thấy object ghi dở, và hai cửa vào không được khác nhau ở điểm này.
+        async def _one_chunk() -> AsyncIterator[bytes]:
+            yield data
+
+        await self.put_stream(key, _one_chunk(), content_type=content_type)
 
     async def get(self, key: str) -> bytes | None:
         path = self._resolve(key)
@@ -126,11 +168,23 @@ class LocalFileStorage:
         Ghi nguyên tử: ghi ra file tạm .part rồi os.replace.
         """
         path = self._resolve(key)
-        await asyncio.to_thread(path.parent.mkdir, parents=True, exist_ok=True)
-        tmp = path.with_name(f"{path.name}.{os.getpid()}.part")
+        await asyncio.to_thread(self._make_dir, path.parent)
+        # uuid4, not os.getpid(): a PID is shared by every request in the
+        # process, so two concurrent uploads of the same key wrote into ONE temp
+        # file and os.replace published the interleaved result. That is a data
+        # integrity bug, not just a permissions one.
+        # uuid4 chứ không phải os.getpid(): PID dùng chung cho mọi request trong
+        # tiến trình, nên hai upload cùng key ghi chung MỘT file tạm rồi
+        # os.replace công bố kết quả lai.
+        tmp = path.with_name(f"{path.name}.{uuid4().hex}.part")
 
         def _open() -> object:
-            return open(tmp, "wb")
+            # Create with the target mode from the start; a chmod afterwards
+            # leaves a window where the file is world-readable.
+            # Tạo file với quyền đích ngay từ đầu; chmod sau đó để hở một
+            # khoảng thời gian file ai cũng đọc được.
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, self._file_mode)
+            return os.fdopen(fd, "wb")
 
         handle = await asyncio.to_thread(_open)
         try:
@@ -144,7 +198,7 @@ class LocalFileStorage:
             raise
         else:
             await asyncio.to_thread(handle.close)  # type: ignore[attr-defined]
-            await asyncio.to_thread(os.replace, tmp, path)
+            await asyncio.to_thread(self._publish, tmp, path)
 
     def open_stream(
         self, key: str, *, offset: int = 0, length: int | None = None
@@ -224,10 +278,56 @@ class LocalFileStorage:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _make_dir(self, path: Path) -> None:
+        """Create the parent chain, applying dir_mode to directories we create.
+
+        `mode=` on mkdir is masked by the process umask, and it does nothing for
+        directories that already exist - hence the explicit chmod on the leaf.
+        `mode=` của mkdir bị umask che, và không tác động tới thư mục đã tồn tại.
+        """
+        existed = path.exists()
+        path.mkdir(parents=True, exist_ok=True)
+        if not existed:
+            try:
+                os.chmod(path, self._dir_mode)
+            except OSError:
+                # Windows ignores most POSIX bits; never fail a write over this.
+                pass
+
     @staticmethod
-    def _write_bytes(path: Path, data: bytes) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
+    def _publish(tmp: Path, path: Path) -> None:
+        """Atomically move the staged file into place, retrying on Windows.
+
+        POSIX rename(2) always succeeds here, so the first attempt returns and
+        this costs nothing. Windows is different: MoveFileEx fails with
+        ERROR_ACCESS_DENIED while the DESTINATION is open by anyone - including
+        the brief window another concurrent publish of the same key holds it.
+        Two uploads racing on one key then made one of them fail outright
+        (measured: ~10% of runs).
+
+        The retry is bounded and re-raises: a transient collision clears within
+        milliseconds, while a permanent cause (a reader holding the file open,
+        or a read-only destination) still surfaces as PermissionError instead of
+        being silently swallowed.
+
+        POSIX thì rename(2) luôn thành công nên lần thử đầu đã xong, không tốn
+        gì. Windows thì MoveFileEx báo ERROR_ACCESS_DENIED trong lúc file ĐÍCH
+        đang được ai đó mở - kể cả khoảng rất ngắn mà một lần publish đồng thời
+        cùng key đang giữ nó. Retry có GIỚI HẠN rồi ném lại: va chạm tạm thời
+        hết sau vài mili giây, còn nguyên nhân vĩnh viễn vẫn lộ ra thành
+        PermissionError chứ không bị nuốt.
+        """
+        delay = 0.005
+        for _ in range(5):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                time.sleep(delay)
+                delay *= 2
+        # Last attempt outside the loop so the real error propagates unchanged.
+        # Lần cuối để ngoài vòng lặp, cho lỗi thật lan lên nguyên vẹn.
+        os.replace(tmp, path)
 
     @staticmethod
     def _unlink_quiet(path: Path) -> None:

@@ -151,6 +151,14 @@ class OpcuaServerAdapter:
             "OPC UA server listening on %s (security=%s) — %d node(s)",
             self._config.endpoint, self._config.security, len(self._variables),
         )
+        if str(self._config.security).lower() == "none":
+            logger.warning(
+                "OPC UA server on %s accepts security=None: sessions are "
+                "unencrypted and unauthenticated - anyone who can reach the "
+                "endpoint can read and WRITE every published node. Configure "
+                "Sign or SignAndEncrypt outside a lab.",
+                self._config.endpoint,
+            )
 
         await self._refresh_forever()
 

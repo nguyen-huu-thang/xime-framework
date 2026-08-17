@@ -29,13 +29,13 @@ class GrpcCertificateProvider(Protocol):
     """Source of dynamic TLS certificates for gRPC servers.
 
     Implementations live in application code (e.g. backed by a certificate
-    resolver synchronized from Trust Service). The framework polls this
-    provider on every NEW TLS handshake - established sessions are never
-    affected by rotation (TLS semantics: certificates are only used during
+    resolver kept in sync with whatever issues your certificates). The framework
+    polls this provider on every NEW TLS handshake - established sessions are
+    never affected by rotation (TLS semantics: certificates are only used during
     the handshake).
-    Implementation nằm ở code ứng dụng (vd đọc từ resolver đồng bộ với Trust
-    Service). Framework hỏi provider ở mỗi handshake MỚI - phiên đã thiết lập
-    không bị ảnh hưởng khi rotate (cert chỉ dùng lúc handshake).
+    Implementation nằm ở code ứng dụng (vd đọc từ resolver đồng bộ với nơi cấp
+    cert của bạn). Framework hỏi provider ở mỗi handshake MỚI - phiên đã thiết
+    lập không bị ảnh hưởng khi rotate (cert chỉ dùng lúc handshake).
 
     Contract:
     - version(): cheap identity of the current certificate (e.g. certificate

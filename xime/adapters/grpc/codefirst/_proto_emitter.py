@@ -180,7 +180,7 @@ class ProtoEmitter:
             resp = m.response_message
             if m.kind is StreamKind.CLIENT_STREAM:
                 req = f"stream {req}"
-            elif m.kind is StreamKind.SERVER_STREAM:
+            elif m.kind in (StreamKind.SERVER_STREAM, StreamKind.SERVER_STREAM_TYPED):
                 resp = f"stream {resp}"
             lines.append(f"  rpc {m.rpc_name}({req}) returns ({resp});")
         lines.append("}")

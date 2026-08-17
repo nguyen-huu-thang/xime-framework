@@ -318,32 +318,37 @@ thật** khóa `..\..\` mà lớp kiểm tra thứ nhất cho lọt (PoC 7).
 
 ## Bảng phát hiện
 
-| Mã | Mức | Phát hiện | Ảnh hưởng |
-|---|---|---|---|
-| **A1** | 🔴 NGHIÊM TRỌNG | Không có khóa JWT -> app KHÔNG cài middleware xác thực, vẫn chạy | 21 codebase |
-| **A2** | 🟠 CAO | `allow_origin_regex` khớp **mọi IPv4 công cộng**, kèm `allow_credentials: true` | 23 codebase |
-| **A3** | 🟠 CAO | Sáu app Monolithic ký JWT HS256 bằng **cùng một secret literal**; ở `shop` nó nằm trong git và app đã deploy | 6 app |
-| **F1** | 🟠 CAO | WebSocket đi thẳng qua `JwtAuthMiddleware` | framework (chưa app nào dùng WS) |
-| **F2** | 🟠 CAO | `save_upload` tin Content-Type của client, `stream_object` phát lại inline -> XSS lưu trữ | framework |
-| **F3** | 🟠 CAO | Sàn dependency cho phép bộ thư viện có **26 CVE**, gồm PyJWT 2.8.0 | mọi bản cài mới |
-| **F4** | 🟡 TRUNG | `configure_cors` không kiểm kiểu giá trị YAML -> chuỗi thành wildcard / khớp chuỗi con | framework |
-| **F5** | 🟡 TRUNG | `RuntimeConfig.__repr__` in ra toàn bộ secret | framework |
-| **F6** | 🟡 TRUNG | Bốn mặc định không an toàn, không cảnh báo (gRPC, OPC UA, MQTT, socket ngoài Linux) | framework |
-| **F7** | 🟡 TRUNG | Thiếu file profile YAML -> im lặng chạy bằng config gốc | framework |
-| **F8** | 🟡 TRUNG | `Content-Disposition` dựng bằng f-string: tên file tiếng Việt -> HTTP 500 | framework |
-| **F9** | 🟡 TRUNG | `_read_peer_app_id` tìm chuỗi trong MỌI loại SAN | framework |
-| **F10** | 🟡 TRUNG | Một adapter chết kéo sập cả tiến trình (`TaskGroup`) | framework |
-| **F11** | 🟡 TRUNG | `audience` mặc định KHÔNG ép | framework |
-| **A4** | 🟡 TRUNG | `/docs`, `/redoc`, `/openapi.json` nằm trong `public_paths` | toàn bộ app |
-| **A5** | 🟡 TRUNG | 6 app Monolithic: thiếu header Authorization -> đi tiếp **ẩn danh** | 6 app |
-| **A6** | 🟡 TRUNG | Tài liệu bảo để secret vào `application-secret.yml` - framework **không nạp file đó** | shop + khuôn mẫu |
-| **F12** | ⚪ THẤP | `ErrorMappingInterceptor` gửi tên class exception nội bộ cho **mọi** lỗi | framework |
-| **F13** | ⚪ THẤP | localfs: quyền file 0644, tên file tạm đoán được, `put()` không nguyên tử | framework |
-| **F14** | ⚪ THẤP | `validate_object_key` cho lọt khóa có `\` (khác nhau giữa các backend) | framework |
-| **F15** | ⚪ THẤP | `EventBus.publish` tạo task không giới hạn | framework |
-| **F16** | ⚪ THẤP | `save_upload` không có giới hạn dung lượng mặc định | framework |
-| **F17** | ⚪ THẤP | MQTT RPC trả lời về `ResponseTopic` do client chỉ định | framework |
-| **A7** | ⚪ THẤP | `callback_secret` là chuỗi literal yếu, giống nhau theo khuôn mẫu | nhiều app |
+> **Cột trạng thái cập nhật 2026-08-03** (bản 0.7.1): **đợt 2 của kế hoạch vá đã
+> thi công xong** - mười mục framework F2, F4, F5, F6, F7, F8, F11, F12, F13,
+> F16 đã vá, có test canh, và PoC tương ứng đã chạy lại. Nhóm A (app) và các mục
+> framework còn lại **chưa vá**. Chi tiết: [`ket-qua-0.7.1-2026-08-03.md`](ket-qua-0.7.1-2026-08-03.md).
+
+| Mã | Mức | Phát hiện | Ảnh hưởng | Trạng thái |
+|---|---|---|---|---|
+| **A1** | 🔴 NGHIÊM TRỌNG | Không có khóa JWT -> app KHÔNG cài middleware xác thực, vẫn chạy | 21 codebase | ⬜ chưa vá |
+| **A2** | 🟠 CAO | `allow_origin_regex` khớp **mọi IPv4 công cộng**, kèm `allow_credentials: true` | 23 codebase | ⬜ chưa vá |
+| **A3** | 🟠 CAO | Sáu app Monolithic ký JWT HS256 bằng **cùng một secret literal**; ở `shop` nó nằm trong git và app đã deploy | 6 app | ⬜ chưa vá |
+| **F1** | 🟠 CAO | WebSocket đi thẳng qua `JwtAuthMiddleware` | framework (chưa app nào dùng WS) | ⬜ chưa vá |
+| **F2** | 🟠 CAO | `save_upload` tin Content-Type của client, `stream_object` phát lại inline -> XSS lưu trữ | framework | ✅ vá 0.7.1 |
+| **F3** | 🟠 CAO | Sàn dependency cho phép bộ thư viện có **26 CVE**, gồm PyJWT 2.8.0 | mọi bản cài mới | ⬜ chưa vá |
+| **F4** | 🟡 TRUNG | `configure_cors` không kiểm kiểu giá trị YAML -> chuỗi thành wildcard / khớp chuỗi con | framework | ✅ vá 0.7.1 |
+| **F5** | 🟡 TRUNG | `RuntimeConfig.__repr__` in ra toàn bộ secret | framework | ✅ vá 0.7.1 |
+| **F6** | 🟡 TRUNG | Bốn mặc định không an toàn, không cảnh báo (gRPC, OPC UA, MQTT, socket ngoài Linux) | framework | ✅ vá 0.7.1 |
+| **F7** | 🟡 TRUNG | Thiếu file profile YAML -> im lặng chạy bằng config gốc | framework | ✅ vá 0.7.1 |
+| **F8** | 🟡 TRUNG | `Content-Disposition` dựng bằng f-string: tên file tiếng Việt -> HTTP 500 | framework | ✅ vá 0.7.1 |
+| **F9** | 🟡 TRUNG | `_read_peer_app_id` tìm chuỗi trong MỌI loại SAN | framework | ⬜ chưa vá |
+| **F10** | 🟡 TRUNG | Một adapter chết kéo sập cả tiến trình (`TaskGroup`) | framework | ⬜ chưa vá |
+| **F11** | 🟡 TRUNG | `audience` mặc định KHÔNG ép | framework | ✅ vá 0.7.1 |
+| **A4** | 🟡 TRUNG | `/docs`, `/redoc`, `/openapi.json` nằm trong `public_paths` | toàn bộ app | ⬜ chưa vá |
+| **A5** | 🟡 TRUNG | 6 app Monolithic: thiếu header Authorization -> đi tiếp **ẩn danh** | 6 app | ⬜ chưa vá |
+| **A6** | 🟡 TRUNG | Tài liệu bảo để secret vào `application-secret.yml` - framework **không nạp file đó** | shop + khuôn mẫu | ⬜ chưa vá |
+| **F12** | ⚪ THẤP | `ErrorMappingInterceptor` gửi tên class exception nội bộ cho **mọi** lỗi | framework | ✅ vá 0.7.1 |
+| **F13** | ⚪ THẤP | localfs: quyền file 0644, tên file tạm đoán được, `put()` không nguyên tử | framework | ✅ vá 0.7.1 |
+| **F14** | ⚪ THẤP | `validate_object_key` cho lọt khóa có `\` (khác nhau giữa các backend) | framework | ⬜ chưa vá |
+| **F15** | ⚪ THẤP | `EventBus.publish` tạo task không giới hạn | framework | ⬜ chưa vá |
+| **F16** | ⚪ THẤP | `save_upload` không có giới hạn dung lượng mặc định | framework | ✅ vá 0.7.1 |
+| **F17** | ⚪ THẤP | MQTT RPC trả lời về `ResponseTopic` do client chỉ định | framework | ⬜ chưa vá |
+| **A7** | ⚪ THẤP | `callback_secret` là chuỗi literal yếu, giống nhau theo khuôn mẫu | nhiều app | ⬜ chưa vá |
 
 ---
 

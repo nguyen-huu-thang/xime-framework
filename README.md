@@ -170,7 +170,7 @@ app.run()
 **4. Run it.**
 
 ```bash
-python app/main.py
+python -m app.main
 ```
 
 <details>
@@ -236,11 +236,11 @@ The best way to learn XIME is to read real code. These open-source projects are 
 | **Two-Layer Config** | Framework config (Python) + Runtime config (YAML) |
 | **Transaction API** | Explicit `async with self.transaction():` - no hidden AOP; `async with self.read_only():` for reads |
 | **Class-Based Controllers** | Controllers are DI singletons, methods map to routes |
-| **Code-First gRPC** | Write Python DTOs, XIME generates `.proto` + stubs; field-number stability via lock file |
+| **Code-First gRPC** | Write Python DTOs, XIME generates `.proto` + stubs; field-number stability via lock file; typed server streaming with `@stream` + `yield` (no chunk wrapper, so a Java peer reads the `.proto` and understands it) |
 | **gRPC Client SDK** | Generate a typed Pydantic client from `.proto`, inject via DI; deadlines, typed errors, automatic retry |
 | **HTTPS** | TLS for the HTTP server via a `server.ssl` block in `application.yml`, including client-certificate verification; misconfiguration stops startup instead of silently serving plain HTTP |
 | **Dynamic mTLS** | Certificate rotation without restart for both inbound servers and outbound clients |
-| **Peer Identity** | gRPC reads the verified client cert into request context (fail-soft): `current_caller()` gives the calling process (CN), `current_app_id()` the application owning it (`xime-app://` SAN) |
+| **Peer Identity** | gRPC reads the verified client cert into request context (fail-soft): `current_caller()` gives the CN, `current_peer_sans()` every Subject Alternative Name — raw and uninterpreted, so you match your own scheme (SPIFFE IDs or otherwise) |
 | **Socket Adapter** | Unix Domain Socket IPC for same-host Native Engine calls (Linux); `@command` / `@stream` |
 | **MQTT Adapter** | Message-driven transport for IoT/embedded: `@subscribe` (pub/sub) + `@rpc` (request/reply over MQTT v5); auto-reconnect; bounded concurrency |
 | **Modbus Adapter** | Talk to PLCs directly: declarative device model that decodes registers (endianness, word order, scale), safe read planning, `@poll` / `@on_change`, and slave mode (`@serve` / `@on_write`) |
@@ -279,9 +279,9 @@ Optional modules, similar to `spring-boot-starter-*`:
 
 ## Project Status
 
-XIME is in **active development**. The following are implemented: core DI (hand-rolled singleton registry, **no third-party DI dependency**) with **dynamic interface binding** (one Protocol → many impls, swapped at runtime), lifecycle, event bus, security context, configuration, JWT starter (with audience/issuer enforcement), scheduler starter, SQLAlchemy starter, Cache + Redis starters, **Storage starter** (local filesystem + S3/MinIO) with **HTTP file streaming** (Range download, chunked upload), Web adapter (FastAPI + routing, pure-ASGI request-context & JWT middleware, custom middleware & exception handlers, **DI/config-aware middleware via `Inject`/`FromConfig` markers + first-class `configure_cors`**), gRPC adapter (proto-first + **code-first**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors + automatic retry), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), **Modbus adapter** (declarative device model, master polling + slave mode), **OPC UA adapter** (node models, subscriptions, server mode, full security), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial.
+XIME is in **active development**. The following are implemented: core DI (hand-rolled singleton registry, **no third-party DI dependency**) with **dynamic interface binding** (one Protocol → many impls, swapped at runtime), lifecycle, event bus, security context, configuration, JWT starter (with audience/issuer enforcement), scheduler starter, SQLAlchemy starter, Cache + Redis starters, **Storage starter** (local filesystem + S3/MinIO) with **HTTP file streaming** (Range download, chunked upload), Web adapter (FastAPI + routing, pure-ASGI request-context & JWT middleware, custom middleware & exception handlers, **DI/config-aware middleware via `Inject`/`FromConfig` markers + first-class `configure_cors`**), gRPC adapter (proto-first + **code-first**, **typed server streaming**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors + automatic retry), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), **Modbus adapter** (declarative device model, master polling + slave mode), **OPC UA adapter** (node models, subscriptions, server mode, full security), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial.
 
-The core is covered by **1400+ tests**.
+The core is covered by **1500+ tests**.
 
 See the [CHANGELOG](CHANGELOG.md) for release history.
 

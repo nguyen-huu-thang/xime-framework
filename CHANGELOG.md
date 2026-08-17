@@ -5,6 +5,203 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [0.7.1] - 2026-08-03
+
+**Server streaming cho bản ghi có kiểu, và đợt vá bảo mật thứ nhất.**
+
+Hai phần độc lập nhau đi chung một bản:
+
+1. **`@stream` + `yield`** - server streaming của **DTO**, không phải byte. Trước
+   bản này framework chỉ stream được byte qua wrapper `*Chunk` (tải file), nên
+   một feed kiểu `rpc Watch(Req) returns (stream Event)` không phơi được ở
+   server và không tiêu thụ được ở client. Yêu cầu đến từ phiên data-service +
+   user-service (`.claude/docs/yeu-cau-server-stream-kieu-du-lieu-2026-08-02.md`).
+2. **Đợt 2 của kế hoạch vá bảo mật** (`.claude/docs/ke-hoach-va-bao-mat-2026-08-01.md`):
+   F2, F4, F5, F6, F7, F8, F11, F12, F13, F16. Mọi mục đều tái hiện được bằng
+   PoC trước khi vá và chạy lại PoC sau khi vá.
+
+Bổ sung 2026-08-04: hai **lỗi đua** - một khi tắt scheduler (phát hiện qua vướng
+mắc của phiên `user-locator`), một khi công bố file trong localfs trên Windows
+(phát hiện vì một test đỏ ~10% số lần chạy). Xem mục Fixed.
+
+Bổ sung 2026-08-17: **gỡ phụ thuộc khái niệm** (`current_app_id` → `current_peer_sans`,
+BREAKING) và **khai ba phụ thuộc bắc cầu**. Xem hai mục cuối.
+
+Test: **1516 passed, 11 skipped**. Số skip tăng từ 7 lên 11 **không phải vì có
+test bị tắt**: hai extra `mqtt` và `s3` trước nay chưa từng được cài trên máy
+này, nên vài module bị skip cả gói và đếm là **một** skip; cài rồi thì chúng được
+thu thập thành từng test, phần cần broker/MinIO mới skip lẻ. Đổi lại **2 test giờ
+chạy thật** thay vì bị bỏ qua. Đã chạy thêm bộ test của bốn ứng dụng thật
+(data-service 347, linh-kien-dien-tu 295, shop 166, crm 53).
+
+### Added
+
+- **Server streaming có kiểu.** Handler viết `async def ... -> AsyncIterator[Model]`
+  với `yield`; proto sinh ra `rpc X(Req) returns (stream Resp)` **không wrapper**,
+  nên peer Java đọc `.proto` là hiểu. Client SDK sinh
+  `def x(self, req) -> AsyncIterator[Resp]`. Ba dạng khai sai (`@command` có
+  `yield`; vừa `DownloadStream` vừa `yield`; thiếu annotation `AsyncIterator[...]`)
+  đều báo lỗi lúc **khởi động**. Dạng byte (`DownloadStream`) giữ nguyên.
+- **`grpc.clients.<id>.stream_deadline_ms`** - deadline riêng cho call
+  server-streaming, mặc định `0` (không giới hạn).
+- **`grpc.clients.<id>.keepalive.*`** (client) và **`grpc.keepalive.*`** (server) -
+  ping HTTP/2 cho kết nối dài, mặc định TẮT. Bật ở client thì server phải nới
+  `min_ping_interval_without_data_ms`, nếu không server trả GOAWAY
+  `too_many_pings`.
+- **`storage.local.file_mode` / `dir_mode`** cho backend localfs (mặc định
+  `0600`/`0700`). Viết dạng chuỗi có nháy: YAML đọc `0600` không nháy thành số
+  600 hệ mười.
+
+### Fixed
+
+- **localfs: hai lần ghi đồng thời cùng một key thất bại trên Windows.** `os.replace`
+  công bố file tạm là nguyên tử trên POSIX, nhưng trên Windows `MoveFileEx` báo
+  `ERROR_ACCESS_DENIED` khi file **đích** đang được ai đó mở - kể cả khoảng rất
+  ngắn mà một lần công bố đồng thời cùng key đang giữ nó. Đo được **~10% lần chạy
+  đỏ**. Nay công bố qua `_publish()` có **retry giới hạn** (5 lần, backoff từ 5ms)
+  rồi **ném lại**: va chạm tạm thời hết sau vài mili giây, còn nguyên nhân vĩnh
+  viễn (đích read-only, có người giữ file mở lâu) vẫn lộ ra thành `PermissionError`
+  chứ không bị nuốt. POSIX không đổi gì - lần thử đầu luôn thành công.
+  Có **cặp test** canh cả hai nhánh; chỉ canh một nhánh thì cách sửa sai "nuốt mọi
+  `PermissionError`" cũng qua được. Chỉ `Base Platform/data` dùng backend này.
+- **Lỗi đua khi tắt scheduler - chạm mọi ứng dụng có job nền.** `SchedulerRunner`
+  phóng vòng lặp bằng `asyncio.create_task(run_until_stopped())`, hàm này trả về
+  **trước khi vòng lặp kịp chạy**. Ứng dụng tắt ngay sau đó thì
+  `AsyncScheduler.stop()` **im lặng không làm gì** (nó chỉ có tác dụng khi trạng
+  thái đã là `started`), rồi `__aexit__` dọn kho dữ liệu dưới chân một task chưa
+  khởi động -> `RuntimeError: The scheduler has not been initialized yet`. Nay
+  dùng `start_in_background()` của chính APScheduler, hàm chỉ trả về khi vòng lặp
+  đã báo `started`. Không phải nâng dependency (`apscheduler>=4.0.0a6` đã có).
+  ⚠ Đây **không** phải giới hạn của môi trường test như báo cáo ban đầu: tái hiện
+  được bằng `asyncio.run()` thuần. Tiến trình chạy lâu chỉ che nó đi vì `start`
+  và `stop` cách nhau đủ xa. Chi tiết:
+  `.claude/docs/loi-dua-scheduler-2026-08-04.md`.
+- **F2 - XSS lưu trữ qua cặp upload/download.** `save_upload` lấy content type
+  từ **tên file** thay vì header `Content-Type` của phần multipart (do kẻ gọi
+  điều khiển, và backend S3 trả lại y nguyên lúc tải về). `stream_object` luôn
+  gắn `X-Content-Type-Options: nosniff` và ép `Content-Disposition: attachment`
+  cho mọi kiểu ngoài danh sách hiển thị-an-toàn.
+- **F8 - tên file có dấu làm hỏng phản hồi.** `Content-Disposition` dựng theo
+  RFC 6266 (`filename=` ASCII + `filename*=UTF-8''...`). Trước đây tải file tên
+  `Hóa đơn.pdf` là **HTTP 500**, và dấu nháy trong tên thoát được khỏi tham số.
+- **F13 - localfs.** Tên file tạm dùng `uuid4()` thay `os.getpid()`: hai upload
+  cùng key trong cùng tiến trình từng ghi chung một file tạm rồi công bố kết quả
+  lai (lỗi toàn vẹn dữ liệu). `put()` nay đi chung đường staging nguyên tử với
+  `put_stream()`. File tạo với quyền `0600`, thư mục `0700`.
+- **F12 - metadata lỗi gRPC.** Exception **chưa map** báo `xime-error:
+  InternalError` thay vì tên class nội bộ thật (`_safe_details()` vốn đã che
+  `str(exc)` vì cùng lý do). Exception đã map giữ nguyên tên như cũ.
+
+### Changed
+
+- **F4 - `configure_cors` fail-fast.** Khởi động thất bại khi `allow_origins`
+  (hoặc `allow_methods`/`allow_headers`/`expose_headers`) là **chuỗi** thay vì
+  danh sách, và khi `allow_origins: ["*"]` đi cùng `allow_credentials: true`.
+  Ca thứ hai KHÔNG được trình duyệt chặn như chú thích cũ nói: Starlette phản
+  chiếu đúng origin của người gọi.
+- **F5 - `repr(RuntimeConfig)` che secret.** Khoá có tên chứa
+  `secret/password/token/key/credential` in ra `***`. `get()` không đổi.
+- **F7 - thiếu file profile thì cảnh báo.** `XIME_ENV=production` mà không có
+  `application-production.yml` nay ghi WARNING thay vì im lặng chạy bằng
+  `application.yml`.
+- **F6 - nói ra khi đang chạy chế độ không an toàn** (log một lần lúc khởi
+  động, không đổi mặc định): gRPC server plaintext hoặc TLS-không-mTLS, OPC UA
+  `security=None` (cả client lẫn server), MQTT không TLS (nặng hơn khi có kèm
+  tài khoản/mật khẩu), socket adapter không đọc được SO_PEERCRED.
+- **F11 - `configure_jwt()` không đặt `audience`** thì cảnh báo lúc khởi động.
+- **F16 - `save_upload` có trần mặc định 32 MiB** (trước đây không giới hạn).
+  Muốn bỏ trần thì truyền `max_bytes=None` tường minh.
+
+### ⚠ Đổi hành vi, đọc trước khi nâng cấp
+
+| Đổi gì | Ảnh hưởng ai |
+| --- | --- |
+| `stream_object` ép tải xuống với kiểu ngoài danh sách an toàn | App phục vụ **SVG**, HTML, JSON... theo kiểu hiển thị tại chỗ. Ảnh PNG/JPEG/GIF/WebP, PDF, MP4, text/plain vẫn inline. `image/svg+xml` cố ý KHÔNG nằm trong danh sách: SVG chạy được script |
+| `save_upload` bỏ qua `Content-Type` của client | App dựa vào giá trị đó phải truyền `content_type=` tường minh |
+| `save_upload` mặc định trần 32 MiB | App cho tải file lớn hơn phải khai `max_bytes` |
+| `configure_cors` nổ với cấu hình sai kiểu | App đang khai `cors.allow_origins` dạng chuỗi sẽ không khởi động được - đó là mục đích |
+| Deadline của server-streaming đổi sang `stream_deadline_ms` (mặc định 0) | Luồng tải file trước đây bị `deadline_ms` cắt thì nay không còn bị. Muốn giữ giới hạn thì khai `stream_deadline_ms` |
+| `xime-error` của lỗi chưa map thành `InternalError` | Client nào so khớp `RemoteCallError.code` với tên class nội bộ (không nên có) |
+| ⛔ **`current_app_id()` / `PEER_APP_ID` bị GỠ HẲN** | Xem mục "Gỡ phụ thuộc khái niệm" ngay dưới. Thay bằng `current_peer_sans()` / `PEER_SANS` |
+
+### ⛔ BREAKING - Gỡ phụ thuộc khái niệm khỏi framework (2026-08-17)
+
+**Framework không còn biết quy ước định danh của bất kỳ nền tảng nào.**
+
+Bản 0.6.3 thêm `current_app_id()`, và cùng với nó là hai hằng số đóng cứng trong
+`adapters/grpc/interceptors/_context.py`: một **scheme URI riêng của Xime
+Platform** và **độ dài định danh 33 ký tự** (hệ quả của việc một service khác
+chọn KSUID 24 byte + Base62 pad trái). Không hằng số nào trong hai cái đó là
+khái niệm phổ quát, nên chúng không thuộc về một framework dùng chung.
+
+| Gỡ | Thay bằng |
+| --- | --- |
+| `current_app_id() -> str \| None` | `current_peer_sans() -> tuple[str, ...] \| None` |
+| `PEER_APP_ID` (`"peer_app_id"`) | `PEER_SANS` (`"peer_sans"`) |
+
+`PEER_CN` và `current_caller()` **không đổi** - CN là khái niệm chuẩn X.509.
+
+**Cách chuyển:** trước đây framework lọc SAN hộ bạn rồi trả **một** giá trị đã cắt
+scheme. Nay nó trả **mọi** entry SAN, thô, và việc khớp là của bạn:
+
+```python
+# trước
+app_id = current_app_id()
+
+# sau - bạn khai scheme của mình, framework không cần biết nó tồn tại
+LABEL, SCHEME = "URI:", "your-scheme://"
+
+def _app_id() -> str | None:
+    for entry in current_peer_sans() or ():
+        value = entry.removeprefix(LABEL)   # nhãn loại SAN nếu transport có thêm
+        if value.startswith(SCHEME):        # NEO ĐẦU chuỗi, đừng dùng find()
+            return value[len(SCHEME):]
+    return None
+```
+
+⚠ **Hai chi tiết trong đoạn trên đều đã cắn thật, đừng lược bỏ:**
+
+- **Cắt nhãn `LABEL` trước khi so.** Bản cũ của framework so bằng `find()` nên chấp được cả dạng
+  `URI:your-scheme://...` mà một số công cụ in ra. Nay framework trả **nguyên văn**, nên nếu bạn
+  chỉ `startswith(SCHEME)` thì entry có nhãn **rơi im lặng thành `None`**, tức bị hiểu thành
+  "không có định danh". Phiên `data-service` phát hiện đúng chỗ này khi chuyển đổi.
+- **Nhưng đừng thay bằng `find()`.** Tìm chuỗi con ở bất kỳ đâu sẽ nhận cả
+  `https://example.com/?redirect=your-scheme://attacker` - entry đó *chứa* scheme của bạn mà
+  không *thuộc* scheme của bạn. Cắt nhãn rồi neo đầu là dạng an toàn cả hai chiều.
+
+**Ba thứ được thêm chứ không mất đi:**
+
+- Entry SAN của **mọi** scheme nay đến được tay bạn. Trước đây `spiffe://...` bị
+  vứt, dù đó là chuẩn công nghiệp cho định danh workload và cert nào cũng hay có.
+- Không còn phép kiểm độ dài âm thầm vứt giá trị. Trước đây một định danh sai độ
+  dài trả về `None` **giống hệt** "cert không có entry nào", nên bên gọi không
+  phân biệt được *"không có"* với *"có mà tôi bỏ"*.
+- `PEER_SANS` **vắng mặt** khi cert không cấp SAN nào, chứ không phải có mặt với
+  tuple rỗng. Câu *"lời gọi có qua mTLS không"* đã do `PEER_CN` trả lời.
+
+⚠ Framework **không** thay bằng một khoá cấu hình cho scheme. Đó là lựa chọn có
+chủ đích: không khai gì thì không có gì xảy ra, nên không tồn tại một mặc định lạ
+nào để ai đó phải ngạc nhiên. Nơi triển khai nào cần quy ước riêng thì quy ước đó
+sống ở nơi triển khai.
+
+### Changed - khai báo phụ thuộc bắc cầu (2026-08-17)
+
+Framework import thẳng ba thư viện mà `pyproject.toml` không khai; chúng về được
+chỉ vì một thư viện đã khai kéo theo. Một phụ thuộc bắc cầu là lời hứa thư viện
+kia đưa cho **chính nó**, không phải cho ta.
+
+- **`starlette` không còn là phụ thuộc trực tiếp.** Bốn chỗ import đổi sang lấy
+  từ `fastapi` (cùng một object, FastAPI xuất lại nguyên vẹn): `Request`,
+  `JSONResponse`, `WebSocketDisconnect`, `CORSMiddleware`.
+- **`paho-mqtt>=2.1` khai vào extra `mqtt`.** Không tránh được: `aiomqtt` 2.x
+  không có lớp `Properties` riêng, mà MQTT v5 cần nó cho SubscriptionIdentifier
+  và CorrelationData. Sàn 2.1 trùng khớp ràng buộc `aiomqtt` vốn đã đòi nên không
+  siết thêm gì.
+- **`botocore` khai vào extra `s3`, cố ý KHÔNG có phiên bản.** `aiobotocore` ghim
+  botocore vào một dải ~16 bản patch và dải đó dịch theo mỗi bản mới của nó, nên
+  mọi sàn ta viết hoặc vô nghĩa hôm nay hoặc thành xung đột resolver ngày mai.
+- **`types-aiobotocore-s3` khai vào extra `dev`** (import dưới `TYPE_CHECKING`).
+
 ## [0.7.0] - 2026-07-30
 
 **Fieldbus công nghiệp: adapter Modbus TCP và OPC UA.** Xime nhắm tới công

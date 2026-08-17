@@ -200,6 +200,44 @@ class TestConfigureCors:
         ).kwargs
         assert kwargs["allow_origins"] == ["http://explicit"]
 
+    def test_string_allow_origins_from_yaml_fails_startup(self):
+        """F4: quên ngoặc vuông trong YAML -> Starlette duyệt TỪNG KÝ TỰ.
+
+        Không nổ, không khớp gì cả - kiểu hỏng im lặng tệ nhất, nên chặn ngay
+        lúc khởi động.
+        """
+        from xime.adapters.web import WebAdapter
+        from xime.core.exception.framework import StartupException
+
+        app = FakeApp(
+            config=RuntimeConfig.from_dict(
+                {"cors": {"allow_origins": "https://app.example.com"}}
+            )
+        )
+        configure_cors()
+        with pytest.raises(StartupException, match="must be a LIST"):
+            WebAdapter().build_app(app)
+
+    def test_wildcard_with_credentials_fails_startup(self):
+        """F4: Starlette PHẢN CHIẾU origin của người gọi, trình duyệt KHÔNG chặn."""
+        from xime.adapters.web import WebAdapter
+        from xime.core.exception.framework import StartupException
+
+        app = FakeApp(config=RuntimeConfig.from_dict({}))
+        configure_cors(allow_origins=["*"], allow_credentials=True)
+        with pytest.raises(StartupException, match="wide open"):
+            WebAdapter().build_app(app)
+
+    def test_wildcard_without_credentials_is_allowed(self):
+        # Public API không cookie: '*' là hợp lệ, đừng chặn nhầm.
+        from starlette.middleware.cors import CORSMiddleware
+        from xime.adapters.web import WebAdapter
+
+        app = FakeApp(config=RuntimeConfig.from_dict({}))
+        configure_cors(allow_origins=["*"])
+        fastapi_app = WebAdapter().build_app(app)
+        assert any(m.cls is CORSMiddleware for m in fastapi_app.user_middleware)
+
     def test_cors_sits_outside_jwt_in_stack(self):
         """CORS phải outermost hơn JwtAuth: preflight OPTIONS chạy trước xác thực
         (đúng kịch bản I1 - thứ tự middleware)."""
@@ -226,5 +264,51 @@ class TestConfigureCors:
             classes = [m.cls for m in fastapi_app.user_middleware]
             # Starlette: add sau = đứng đầu list = outermost. CORS add sau JwtAuth.
             assert classes.index(CORSMiddleware) < classes.index(JwtAuthMiddleware)
+        finally:
+            jwt_registry.reset()
+
+
+# --- F11: configure_jwt không ép audience ----------------------------------
+
+class TestJwtAudienceWarning:
+    """Nền tảng dùng chung một nơi ký token: bỏ `aud` nghĩa là token cấp cho
+    service KHÁC vẫn qua được ở đây (cùng chữ ký, cùng issuer)."""
+
+    _LOGGER = "xime.adapters.web._adapter"
+
+    def _configure(self, **extra):
+        from xime.starters.jwt import JwtMiddlewareConfig, KeyContext, configure_jwt
+
+        configure_jwt(
+            JwtMiddlewareConfig(
+                key_context=KeyContext(algorithm="HS256", secret="x" * 32), **extra
+            )
+        )
+
+    def test_missing_audience_warns(self, caplog):
+        from fastapi import FastAPI
+
+        from xime.adapters.web import WebAdapter
+        from xime.starters.jwt._config import jwt_registry
+
+        try:
+            self._configure()
+            with caplog.at_level("WARNING", logger=self._LOGGER):
+                WebAdapter._add_jwt_middleware(FastAPI())
+            assert "audience" in caplog.text
+        finally:
+            jwt_registry.reset()
+
+    def test_audience_set_says_nothing(self, caplog):
+        from fastapi import FastAPI
+
+        from xime.adapters.web import WebAdapter
+        from xime.starters.jwt._config import jwt_registry
+
+        try:
+            self._configure(audience="data-service")
+            with caplog.at_level("WARNING", logger=self._LOGGER):
+                WebAdapter._add_jwt_middleware(FastAPI())
+            assert caplog.text == ""
         finally:
             jwt_registry.reset()

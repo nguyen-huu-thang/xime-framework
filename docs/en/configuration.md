@@ -123,9 +123,9 @@ The env-specific file is **merged** on top of the base file. Keys not present in
 Set the environment with an env var before starting:
 
 ```bash
-XIME_ENV=prod python app/main.py
+XIME_ENV=prod python -m app.main
 # or
-APP_ENV=prod python app/main.py
+APP_ENV=prod python -m app.main
 ```
 
 XIME checks `XIME_ENV` first, then falls back to `APP_ENV`. Defaults to `dev` if neither is set.

@@ -63,9 +63,14 @@ dependency.bind({ StorageService: LocalFileStorage })
 storage:
   local:
     root: /var/lib/myapp/objects   # bắt buộc - thiếu là fail-fast lúc startup
+    file_mode: "0600"              # tùy chọn, mặc định 0600 (chỉ chủ sở hữu)
+    dir_mode:  "0700"              # tùy chọn, mặc định 0700
 ```
 
-- **Ghi nguyên tử:** `put_stream` ghi ra file tạm `.part` rồi `os.replace`, nên reader không bao giờ thấy object ghi dở.
+> Quyền viết dạng **chuỗi có nháy**: YAML đọc `0600` không nháy thành số **600
+> hệ mười**, ra quyền vô nghĩa. Windows bỏ qua hai khoá này.
+
+- **Ghi nguyên tử:** cả `put` lẫn `put_stream` ghi ra file tạm rồi `os.replace`, nên reader không bao giờ thấy object ghi dở. Tên file tạm mang `uuid4` nên hai lần ghi cùng key không giẫm lên nhau.
 - **Chặn path traversal:** từ chối key thoát khỏi `root` (kể cả qua symlink, kiểm tra sau `realpath`).
 - **Không chặn event loop:** IO file chạy trong worker thread (`asyncio.to_thread`) - không cần `aiofiles`, không cần cài thêm.
 - `url()` ném `UnsupportedOperation` - phục vụ file qua helper web bên dưới.
@@ -134,13 +139,35 @@ class FileController:
 - Tra metadata qua `stat()`; object không có → **404**.
 - Có header `Range` thoả mãn → **206 Partial Content** + `Content-Range`; ngược lại stream **200** đầy đủ.
 - Header `Range` sai cú pháp bị **bỏ qua** (trả full 200, theo RFC 7233); range hợp lệ cú pháp nhưng không thoả → **416** kèm `Content-Range: */<total>`.
-- Set `Accept-Ranges`, `Content-Length`, `ETag` (khi biết), và `Content-Disposition` (`inline`, hoặc `attachment` khi `download=True` và có `filename`).
+- Set `Accept-Ranges`, `Content-Length`, `ETag` (khi biết), `Content-Disposition` và `X-Content-Type-Options`.
 - Đọc lười từ `open_stream` - object lớn không bao giờ nạp hết vào RAM.
 
-### `save_upload(storage, key, upload_file, *, max_bytes=None, content_type=None)`
+**Hai lớp chống XSS lưu trữ (0.7.1), luôn bật:**
+
+1. `X-Content-Type-Options: nosniff` gắn cho **mọi** phản hồi.
+2. Kiểu **ngoài danh sách hiển thị-an-toàn** bị ép `Content-Disposition: attachment`
+   kể cả khi `download=False` và kể cả khi không có `filename`. Danh sách an
+   toàn: PNG, JPEG, GIF, WebP, BMP, AVIF, PDF, MP4, WebM, MP3, OGG, WAV,
+   `text/plain`.
+
+`image/svg+xml` **cố ý không** nằm trong danh sách đó: SVG chạy được script, nên
+hiển thị tại chỗ một file SVG người dùng tải lên chính là XSS trên origin của
+app. Muốn phục vụ SVG do chính bạn tạo thì đặt `content_type=` tường minh sang
+kiểu khác, hoặc phục vụ từ một tên miền riêng.
+
+Tên file có dấu chạy đúng: header dựng theo RFC 6266 (`filename=` bản ASCII +
+`filename*=UTF-8''...`). Trước 0.7.1 tải file tên `Hóa đơn.pdf` là HTTP 500.
+
+### `save_upload(storage, key, upload_file, *, max_bytes=32MiB, content_type=None)`
 
 - Stream `UploadFile` theo chunk thẳng vào `put_stream` - không buffer toàn bộ.
 - Nếu tổng vượt `max_bytes`, raise `PayloadTooLarge` (HTTP **413**) trước khi đọc hết body. Object dở dang được dọn (local xóa `.part`; S3 abort multipart).
+- **Trần mặc định 32 MiB** (từ 0.7.1; trước đó không giới hạn). Bỏ trần thì
+  truyền `max_bytes=None` tường minh.
+- **Content type lưu lại suy từ TÊN FILE**, không lấy header `Content-Type` của
+  phần multipart - header đó do kẻ gọi điều khiển, và backend S3 trả lại y
+  nguyên lúc tải về. Không đoán được đuôi file thì lưu
+  `application/octet-stream`. Truyền `content_type=` khi caller thật sự biết rõ.
 - Trả về số byte đã ghi.
 
 ---

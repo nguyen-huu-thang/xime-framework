@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -11,6 +12,7 @@ from fastapi import FastAPI
 from xime.core.config.runtime import ServerTlsConfig
 from xime.core.exception.framework import StartupException
 
+from ._cors import validate_cors_options
 from ._markers import resolve_options
 from ._registry import registry
 from .middleware import RequestContextMiddleware
@@ -20,6 +22,8 @@ if TYPE_CHECKING:
     import uvicorn
 
     from xime.core.bootstrap.application import Application
+
+_log = logging.getLogger(__name__)
 
 # Spelled-out cert_reqs values mapped to the stdlib constants uvicorn expects.
 # Imported by name so the module-level `ssl` symbol stays free for the
@@ -157,8 +161,8 @@ class WebAdapter:
         server:
           port: 8107
           ssl:
-            certfile: "/etc/letsencrypt/live/gym.xime.vn/fullchain.pem"
-            keyfile: "/etc/letsencrypt/live/gym.xime.vn/privkey.pem"
+            certfile: "/etc/letsencrypt/live/example.com/fullchain.pem"
+            keyfile: "/etc/letsencrypt/live/example.com/privkey.pem"
 
     Mọi WebAdapter kế thừa server.ssl, kể cả server phụ — để server phụ không âm
     thầm chạy HTTP khi server chính đã HTTPS. Muốn khác thì truyền tường minh:
@@ -167,7 +171,7 @@ class WebAdapter:
         app.use(WebAdapter("internal", "127.0.0.1", 8082, ssl=ServerTlsConfig()))  # tắt TLS
 
     Cert phải là cert CA công cộng (certbot...) vì trình duyệt KHÔNG tin CA nội
-    bộ của Trust; cert Trust dành cho mTLS giữa service với nhau.
+    bộ; cert do CA nội bộ cấp thì dành cho mTLS giữa service với nhau.
 
     Controller thuộc server nào khai báo qua class variable server_id:
 
@@ -320,6 +324,12 @@ class WebAdapter:
             # tại đây — DI container đã dựng xong nên option động lấy được giá trị
             # thật mà không cần app subclass WebAdapter.
             resolved = resolve_options(options, xime_app)
+            # CORS options come from YAML more often than from code, and two
+            # shapes there are silently permissive rather than broken - check
+            # them once the real values are known.
+            # Option CORS phần lớn đến từ YAML, và hai dạng sai ở đó là "mở
+            # toang trong im lặng" chứ không phải hỏng - kiểm khi đã có giá trị thật.
+            validate_cors_options(middleware, resolved)
             fastapi_app.add_middleware(middleware, **resolved)
         fastapi_app.add_middleware(RequestContextMiddleware)
 
@@ -375,6 +385,18 @@ class WebAdapter:
         from xime.starters.jwt._pyjwt import pyjwt
 
         pyjwt()
+        if jwt_config.audience is None:
+            # On a platform where one authority signs tokens for many services,
+            # skipping `aud` means a token minted for ANOTHER service verifies
+            # here: same signature, same issuer, different intended recipient.
+            # Trên nền tảng mà một nơi ký token cho nhiều service, bỏ `aud`
+            # nghĩa là token cấp cho service KHÁC vẫn qua được ở đây.
+            _log.warning(
+                "configure_jwt() does not set `audience`: the `aud` claim is "
+                "not enforced, so a token issued for a different service is "
+                "accepted here. Set audience=<this service> unless tokens are "
+                "signed by a key nobody else uses."
+            )
         app.add_middleware(JwtAuthMiddleware, config=jwt_config)
 
     @staticmethod

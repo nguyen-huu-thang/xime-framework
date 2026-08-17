@@ -119,7 +119,7 @@ if __name__ == "__main__":
 ## Cách chạy
 
 ```bash
-python app/main.py
+python -m app.main
 ```
 
 ---

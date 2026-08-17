@@ -11,13 +11,22 @@ class StreamKind(enum.Enum):
     Derived from the decorator + parameter types by ContractBuilder:
       @command                        → UNARY
       @stream + UploadStream param    → CLIENT_STREAM  (client → server)
-      @stream + DownloadStream param  → SERVER_STREAM  (server → client)
+      @stream + DownloadStream param  → SERVER_STREAM  (server → client, bytes)
+      @stream + async generator       → SERVER_STREAM_TYPED (server → client, models)
     BIDI để dành cho v2.
+
+    SERVER_STREAM carries raw bytes through a generated *Chunk wrapper message
+    (file download); SERVER_STREAM_TYPED carries the handler's own Pydantic
+    model, one message per yield, with no wrapper.
+    SERVER_STREAM truyền byte thô qua wrapper *Chunk (tải file);
+    SERVER_STREAM_TYPED truyền chính model Pydantic của handler, mỗi `yield`
+    một message, không wrapper.
     """
 
     UNARY = "unary"               # Req → Resp
     CLIENT_STREAM = "client_stream"  # stream Req → Resp
-    SERVER_STREAM = "server_stream"  # Req → stream Resp
+    SERVER_STREAM = "server_stream"  # Req → stream Chunk (bytes)
+    SERVER_STREAM_TYPED = "server_stream_typed"  # Req → stream Resp (model)
 
 
 @dataclass
@@ -72,7 +81,7 @@ class MethodContract:
     handler_attr: str = ""        # controller method name to invoke
     stream_param: str = ""        # name of the Upload/DownloadStream parameter
     request_py: Any = None        # Pydantic request type (the metadata for streams)
-    response_py: Any = None       # Pydantic response type (None for download)
+    response_py: Any = None       # Pydantic response type (None for byte download)
     # contract metadata (sidecar) — original endpoint name, e.g. "hash"
     # metadata contract (sidecar) — tên endpoint gốc, vd "hash"
     endpoint_name: str = ""

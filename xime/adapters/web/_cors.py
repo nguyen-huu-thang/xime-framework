@@ -19,12 +19,18 @@ không đụng code:
     # hoặc cố định trong code:
     configure_cors(allow_origins=["http://localhost:3000"], allow_credentials=True)
 
-Lưu ý bảo mật: KHÔNG dùng allow_origins=["*"] khi allow_credentials=True (trình
-duyệt sẽ chặn). Liệt kê origin cụ thể, hoặc dùng allow_origin_regex cho dev.
+Lưu ý bảo mật: KHÔNG dùng allow_origins=["*"] cùng allow_credentials=True. Đừng
+tin rằng "trình duyệt sẽ chặn" - Starlette KHÔNG trả về "*" trong trường hợp đó,
+nó PHẢN CHIẾU đúng origin của người gọi, nên trình duyệt thấy một origin cụ thể
+và cho phép đọc phản hồi kèm cookie. Framework nay chặn cấu hình này ngay lúc
+khởi động (xem validate_cors_options). Liệt kê origin cụ thể, hoặc dùng
+allow_origin_regex cho dev.
 """
 from __future__ import annotations
 
 from typing import Any
+
+from xime.core.exception.framework import StartupException
 
 from ._markers import FromConfig
 from ._registry import registry
@@ -61,10 +67,10 @@ def configure_cors(
     trước khi xác thực.
     """
     try:
-        from starlette.middleware.cors import CORSMiddleware
-    except ImportError:  # pragma: no cover - starlette luôn đi kèm FastAPI
+        from fastapi.middleware.cors import CORSMiddleware
+    except ImportError:  # pragma: no cover - FastAPI là dependency bắt buộc
         raise RuntimeError(
-            "configure_cors yêu cầu Starlette/FastAPI. "
+            "configure_cors yêu cầu FastAPI. "
             "Chạy: pip install 'xime[web]'"
         ) from None
 
@@ -88,3 +94,44 @@ def configure_cors(
             options[name] = FromConfig(f"cors.{name}", _CORS_DEFAULTS[name])
 
     registry.add_middleware(CORSMiddleware, options, server_id)
+
+
+def validate_cors_options(middleware: type, options: dict[str, Any]) -> None:
+    """Fail fast on the two CORS shapes that are open in silence.
+
+    Called by the web adapter after Inject/FromConfig markers are resolved, so
+    it sees exactly what Starlette will receive - including values that came
+    from application.yml, which is where both mistakes actually happen.
+    Được adapter gọi sau khi phân giải marker, nên nhìn đúng thứ Starlette sắp
+    nhận - kể cả giá trị đến từ application.yml, nơi cả hai lỗi này hay xảy ra.
+
+    Not a CORS middleware -> nothing to check.
+    """
+    if getattr(middleware, "__name__", "") != "CORSMiddleware":
+        return
+
+    for name in ("allow_origins", "allow_methods", "allow_headers", "expose_headers"):
+        value = options.get(name)
+        if isinstance(value, str):
+            raise StartupException(
+                f"\nCORS: {name} must be a LIST, not a string\n"
+                f"  Got   : {value!r}\n"
+                f"  Why it matters: Starlette compares the request origin against\n"
+                f"          each entry of the sequence. Given a string it iterates\n"
+                f"          CHARACTERS, so the comparison silently never matches\n"
+                f"          (or, in YAML, one long line becomes one useless entry).\n"
+                f"  Fix   : cors:\n"
+                f"            {name}:\n"
+                f'              - "https://app.example.com"'
+            )
+
+    origins = options.get("allow_origins") or ()
+    if "*" in origins and options.get("allow_credentials"):
+        raise StartupException(
+            "\nCORS: allow_origins ['*'] together with allow_credentials=true is wide open\n"
+            "  Why it matters: Starlette does NOT answer '*' in this case - it\n"
+            "          REFLECTS the caller's own origin, so the browser does not\n"
+            "          block anything. Every website your user visits can call this\n"
+            "          API with their cookies and read the response.\n"
+            "  Fix   : list the origins explicitly, or drop allow_credentials."
+        )

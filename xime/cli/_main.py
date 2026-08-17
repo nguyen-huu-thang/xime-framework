@@ -123,7 +123,7 @@ def _grpc_client(
     for path in result.written:
         print(f"  sdk    {path}")
     for path in result.skipped_methods:
-        print(f"  skip   {path}  (streaming requires contract.json sidecar)")
+        print(f"  skip   {path}  (client-streaming requires the contract.json sidecar)")
     print(f"Generated client SDK in {out_dir}.")
     return 0
 

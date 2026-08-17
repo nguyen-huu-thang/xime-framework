@@ -230,3 +230,42 @@ def test_get_consistent_with_model_dump():
     assert cfg.get("env") == full_dump["env"]
     assert cfg.get("server.port") == full_dump["server"]["port"]
     assert cfg.get("redis.ttl") == full_dump["redis"]["ttl"]
+
+
+# ---------------------------------------------------------------------------
+# F5 - repr() không được in secret
+# ---------------------------------------------------------------------------
+
+class TestRedactedRepr:
+    """Một dòng `logger.debug("config=%s", config)` từng đủ để đẩy jwt.secret và
+    mật khẩu DB ra file log dạng rõ."""
+
+    def _config(self):
+        return RuntimeConfig.from_dict(
+            {
+                "env": "production",
+                "jwt": {"secret": "KHOA-KY-BI-MAT", "issuer": "trust"},
+                "database": {"password": "MAT-KHAU-DB", "host": "db"},
+                "auth": {"keys": {"signing_key": "AAA", "kid": "k1"}},
+                "api_tokens": ["t1", "t2"],
+            }
+        )
+
+    def test_repr_masks_sensitive_values(self):
+        text = repr(self._config())
+        for secret in ("KHOA-KY-BI-MAT", "MAT-KHAU-DB", "AAA", "t1"):
+            assert secret not in text
+
+    def test_repr_keeps_non_sensitive_values_readable(self):
+        text = repr(self._config())
+        assert "production" in text
+        assert "trust" in text
+        assert "'host': 'db'" in text
+        assert "'kid': 'k1'" in text   # cấu trúc lồng vẫn đọc được
+
+    def test_str_is_masked_too(self):
+        # f-string dùng __str__; nếu chỉ vá __repr__ thì vẫn rò.
+        assert "KHOA-KY-BI-MAT" not in f"{self._config()}"
+
+    def test_get_still_returns_the_real_value(self):
+        assert self._config().get("jwt.secret") == "KHOA-KY-BI-MAT"

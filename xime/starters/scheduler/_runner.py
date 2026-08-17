@@ -26,6 +26,20 @@ class SchedulerRunner:
 
     Shutdown order (reverse):
         SchedulerRunner.pre_destroy() → all user singletons
+
+    The scheduler loop runs inside APScheduler's own supervised task group via
+    start_in_background(), which returns only once the loop reports started.
+    That ordering matters: AsyncScheduler.stop() is a no-op while the state is
+    still "stopped", so a runner that returned before the loop began would let
+    a fast shutdown dismantle the data store under a task that had not yet run
+    — surfacing as "The scheduler has not been initialized yet". Any Application
+    that starts and stops quickly hits it; long-running processes hide it.
+
+    Vòng lặp chạy trong task group của chính APScheduler qua start_in_background(),
+    hàm này chỉ trả về khi vòng lặp đã báo started. Thứ tự đó quan trọng: stop()
+    không làm gì khi trạng thái còn là "stopped", nên nếu trả về trước lúc vòng
+    lặp kịp chạy thì việc tắt nhanh sẽ dọn kho dữ liệu dưới chân một task chưa
+    khởi động - lộ ra thành "The scheduler has not been initialized yet".
     """
 
     def __init__(
@@ -42,7 +56,6 @@ class SchedulerRunner:
         self._config = config
         self._resolver = resolver
         self._scheduler: AsyncScheduler | None = None
-        self._task: asyncio.Task[None] | None = None
 
     # ------------------------------------------------------------------
     # Lifecycle hooks (called by LifecycleManager)
@@ -77,13 +90,19 @@ class SchedulerRunner:
                 job_id = job_def.id or job_def.job_class.__name__
                 await self._scheduler.add_schedule(instance.run, trigger, id=job_id)
 
-            # Run the scheduler event loop in a background task so it does not
-            # block the main event loop. run_until_stopped() exits when stop() is called.
-            self._task = asyncio.create_task(
-                self._scheduler.run_until_stopped(),
-                name="xime-scheduler",
-            )
-        except Exception:
+            # Hand the scheduler loop to APScheduler's own supervised task group
+            # and WAIT until it reports started. Do NOT replace this with
+            # asyncio.create_task(run_until_stopped()): that returns before the
+            # loop has run, and a fast shutdown then tears the services down
+            # underneath a task that never started — stop() is a silent no-op
+            # while the state is still "stopped". See the class docstring.
+            # Giao vòng lặp cho task group của chính APScheduler và ĐỢI tới khi
+            # nó báo đã chạy. Đừng thay bằng asyncio.create_task(): hàm đó trả
+            # về trước khi vòng lặp kịp chạy, và nếu tắt nhanh thì dịch vụ bị
+            # dọn dưới chân một task chưa khởi động - lúc đó stop() im lặng
+            # không làm gì vì trạng thái vẫn là "stopped".
+            await self._scheduler.start_in_background()
+        except BaseException:
             await self._scheduler.__aexit__(None, None, None)
             self._scheduler = None
             raise
@@ -95,22 +114,20 @@ class SchedulerRunner:
         Called before user singletons are torn down, so services used by
         jobs are still available during the final run of any active job.
 
-        stop() signals run_until_stopped() to exit its loop. We then await
-        the task to let APScheduler finish its internal shutdown sequence
-        rather than interrupting it with cancel().
+        stop() signals the scheduler loop to exit; __aexit__ then unwinds
+        APScheduler's own task group, which waits for that loop to finish its
+        internal shutdown. Because post_construct waited for the started state,
+        stop() is guaranteed to act rather than silently do nothing.
+
+        stop() ra hiệu cho vòng lặp thoát; __aexit__ gỡ task group của chính
+        APScheduler và đợi vòng lặp dọn xong. Vì post_construct đã đợi tới
+        trạng thái started nên stop() chắc chắn có tác dụng, không im lặng bỏ qua.
         """
         if self._scheduler is not None:
             await self._scheduler.stop()
-            await self._scheduler.__aexit__(None, None, None)
-            self._scheduler = None
-
-        if self._task is not None:
-            # Do NOT cancel — stop() already signalled run_until_stopped() to exit.
-            # Awaiting here lets APScheduler complete its internal cleanup before
-            # control returns to LifecycleManager to tear down user singletons.
             with suppress(asyncio.CancelledError):
-                await self._task
-            self._task = None
+                await self._scheduler.__aexit__(None, None, None)
+            self._scheduler = None
 
     # ------------------------------------------------------------------
     # Internal helpers

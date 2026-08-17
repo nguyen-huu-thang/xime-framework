@@ -170,7 +170,7 @@ app.run()
 **4. Chạy.**
 
 ```bash
-python app/main.py
+python -m app.main
 ```
 
 <details>
@@ -239,7 +239,7 @@ Cách tốt nhất để học XIME là đọc code thật. Các dự án mã ng
 | **Code-First gRPC** | Viết Python DTO, XIME sinh `.proto` + stub; ổn định field number qua lock file |
 | **gRPC Client SDK** | Sinh client Pydantic typed từ `.proto`, inject qua DI; deadline, lỗi typed, retry tự động |
 | **mTLS động** | Xoay chứng chỉ không cần restart, cho cả server inbound lẫn client outbound |
-| **Danh tính peer** | gRPC đọc CN client cert đã verify vào request context; `current_caller()` truy xuất (fail-soft) |
+| **Danh tính peer** | gRPC đọc client cert đã verify vào request context (fail-soft): `current_caller()` cho CN, `current_peer_sans()` cho mọi Subject Alternative Name - thô và không diễn giải, nên bạn tự khớp scheme của mình (SPIFFE ID hay gì khác) |
 | **Socket Adapter** | IPC qua Unix Domain Socket cho Native Engine cùng máy (Linux); `@command` / `@stream` |
 | **MQTT Adapter** | Transport message-driven cho IoT/embedded: `@subscribe` (pub/sub) + `@rpc` (request/reply qua MQTT v5); auto-reconnect; giới hạn đồng thời |
 | **Modbus Adapter** | Nói chuyện thẳng với PLC: device model khai báo tự giải mã thanh ghi (endian, thứ tự word, scale), lập kế hoạch đọc an toàn, `@poll` / `@on_change`, và chế độ slave (`@serve` / `@on_write`) |

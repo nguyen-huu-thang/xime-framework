@@ -271,3 +271,66 @@ class TestGrpcAdapterStop:
     async def test_stop_is_noop_when_not_started(self):
         adapter = GrpcAdapter()
         await adapter.stop()   # không raise
+
+
+# ---------------------------------------------------------------------------
+# F6 - chế độ không an toàn phải nói ra, không được im lặng
+# ---------------------------------------------------------------------------
+
+class TestInsecureModeWarning:
+    """Mặc định dễ dãi (TLS tắt) là có chủ đích; mặc định IM LẶNG mới là vấn đề:
+    service production mất khối TLS trông y hệt service khoẻ mạnh trong log."""
+
+    _LOGGER = "xime.adapters.grpc._adapter"
+
+    @pytest.mark.asyncio
+    async def test_plaintext_start_warns(self, mock_grpc_server, caplog):
+        app = _make_app(_make_runtime({"port": 50051}))
+        with patch("grpc.aio.server", return_value=mock_grpc_server), \
+             caplog.at_level("WARNING", logger=self._LOGGER):
+            await GrpcAdapter().start(app)
+        assert "PLAINTEXT" in caplog.text
+
+    def test_tls_without_mutual_warns(self, caplog):
+        config = GrpcServerConfig.model_validate(
+            {"port": 50051, "tls": {"enabled": True, "mutual": False}}
+        )
+        with caplog.at_level("WARNING", logger=self._LOGGER):
+            GrpcAdapter()._warn_insecure_mode(config, secure=True)
+        assert "not mTLS" in caplog.text
+
+    def test_mtls_says_nothing(self, caplog):
+        config = GrpcServerConfig.model_validate(
+            {"port": 50051, "tls": {"enabled": True, "mutual": True}}
+        )
+        with caplog.at_level("WARNING", logger=self._LOGGER):
+            GrpcAdapter()._warn_insecure_mode(config, secure=True)
+        assert caplog.text == ""
+
+
+# ---------------------------------------------------------------------------
+# Keepalive phía server
+# ---------------------------------------------------------------------------
+
+class TestServerKeepalive:
+    @pytest.mark.asyncio
+    async def test_no_keepalive_block_means_no_options(self, mock_grpc_server):
+        app = _make_app(_make_runtime({"port": 50051}))
+        with patch("grpc.aio.server", return_value=mock_grpc_server) as server_fn:
+            await GrpcAdapter().start(app)
+        assert server_fn.call_args[1]["options"] == []
+
+    @pytest.mark.asyncio
+    async def test_ping_policy_forwarded(self, mock_grpc_server):
+        # Không nới min_ping_interval thì server trả GOAWAY "too_many_pings" cho
+        # client bật keepalive - giết đúng luồng dài mà keepalive bảo vệ.
+        app = _make_app(
+            _make_runtime(
+                {"port": 50051, "keepalive": {"min_ping_interval_without_data_ms": 30000}}
+            )
+        )
+        with patch("grpc.aio.server", return_value=mock_grpc_server) as server_fn:
+            await GrpcAdapter().start(app)
+        assert (
+            "grpc.http2.min_ping_interval_without_data_ms", 30000
+        ) in server_fn.call_args[1]["options"]

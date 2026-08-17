@@ -293,7 +293,8 @@ def test_builder_rejects_sync_command():
 
 def test_builder_rejects_async_generator_command():
     # An `async def` with `yield` is an async generator, not a coroutine —
-    # awaiting it raises TypeError. Must be rejected at startup too.
+    # awaiting it raises TypeError. @stream may be one (typed server stream),
+    # @command never can: it owes exactly one response.
     class Bad:
         server_id = "public"
 
@@ -301,7 +302,7 @@ def test_builder_rejects_async_generator_command():
         async def x(self, request: HashRequest) -> HashResponse:
             yield  # makes this an async generator function
 
-    with pytest.raises(StartupException, match="async def"):
+    with pytest.raises(StartupException, match="cannot be an async generator"):
         ContractBuilder("public", LockFile()).build([Bad])
 
 

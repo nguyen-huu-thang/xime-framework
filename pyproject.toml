@@ -11,7 +11,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.7.0"
+version = "0.7.1"
 description = "A Python backend framework that brings a Spring Boot-style developer experience while respecting Python's philosophy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -117,9 +117,33 @@ redis = [
 ]
 s3 = [
     "aioboto3>=12",
+    # Framework imports botocore DIRECTLY (starters/s3/_client.py: botocore.config
+    # .Config). Declared on purpose WITHOUT a version, which is unusual and
+    # deliberate: aiobotocore pins botocore to a ~16-patch window that moves with
+    # every one of its releases (2.25.1 pins botocore<1.40.62,>=1.40.46, measured
+    # 2026-08-17). Any floor we write here is either redundant today or a
+    # resolver conflict tomorrow, while `botocore.config.Config` has been stable
+    # for years — so the honest statement is "we import this", and aiobotocore
+    # decides the version.
+    # Khai CỐ Ý KHÔNG có phiên bản: aiobotocore ghim botocore vào một dải ~16 bản
+    # patch và dải đó dịch theo mỗi lần nó ra bản mới, nên mọi sàn ta viết ở đây
+    # hoặc vô nghĩa hôm nay hoặc thành xung đột resolver ngày mai.
+    "botocore",
 ]
 mqtt = [
     "aiomqtt>=2.0",
+    # Framework imports paho DIRECTLY (adapters/mqtt/_adapter.py, _dispatcher.py):
+    # MQTT v5 needs Properties/PacketTypes for SubscriptionIdentifier and
+    # CorrelationData, and aiomqtt 2.x has no equivalent of its own — it hands
+    # paho's objects straight through. Declared here instead of relying on it
+    # arriving through aiomqtt: a transitive dependency is a promise aiomqtt made
+    # to itself, not to us. Floor 2.1 is what aiomqtt>=2.1 already requires
+    # (paho-mqtt<3.0.0,>=2.1.0, measured 2026-08-17) and the version installed
+    # and tested here, so it adds no new constraint.
+    # Framework import paho TRỰC TIẾP: MQTT v5 cần Properties/PacketTypes, mà
+    # aiomqtt 2.x không có lớp tương đương của riêng nó. Sàn 2.1 trùng khớp ràng
+    # buộc aiomqtt vốn đã đòi nên không siết thêm gì.
+    "paho-mqtt>=2.1",
 ]
 mail = [
     "aiosmtplib>=3.0",
@@ -148,6 +172,11 @@ dev = [
     "aiosqlite>=0.20",      # driver SQLite cho test SQLAlchemy (nhẹ hơn asyncpg)
     "httpx>=0.27",          # test HTTP client (dùng với FastAPI TestClient async)
     "cryptography>=42",     # sinh cert tự ký cho test TLS của web adapter
+    # Stub cho starters/s3/_client.py (import dưới TYPE_CHECKING nên KHÔNG cần
+    # lúc chạy) - thiếu nó thì mypy trên chính xime/ báo thiếu stub.
+    # Sàn = đúng bản đã cài và chạy test ngày 2026-08-17, theo quy ước "mỗi mốc
+    # đều đã CÀI THỬ chứ không phỏng đoán" ở đầu file.
+    "types-aiobotocore-s3>=3.9",
 ]
 
 # ---------------------------------------------------------------------------

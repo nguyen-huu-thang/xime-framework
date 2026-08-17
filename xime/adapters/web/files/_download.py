@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from urllib.parse import quote
 
 from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -10,6 +11,50 @@ from xime.starters.storage import StorageService
 # Fallback media type when neither the caller nor stat() knows the content type.
 # Media type dự phòng khi không xác định được.
 _DEFAULT_MEDIA_TYPE = "application/octet-stream"
+
+# Types a browser may render in place. Everything else is forced to download,
+# because "render in place" is what turns a stored file into script running on
+# this app's origin. Types are compared without parameters (charset...).
+# Các kiểu cho phép trình duyệt hiển thị tại chỗ; còn lại ép tải xuống, vì
+# "hiển thị tại chỗ" chính là thứ biến một file đã lưu thành script chạy trên
+# origin của app.
+_INLINE_SAFE = frozenset({
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/bmp",
+    "image/avif",
+    "application/pdf",
+    "video/mp4",
+    "video/webm",
+    "audio/mpeg",
+    "audio/ogg",
+    "audio/wav",
+    "text/plain",
+})
+
+
+def _content_disposition(disposition: str, filename: str | None) -> str:
+    """Build a Content-Disposition value that survives non-ASCII file names.
+
+    HTTP headers are latin-1 encoded, so `filename="Hóa đơn.pdf"` raises
+    UnicodeEncodeError and the download becomes a 500. RFC 6266 solves it with
+    the pair filename= (ASCII fallback) + filename*= (percent-encoded UTF-8).
+    Quotes and control characters are stripped from the ASCII form so a crafted
+    name cannot break out of the parameter.
+    Header HTTP mã hoá latin-1 nên tên file có dấu ném UnicodeEncodeError ->
+    HTTP 500. RFC 6266 giải bằng cặp filename= (ASCII) + filename*= (UTF-8).
+    """
+    if not filename:
+        return disposition
+    ascii_name = filename.encode("ascii", "replace").decode("ascii")
+    ascii_name = "".join(c for c in ascii_name if c.isprintable() and c not in '"\\')
+    ascii_name = ascii_name or "download"
+    return (
+        f'{disposition}; filename="{ascii_name}"; '
+        f"filename*=UTF-8''{quote(filename, safe='')}"
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,8 +137,18 @@ async def stream_object(
     -> 206, ngược lại 200 full. Đọc lười từ open_stream, không nạp hết vào RAM.
 
     Args:
-        download: when True, set Content-Disposition: attachment (force download)
-                  instead of inline.
+        download: when True, force Content-Disposition: attachment. Types
+                  outside the inline-safe list are forced to attachment anyway.
+
+    Two headers are always set, regardless of arguments:
+      - X-Content-Type-Options: nosniff, so a browser does not second-guess the
+        declared type and render a "text file" as HTML.
+      - Content-Disposition: attachment for any type outside _INLINE_SAFE, even
+        when no filename is known - a bare `attachment` is enough to stop
+        rendering. Without this, an object stored with content_type text/html
+        (S3 keeps whatever was stored) executes on this app's origin.
+    Hai header luôn được đặt: nosniff, và attachment cho mọi kiểu ngoài danh
+    sách an toàn - kể cả khi không biết tên file.
     """
     stat = await storage.stat(key)
     if stat is None:
@@ -102,10 +157,15 @@ async def stream_object(
     media_type = content_type or stat.content_type or _DEFAULT_MEDIA_TYPE
     total = stat.size
 
-    headers: dict[str, str] = {"Accept-Ranges": "bytes"}
-    if filename is not None:
-        disposition = "attachment" if download else "inline"
-        headers["Content-Disposition"] = f'{disposition}; filename="{filename}"'
+    headers: dict[str, str] = {
+        "Accept-Ranges": "bytes",
+        "X-Content-Type-Options": "nosniff",
+    }
+    base_type = media_type.split(";")[0].strip().lower()
+    force_download = download or base_type not in _INLINE_SAFE
+    disposition = "attachment" if force_download else "inline"
+    if filename is not None or force_download:
+        headers["Content-Disposition"] = _content_disposition(disposition, filename)
     if stat.etag:
         headers["ETag"] = f'"{stat.etag}"'
 

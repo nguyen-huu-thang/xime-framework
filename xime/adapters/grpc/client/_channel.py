@@ -33,8 +33,10 @@ XimeGrpcChannel duck-types the three grpc.aio.Channel factory methods the
 generated code uses (unary_unary / stream_unary / unary_stream) and adds, at
 the call boundary:
 
-1. Default deadline - every call gets a timeout (grpc.clients.<id>.deadline_ms
-   in application.yml), overridable per call via `timeout=`.
+1. Default deadline - every unary call gets a timeout
+   (grpc.clients.<id>.deadline_ms in application.yml), overridable per call via
+   `timeout=`. Server-streaming calls read stream_deadline_ms instead
+   (default 0 = no deadline): a stream is not a round trip.
 2. Typed errors - grpc.aio.AioRpcError is translated to the Xime exception
    hierarchy (RemoteCallError / RemoteCallTimeout / RemoteServiceUnavailable),
    reading the server-side exception class name from the `xime-error` trailing
@@ -127,7 +129,7 @@ class XimeGrpcChannel:
         )
 
         def call(request: Any, timeout: float | None = None) -> AsyncIterator[Any]:
-            stream = inner(request, timeout=self._timeout(timeout))
+            stream = inner(request, timeout=self._stream_timeout(timeout))
 
             async def iterate() -> AsyncIterator[Any]:
                 try:
@@ -212,7 +214,15 @@ class XimeGrpcChannel:
             private_key=certs.private_key_pem.encode("utf-8"),
             certificate_chain=certs.cert_chain_pem.encode("utf-8"),
         )
-        return grpc.aio.secure_channel(f"{self._config.host}:{self._config.port}", credentials)
+        return grpc.aio.secure_channel(
+            f"{self._config.host}:{self._config.port}",
+            credentials,
+            options=self._channel_options(),
+        )
+
+    def _channel_options(self) -> list[tuple[str, int]]:
+        """Channel args shared by both channel flavors (keepalive today)."""
+        return self._config.keepalive.channel_options()
 
     def _retire(self, channel: grpc.aio.Channel) -> None:
         """Close a replaced channel in the background; keep it for close() if
@@ -239,14 +249,15 @@ class XimeGrpcChannel:
     def _create_static_channel(self) -> grpc.aio.Channel:
         target = f"{self._config.host}:{self._config.port}"
         tls = self._config.tls
+        options = self._channel_options()
         if not tls.enabled:
-            return grpc.aio.insecure_channel(target)
+            return grpc.aio.insecure_channel(target, options=options)
         credentials = grpc.ssl_channel_credentials(
             root_certificates=_read(tls.ca_file),
             private_key=_read(tls.key_file),
             certificate_chain=_read(tls.cert_file),
         )
-        return grpc.aio.secure_channel(target, credentials)
+        return grpc.aio.secure_channel(target, credentials, options=options)
 
     async def _unary_with_retry(
         self, inner: Callable[..., Any], request: Any, timeout: float | None, path: str
@@ -290,6 +301,20 @@ class XimeGrpcChannel:
         if override is not None:
             return override
         deadline_ms = self._config.deadline_ms
+        return deadline_ms / 1000.0 if deadline_ms else None
+
+    def _stream_timeout(self, override: float | None) -> float | None:
+        """Deadline for a server-streaming call - grpc.clients.<id>.stream_deadline_ms.
+
+        Deliberately NOT deadline_ms: that budget is sized for a round trip, so
+        a stream would die a few seconds in, every time, with no way out through
+        the generated SDK (it passes no timeout).
+        Cố ý KHÔNG dùng deadline_ms: ngân sách đó dành cho một vòng gọi, nên
+        luồng sẽ chết sau vài giây, mọi lần, mà SDK sinh sẵn không có đường thoát.
+        """
+        if override is not None:
+            return override
+        deadline_ms = self._config.stream_deadline_ms
         return deadline_ms / 1000.0 if deadline_ms else None
 
     def _translate(self, exc: grpc.aio.AioRpcError, path: str) -> RemoteCallError:

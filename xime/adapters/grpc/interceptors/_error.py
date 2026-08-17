@@ -77,7 +77,7 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
                 await context.abort(
                     interceptor._resolve_status_code(exc),
                     interceptor._safe_details(exc),
-                    trailing_metadata=_error_metadata(exc),
+                    trailing_metadata=_error_metadata(exc, interceptor._is_mapped(exc)),
                 )
 
         return wrapped
@@ -107,7 +107,7 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
                 await context.abort(
                     interceptor._resolve_status_code(exc),
                     interceptor._safe_details(exc),
-                    trailing_metadata=_error_metadata(exc),
+                    trailing_metadata=_error_metadata(exc, interceptor._is_mapped(exc)),
                 )
 
         return wrapped
@@ -132,10 +132,13 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
         Lỗi đã map: phơi message có chủ đích. Lỗi chưa map: trả message chung,
         không để chi tiết nội bộ lọt ra client.
         """
-        for exc_type in self._mappings:
-            if isinstance(exc, exc_type):
-                return str(exc)
+        if self._is_mapped(exc):
+            return str(exc)
         return _GENERIC_INTERNAL_DETAILS
+
+    def _is_mapped(self, exc: Exception) -> bool:
+        """True when the developer deliberately exposed this exception type."""
+        return any(isinstance(exc, exc_type) for exc_type in self._mappings)
 
 
 # Trailing metadata key carrying the server-side exception class name so a
@@ -151,5 +154,16 @@ XIME_ERROR_METADATA_KEY = "xime-error"
 _GENERIC_INTERNAL_DETAILS = "Internal server error"
 
 
-def _error_metadata(exc: Exception) -> tuple[tuple[str, str], ...]:
-    return ((XIME_ERROR_METADATA_KEY, type(exc).__name__),)
+# Name reported for an exception the developer never mapped. The class name of
+# an internal exception is a small but real disclosure (it names libraries, ORM
+# internals and file layers), and _safe_details() already hides str(exc) for the
+# same reason - reporting the real name here undid half of that.
+# Tên báo ra cho exception chưa map. Tên class nội bộ vẫn là rò rỉ (nó khai ra
+# thư viện, nội bộ ORM, tầng file), và _safe_details() vốn đã che str(exc) vì
+# đúng lý do đó.
+_GENERIC_INTERNAL_NAME = "InternalError"
+
+
+def _error_metadata(exc: Exception, mapped: bool = True) -> tuple[tuple[str, str], ...]:
+    name = type(exc).__name__ if mapped else _GENERIC_INTERNAL_NAME
+    return ((XIME_ERROR_METADATA_KEY, name),)

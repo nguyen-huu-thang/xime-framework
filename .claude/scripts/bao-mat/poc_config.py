@@ -26,6 +26,26 @@ print("  XIME_ENV='../NGOAI' -> config nạp được:", data)
 print("  =>", "THỦNG: nạp file YAML ngoài thư mục resources" if "bi_mat" in data else "không nạp được")
 
 print(); print("="*72); print("PoC 11 - file profile thiếu thì im lặng hay báo lỗi?"); print("="*72)
+import logging
+
+class _Capture(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.records = []
+    def emit(self, record):
+        self.records.append(record)
+
+capture = _Capture()
+config_log = logging.getLogger("xime.core.config.loader")
+config_log.addHandler(capture)
+config_log.setLevel(logging.WARNING)
 d2 = loader.load(env="production")
+config_log.removeHandler(capture)
+
 print("  XIME_ENV='production' (không có application-production.yml) ->", d2)
-print("  => im lặng dùng config gốc, KHÔNG có cảnh báo nào")
+warned = [r for r in capture.records if r.levelno >= logging.WARNING]
+if warned:
+    print(f"  cảnh báo phát ra: {warned[0].getMessage()}")
+    print("  => ĐẠT: không còn im lặng")
+else:
+    print("  => im lặng dùng config gốc, KHÔNG có cảnh báo nào")

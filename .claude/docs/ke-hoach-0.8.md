@@ -1,5 +1,28 @@
 # Kế hoạch 0.8 - Multi-process Runtime + Bus liên Worker
 
+> ## ⛔⛔ FILE NÀY PHẦN LỚN ĐÃ LỖI THỜI - ĐỪNG ĐỌC NHƯ HIỆN TRẠNG
+>
+> Buổi thiết kế **2026-08-16** lật hoặc thay phần lớn bản này. **Nên VIẾT LẠI chứ
+> không bổ sung.** Đọc hai file sau trước:
+>
+> | Đọc thay | Nội dung |
+> |---|---|
+> | [`da-tien-trinh-main-va-cau-hinh-2026-08-16.md`](da-tien-trinh-main-va-cau-hinh-2026-08-16.md) | Mô hình chạy, `main.py`, cấu hình, adapter phải đổi gì |
+> | [`cache-lien-tien-trinh-2026-08-16.md`](cache-lien-tien-trinh-2026-08-16.md) | Kho liên tiến trình (LMDB + shared memory), lý do hoãn đa luồng |
+>
+> **Ba thứ trong file này KHÔNG còn dùng:**
+>
+> | Bản 2026-06-27 | Thay bằng |
+> |---|---|
+> | Bus Manager + single shared queue + mutex + transport abstraction + API broadcast | Bus **đổi vai**: chở **tín hiệu** (không chở dữ liệu), có **phản hồi**, đi qua **kênh cha-con** vốn đã cần cho thăng cấp primary. Dữ liệu đi qua LMDB / shared memory |
+> | DI scope `global` / `worker`; Worker 0 giữ global singleton; Worker 0 chết thì crash toàn chương trình | **DI dựng ĐỦ ở mọi tiến trình**, cái nào không được chạy thì **tắt bằng cờ**. Supervisor **thăng cấp** một con đang chạy khi primary chết |
+> | HTTP routing tới worker (defer hẳn) | Không cần - **mỗi tiến trình một cổng, hoặc chung cổng qua kernel** |
+>
+> **Còn dùng được:** `BusMessage`, phần hàng đợi, và mục "Mảng 2 - Config cải thiện".
+>
+> Phần dưới giữ nguyên làm **lịch sử thiết kế**, đừng xoá: nó cho biết vì sao từng
+> chọn như vậy, và bốn chỗ mà buổi 08-16 bổ sung/lật là bốn chỗ đáng học.
+
 Trạng thái: **Thiết kế ban đầu chốt 2026-06-27. Chưa code.**
 Khi bắt tay code, bổ sung chi tiết implementation vào file này.
 

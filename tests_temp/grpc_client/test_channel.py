@@ -120,6 +120,69 @@ class TestDeadline:
 
 
 # ---------------------------------------------------------------------------
+# Deadline của server-streaming (stream_deadline_ms)
+# ---------------------------------------------------------------------------
+
+class TestStreamDeadline:
+    def test_stream_has_no_deadline_by_default(self):
+        # Mặc định 0 = không giới hạn. Nếu stream dùng deadline_ms thì một luồng
+        # theo dõi sẽ chết sau vài giây, mọi lần.
+        assert _channel(deadline_ms=3000)._stream_timeout(None) is None
+
+    def test_stream_deadline_is_independent_of_deadline_ms(self):
+        channel = _channel(deadline_ms=3000, stream_deadline_ms=60000)
+        assert channel._timeout(None) == 3.0
+        assert channel._stream_timeout(None) == 60.0
+
+    @pytest.mark.asyncio
+    async def test_unary_stream_call_uses_stream_deadline(self):
+        channel = _channel(deadline_ms=3000, stream_deadline_ms=60000)
+        captured = {}
+
+        def inner(request, timeout=None):
+            captured["timeout"] = timeout
+
+            async def items():
+                yield "item"
+
+            return items()
+
+        fake_grpc_channel = MagicMock()
+        fake_grpc_channel.unary_stream.return_value = inner
+        with patch.object(channel, "_create_static_channel", return_value=fake_grpc_channel):
+            call = channel.unary_stream("/svc/Watch", None, None)
+            assert [item async for item in call("req")] == ["item"]
+        assert captured["timeout"] == 60.0
+
+
+# ---------------------------------------------------------------------------
+# Keepalive
+# ---------------------------------------------------------------------------
+
+class TestKeepalive:
+    def test_off_by_default_leaves_channel_args_untouched(self):
+        assert _channel()._channel_options() == []
+
+    def test_options_built_when_enabled(self):
+        channel = _channel(keepalive={"time_ms": 30000, "timeout_ms": 5000})
+        assert channel._channel_options() == [
+            ("grpc.keepalive_time_ms", 30000),
+            ("grpc.keepalive_timeout_ms", 5000),
+            ("grpc.keepalive_permit_without_calls", 0),
+        ]
+
+    def test_permit_without_calls_lifts_the_ping_budget(self):
+        # Không nới grpc.http2.max_pings_without_data thì client ngừng ping sau
+        # 2 lần - đúng lúc cần nó nhất (luồng dài không có dữ liệu).
+        channel = _channel(
+            keepalive={"time_ms": 30000, "permit_without_calls": True}
+        )
+        options = dict(channel._channel_options())
+        assert options["grpc.keepalive_permit_without_calls"] == 1
+        assert options["grpc.http2.max_pings_without_data"] == 0
+
+
+# ---------------------------------------------------------------------------
 # Dịch lỗi
 # ---------------------------------------------------------------------------
 
@@ -177,7 +240,7 @@ class TestChannelCreation:
         channel = _channel()
         with patch("grpc.aio.insecure_channel") as mock_insecure:
             channel._create_static_channel()
-            mock_insecure.assert_called_once_with("localhost:9090")
+            mock_insecure.assert_called_once_with("localhost:9090", options=[])
 
     def test_secure_when_tls_enabled(self, tmp_path):
         ca = tmp_path / "ca.pem"
