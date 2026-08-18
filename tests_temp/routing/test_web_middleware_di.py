@@ -294,7 +294,10 @@ class TestJwtAudienceWarning:
         try:
             self._configure()
             with caplog.at_level("WARNING", logger=self._LOGGER):
-                WebAdapter._add_jwt_middleware(FastAPI())
+                # None for the container: with a static key and no substituted
+                # collaborators, this path never touches DI - and that is itself
+                # worth pinning down.
+                WebAdapter._add_jwt_middleware(FastAPI(), None)
             assert "audience" in caplog.text
         finally:
             jwt_registry.reset()
@@ -308,7 +311,10 @@ class TestJwtAudienceWarning:
         try:
             self._configure(audience="data-service")
             with caplog.at_level("WARNING", logger=self._LOGGER):
-                WebAdapter._add_jwt_middleware(FastAPI())
+                # None for the container: with a static key and no substituted
+                # collaborators, this path never touches DI - and that is itself
+                # worth pinning down.
+                WebAdapter._add_jwt_middleware(FastAPI(), None)
             assert caplog.text == ""
         finally:
             jwt_registry.reset()

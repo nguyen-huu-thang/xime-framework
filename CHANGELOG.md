@@ -202,6 +202,73 @@ kia đưa cho **chính nó**, không phải cho ta.
   mọi sàn ta viết hoặc vô nghĩa hôm nay hoặc thành xung đột resolver ngày mai.
 - **`types-aiobotocore-s3` khai vào extra `dev`** (import dưới `TYPE_CHECKING`).
 
+### Added - JWT: khóa xoay theo `kid`, và các knob chuẩn từng bị giấu (2026-08-18)
+
+Starter JWT mô hình hóa JWT như *"một chuỗi ký bằng MỘT khóa cố định"*. Không có
+gì của dự án nào lọt vào nó - mọi trường đều chuẩn RFC, chỉ đổi tên (`algorithm`
+là `alg`, `key_id` là `kid`). Vấn đề là **những thứ KHÔNG có**, và cái giá đã đo
+được: framework **ký** kèm `kid` (`_signer.py`) nhưng **không có một dòng nào
+verify theo `kid`**, nên mọi triển khai có xoay khóa buộc phải viết lại cả
+middleware - tức viết lại chính phần verify mà không ai muốn đụng.
+
+- **`JwtKeyProvider`** - Protocol một method, `keys(kid) -> Sequence[KeyContext]`,
+  đăng ký bằng `configure_jwt(config, key_provider=YourClass)`. Cùng khuôn
+  `configure_grpc_tls(provider=...)`: truyền một CLASS, framework lấy từ DI.
+  `keys()` **bắt buộc đọc bộ nhớ, không bao giờ gọi mạng**; framework không lấy,
+  không hẹn giờ, không cache - **giữ khóa luôn mới hoàn toàn là việc của app**.
+  Nhận `kid` là **chuỗi của RFC 7515**, không phải kiểu dữ liệu nào của framework.
+- **Middleware verify theo `kid`**: đọc header bằng `get_unverified_header` (không
+  cần khóa), hỏi provider, thử lần lượt các khóa ứng viên. Nhiều ứng viên là bình
+  thường trong lúc xoay khóa gối đầu, và đó là thứ làm cho nó liền mạch.
+- **`JwtMiddlewareConfig` phơi ba knob PyJWT vốn có mà config giấu đi**:
+  `algorithms` (danh sách trắng - **trần** chứ không phải phép chọn, khóa nào khai
+  thuật toán ngoài danh sách thì bị từ chối trước khi kiểm chữ ký), `leeway`
+  (dung sai đồng hồ cho `exp`/`nbf`/`iat` - thiếu nó thì hai máy lệch vài giây
+  sinh **401 chập chờn**), `require` (⚠ `exp` chỉ được kiểm khi claim **tồn tại**,
+  nên token không mang `exp` mặc định **không bao giờ hết hạn**).
+- **`sign()` nhận `headers=`.** Trước đây `kid` là header **duy nhất** app đặt
+  được, trong khi payload thì mở toang - nên `typ: "at+jwt"` của RFC 9068 không
+  khai nổi. Ba tên bị **từ chối** chứ không gộp: `alg` (PyJWT cho header ghi đè
+  tham số `algorithm`, đo được, nên nó âm thầm mâu thuẫn với
+  `KeyContext.algorithm`), `b64` (bật chế độ detached payload), `kid` (phải gọi
+  tên đúng khóa đã ký, mà chỉ `KeyContext.key_id` biết đó là khóa nào).
+
+### Fixed - JWT (2026-08-18)
+
+- ⛔ **`configure_jwt()` không có nguồn khóa nào nay NỔ lúc khởi động.**
+  `key_context` từ bắt buộc thành tùy chọn, và phải có **đúng một** trong
+  `key_context` / `key_provider` - không có cái nào, hoặc có cả hai, đều là
+  `StartupException`. Từ chối *"không có cái nào"* là toàn bộ mục đích: trước đây
+  app không lấy được khóa lúc khởi động chỉ đơn giản là **không gọi `configure_jwt`**
+  và lên mà **không có middleware xác thực nào**, tự báo là khỏe trong khi mọi
+  endpoint đều mở. **Không phá app nào đang chạy**: `key_context` vốn bắt buộc nên
+  trạng thái "không có gì" trước nay không tồn tại được.
+- **Middleware nhận `verifier` từ ngoài thay vì tự dựng `PyJwtTokenVerifier()`.**
+  `JwtTokenVerifier` là điểm mở rộng **có tài liệu từ 0.2** - docstring của nó nêu
+  đích danh JWKS endpoint và authorization server bên ngoài - nhưng middleware do
+  adapter dựng chứ không do DI dựng, nên `dependency.bind({JwtTokenVerifier: ...})`
+  **không bao giờ tới được nó**. Không có gì hỏng; phép thay thế chỉ đơn giản là
+  không có tác dụng, và **không test nào tồn tại để bắt được**. Nay khai tường
+  minh qua `configure_jwt(config, verifier=YourClass)`.
+- **`key_id=""` không còn đóng dấu `kid: ""` vào token thật.** `is not None` cho
+  chuỗi rỗng lọt qua. Tệ hơn cả không có `kid`: bên verify tra `""` không thấy gì
+  rồi từ chối, trong khi token vẫn **trông như đã gọi tên khóa** - người gỡ lỗi
+  bắt đầu từ chỗ sai.
+
+### Notes - JWT (2026-08-18)
+
+- **Không có gì phá vỡ.** Mọi mục đều là mở một ô mới hoặc chuyển tiếp thêm tham
+  số; app đang dùng một khóa tĩnh chạy y như cũ.
+- `verify()` nhận thêm ba tham số keyword. Về lý thuyết đó là đổi Protocol
+  `JwtTokenVerifier`; thực tế **không có implementation nào của bên thứ ba được
+  biết tới**. Tới knob thứ tư thì nên gom chúng vào một object options thay vì
+  liệt kê tiếp - đã ghi vào docstring.
+- **Không nằm trong đợt này**, vẫn còn nợ: xác thực WebSocket (F1) và JWT cho
+  gRPC. Cả hai là **bề mặt mới**, không phải sửa chữa.
+- Cảnh báo *"ký mà không có `kid`"* **không làm được**: `sign()` nhận khóa theo
+  từng lời gọi nên lúc khởi động framework chưa biết gì, còn cảnh báo mỗi lần gọi
+  thì thành rác log. Chuyển thành tài liệu trong docstring của `PyJwtTokenSigner`.
+
 ## [0.7.0] - 2026-07-30
 
 **Fieldbus công nghiệp: adapter Modbus TCP và OPC UA.** Xime nhắm tới công

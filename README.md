@@ -256,7 +256,7 @@ Optional modules, similar to `spring-boot-starter-*`:
 | Starter | What it provides | Status |
 | --- | --- | --- |
 | `xime.starters.sqlalchemy` | Async DB session, `SqlAlchemyTransactionManager`, `SqlAlchemyReadOnlyManager` (read-only blocks), `CrudRepository` (built-in CRUD) | ✅ Implemented |
-| `xime.starters.jwt` | JWT signing, verification, middleware | ✅ Implemented |
+| `xime.starters.jwt` | JWT signing, verification, middleware, **keys rotated by `kid`** | ✅ Implemented |
 | `xime.starters.scheduler` | Cron-style task scheduling | ✅ Implemented |
 | `xime.starters.cache` | `CacheService` abstraction (backend-neutral) | ✅ Implemented |
 | `xime.starters.redis` | Async Redis client + `CacheService` backend | ✅ Implemented |
@@ -279,7 +279,7 @@ Optional modules, similar to `spring-boot-starter-*`:
 
 ## Project Status
 
-XIME is in **active development**. The following are implemented: core DI (hand-rolled singleton registry, **no third-party DI dependency**) with **dynamic interface binding** (one Protocol → many impls, swapped at runtime), lifecycle, event bus, security context, configuration, JWT starter (with audience/issuer enforcement), scheduler starter, SQLAlchemy starter, Cache + Redis starters, **Storage starter** (local filesystem + S3/MinIO) with **HTTP file streaming** (Range download, chunked upload), Web adapter (FastAPI + routing, pure-ASGI request-context & JWT middleware, custom middleware & exception handlers, **DI/config-aware middleware via `Inject`/`FromConfig` markers + first-class `configure_cors`**), gRPC adapter (proto-first + **code-first**, **typed server streaming**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors + automatic retry), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), **Modbus adapter** (declarative device model, master polling + slave mode), **OPC UA adapter** (node models, subscriptions, server mode, full security), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial.
+XIME is in **active development**. The following are implemented: core DI (hand-rolled singleton registry, **no third-party DI dependency**) with **dynamic interface binding** (one Protocol → many impls, swapped at runtime), lifecycle, event bus, security context, configuration, JWT starter (audience/issuer enforcement, **keysets addressed by `kid`**, clock leeway, required claims), scheduler starter, SQLAlchemy starter, Cache + Redis starters, **Storage starter** (local filesystem + S3/MinIO) with **HTTP file streaming** (Range download, chunked upload), Web adapter (FastAPI + routing, pure-ASGI request-context & JWT middleware, custom middleware & exception handlers, **DI/config-aware middleware via `Inject`/`FromConfig` markers + first-class `configure_cors`**), gRPC adapter (proto-first + **code-first**, **typed server streaming**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors + automatic retry), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), **Modbus adapter** (declarative device model, master polling + slave mode), **OPC UA adapter** (node models, subscriptions, server mode, full security), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial.
 
 The core is covered by **1500+ tests**.
 

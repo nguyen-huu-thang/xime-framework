@@ -34,6 +34,22 @@ với cả 31 app trên máy này, dù PyPI chưa có.
 >    ⭐ Số đo đáng nhớ: helper **trung tính** (`current_caller`) được **4/4** repo
 >    dùng, **0** tự viết; helper **mang khái niệm** được **1/5** dùng, **4/5** tự
 >    viết lại. Người dùng đã bỏ phiếu bằng chân trước khi ta kịp nhận ra.
+> 4b. ⭐ **(2026-08-18) JWT: khóa xoay theo `kid` + trả nợ trung tính** - chi tiết:
+>    [`docs/jwt-keyset-va-trung-tinh-2026-08-18.md`](docs/jwt-keyset-va-trung-tinh-2026-08-18.md).
+>    **Cùng khuôn mục 4 nhưng NGƯỢC CHIỀU**: `PEER_APP_ID` sai vì framework *biết
+>    quá nhiều* về Xime; `KeyContext` sai vì nó *biết quá ít* về JWT. Bằng chứng
+>    cùng dạng: **21/21 repo tự viết lại** (413 dòng/app).
+>    Thêm **`JwtKeyProvider`** (`keys(kid)`, một method, đồng bộ, khuôn
+>    `configure_grpc_tls`) · verify theo `kid` · ba knob PyJWT từng bị giấu
+>    (`algorithms` **danh sách trắng**, `leeway`, `require`) · `sign(headers=)`.
+>    ⛔ **`configure_jwt()` không có nguồn khóa nay NỔ lúc khởi động** - đóng lý do
+>    tồn tại của lỗ fail-open A1. **Không phá app nào.**
+>    ⚠ **Không tự vá 19 app** - lỗ nằm ở `config/jwt.py` của họ. Nhưng migration
+>    chỉ là **xóa `TrustJwtAuthMiddleware` (105 dòng mã verify chép tay)** và giữ
+>    nguyên `TrustKeyProvider` + `JwtKeySet`. **Vá `saas-foundation/template`
+>    trước** - nó là nguồn sinh sôi.
+>    ⭐ Chủ dự án chốt bỏ `refresh()` (*"để người lập trình app chủ động"*), và lựa
+>    chọn đó khiến framework **không sinh thêm dòng nợ nghĩa 1 nào**.
 > 5. **(2026-08-17) Khai ba phụ thuộc bắc cầu** -
 >    [`docs/phu-thuoc-bac-cau-chua-khai-2026-08-17.md`](docs/phu-thuoc-bac-cau-chua-khai-2026-08-17.md).
 >    `starlette` **hết** là phụ thuộc trực tiếp (4 chỗ đổi sang `fastapi`, cùng
@@ -372,7 +388,7 @@ Trạng thái các mảng lớn (cập nhật 2026-07-29):
 | # | Việc | Ghi chú |
 | --- | --- | --- |
 | 1 | **Commit + đẩy PyPI 0.7.1** | Code xong, CHANGELOG xong, version đã bump. Chủ dự án tự đẩy. Repo phát hành `upload/` **chưa đồng bộ**; cả hai repo **chưa có git tag nào**, kể cả v0.7.0 |
-| 2 | ⭐ **A1 - keyset JWT nhiều khoá theo `kid`** | **Đừng đợi 0.8.** Lỗ hổng thật đang mở ở **19/21 codebase**, `saas-foundation/template` nằm trong nhóm chưa vá nên mọi app clone từ nay đều thừa hưởng. Và nó **chặn việc của người khác**: đợt 1 không vá được nếu framework chưa có keyset. Cách giữ tương thích: **thêm đường keyset opt-in ở 0.7.x, để mặc định fail-closed sang 0.8**. ⚠ Vẫn chờ chủ dự án quyết |
+| 2 | ✅ ~~A1 - keyset JWT nhiều khoá theo `kid`~~ | **XONG 2026-08-18 phía framework** - xem mục 4b ở trên và [`docs/jwt-keyset-va-trung-tinh-2026-08-18.md`](docs/jwt-keyset-va-trung-tinh-2026-08-18.md). ⚠ **Phần ở 19 app thì CHƯA**: framework không với tới `config/jwt.py` của họ. Nó chỉ **xoá lý do tồn tại** của lỗ - nay có ô thứ ba thay vì phải chọn giữa *"có sẵn PEM lúc khởi động"* và *"không middleware nào"*. Việc còn lại: vá **`saas-foundation/template` trước** (nguồn sinh sôi của 20 app kia), rồi lần lượt |
 | 3 | **F3 - nâng sàn dependency** (đợt 4) | `pyjwt>=2.13` · `python-multipart>=0.0.31` · `fastapi>=0.115.3`. ⚠ Phải **cài thử và chạy hết bộ test**, đừng chỉ sửa số - nếu không là thay một lời khai đã kiểm chứng bằng một lời khai đoán mò |
 | 4 | **F14 · F15 · F17** (đợt 5) | Đều không phá tương thích: `validate_object_key` từ chối `\` và NUL · trần task `EventBus` · allowlist `ResponseTopic` của MQTT RPC. ⛔ **F9 ĐÃ BỊ XOÁ, không phải được vá**: nó là *"`_read_peer_app_id` neo đầu chuỗi thay vì `find()`"*, mà bản gỡ phụ thuộc khái niệm 2026-08-17 đã bỏ hẳn việc lọc scheme nên **không còn chuỗi nào để neo** |
 | 5 | **F1 - đường xác thực WebSocket** (đợt 5) | Làm được ở 0.7.x nếu opt-in. **Phải xong TRƯỚC app `xime chat`**, mà app đó chưa bắt đầu |
@@ -423,9 +439,22 @@ Việc mở ngày 2026-08-01 vẫn còn: dựng trang **xime-framework.org** ở
 >
 > **A1 không phải 21 lỗi độc lập - nó là MỘT khoảng trống của framework, nhân lên 21 lần.**
 >
-> **Đề xuất CHƯA LÀM, chờ chủ dự án quyết:** đưa keyset nhiều khoá theo `kid` + tự làm tươi +
-> fail-closed vào starter JWT. Là **thêm API công khai** vào gói MIT đã phát hành, và fail-closed
-> mặc định có thể làm app đang chạy dừng khởi động -> không phải "sửa lỗi lặt vặt", phải hỏi.
+> ✅ **Khoảng trống đó ĐÃ LẤP 2026-08-18** - `JwtKeyProvider` + verify theo `kid` + ba kết cục
+> lúc khởi động. Chi tiết: [`docs/jwt-keyset-va-trung-tinh-2026-08-18.md`](docs/jwt-keyset-va-trung-tinh-2026-08-18.md).
+>
+> ⚠⚠ **Nhưng 19 app VẪN fail-open, và câu này phải đọc kỹ:** lỗ hổng nằm trong `config/jwt.py`
+> **của họ** (không lấy được khoá -> không gọi `configure_middleware`), mà framework không với tới
+> đó. Bản vá **không sửa app nào cả** - nó **xoá lý do tồn tại** của lỗ: trước đây họ phải chọn
+> giữa *"có sẵn chuỗi PEM lúc khởi động"* và *"không có middleware nào"*; nay có ô thứ ba.
+>
+> ⭐ **Đừng đọc dòng "A1 xong" ở bảng việc thành "A1 đã an toàn".** Cách duy nhất để nó thật sự
+> đóng là từng app chuyển sang `configure_jwt(config, key_provider=...)`, và **`saas-foundation/template`
+> phải đi trước** vì nó là nguồn sinh sôi của 20 app kia - 18 file còn lại là nợ đứng yên, template
+> là nợ **đang sinh thêm**.
+>
+> ⚠ Chỗ họ phải quyết khi chuyển: `JwtKeySet.resolve(kid)` hiện làm *"theo kid nếu có, ngược lại
+> **thử tất cả**"*. Framework nay không suy diễn khi `kid` vắng - nó gọi `keys(None)` và tin câu
+> trả lời. *"Thử tất cả"* nên được xem lại: nó biến `kid` từ phép định tuyến thành thứ trang trí.
 
 ---
 

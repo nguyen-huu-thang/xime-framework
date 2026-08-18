@@ -151,6 +151,9 @@ configure_jwt(JwtMiddlewareConfig(
     audience="data-service",
     issuer="https://identity.internal",
     public_paths=["/auth/login", "/auth/refresh", "/health"],
+    algorithms=["RS256"],          # allow-list: refuse keys claiming anything else
+    leeway=30,                     # seconds of clock tolerance for exp / nbf / iat
+    require=["exp"],               # a token with no exp never expires - forbid it
 ))
 ```
 
@@ -164,6 +167,43 @@ configure_jwt(JwtMiddlewareConfig(
 | RSA / EC / EdDSA (`RS256`, `ES256`, `EdDSA`...) | `private_key_pem` to sign, `public_key_pem` to verify |
 
 **Set `audience`.** Left unset, a token minted for a different service but signed with the same key is still accepted.
+
+**Set `require=["exp"]`.** `exp` is only checked when the claim is present, so a token issued without one is valid forever.
+
+**`public_paths` is matched exactly**, not by prefix. Listing `/docs` does not open `/docs/oauth2-redirect`; only a trailing slash is ignored.
+
+### Keys that rotate — `JwtKeyProvider`
+
+A single static key cannot survive rotation: while an issuer switches keys, tokens signed by the old one are still valid and tokens signed by the new one are already arriving. `kid` (RFC 7515 §4.1.4) says which key signed a token, and a provider turns that into candidate keys.
+
+```python
+# config/jwt.py
+from collections.abc import Sequence
+from xime.starters.jwt import configure_jwt, JwtMiddlewareConfig, KeyContext
+
+class JwksKeyProvider:
+    def __init__(self) -> None:
+        self._by_kid: dict[str, KeyContext] = {}
+
+    async def load(self) -> None:            # your refresh, on your schedule
+        for entry in await fetch_jwks():
+            self._by_kid[entry.kid] = KeyContext(
+                algorithm=entry.alg, public_key_pem=entry.pem, key_id=entry.kid,
+            )
+
+    def keys(self, kid: str | None) -> Sequence[KeyContext]:
+        found = self._by_kid.get(kid) if kid else None
+        return (found,) if found else ()
+
+configure_jwt(
+    JwtMiddlewareConfig(audience="data-service", require=["exp"]),
+    key_provider=JwksKeyProvider,          # a CLASS, resolved from the DI container
+)
+```
+
+`keys()` must be an **in-memory read, never a network call** - it runs on every authenticated request. The framework never fetches, never schedules and never caches: keeping the keys fresh is entirely yours, exactly as with `configure_grpc_tls(provider=...)`. Returning an empty sequence means "I do not know this kid" and the request is rejected with 401.
+
+Supply **exactly one** key source. `key_context` alone is a single static key; `key_provider` alone is a keyset addressed by `kid`. Neither, or both, fails at start-up - refusing "neither" on purpose, because the alternative is an application that boots with no authentication and reports itself healthy while every endpoint is open.
 
 ### Signing tokens
 
@@ -194,6 +234,10 @@ class AuthUseCase:
 
 **You** build the payload in full - the framework adds no claims of its own, not even `exp`.
 
+`KeyContext.key_id` becomes the `kid` header. Signing without one is legal, but it is a decision rather than a detail: a token that names no key cannot be routed to one, so no verifier can hold two keys at once for it, so you can never rotate without a flag day.
+
+Extra JOSE headers go through `headers=`, e.g. `headers={"typ": "at+jwt"}` for an RFC 9068 access token. Three names are refused rather than merged: `alg` (PyJWT lets a header value override the `algorithm` argument, so it would silently contradict `KeyContext.algorithm`), `b64` (switches PyJWT into detached-payload mode) and `kid` (it must name the key that actually signed, and `KeyContext.key_id` is the one place that knows which).
+
 ```python
 # config/dependency.py
 dependency.scan("xime.starters.jwt")     # registers PyJwtTokenSigner / PyJwtTokenVerifier
@@ -215,7 +259,7 @@ class TokenUseCase:
         )
 ```
 
-An expired token, a bad signature, or a mismatched `aud`/`iss` all raise `AuthenticationException`.
+An expired token, a bad signature, a mismatched `aud`/`iss`, a missing required claim or an algorithm outside `algorithms` all raise `AuthenticationException`. `verify()` also takes `algorithms=`, `leeway=` and `require=`, with the same meanings as in `JwtMiddlewareConfig`.
 
 ### JWT middleware
 

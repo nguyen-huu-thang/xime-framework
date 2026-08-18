@@ -318,7 +318,7 @@ class WebAdapter:
         # e.g. CORS preflight is handled before auth; declared-first runs first.
         # Middleware của user (configure_middleware) nằm giữa: ngoài JwtAuth để
         # CORS preflight chạy trước auth; khai báo trước chạy trước.
-        self._add_jwt_middleware(fastapi_app)
+        self._add_jwt_middleware(fastapi_app, xime_app)
         for middleware, options in reversed(registry.get_middlewares(self._server_id)):
             # Phân giải marker Inject/FromConfig (DI service, runtime config) ngay
             # tại đây — DI container đã dựng xong nên option động lấy được giá trị
@@ -363,7 +363,7 @@ class WebAdapter:
             return get_swagger_ui_html(openapi_url=openapi_url, title=title)
 
     @staticmethod
-    def _add_jwt_middleware(app: FastAPI) -> None:
+    def _add_jwt_middleware(app: FastAPI, xime_app: Application) -> None:
         # Reading the registry runs on EVERY web start-up, including apps that
         # never touch JWT — so this import must not require the [jwt] extra.
         # Đọc registry chạy ở MỌI lần khởi động web, kể cả app không dùng JWT -
@@ -373,6 +373,27 @@ class WebAdapter:
         jwt_config = jwt_registry.get()
         if jwt_config is None:
             return
+
+        # Exactly one key source. Refusing "neither" is the whole point: without
+        # this check an application whose keys were not available at start-up
+        # boots with NO authentication middleware and reports itself healthy
+        # while every endpoint is open - the failure looks like success.
+        # Đúng MỘT nguồn khoá. Từ chối "không có cái nào" chính là mục đích của
+        # phép kiểm này: thiếu nó thì app không lấy được khoá lúc khởi động sẽ lên
+        # mà KHÔNG có middleware xác thực nào và tự báo là khoẻ, trong khi mọi
+        # endpoint đều mở - hỏng mà trông y như chạy tốt.
+        key_provider_cls = jwt_registry.get_key_provider()
+        if jwt_config.key_context is None and key_provider_cls is None:
+            raise StartupException(
+                "configure_jwt() was called without a key source: set "
+                "JwtMiddlewareConfig.key_context for a single static key, or pass "
+                "key_provider= for keys addressed by `kid`."
+            )
+        if jwt_config.key_context is not None and key_provider_cls is not None:
+            raise StartupException(
+                "configure_jwt() got both key_context and key_provider. Pick one: "
+                "two sources for the same fact are two sources that can disagree."
+            )
 
         # configure_jwt() was called, so PyJWT is genuinely required. Probe it
         # here, at start-up: PyJWT is now imported lazily inside the verifier, so
@@ -397,7 +418,22 @@ class WebAdapter:
                 "accepted here. Set audience=<this service> unless tokens are "
                 "signed by a key nobody else uses."
             )
-        app.add_middleware(JwtAuthMiddleware, config=jwt_config)
+        # Both collaborators are resolved here, not inside the middleware: the
+        # container is already built at this point (the same reason Inject(...)
+        # markers are resolved a few lines below). The middleware used to
+        # construct PyJwtTokenVerifier itself, which meant the substitution seam
+        # its own docstring advertised quietly applied to nothing.
+        # Cả hai được phân giải ở đây chứ không trong middleware: container đã
+        # dựng xong tại điểm này. Trước đây middleware tự dựng PyJwtTokenVerifier,
+        # tức cái khe thay thế mà docstring của chính nó quảng cáo âm thầm không
+        # áp cho cái gì cả.
+        verifier_cls = jwt_registry.get_verifier()
+        app.add_middleware(
+            JwtAuthMiddleware,
+            config=jwt_config,
+            key_provider=xime_app.get(key_provider_cls) if key_provider_cls else None,
+            verifier=xime_app.get(verifier_cls) if verifier_cls else None,
+        )
 
     @staticmethod
     def _register_controllers(

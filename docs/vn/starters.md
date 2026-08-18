@@ -151,6 +151,9 @@ configure_jwt(JwtMiddlewareConfig(
     audience="data-service",
     issuer="https://identity.internal",
     public_paths=["/auth/login", "/auth/refresh", "/health"],
+    algorithms=["RS256"],          # danh sách trắng: từ chối khóa khai thuật toán khác
+    leeway=30,                     # giây dung sai đồng hồ cho exp / nbf / iat
+    require=["exp"],               # token không có exp thì không bao giờ hết hạn - cấm nó
 ))
 ```
 
@@ -164,6 +167,43 @@ configure_jwt(JwtMiddlewareConfig(
 | RSA / EC / EdDSA (`RS256`, `ES256`, `EdDSA`...) | `private_key_pem` để ký, `public_key_pem` để verify |
 
 **Nên đặt `audience`.** Bỏ trống thì token phát cho service khác nhưng ký bằng cùng khóa vẫn được chấp nhận.
+
+**Nên đặt `require=["exp"]`.** `exp` chỉ được kiểm khi claim có mặt, nên token cấp ra mà thiếu nó thì hợp lệ vĩnh viễn.
+
+**`public_paths` so khớp CHÍNH XÁC**, không phải tiền tố. Khai `/docs` không mở `/docs/oauth2-redirect`; chỉ dấu `/` cuối được bỏ qua.
+
+### Khóa xoay theo thời gian - `JwtKeyProvider`
+
+Một khóa tĩnh không sống qua được lúc xoay khóa: trong lúc issuer đổi khóa thì token ký bằng khóa cũ vẫn còn hạn còn token ký bằng khóa mới đã tới. `kid` (RFC 7515 §4.1.4) nói khóa nào đã ký token, và provider biến `kid` đó thành khóa ứng viên.
+
+```python
+# config/jwt.py
+from collections.abc import Sequence
+from xime.starters.jwt import configure_jwt, JwtMiddlewareConfig, KeyContext
+
+class JwksKeyProvider:
+    def __init__(self) -> None:
+        self._by_kid: dict[str, KeyContext] = {}
+
+    async def load(self) -> None:            # cách làm tươi và nhịp làm tươi là của bạn
+        for entry in await fetch_jwks():
+            self._by_kid[entry.kid] = KeyContext(
+                algorithm=entry.alg, public_key_pem=entry.pem, key_id=entry.kid,
+            )
+
+    def keys(self, kid: str | None) -> Sequence[KeyContext]:
+        found = self._by_kid.get(kid) if kid else None
+        return (found,) if found else ()
+
+configure_jwt(
+    JwtMiddlewareConfig(audience="data-service", require=["exp"]),
+    key_provider=JwksKeyProvider,          # một CLASS, resolve từ DI container
+)
+```
+
+`keys()` bắt buộc **đọc bộ nhớ, không bao giờ gọi mạng** - nó chạy ở mọi request đã xác thực. Framework không lấy, không hẹn giờ, không cache: giữ cho khóa luôn mới hoàn toàn thuộc về bạn, y như với `configure_grpc_tls(provider=...)`. Trả về dãy rỗng nghĩa là "tôi không biết kid này" và request bị từ chối 401.
+
+Phải cấp **đúng một** nguồn khóa. Chỉ `key_context` là một khóa tĩnh; chỉ `key_provider` là bộ khóa định địa chỉ bằng `kid`. Không có cái nào, hoặc có cả hai, đều hỏng lúc khởi động - từ chối "không có cái nào" là có chủ ý, vì đường còn lại là một app khởi động không có xác thực và tự báo là khỏe trong khi mọi endpoint đều mở.
 
 ### Ký Token
 
@@ -194,6 +234,10 @@ class AuthUseCase:
 
 Payload do **bạn** dựng hoàn toàn - framework không tự thêm claim nào, kể cả `exp`.
 
+`KeyContext.key_id` trở thành header `kid`. Ký mà không có nó là hợp lệ, nhưng đó là một quyết định chứ không phải chi tiết: token không gọi tên khóa nào thì không định tuyến được tới khóa, nên không bên verify nào giữ hai khóa cùng lúc cho nó được, nên bạn không bao giờ xoay khóa mà không phải cắt dịch vụ.
+
+Header JOSE thêm vào thì truyền qua `headers=`, ví dụ `headers={"typ": "at+jwt"}` cho access token theo RFC 9068. Ba tên bị từ chối chứ không gộp: `alg` (PyJWT cho giá trị header ghi đè tham số `algorithm`, nên nó sẽ âm thầm mâu thuẫn với `KeyContext.algorithm`), `b64` (chuyển PyJWT sang chế độ detached payload) và `kid` (nó phải gọi tên đúng khóa đã ký, mà chỉ `KeyContext.key_id` biết đó là khóa nào).
+
 ```python
 # config/dependency.py
 dependency.scan("xime.starters.jwt")     # đăng ký PyJwtTokenSigner / PyJwtTokenVerifier
@@ -215,7 +259,7 @@ class TokenUseCase:
         )
 ```
 
-Token hết hạn, sai chữ ký, lệch `aud`/`iss` đều ném `AuthenticationException`.
+Token hết hạn, sai chữ ký, lệch `aud`/`iss`, thiếu claim bắt buộc, hoặc thuật toán nằm ngoài `algorithms` đều ném `AuthenticationException`. `verify()` cũng nhận `algorithms=`, `leeway=` và `require=`, nghĩa giống hệt trong `JwtMiddlewareConfig`.
 
 ### JWT Middleware
 

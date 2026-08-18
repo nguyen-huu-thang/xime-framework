@@ -1,6 +1,7 @@
 from ._config import JwtMiddlewareConfig as JwtMiddlewareConfig
 from ._config import configure_jwt as configure_jwt
 from ._key_context import KeyContext as KeyContext
+from ._provider import JwtKeyProvider as JwtKeyProvider
 from ._signer import JwtTokenSigner as JwtTokenSigner
 from ._signer import PyJwtTokenSigner as PyJwtTokenSigner
 from ._verifier import JwtTokenVerifier as JwtTokenVerifier

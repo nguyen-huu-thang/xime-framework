@@ -28,6 +28,9 @@ class JwtTokenVerifier(Protocol):
         *,
         audience: str | list[str] | None = None,
         issuer: str | None = None,
+        algorithms: list[str] | None = None,
+        leeway: float = 0,
+        require: list[str] | None = None,
     ) -> dict[str, Any]:
         """Verify and decode a JWT token.
 
@@ -39,15 +42,31 @@ class JwtTokenVerifier(Protocol):
                       audience is not enforced (tokens with an `aud` claim are
                       still accepted).
             issuer: Expected `iss` claim. Enforced when set; not checked when None.
+            algorithms: Allow-list of accepted `alg` values. A key whose algorithm
+                      is outside it is refused before any signature is checked.
+                      None accepts whatever the key declares.
+            leeway: Seconds of tolerance for exp / nbf / iat.
+            require: Claims that must be present. Note that exp is only verified
+                      when it EXISTS, so a token with no exp never expires unless
+                      "exp" appears here.
 
         Returns:
             Decoded claims dict.
 
         Raises:
             AuthenticationException: if the token is expired, has an invalid
-                                     signature, a mismatched audience/issuer, or
-                                     is structurally malformed.
+                                     signature, a mismatched audience/issuer, a
+                                     disallowed algorithm, a missing required
+                                     claim, or is structurally malformed.
             ValueError: if key_context is missing required key material.
+
+        Note for implementers: these knobs are enumerated as parameters, which
+        means every future one changes this Protocol. That is tolerable while the
+        list is short and no third-party implementation is known to exist; the
+        moment a fourth knob is needed, group them into an options object instead.
+        Ghi chú cho người hiện thực: các knob đang được liệt kê thành từng tham
+        số, nên mỗi knob thêm về sau đều đổi Protocol này. Chấp nhận được khi
+        danh sách còn ngắn; tới knob thứ tư thì gom vào một object options.
         """
         ...
 
@@ -74,14 +93,30 @@ class PyJwtTokenVerifier:
         *,
         audience: str | list[str] | None = None,
         issuer: str | None = None,
+        algorithms: list[str] | None = None,
+        leeway: float = 0,
+        require: list[str] | None = None,
     ) -> dict[str, Any]:
+        # The allow-list caps which keys may be used at all; the algorithm the
+        # token is actually checked against stays pinned to this key's own, so a
+        # token cannot pick a weaker one from the list.
+        # Danh sách trắng giới hạn khoá nào được dùng; thuật toán thật sự đem ra
+        # kiểm vẫn ghim theo chính khoá này, nên token không thể tự chọn một
+        # thuật toán yếu hơn trong danh sách.
+        if algorithms is not None and key_context.algorithm not in algorithms:
+            raise AuthenticationException(
+                f"Algorithm '{key_context.algorithm}' is not in the allow-list"
+            )
+
         verify_key = self._resolve_verify_key(key_context)
         # When no audience is configured, disable aud verification explicitly:
         # otherwise PyJWT REJECTS any token that carries an `aud` claim (it raises
         # InvalidAudienceError when a token has aud but decode() got no audience).
         # Không cấu hình audience -> tắt verify_aud, nếu không PyJWT TỪ CHỐI mọi
         # token có claim aud (raise InvalidAudienceError).
-        options = {"verify_aud": audience is not None}
+        options: dict[str, Any] = {"verify_aud": audience is not None}
+        if require:
+            options["require"] = list(require)
         jwt = pyjwt()
         try:
             return jwt.decode(
@@ -90,6 +125,7 @@ class PyJwtTokenVerifier:
                 algorithms=[key_context.algorithm],
                 audience=audience,
                 issuer=issuer,
+                leeway=leeway,
                 options=options,
             )
         except jwt.ExpiredSignatureError:
