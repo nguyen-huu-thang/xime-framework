@@ -278,7 +278,7 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 ## Trạng thái dự án
 
-XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI (registry singleton tự viết, **không phụ thuộc thư viện DI bên thứ ba**) với **dynamic interface binding** (một Protocol → nhiều impl, đổi được lúc runtime), lifecycle, event bus, security context, configuration, JWT starter (ép `audience`/`issuer`, **bộ khóa định địa chỉ bằng `kid`**, dung sai đồng hồ, claim bắt buộc), scheduler starter, SQLAlchemy starter, Cache + Redis starter, **Storage starter** (filesystem local + S3/MinIO) kèm **streaming file HTTP** (download Range, upload theo chunk), Web adapter (FastAPI + routing, middleware request-context & JWT kiểu pure-ASGI, middleware & exception handler tùy chỉnh, **middleware lấy được DI/config qua marker `Inject`/`FromConfig` + helper `configure_cors` hạng nhất**), gRPC adapter (proto-first + **code-first**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed + retry tự động), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), **Modbus adapter** (device model khai báo, master polling + chế độ slave), **OPC UA adapter** (node model, subscription, chế độ server, đủ mức bảo mật), multi-server support và thứ tự khởi tạo (`dependency.order()`). WebSocket đang hoàn thiện.
+XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI (registry singleton tự viết, **không phụ thuộc thư viện DI bên thứ ba**) với **dynamic interface binding** (một Protocol → nhiều impl, đổi được lúc runtime), lifecycle, event bus, security context, configuration, JWT starter (ép `audience`/`issuer`, **bộ khóa định địa chỉ bằng `kid`**, dung sai đồng hồ, claim bắt buộc), scheduler starter, SQLAlchemy starter, Cache + Redis starter, **Storage starter** (filesystem local + S3/MinIO) kèm **streaming file HTTP** (download Range, upload theo chunk), Web adapter (FastAPI + routing, middleware request-context & JWT kiểu pure-ASGI, middleware & exception handler tùy chỉnh, **middleware lấy được DI/config qua marker `Inject`/`FromConfig` + helper `configure_cors` hạng nhất**), gRPC adapter (proto-first + **code-first**, **server streaming có kiểu**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed + retry tự động), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), **Modbus adapter** (device model khai báo, master polling + chế độ slave), **OPC UA adapter** (node model, subscription, chế độ server, đủ mức bảo mật), multi-server support, **WebSocket** (định tuyến `@ws`, xác thực bắt tay qua `Sec-WebSocket-Protocol`, đóng kết nối khi token hết hạn) và thứ tự khởi tạo (`dependency.order()`).
 
 Core được bao phủ bởi **1400+ test**.
 
@@ -298,6 +298,7 @@ Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 | [Transaction](docs/vn/transaction.md) | Quản lý transaction tường minh + khối chỉ đọc |
 | [Code-First gRPC](docs/vn/grpc-codefirst.md) | Sinh `.proto` từ Python DTO; ổn định field number; `xime grpc generate/check`; mTLS động |
 | [gRPC Client SDK](docs/vn/grpc-client.md) | Sinh client SDK typed; inject qua DI; deadline, lỗi typed, retry, mTLS động |
+| [WebSocket](docs/vn/websocket.md) | Route `@ws`, token đi trong subprotocol, xác thực trước khi vào handler, đóng khi token hết hạn |
 | [Socket Adapter](docs/vn/socket-adapter.md) | IPC qua Unix Domain Socket cho Native Engine cùng máy |
 | [MQTT Adapter](docs/vn/mqtt.md) | Pub/sub message-driven + RPC over MQTT v5 cho IoT/embedded |
 | [Modbus Adapter](docs/vn/modbus.md) | Device model khai báo, lập kế hoạch đọc, polling và chế độ slave cho PLC |
@@ -311,7 +312,7 @@ Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 
 ## Đóng góp
 
-XIME là dự án cá nhân cần sự giúp đỡ của cộng đồng để phát triển. Còn việc cần làm: hoàn thiện WebSocket, CLI scaffolding, testing utilities và nhiều hơn nữa.
+XIME là dự án cá nhân cần sự giúp đỡ của cộng đồng để phát triển. Còn việc cần làm: runtime đa tiến trình, CLI scaffolding, testing utilities và nhiều hơn nữa.
 
 **Cách đóng góp:**
 

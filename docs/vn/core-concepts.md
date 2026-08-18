@@ -359,6 +359,46 @@ await event_bus.drain()
 assert notification_mock.called
 ```
 
+### Trần số handler đang bay, và cách nói "đừng bỏ cái này"
+
+`publish()` sinh **một asyncio Task cho mỗi handler** rồi trả về ngay. Không có trần thì mọi đường đi người dùng có `publish` đều cho phép nhân số task theo số request. Mỗi task đang chờ còn **giữ sống chính object event**, nên bộ nhớ tăng theo **kích thước event**, không theo một hằng số overhead cố định.
+
+Từ 0.7.2, số task đang bay có trần, **mặc định 10.000**. Quá trần thì event bị bỏ **nguyên con** (không bao giờ chạy nửa số handler) và được đếm.
+
+Con số đó là **quyết định thiết kế của app**, không phải cấu hình môi trường - nó phụ thuộc handler của bạn chạy bao lâu và event của bạn to cỡ nào. Vì vậy nó nằm trong **Python**, cạnh routing và DI binding, không nằm trong `application.yml`:
+
+```python
+# config/event.py
+from xime.core.event import configure_event_bus
+
+configure_event_bus(
+    max_pending=50_000,                        # handler nhẹ, event nhỏ
+    never_drop=(AuditEvent, PaymentEvent),     # thứ KHÔNG được phép mất
+)
+```
+
+Hai cách nói "đừng bỏ":
+
+| Khai | Nghĩa |
+|---|---|
+| `never_drop=(AuditEvent,)` | **Miễn trần cho vài loại**, phần còn lại vẫn có trần. Khớp theo **kiểu chính xác**, giống cách tra handler - lớp con không thừa hưởng quyền miễn |
+| `max_pending=None` | **Bỏ trần hoàn toàn**, đúng hành vi trước 0.7.2. Là một lựa chọn hợp lệ, chỉ cần là lựa chọn *có ý thức* |
+
+⚠ `never_drop` **dời** rủi ro chứ không xoá nó: lũ event được miễn vẫn phình vô hạn, và khi vượt trần thì bus ghi một dòng WARNING nói đúng điều đó. Chỉ miễn thứ **không được phép mất**, đừng miễn thứ chỉ "muốn giữ".
+
+Quan sát khi cần chọn lại con số:
+
+```python
+event_bus.dropped            # tong so event da bo
+event_bus.dropped_by_type()  # bo theo tung loai - loai nao dang that su mat
+```
+
+Log nói *vừa có một cái bị bỏ* (có hãm nhịp, không để lũ event thành lũ log); hai số trên nói *đã bỏ bao nhiêu*. Chỉ cái thứ hai dùng được để chỉnh trần.
+
+⛔ **Bên gọi không phân biệt được event bị bỏ với event đã xếp lịch** - cả hai đều trả `None`. Đây là nợ đã biết với nguyên tắc *một giá trị mang đúng một nghĩa* của dự án, cố ý để lại cho 0.8 vì đóng nó là đổi chữ ký công khai. Hệ quả thực dụng: **đừng dùng event bus cho thứ mà bạn phải phát hiện được khi nó mất** - hãy khai nó vào `never_drop`, hoặc đừng đi qua bus.
+
+⚠ Ngoài ra, framework **không tự gọi `drain()` lúc tắt máy**: handler đang chạy bị cắt ngang. Cần chạy nốt thì gọi `drain()` trong `PreDestroy` hook của chính bạn.
+
 ---
 
 ## 10. Request Context

@@ -11,7 +11,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.7.1"
+version = "0.7.2"
 description = "A Python backend framework that brings a Spring Boot-style developer experience while respecting Python's philosophy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -35,13 +35,27 @@ classifiers = [
 
 # Core dependencies — luôn được cài khi `pip install xime`
 #
-# Each floor below was checked by installing it, not guessed. What was proven,
-# on Python 3.14 (2026-07-30): fastapi 0.110.1 + pydantic 2.12.0 + pyyaml 6.0.1
-# installs and passes the full suite. The three floors are NOT arbitrary:
-#   fastapi  0.110.0 pins starlette 0.36.3, whose TestClient calls
-#            httpx.Client(app=...) — removed in httpx 0.28 — so every test an
-#            application writes against its own routes dies with TypeError.
-#            0.110.1 is the first release that does not.
+# Each floor below was checked by installing it, not guessed. Proven on Python
+# 3.14 (2026-08-18): the exact floor set below installs and passes 1553 passed,
+# 11 skipped. Re-run before every release — a floor is a snapshot, and advisories
+# keep moving after it is stamped.
+#
+#   fastapi  0.110.1 used to be the floor (0.110.0 pins starlette 0.36.3, whose
+#            TestClient calls httpx.Client(app=...), removed in httpx 0.28).
+#            Raised to 0.133.0 for a different reason: EVERY fastapi from 0.115
+#            to 0.132 declares `starlette>=0.40.0` with a moving upper CAP, and
+#            that cap is what keeps starlette 1.x out. 0.133.0 is the first
+#            release with no cap. Measured, not assumed:
+#              0.115.3 -> starlette<0.42.0,>=0.40.0
+#              0.128.0 -> starlette<0.51.0,>=0.40.0
+#              0.133.0 -> starlette>=0.40.0          <- cap gone
+#   starlette DECLARED DIRECTLY even though xime imports nothing from it (every
+#            symbol it needs is re-exported by fastapi — see 2026-08-17). The
+#            declaration exists purely to constrain the resolver: pip-audit finds
+#            advisories in starlette that are fixed ONLY in the 1.x line
+#            (1.0.1 / 1.1.0 / 1.3.0 / 1.3.1), with no 0.x backport, so the whole
+#            0.x series stays vulnerable however high fastapi's floor is pushed.
+#            1.3.1 is the first version pip-audit reports as clean.
 #   pydantic 2.0-2.4 predate Python 3.12, our own requires-python floor, so no
 #            supported interpreter can install them. 2.5 is the first with 3.12
 #            support. (2.5-2.11 cannot be exercised here: they have no 3.14
@@ -51,7 +65,8 @@ classifiers = [
 #
 # Mỗi mốc dưới đây đều đã CÀI THỬ chứ không phỏng đoán - xem lý do từng dòng ở trên.
 dependencies = [
-    "fastapi>=0.110.1",
+    "fastapi>=0.133.0",
+    "starlette>=1.3.1",
     "pydantic>=2.5",
     "pyyaml>=6.0.1",
 ]
@@ -89,28 +104,96 @@ web = [
     # "Form data requires python-multipart to be installed".
     # Cần cho save_upload() và mọi route multipart/form-data. FastAPI chỉ kéo nó
     # trong extra `standard` của chính nó, mà xime không dùng extra đó.
-    "python-multipart>=0.0.7",
+    #
+    # Floor raised 0.0.7 -> 0.0.31 on 2026-08-18: pip-audit reports 7 advisories
+    # against 0.0.7, fixed across five separate releases (0.0.18 / 0.0.22 /
+    # 0.0.26 / 0.0.30 / 0.0.31). 0.0.31 is the first that clears all of them.
+    "python-multipart>=0.0.31",
 ]
 sqlalchemy = [
-    "sqlalchemy[asyncio]>=2.0",
+    # ⭐⭐ Floor 2.0 -> 2.0.38 (2026-08-18). Not security - the declared floor was
+    # simply WRONG, and had been since the starter was written. Two separate
+    # walls, found by installing at the floor and running the suite:
+    #
+    #   1. Import wall (Python 3.13+). 3.13 added `__firstlineno__` /
+    #      `__static_attributes__` to classes; SQLAlchemy's `TypingOnly` guard
+    #      asserts no extra attributes exist, so `import sqlalchemy` dies:
+    #        <= 2.0.25  AssertionError: SQLCoreOperations ... additional attributes
+    #           2.0.30  TypeError: Can't replace canonical symbol '__firstlineno__'
+    #           2.0.31  import OK
+    #   2. Pool wall (all Pythons). The starter passes `pool_size` /
+    #      `max_overflow` to create_engine() unconditionally, and older SQLAlchemy
+    #      wires aiosqlite to NullPool, which rejects both:
+    #        TypeError: Invalid argument(s) 'pool_size','max_overflow' sent to
+    #        create_engine(), using ... SQLiteDialect_aiosqlite/NullPool/Engine
+    #      Measured on tests_temp/sqlalchemy: 2.0.36 / 2.0.37 fail, 2.0.38 passes.
+    #
+    # ⚠ Two lessons worth more than the number. First, this is WORSE than the
+    # "cannot build" floors (pydantic 2.5, grpcio 1.60, asyncpg 0.29): those fail
+    # loudly during `pip install`, this one installs clean and fails later.
+    # Second, nobody could ever notice it - a floor is `>=`, so pip installs the
+    # NEWEST by default. A wrong floor is invisible until somebody pins downward,
+    # and by then it is their problem, not ours.
+    "sqlalchemy[asyncio]>=2.0.38",
 ]
 jwt = [
-    "pyjwt>=2.8",
+    # Floor raised 2.8 -> 2.13 on 2026-08-18: pip-audit reports 8 advisories
+    # against 2.8.0, fixed in 2.12.0 and 2.13.0. This is the library standing
+    # between every application and every authentication decision it makes, so
+    # it is the one floor here worth being strict about.
+    #
+    # ⚠ One of the eight (PYSEC-2025-183) shows an EMPTY "Fix Versions" column.
+    # That does not mean unfixable - it means OSV recorded the affected range
+    # without an explicit fix event. Measured directly: pip-audit on 2.13.0
+    # reports "No known vulnerabilities found", so the floor does clear it.
+    # Read the report, do not read the blank.
+    "pyjwt>=2.13",
 ]
 scheduler = [
     # SchedulerRunner dùng API APScheduler v4 (AsyncScheduler, run_until_stopped,
     # add_schedule) - KHÔNG tương thích v3.x. v4 hiện mới có bản pre-release nên
     # phải ghi floor là bản alpha tường minh để pip chấp nhận cài (để ">=4.0" thì
     # pip ưu tiên 3.x stable -> ImportError lúc chạy). Bump khi v4 ra stable.
+    #
+    # ⚠ KNOWN, UNFIXED, ACCEPTED - re-check this note at every release.
+    # PYSEC-2026-282 / CVE-2026-31072: RCE via insecure deserialization in
+    # APScheduler's JSONSerializer and CBORSerializer. Affected range is
+    # 4.0.0a1 .. 4.0.0a6 with NO fixed version, and 4.0.0a6 is the newest
+    # release that exists - so there is no floor that clears it. It is listed
+    # here rather than silently ignored.
+    #
+    # Why xime is not exposed by default, measured 2026-08-18: SchedulerRunner
+    # calls `AsyncScheduler()` with no arguments, which wires MemoryDataStore +
+    # LocalEventBroker. Neither touches a serializer; the vulnerable path needs
+    # an EXTERNAL data store whose stored payload an attacker can influence.
+    #
+    # ⚠ That safety belongs to the DEFAULT WIRING, not to the dependency. An
+    # application that configures an external data store with JSONSerializer or
+    # CBORSerializer IS exposed, and nothing here will warn it.
     "apscheduler>=4.0.0a6",
 ]
 socket = [
-    "msgpack>=1.0",
+    # Floor 1.0 -> 1.2.1 (2026-08-18): PYSEC-2026-3625, va o 1.2.1.
+    "msgpack>=1.2.1",
 ]
 grpc = [
+    # ⚠ The two grpcio floors CANNOT be verified on Python 3.14, our own newest
+    # supported interpreter: `pip download grpcio-tools==1.60.0` fails with
+    # "Failed to build ... when getting requirements to build wheel" (1.60 is
+    # from 2023, 3.14 did not exist). Same category as the pydantic 2.5 note
+    # above - kept as a floor for older interpreters, measured on none.
     "grpcio>=1.60",
     "grpcio-tools>=1.60",
-    "protobuf>=4.25",
+    # Floor 4.25 -> 6.33.5 (2026-08-18). Two advisories: PYSEC-2026-1806 (fixed
+    # in 4.25.8 / 5.29.5 / 6.31.1) and PYSEC-2026-1805 (fixed in 5.29.6 / 6.33.5
+    # only - NO 4.x backport exists). So 4.25.8 would look like a fix while
+    # leaving the second one open; 6.33.5 is the lowest that clears both.
+    #
+    # Not a real narrowing in practice: grpcio-tools 1.81 already declares
+    # `protobuf>=6.33.5,<7.0.0` itself, so anyone with an installable
+    # grpcio-tools was on this version already. We were merely declaring lower
+    # than the truth.
+    "protobuf>=6.33.5",
 ]
 redis = [
     "redis>=5.0",
@@ -131,7 +214,18 @@ s3 = [
     "botocore",
 ]
 mqtt = [
-    "aiomqtt>=2.0",
+    # ⭐ Floor 2.0 -> 2.1.0 (2026-08-18). Not a security bump: the two floors in
+    # THIS extra contradicted each other, and `pip install xime[mqtt]` resolved
+    # at the declared floors was flatly impossible:
+    #     aiomqtt 2.0.0 requires paho-mqtt<2.0.0, we declare paho-mqtt>=2.1
+    # Measured — aiomqtt 2.1.0 is the first release to accept paho-mqtt 2.x:
+    #     2.0.0 / 2.0.1 -> paho-mqtt>=1.6.0,<2.0.0
+    #     2.1.0         -> paho-mqtt>=2.0.0,<3.0.0   <- first compatible one
+    #
+    # Nobody could see this on a dev machine: pip always picks the newest
+    # aiomqtt, which is fine. Only installing AT the floors surfaces it - which
+    # is the whole argument for doing that step rather than editing numbers.
+    "aiomqtt>=2.1.0",
     # Framework imports paho DIRECTLY (adapters/mqtt/_adapter.py, _dispatcher.py):
     # MQTT v5 needs Properties/PacketTypes for SubscriptionIdentifier and
     # CorrelationData, and aiomqtt 2.x has no equivalent of its own — it hands
@@ -146,7 +240,9 @@ mqtt = [
     "paho-mqtt>=2.1",
 ]
 mail = [
-    "aiosmtplib>=3.0",
+    # Floor 3.0 -> 5.1.1 (2026-08-18): PYSEC-2026-2338, va o 5.1.1. Day la
+    # buoc qua HAI ban lon (3.x -> 5.x); da chay het bo test tren 5.1.x.
+    "aiosmtplib>=5.1.1",
 ]
 # Fieldbus công nghiệp (0.7). Floor đặt ở 3.14 vì API decode đã đổi hẳn trong
 # nhánh 3.x: `pymodbus.payload.BinaryPayloadDecoder` bị xóa, thay bằng
@@ -165,13 +261,26 @@ all = [
 # Dev: chạy test, lint, type-check, ASGI server
 dev = [
     "xime[all]",
-    "pytest>=8.0",
-    "pytest-asyncio>=0.23",
+    # Floor 8.0 -> 9.0.3 (2026-08-18): PYSEC-2026-1845. Dev-only.
+    "pytest>=9.0.3",
+    # ⭐ Floor 0.23 -> 1.3.0 (2026-08-18), forced by the pytest bump above.
+    # pytest-asyncio 0.23.0 declares `pytest>=7.0.0` with NO upper cap, so the
+    # resolver happily paired it with pytest 9 - and collection then died with
+    # `INTERNALERROR AttributeError: 'Package' object has no attribute 'obj'`.
+    # Metadata is a claim, not a proof; only installing and RUNNING found it.
+    # Measured: 0.24 / 0.25 / 1.0 / 1.1 / 1.2 all cap at pytest<9; 1.3.0 is the
+    # first to declare pytest<10.
+    "pytest-asyncio>=1.3.0",
     "anyio>=4.0",
     "asyncpg>=0.29",        # driver PostgreSQL cho test SQLAlchemy
     "aiosqlite>=0.20",      # driver SQLite cho test SQLAlchemy (nhẹ hơn asyncpg)
     "httpx>=0.27",          # test HTTP client (dùng với FastAPI TestClient async)
-    "cryptography>=42",     # sinh cert tự ký cho test TLS của web adapter
+    # Floor 42 -> 50.0.0 (2026-08-18): 9 advisory, moc va cao nhat la 50.0.0.
+    # Chi thuoc extra `dev` nen KHONG toi tay nguoi cai `pip install xime`.
+    # ⭐ Moc nay ban dau dat 49.0.0 theo mot lan doc truoc do trong cung buoi,
+    # va check_dep_advisories.py bat duoc ngay: advisory da di tiep. Do la ly do
+    # script chay MOI LAN phat hanh chu khong phai mot lan roi thoi.
+    "cryptography>=50.0.0", # sinh cert tự ký cho test TLS của web adapter
     # Stub cho starters/s3/_client.py (import dưới TYPE_CHECKING nên KHÔNG cần
     # lúc chạy) - thiếu nó thì mypy trên chính xime/ báo thiếu stub.
     # Sàn = đúng bản đã cài và chạy test ngày 2026-08-17, theo quy ước "mỗi mốc

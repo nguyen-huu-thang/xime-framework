@@ -93,7 +93,11 @@ class TestVerifierSubstitution:
         from xime.starters.jwt._middleware import JwtAuthMiddleware
 
         middleware = JwtAuthMiddleware(None, config=JwtMiddlewareConfig())
-        assert isinstance(middleware._verifier, PyJwtTokenVerifier)
+        # Verification moved into JwtAuthenticator in 0.7.2 so the WebSocket path
+        # shares it; the default it falls back to must not have changed.
+        # Phần verify dời sang JwtAuthenticator ở 0.7.2 để WebSocket dùng chung;
+        # mặc định nó rơi về thì không được đổi.
+        assert isinstance(middleware._auth._verifier, PyJwtTokenVerifier)
 
 
 class TestKeyProviderWiring:

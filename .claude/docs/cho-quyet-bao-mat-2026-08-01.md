@@ -11,35 +11,31 @@
 
 | # | Chờ quyết | Đang chặn gì | Khuyến nghị |
 |---|---|---|---|
-| 1 | Secret để ở file nào | **Đợt 0 - đường găng** | Hướng B |
+| ~~1~~ | ~~Secret để ở file nào~~ | ✅ **CHỐT 2026-08-18: hướng B** | |
 | 2 | 7 file cảnh báo không commit được | Không chặn gì, nhưng tài liệu sẽ mất khi đổi máy | Xử lý từng ca, xem mục 2 |
-| 3 | Sau khi vá nội bộ xong có đẩy PyPI không | Không chặn đợt nào | Đẩy 0.7.1 sau khi đợt 2 chạy ổn |
+| ~~3~~ | ~~Có đẩy PyPI không~~ | ✅ **XONG: 0.7.1 đã lên PyPI** | |
 | 4 | Có dựng venv riêng cho app đã deploy không | Làm đợt 4 an toàn hơn | Có, nhưng làm sau đợt vá |
-| 5 | Ba câu kỹ thuật của F10 | Đợt 3 | Xem mục 5 |
+| 5 | Ba câu kỹ thuật của F10 | ~~Đợt 3~~ **đã dời sang 0.8** | Xem mục 5 |
+
+> Mục đã chốt được rút gọn thành một dòng thay vì xóa hẳn, để **số thứ tự của các mục còn lại
+> không đổi** - vài tài liệu khác trỏ tới "mục 5".
 
 ---
 
-## 1. Secret để ở file nào (A6) - ĐANG CHẶN ĐƯỜNG GĂNG
+## 1. Secret để ở file nào (A6) - ✅ ĐÃ CHỐT 2026-08-18
 
-**Vì sao treo:** chú thích trong `application-production.yml` của `shop` bảo để secret vào
-`application-secret.yml`. `YamlConfigLoader.load()` chỉ nạp `application.yml` +
-`application-{env}.yml`, **không** có file thứ ba, và file đó không tồn tại ở đâu. Đây là
-nguyên nhân trực tiếp khiến secret dev còn nằm lại trong git.
+**Chủ dự án chốt: hướng B - dùng `application-{env}.yml` đã có, KHÔNG đụng framework.**
 
-**Đang chặn:** việc 0.1 (đổi `jwt.secret` của `shop`) không làm dứt điểm được cho tới khi biết
-secret mới sẽ nằm ở đâu. Đây là mục **gấp nhất toàn đợt**.
+Nguyên văn: *"tôi chọn hướng B dùng `application-{env}.yml` sẵn có, không có đụng gì framework
+hết."*
 
-| | **Hướng A** - thêm tầng thứ ba vào framework | **Hướng B** - dùng `application-local.yml` đã có ⭐ |
-|---|---|---|
-| Sửa gì | `core/config/loader.py` nạp thêm `application-secret.yml` sau cùng | Không đụng framework; sửa chú thích ở các app |
-| Ưu | Đúng thứ tài liệu đã hứa; secret tách hẳn khỏi cấu hình thường | Không đụng framework nghĩa là không chạm 31 app cùng lúc (xem mục 1.1 của kế hoạch) |
-| Nhược | Đổi hành vi nạp config của **cả 31 app**; thêm một chỗ nữa để quên copy lúc deploy | Tên file mang nghĩa "máy của tôi", dùng cho production hơi lệch nghĩa |
-| Kèm theo | Phải thêm `application-secret.yml` vào `.gitignore` của mọi repo | Phải sửa chú thích ở **mọi** `application-production.yml` và trong template, kẻo lần sau lại có người tin vào file không tồn tại |
+Kết luận đã chuyển sang [`ke-hoach-va-bao-mat-2026-08-01.md`](ke-hoach-va-bao-mat-2026-08-01.md)
+mục 0. **Đợt 0 hết bị chặn.**
 
-**Khuyến nghị: hướng B.** Lý do không phải kỹ thuật mà là rủi ro: đợt này đang vá bảo mật, và
-hướng A đổi cách nạp cấu hình của 31 app đang chạy. Trộn một thay đổi hạ tầng vào giữa đợt vá là
-cách chắc chắn để về sau không biết cái gì gây ra cái gì. Nếu vẫn thích hướng A về lâu dài thì
-làm nó thành một việc riêng sau khi đợt 2 xong.
+⚠ Việc kèm theo, đừng tách rời khỏi quyết định: **sửa chú thích ở mọi `application-production.yml`
+và trong `saas-foundation/template`** - chỗ đang chỉ người ta sang `application-secret.yml`, một
+file framework **không bao giờ nạp**. Không sửa thì lần sau lại có người để secret vào đó và tin
+là đã an toàn.
 
 ---
 
@@ -108,20 +104,12 @@ thì hai dòng đó mất, và phiên sau sẽ không tìm thấy đường tớ
 
 ---
 
-## 3. Sau khi vá nội bộ xong, có đẩy PyPI không
+## 3. Sau khi vá nội bộ xong, có đẩy PyPI không - ✅ XONG
 
-Quyết định hiện tại là **vá trong repo, chưa đẩy PyPI**. Hợp lý cho 31 app nội bộ (cài editable
-nên có bản vá ngay), nhưng gói đã công khai **11 bản trên PyPI**, nên người dùng ngoài vẫn đang
-nhận bản 0.7.0 còn nguyên F1, F2, F3, F4.
+**Đã đẩy.** PyPI nay có **12 bản** (`0.1.0` -> `0.7.1`); chủ dự án tự đẩy. Người dùng ngoài
+không còn kẹt ở 0.7.0 với F1/F2/F3/F4 nữa.
 
-Câu hỏi thật không phải "có đẩy không" mà là: **gói này có người ngoài dùng thật không?** Nếu
-có thì việc giữ bản vá lại là quyết định ảnh hưởng tới người khác, không chỉ tới dự án.
-
-**Khuyến nghị:** đẩy **0.7.1** sau khi đợt 2 chạy ổn nội bộ vài ngày. Semver cho phép đổi hành
-vi ở bản vá khi đó là sửa lỗi bảo mật; ghi rõ phần nào đổi hành vi trong `CHANGELOG.md`.
-
-Kiểm số lượt tải để biết có ai dùng thật không:
-`https://pypistats.org/packages/xime`
+Kiểm số lượt tải nếu cần biết có ai dùng thật không: `https://pypistats.org/packages/xime`
 
 ---
 

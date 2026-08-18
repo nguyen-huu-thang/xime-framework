@@ -121,6 +121,35 @@ async def echo(self, request: EchoRequest) -> EchoResponse:
 
 A caller publishes the request with MQTT v5 `ResponseTopic` + `CorrelationData` properties and subscribes to that reply topic. If no `ResponseTopic` is present, the handler still runs but no reply is sent.
 
+### ⚠ The CALLER names the reply topic, but WE publish it
+
+This is exactly what MQTT v5 specifies, and it has a consequence worth knowing: the adapter publishes the reply using **this service's broker credentials**, to a topic **the caller chose**. On a broker that enforces per-client ACLs, the caller therefore reaches topics its *own* ACL forbids by borrowing ours. The caller also fully controls `CorrelationData`, and those bytes are copied verbatim into the reply.
+
+Declare `mqtt.rpc.reply_topics` to state where a reply is *expected* to land:
+
+```yaml
+mqtt:
+  host: broker.local
+  rpc:
+    reply_topics:
+      - factory/reply/#
+      - devices/+/reply
+```
+
+These are **MQTT topic filters** (same as `@subscribe`), not string prefixes - so `factory/reply/#` matches every level below it, while `factory/reply/` matches nothing at all.
+
+Behaviour (decided 2026-08-18): **warn, do not block.**
+
+| Configuration | What happens |
+|---|---|
+| No `reply_topics` declared | Unchanged behaviour. **One** WARNING at startup, and only if this client actually serves `@rpc` |
+| Declared, reply matches | Silent |
+| Declared, reply does **not** match | The reply is **still sent**, with one WARNING naming the topic |
+
+Per-topic warnings are **deduplicated and capped** (64 distinct topics) so a caller cannot turn one warning into a log flood by varying the topic. A malformed filter **fails at startup**: a filter that can never match would turn every reply into a warning, and a check that cries wolf is a check somebody switches off.
+
+⚠ This is defence in depth, **not a replacement for broker ACLs**. The real enforcement point is the broker.
+
 Startup validation (fail-fast): handlers must be `async def`; the topic filter must be valid; `qos` must be 0/1/2; `@rpc` request/response must be `BaseModel`; the same exact filter must not be declared twice (see *Overlapping filters* below).
 
 ---

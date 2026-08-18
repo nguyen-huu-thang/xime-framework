@@ -121,6 +121,35 @@ async def echo(self, request: EchoRequest) -> EchoResponse:
 
 Bên gọi publish request kèm property `ResponseTopic` + `CorrelationData` (MQTT v5) và subscribe topic reply đó. Không có `ResponseTopic` thì handler vẫn chạy nhưng không gửi reply.
 
+### ⚠ Reply topic do BÊN GỌI đặt, nhưng TA là người publish
+
+Đây là đúng chuẩn MQTT v5, và nó có một hệ quả cần biết: adapter publish reply bằng **credential broker của chính dịch vụ này**, tới topic **bên gọi chỉ định**. Trên broker có phân quyền theo client (ACL), bên gọi vì vậy chạm được tới topic mà ACL của **nó** cấm - nó mượn quyền của ta. Bên gọi cũng điều khiển hoàn toàn `CorrelationData`, và chuỗi bytes đó được chép nguyên xi vào reply.
+
+Khai `mqtt.rpc.reply_topics` để nói ra nơi reply *được phép* rơi vào:
+
+```yaml
+mqtt:
+  host: broker.local
+  rpc:
+    reply_topics:
+      - nhamay/reply/#
+      - devices/+/reply
+```
+
+Chúng là **topic filter MQTT** (giống `@subscribe`), không phải tiền tố chuỗi - nên `nhamay/reply/#` khớp mọi cấp bên dưới, còn `nhamay/reply/` thì không khớp gì cả.
+
+Hành vi (chốt 2026-08-18): **cảnh báo, không chặn.**
+
+| Cấu hình | Điều gì xảy ra |
+|---|---|
+| Không khai `reply_topics` | Giữ nguyên hành vi cũ. **Một** dòng WARNING lúc khởi động, chỉ khi client này thực sự có `@rpc` |
+| Có khai, reply khớp | Im lặng |
+| Có khai, reply **không** khớp | Reply **vẫn được gửi**, kèm một dòng WARNING nêu tên topic |
+
+Cảnh báo theo từng topic được **khử trùng lặp và chặn trần** (64 topic khác nhau), để bên gọi không biến một cảnh báo thành lũ log bằng cách đổi topic mỗi lần. Filter sai cú pháp thì **nổ lúc khởi động**: một filter không bao giờ khớp sẽ biến mọi reply thành cảnh báo, mà cảnh báo kêu oan là cảnh báo sẽ bị tắt.
+
+⚠ Đây là lớp phòng thủ chiều sâu, **không thay thế ACL của broker**. Chốt chặn thật nằm ở broker.
+
 Validate lúc startup (fail-fast): handler phải `async def`; topic filter hợp lệ; `qos` là 0/1/2; request/response của `@rpc` phải là `BaseModel`; không khai cùng một filter chính xác hai lần (xem *Filter chồng lấn* bên dưới).
 
 ---

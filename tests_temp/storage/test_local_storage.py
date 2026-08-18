@@ -122,6 +122,18 @@ class TestRoundTrip:
         assert leftovers == []
 
 
+# Keys every backend must reject (F14). Shared with test_s3_storage.py.
+# Key ma moi backend phai tu choi (F14). Dung chung voi test S3.
+BS = chr(92)
+NUL = chr(0)
+UNSAFE_KEYS = [
+    ".." + BS + ".." + BS + "Windows" + BS + "System32" + BS + "config" + BS + "SAM",
+    "C:" + BS + "Windows" + BS + "win.ini",
+    "a" + NUL + "b",
+    "kho/anh" + BS + "2026.png",
+]
+
+
 class TestSafety:
     @pytest.mark.asyncio
     async def test_traversal_rejected(self, tmp_path):
@@ -129,6 +141,34 @@ class TestSafety:
         for bad in ["../escape", "x/../../y", ""]:
             with pytest.raises(StorageError):
                 st._resolve(bad)
+
+    @pytest.mark.asyncio
+    async def test_backslash_and_nul_rejected(self, tmp_path):
+        """F14: the shared key contract must reject these on EVERY backend.
+
+        The paired S3 test uses the same list on purpose - that pairing is what
+        keeps the docstring promise ("switching backend never changes which keys
+        are accepted") true.
+        F14: hop dong key dung chung phai tu choi cac key nay o MOI backend.
+        Test S3 dung dung danh sach nay, va chinh su trung khop do giu cho loi
+        hua trong docstring con dung.
+        """
+        st = _storage(tmp_path)
+        for bad in UNSAFE_KEYS:
+            with pytest.raises(StorageError):
+                st._resolve(bad)
+
+    @pytest.mark.asyncio
+    async def test_ordinary_keys_still_accepted(self, tmp_path):
+        """The other half of the pair: tightening must not reject valid keys.
+
+        `a..b/c` is the trap - it contains `..` but not as a path segment.
+        Nua con lai cua cap: siet vao khong duoc tu choi key hop le. `a..b/c` la
+        cai bay - co `..` nhung khong phai mot doan duong dan.
+        """
+        st = _storage(tmp_path)
+        for ok in ["a/b/c.txt", "anh/2026/08/x.png", "ten co dau.txt", "a..b/c"]:
+            assert st._resolve(ok) is not None
 
     @pytest.mark.asyncio
     async def test_absolute_key_rejected(self, tmp_path):

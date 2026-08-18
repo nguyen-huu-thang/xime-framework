@@ -359,6 +359,46 @@ await event_bus.drain()
 assert notification_mock.called
 ```
 
+### The in-flight ceiling, and how to say "never drop this"
+
+`publish()` schedules **one asyncio Task per handler** and returns immediately. Without a ceiling, any user-reachable path that publishes lets a caller multiply tasks by request count. Each pending task also **keeps the event object alive**, so memory grows with **event size**, not with a fixed per-task overhead.
+
+Since 0.7.2 in-flight tasks are capped, **default 10,000**. Past the cap an event is dropped **whole** (never half its handlers) and counted.
+
+That number is a **design decision of the application**, not an environment setting: it follows from how long your handlers run and how large your events are. So it lives in **Python**, beside routing and DI bindings, not in `application.yml`:
+
+```python
+# config/event.py
+from xime.core.event import configure_event_bus
+
+configure_event_bus(
+    max_pending=50_000,                        # light handlers, small events
+    never_drop=(AuditEvent, PaymentEvent),     # things you cannot afford to lose
+)
+```
+
+Two ways to say "do not drop":
+
+| Declaration | Meaning |
+|---|---|
+| `never_drop=(AuditEvent,)` | **Exempt a few types**; everything else still has a ceiling. Matched by **exact type**, like handler lookup - a subclass does not inherit the exemption |
+| `max_pending=None` | **No ceiling at all**, exactly the pre-0.7.2 behaviour. A valid choice, as long as it is a deliberate one |
+
+⚠ `never_drop` **moves** the risk, it does not remove it: a flood of an exempt event still grows without bound, and the bus logs a WARNING saying so once it is past the ceiling. Exempt what you cannot afford to lose, not what you would merely prefer to keep.
+
+To pick the number, observe:
+
+```python
+event_bus.dropped            # total events dropped
+event_bus.dropped_by_type()  # per type - which event is actually losing
+```
+
+The log says *one was just dropped* (throttled, so a flood of events cannot become a flood of log lines); those two say *how many*. Only the second is usable for choosing a ceiling.
+
+⛔ **The caller cannot tell a dropped event from a scheduled one** - both return `None`. This is a known debt against the project's "one value, one meaning" rule, deliberately left for 0.8 because closing it changes a public signature. The practical consequence: **do not use the event bus for anything whose loss you must detect** - either declare it in `never_drop`, or do not route it through the bus.
+
+⚠ Also note the framework never calls `drain()` at shutdown, so in-flight handlers are cut off. Call it from your own `PreDestroy` hook if they must finish.
+
 ---
 
 ## 10. Request Context

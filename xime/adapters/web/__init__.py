@@ -17,12 +17,15 @@ from ._config import configure_exception_handlers, configure_middleware
 from ._cors import configure_cors
 from ._markers import FromConfig, Inject
 from .routing import configure_controllers, delete, get, patch, post, put
-from .ws import WebSocketHandler
+from .ws import BEARER_SUBPROTOCOL_PREFIX, WS_UNAUTHORIZED, WebSocketHandler, ws
 
 __all__ = [
     "WebAdapter",
     "ServerTlsConfig",
+    "BEARER_SUBPROTOCOL_PREFIX",
+    "WS_UNAUTHORIZED",
     "WebSocketHandler",
+    "ws",
     "get",
     "post",
     "put",

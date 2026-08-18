@@ -235,6 +235,13 @@ class TestMetadata:
         assert "k" in url and "120" in url
 
 
+# Same list as the local backend test - imported, not copied, so the two
+# backends can never drift apart silently.
+# Dung chung danh sach voi test local - import chu khong chep tay, de hai
+# backend khong bao gio troi lech nhau trong im lang.
+from tests_temp.storage.test_local_storage import UNSAFE_KEYS
+
+
 class TestKeyValidation:
     """L4: S3 enforces the same key contract as the local backend."""
 
@@ -249,3 +256,34 @@ class TestKeyValidation:
             await storage.get(bad_key)
         with pytest.raises(StorageError):
             await storage.stat(bad_key)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("bad_key", UNSAFE_KEYS)
+    async def test_backslash_and_nul_rejected(self, storage, bad_key):
+        """F14: S3 has NO second line of defence, so the validator is all there is.
+
+        The local backend catches these anyway via `.resolve()`; S3 hands the key
+        straight to `put_object`. That asymmetry is the bug this closes.
+        F14: S3 KHONG co phong tuyen thu hai nen validator la tat ca. Local van
+        chan duoc nho `.resolve()`, con S3 dua thang key cho `put_object` - chinh
+        su bat doi xung do la thu duoc dong lai o day.
+        """
+        from xime.starters.storage import StorageError
+
+        with pytest.raises(StorageError):
+            await storage.put(bad_key, b"x")
+        with pytest.raises(StorageError):
+            await storage.get(bad_key)
+        with pytest.raises(StorageError):
+            await storage.stat(bad_key)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "ok_key", ["a/b/c.txt", "anh/2026/08/x.png", "ten co dau.txt", "a..b/c"]
+    )
+    async def test_ordinary_keys_still_accepted(self, storage, ok_key):
+        """Paired with the test above - tightening must not reject valid keys.
+
+        Cap voi test tren - siet vao khong duoc tu choi key hop le.
+        """
+        await storage.put(ok_key, b"x")

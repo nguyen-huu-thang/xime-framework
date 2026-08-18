@@ -300,7 +300,7 @@ multi-server setups.
 
 - **Two-package declaration** — must list in both `dependency.scan()` and `configure_controllers()`
 - **`__all__` not respected by controller scanner** — all controller classes in the package are found regardless of `__all__`
-- **WebSocket and gRPC routing** — not yet in scope for class-based controllers
+- **gRPC routing** — not yet in scope for class-based controllers (WebSocket landed in 0.7.2, see [WebSocket](websocket.md))
 
 ---
 

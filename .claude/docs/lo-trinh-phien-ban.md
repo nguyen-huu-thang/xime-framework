@@ -1,10 +1,9 @@
 # Lộ trình phiên bản Xime Framework
 
 > Chỉ mục tổng các mốc phiên bản đã chốt, để tra nhanh "việc X làm ở bản nào".
-> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật **2026-08-17**.
-> Hiện tại: **0.7.0 trên PyPI**; trong repo đã là **0.7.1** (code xong 2026-08-03,
-> **chưa commit, chưa đẩy PyPI** - chủ dự án tự đẩy). Vì `xime` cài **editable** nên
-> 0.7.1 đã có hiệu lực ngay với cả 31 app dù PyPI chưa có.
+> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật **2026-08-18**.
+> Hiện tại: **0.7.1 ĐÃ PHÁT HÀNH trên PyPI**; repo đang làm dở **0.7.2**. Vì `xime`
+> cài **editable** nên phần 0.7.2 chưa phát hành cũng đã có hiệu lực với cả 31 app.
 
 | Bản | Chủ đề | Trạng thái |
 | --- | --- | --- |
@@ -16,8 +15,9 @@
 | 0.6.2 | Starter `mail` (SMTP) + hardening sau kiểm toán toàn diện | Đã phát hành (2026-06-30) |
 | 0.6.3 | Gỡ chặn app chạy thật: ~~`PEER_APP_ID`~~ + **TLS/HTTPS cho web adapter** + **khối chỉ đọc `read_only()`**; kèm `get_bool` ép kiểu cờ + metadata gói | Đã phát hành (2026-07-29). ⛔ **`PEER_APP_ID` đã bị GỠ ở 0.7.1** vì mang khái niệm của nền tảng vào framework - thay bằng `PEER_SANS`, xem [`go-phu-thuoc-khai-niem-2026-08-17.md`](go-phu-thuoc-khai-niem-2026-08-17.md) |
 | 0.7.0 | Fieldbus công nghiệp (Modbus TCP + OPC UA) | **Đã phát hành PyPI** (2026-08-01) - 1463 test. Kiểm toán trước khi đẩy: `kiem-toan-0.7.md` |
-| 0.7.1 | Server-stream có kiểu (`@stream`) + đợt 2 vá bảo mật (F2/F4/F5/F6/F7/F8/F11/F12/F13/F16) + lỗi đua khi tắt scheduler + ⛔ **GỠ PHỤ THUỘC KHÁI NIỆM (BREAKING)** + khai 3 phụ thuộc bắc cầu | **Code xong, CHƯA commit, CHƯA đẩy PyPI** - **1516 passed / 11 skipped**. Xem `ket-qua-0.7.1-2026-08-03.md`, [`go-phu-thuoc-khai-niem-2026-08-17.md`](go-phu-thuoc-khai-niem-2026-08-17.md), [`phu-thuoc-bac-cau-chua-khai-2026-08-17.md`](phu-thuoc-bac-cau-chua-khai-2026-08-17.md) |
-| 0.7.x | **Vá, không chạm API**: ~~A1 keyset JWT~~ · F3 nâng sàn deps · F14/F15/F17 · F1 WebSocket | ✅ **A1 xong 2026-08-18 phía framework** ([`jwt-keyset-va-trung-tinh-2026-08-18.md`](jwt-keyset-va-trung-tinh-2026-08-18.md)) - ⚠ **19 app vẫn fail-open**, framework chỉ xoá lý do tồn tại của lỗ. Còn lại chưa làm. Bảng đầy đủ ở [`../CLAUDE.md`](../CLAUDE.md). ⚠ **F10 đã chuyển sang 0.8** · ⛔ **F9 đã bị XOÁ** (không còn chuỗi nào để neo sau khi gỡ phụ thuộc khái niệm) |
+| 0.7.1 | Server-stream có kiểu (`@stream`) + đợt 2 vá bảo mật (F2/F4/F5/F6/F7/F8/F11/F12/F13/F16) + lỗi đua khi tắt scheduler + ⛔ **GỠ PHỤ THUỘC KHÁI NIỆM (BREAKING)** + khai 3 phụ thuộc bắc cầu | **Đã phát hành PyPI** (commit `975e10c` / `a3fcad8`) - **1516 passed / 11 skipped**. Xem `ket-qua-0.7.1-2026-08-03.md`, [`go-phu-thuoc-khai-niem-2026-08-17.md`](go-phu-thuoc-khai-niem-2026-08-17.md), [`phu-thuoc-bac-cau-chua-khai-2026-08-17.md`](phu-thuoc-bac-cau-chua-khai-2026-08-17.md) |
+| 0.7.2 | ⭐ **JWT: khoá xoay theo `kid`** (`JwtKeyProvider`) + ba knob PyJWT từng bị giấu (`algorithms`/`leeway`/`require`) + `sign(headers=)` + ⛔ **`configure_jwt()` thiếu nguồn khoá NỔ lúc khởi động** | **Đang làm, chưa phát hành** - **1553 passed / 11 skipped**. Xem [`jwt-keyset-va-trung-tinh-2026-08-18.md`](jwt-keyset-va-trung-tinh-2026-08-18.md) |
+| 0.7.x | **Vá, không chạm API**: ~~A1 keyset JWT~~ · ~~F3 nâng sàn deps~~ · ~~F14~~ · ~~F15~~ · ~~F17~~ · ~~F1 WebSocket~~ | ✅ **A1 xong 2026-08-18 phía framework** ([`jwt-keyset-va-trung-tinh-2026-08-18.md`](jwt-keyset-va-trung-tinh-2026-08-18.md)) - ⚠ **19 app vẫn fail-open**, framework chỉ xoá lý do tồn tại của lỗ. ✅✅ **F1 + F3 + F14 + F15 + F17 xong cùng ngày 2026-08-18 - HẾT MỤC 0.7.x.** ⚠ F1 thêm API công khai (`@ws`) và đổi hành vi mặc định, tức **vượt luật "0.7.x không chạm API"** - chủ dự án chốt ngoại lệ có ý thức vì chưa app nào dùng WebSocket. Bảng đầy đủ ở [`../CLAUDE.md`](../CLAUDE.md). ⚠ **F10 đã chuyển sang 0.8** · ⛔ **F9 đã bị XOÁ** (không còn chuỗi nào để neo sau khi gỡ phụ thuộc khái niệm) |
 | 0.8 | **Đa tiến trình + đổi API adapter một lượt** | ⚠ **Thiết kế đổi hẳn 2026-08-16** - bản 2026-06-27 (Bus Manager, DI scope `global`) phần lớn không còn dùng. Chưa code |
 | 0.9 | Beta - config nốt + bug fix + phản hồi người dùng | Mở |
 

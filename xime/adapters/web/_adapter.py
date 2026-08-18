@@ -472,3 +472,75 @@ class WebAdapter:
                 ) from None
             router = builder.build(cls, instance)
             app.include_router(router)
+
+        WebAdapter._register_websocket_handlers(
+            app, xime_app, server_id, scanner, packages
+        )
+
+    @staticmethod
+    def _register_websocket_handlers(
+        app: FastAPI,
+        xime_app: Application,
+        server_id: str,
+        scanner: Any,
+        packages: list[str],
+    ) -> None:
+        """Register every @ws class, with JWT verification in front of each.
+
+        Kept next to controller registration because a WebSocket route is a route:
+        same packages, same DI container, same server_id filter.
+        Đặt cạnh phần đăng ký controller vì route WebSocket cũng là một route:
+        cùng gói, cùng DI container, cùng phép lọc server_id.
+        """
+        from xime.starters.jwt._config import jwt_registry
+
+        from .ws._registrar import WebSocketRegistrar
+
+        handlers = [
+            cls
+            for cls in scanner.find_websocket_handlers(*packages)
+            if getattr(cls, "server_id", "default") == server_id
+        ]
+        if not handlers:
+            return
+
+        jwt_config = jwt_registry.get()
+        authenticator = None
+        if jwt_config is not None:
+            from xime.starters.jwt._authenticator import JwtAuthenticator
+
+            provider_cls = jwt_registry.get_key_provider()
+            verifier_cls = jwt_registry.get_verifier()
+            authenticator = JwtAuthenticator(
+                jwt_config,
+                key_provider=xime_app.get(provider_cls) if provider_cls else None,
+                verifier=xime_app.get(verifier_cls) if verifier_cls else None,
+            )
+        else:
+            # An app can legitimately have no JWT at all - but a WebSocket route
+            # in that app is open, and the silence around that fact is the whole
+            # reason F1 survived: the middleware's own docstring promises every
+            # path outside public_paths needs a token, and a @ws route quietly
+            # broke that promise with nothing logged.
+            # App không dùng JWT là chuyện hợp lệ - nhưng route WebSocket của nó
+            # thì mở, và chính sự im lặng quanh chuyện đó là lý do F1 sống lâu.
+            _log.warning(
+                "%d WebSocket route(s) registered but configure_jwt() was never "
+                "called, so every one of them accepts unauthenticated "
+                "connections: %s",
+                len(handlers),
+                ", ".join(sorted(getattr(c, "__name__", str(c)) for c in handlers)),
+            )
+
+        registrar = WebSocketRegistrar(authenticator, jwt_config)
+        for cls in handlers:
+            try:
+                instance = xime_app.get(cls)
+            except KeyError:
+                raise RuntimeError(
+                    f"WebSocket handler '{cls.__name__}' is not registered in the DI "
+                    f"container. Add its package to dependency.scan() in "
+                    f"config/dependency.py."
+                ) from None
+            path = registrar.register(app, cls, instance)
+            _log.debug("WebSocket route registered: %s -> %s", path, cls.__name__)

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from xime.core.config.runtime import RuntimeConfig
 
 from ._runtime import MqttConnection
+from ._topic import is_valid_filter
 
 
 class MqttTlsConfig(BaseModel):
@@ -22,6 +23,62 @@ class MqttLwtConfig(BaseModel):
     payload: str = ""
     qos: int = 0
     retain: bool = False
+
+
+class MqttRpcConfig(BaseModel):
+    """Reply-topic policy for `@rpc` handlers (F17).
+
+    MQTT v5 request/reply lets the CALLER name the topic the reply goes to, and
+    the adapter publishes it using the SERVICE's broker credentials. Where the
+    broker enforces per-client ACLs, that lets a caller reach a topic its own
+    ACL forbids by borrowing ours - a confused deputy.
+    MQTT v5 cho BÊN GỌI tự đặt topic nhận reply, mà adapter publish bằng
+    credential của DỊCH VỤ. Broker có phân quyền theo client thì bên gọi mượn
+    được quyền của ta để ghi vào topic mà ACL của nó cấm.
+
+    `reply_topics` lists the topic filters a reply is expected to land on. It is
+    ADVISORY by default: a reply outside the list is still published, but a
+    WARNING names it. Declaring nothing keeps the old behaviour and produces one
+    startup warning instead of one per message.
+    `reply_topics` là danh sách filter mà reply được phép rơi vào. Mặc định chỉ
+    CẢNH BÁO: reply ngoài danh sách vẫn được gửi, kèm một dòng WARNING. Không
+    khai gì thì giữ nguyên hành vi cũ và chỉ cảnh báo MỘT lần lúc khởi động.
+
+        mqtt:
+          rpc:
+            reply_topics:
+              - nhamay/reply/#
+              - devices/+/reply
+    """
+
+    reply_topics: list[str] = []
+
+    @classmethod
+    def resolve(cls, raw: object) -> MqttRpcConfig:
+        """Build from the raw `mqtt.rpc` block; fail-fast on an unusable filter.
+
+        A malformed filter can never match, so it would silently turn every
+        reply into a warning - the shape of a check that cries wolf, which is
+        the shape of a check people switch off.
+        Filter sai cú pháp thì không bao giờ khớp, nên nó biến MỌI reply thành
+        cảnh báo - đúng hình dạng của một phép dò kêu oan, tức phép dò sẽ bị tắt.
+        """
+        block = raw if isinstance(raw, dict) else {}
+        topics = block.get("reply_topics") or []
+        if isinstance(topics, str):
+            topics = [topics]
+        if not isinstance(topics, list):
+            raise ValueError(
+                "mqtt.rpc.reply_topics must be a list of MQTT topic filters, "
+                f"got {type(topics).__name__}."
+            )
+        bad = [t for t in topics if not isinstance(t, str) or not is_valid_filter(t)]
+        if bad:
+            raise ValueError(
+                f"mqtt.rpc.reply_topics contains invalid topic filter(s): {bad!r}. "
+                "'#' must stand alone as the final level; '+' must occupy a whole level."
+            )
+        return cls(reply_topics=list(topics))
 
 
 class MqttConfig(BaseModel):
@@ -50,6 +107,11 @@ class MqttConfig(BaseModel):
             payload: offline
             qos: 1
             retain: true
+          rpc:
+            # Topic filter mà reply RPC được phép rơi vào (F17). Mặc định rỗng =
+            # giữ hành vi cũ, chỉ cảnh báo một lần lúc khởi động.
+            reply_topics:
+              - nhamay/reply/#
     """
 
     host: str
@@ -63,6 +125,7 @@ class MqttConfig(BaseModel):
     reconnect_delay: float = 3.0
     tls: MqttTlsConfig | None = None
     lwt: MqttLwtConfig | None = None
+    rpc: MqttRpcConfig = MqttRpcConfig()
 
     @classmethod
     def resolve(cls, runtime: RuntimeConfig, client_id: str) -> MqttConfig:
@@ -92,6 +155,7 @@ class MqttConfig(BaseModel):
             reconnect_delay=float(raw.get("reconnect_delay", 3.0)),
             tls=tls,
             lwt=lwt,
+            rpc=MqttRpcConfig.resolve(raw.get("rpc")),
         )
 
 

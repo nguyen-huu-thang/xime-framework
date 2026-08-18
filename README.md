@@ -279,7 +279,7 @@ Optional modules, similar to `spring-boot-starter-*`:
 
 ## Project Status
 
-XIME is in **active development**. The following are implemented: core DI (hand-rolled singleton registry, **no third-party DI dependency**) with **dynamic interface binding** (one Protocol → many impls, swapped at runtime), lifecycle, event bus, security context, configuration, JWT starter (audience/issuer enforcement, **keysets addressed by `kid`**, clock leeway, required claims), scheduler starter, SQLAlchemy starter, Cache + Redis starters, **Storage starter** (local filesystem + S3/MinIO) with **HTTP file streaming** (Range download, chunked upload), Web adapter (FastAPI + routing, pure-ASGI request-context & JWT middleware, custom middleware & exception handlers, **DI/config-aware middleware via `Inject`/`FromConfig` markers + first-class `configure_cors`**), gRPC adapter (proto-first + **code-first**, **typed server streaming**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors + automatic retry), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), **Modbus adapter** (declarative device model, master polling + slave mode), **OPC UA adapter** (node models, subscriptions, server mode, full security), multi-server support, and initialization order (`dependency.order()`). WebSocket support is partial.
+XIME is in **active development**. The following are implemented: core DI (hand-rolled singleton registry, **no third-party DI dependency**) with **dynamic interface binding** (one Protocol → many impls, swapped at runtime), lifecycle, event bus, security context, configuration, JWT starter (audience/issuer enforcement, **keysets addressed by `kid`**, clock leeway, required claims), scheduler starter, SQLAlchemy starter, Cache + Redis starters, **Storage starter** (local filesystem + S3/MinIO) with **HTTP file streaming** (Range download, chunked upload), Web adapter (FastAPI + routing, pure-ASGI request-context & JWT middleware, custom middleware & exception handlers, **DI/config-aware middleware via `Inject`/`FromConfig` markers + first-class `configure_cors`**), gRPC adapter (proto-first + **code-first**, **typed server streaming**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors + automatic retry), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), **Modbus adapter** (declarative device model, master polling + slave mode), **OPC UA adapter** (node models, subscriptions, server mode, full security), multi-server support, **WebSocket** (`@ws` routing, handshake authentication over `Sec-WebSocket-Protocol`, close-on-token-expiry), and initialization order (`dependency.order()`).
 
 The core is covered by **1500+ tests**.
 
@@ -299,6 +299,7 @@ See the [CHANGELOG](CHANGELOG.md) for release history.
 | [Transaction](docs/en/transaction.md) | Explicit transaction management + read-only blocks |
 | [Code-First gRPC](docs/en/grpc-codefirst.md) | Generate `.proto` from Python DTOs; field-number stability; `xime grpc generate/check`; dynamic mTLS |
 | [gRPC Client SDK](docs/en/grpc-client.md) | Generate a typed client SDK; inject it via DI; deadlines, typed errors, retry, dynamic mTLS |
+| [WebSocket](docs/en/websocket.md) | `@ws` routes, token in a subprotocol, authentication before the handler, close on token expiry |
 | [Socket Adapter](docs/en/socket-adapter.md) | Unix Domain Socket IPC for same-host Native Engine calls |
 | [MQTT Adapter](docs/en/mqtt.md) | Message-driven pub/sub + RPC over MQTT v5 for IoT/embedded |
 | [Modbus Adapter](docs/en/modbus.md) | Declarative device models, read planning, polling and slave mode for PLCs |
@@ -312,7 +313,7 @@ See the [CHANGELOG](CHANGELOG.md) for release history.
 
 ## Contributing
 
-XIME is a solo project that needs community help to grow. There is still ground to cover: completing WebSocket support, CLI scaffolding, testing utilities, and more.
+XIME is a solo project that needs community help to grow. There is still ground to cover: multi-process runtime, CLI scaffolding, testing utilities, and more.
 
 **Ways to contribute:**
 

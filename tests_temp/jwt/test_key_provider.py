@@ -167,14 +167,19 @@ class TestMalformedHeader:
         một chốt chặn hỏng.
         """
         from xime.core.exception.framework import AuthenticationException
-        from xime.starters.jwt import _middleware
+        from xime.starters.jwt import _authenticator
 
         class _FakeJwt:
             @staticmethod
             def get_unverified_header(_token):
                 return {"alg": "HS256", "kid": {"a": 1}}
 
-        monkeypatch.setattr(_middleware, "pyjwt", lambda: _FakeJwt)
+        # The guard moved to JwtAuthenticator in 0.7.2. Patch it where it now
+        # lives, and keep calling it through the middleware: that entry point is
+        # part of the public surface tests and apps already know.
+        # Chốt chặn dời sang JwtAuthenticator ở 0.7.2. Patch đúng nhà mới, nhưng
+        # vẫn gọi qua middleware vì đó là cửa mà test và app đang biết.
+        monkeypatch.setattr(_authenticator, "pyjwt", lambda: _FakeJwt)
         with pytest.raises(AuthenticationException, match="malformed header"):
             JwtAuthMiddleware._read_kid("anything")
 

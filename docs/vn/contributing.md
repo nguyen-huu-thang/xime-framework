@@ -66,7 +66,7 @@ Các mảng cần làm, theo thứ tự ưu tiên:
 | Mảng | Mô tả | Độ khó |
 | --- | --- | --- |
 | **gRPC Adapter** | Class-based gRPC service handler, tương tự pattern controller | Trung bình |
-| **WebSocket support** | WebSocket routing và context management | Trung bình |
+| ~~**WebSocket support**~~ | ✅ Đã có ở 0.7.2 - xem [WebSocket](websocket.md) | - |
 | **Exception → HTTP mapping** | Map domain exception đến HTTP status code tự động | Thấp |
 | **CLI scaffolding** | `xime new my-service` để tạo cấu trúc project | Trung bình |
 

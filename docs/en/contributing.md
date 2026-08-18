@@ -66,7 +66,7 @@ Areas that need work, roughly in priority order:
 | Area | Description | Difficulty |
 | --- | --- | --- |
 | **gRPC Adapter** | Class-based gRPC service handlers, similar to controller pattern | Medium |
-| **WebSocket support** | WebSocket routing and context management | Medium |
+| ~~**WebSocket support**~~ | ✅ Landed in 0.7.2 - see [WebSocket](websocket.md) | - |
 | **Exception → HTTP mapping** | Map domain exceptions to HTTP status codes automatically | Low |
 | **CLI scaffolding** | `xime new my-service` to generate project structure | Medium |
 

@@ -67,3 +67,42 @@ class TestRegistry:
         c3 = mqtt_registry.connection("other")
         assert c1 is c2
         assert c1 is not c3
+
+
+class TestRpcReplyTopics:
+    """F17: mqtt.rpc.reply_topics - the reply-topic policy for @rpc handlers."""
+
+    def test_absent_block_means_no_policy(self):
+        cfg = MqttConfig.resolve(_runtime({"host": "b"}), "data")
+        assert cfg.rpc.reply_topics == []
+
+    def test_filters_are_read(self):
+        cfg = MqttConfig.resolve(
+            _runtime({"host": "b", "rpc": {"reply_topics": ["a/#", "b/+/c"]}}), "data"
+        )
+        assert cfg.rpc.reply_topics == ["a/#", "b/+/c"]
+
+    def test_single_string_is_accepted_as_one_filter(self):
+        cfg = MqttConfig.resolve(
+            _runtime({"host": "b", "rpc": {"reply_topics": "a/#"}}), "data"
+        )
+        assert cfg.rpc.reply_topics == ["a/#"]
+
+    def test_malformed_filter_fails_fast(self):
+        """A filter that can never match would turn EVERY reply into a warning.
+
+        That is the shape of a check which cries wolf, so it must be caught at
+        startup rather than lived with.
+        Filter không bao giờ khớp sẽ biến MỌI reply thành cảnh báo - đúng hình
+        dạng phép dò kêu oan, nên phải chết ngay lúc khởi động.
+        """
+        with pytest.raises(ValueError, match="invalid topic filter"):
+            MqttConfig.resolve(
+                _runtime({"host": "b", "rpc": {"reply_topics": ["a/#/b"]}}), "data"
+            )
+
+    def test_wrong_type_fails_fast(self):
+        with pytest.raises(ValueError, match="must be a list"):
+            MqttConfig.resolve(
+                _runtime({"host": "b", "rpc": {"reply_topics": 5}}), "data"
+            )

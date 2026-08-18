@@ -1,11 +1,67 @@
 # XIME Framework — Hướng dẫn phiên làm việc
 
-Python backend framework. Bản mới nhất **trên PyPI** vẫn là **0.7.0**; trong repo
-đã là **0.7.1 - CODE XONG 2026-08-03, CHƯA COMMIT, CHƯA ĐẨY PyPI** (chủ dự án tự
-đẩy, đừng đẩy hộ). Vì `xime` cài **editable** nên code 0.7.1 đã có hiệu lực ngay
-với cả 31 app trên máy này, dù PyPI chưa có.
+Python backend framework. **0.7.1 ĐÃ PHÁT HÀNH** (PyPI có 12 bản, `0.1.0` -> `0.7.1`;
+commit `975e10c v0.7.1` bên phát triển, `a3fcad8 v0.7.1` bên phát hành). Repo đang
+làm dở **0.7.2**.
 
-> ## 0.7.1 có gì (chi tiết: [`docs/ket-qua-0.7.1-2026-08-03.md`](docs/ket-qua-0.7.1-2026-08-03.md))
+⚠ **Repo phát hành `D:\code\xime framework\upload` CHỈ được copy sang khi có bản mới
+để phát hành** - nó giữ đúng bản đã lên PyPI, nên nó lệch với repo phát triển trong
+suốt thời gian làm dở là **bình thường**, không phải nợ. Đừng đồng bộ nó giữa chừng.
+
+Vì `xime` cài **editable** nên mọi thay đổi ở đây có hiệu lực ngay với cả 31 app trên
+máy này, kể cả phần 0.7.2 chưa phát hành. Chủ dự án tự đẩy PyPI, **đừng đẩy hộ**.
+
+> ## 0.7.2 (đang làm) có gì
+>
+> - ⭐ **JWT: khóa xoay theo `kid`** - `JwtKeyProvider`, verify theo `kid`, ba knob
+>   PyJWT từng bị giấu (`algorithms` **danh sách trắng**, `leeway`, `require`),
+>   `sign(headers=)`, và ⛔ **`configure_jwt()` không có nguồn khóa nay NỔ lúc khởi
+>   động**. Chi tiết + phép đo:
+>   [`docs/jwt-keyset-va-trung-tinh-2026-08-18.md`](docs/jwt-keyset-va-trung-tinh-2026-08-18.md).
+>   Test **1553 passed, 11 skipped**. **Không phá app nào.**
+> - ⭐ **F3 - sàn dependency**: nâng **10 sàn** vì advisory (`pyjwt` `python-multipart`
+>   `starlette` `fastapi` `msgpack` `aiosmtplib` `protobuf` `cryptography` `pytest`),
+>   **sửa 3 sàn khai SAI** (`sqlalchemy` lệch 38 bản patch · `aiomqtt` mâu thuẫn với
+>   `paho-mqtt` cùng extra · `pytest-asyncio` nổ với pytest 9), thêm
+>   `.claude/scripts/check_dep_advisories.py` thành **bước 1b** của hướng dẫn phát
+>   hành. Test **1553** trên 24 sàn ghim thật, rồi 1553 + data-service 388 +
+>   linh-kien 295 trên môi trường mới. Chi tiết ở `CHANGELOG.md` `[0.7.2]`.
+>   ⚠ **Môi trường chung đã nâng theo**: `starlette` 0.52.1 -> 1.6.0 (nhảy một bản
+>   lớn), `python-multipart` 0.0.22 -> 0.0.32, `cryptography` 49 -> 50.
+> - ⭐ **F14 - khoá lưu trữ: từ chối gạch ngược và NUL**. `validate_object_key` dùng
+>   `PurePosixPath` nên khoá kiểu Windows lọt hết ba phép kiểm rồi mang **BA** nghĩa
+>   khác nhau (local Windows từ chối · local **Linux NHẬN** · S3 nhận, không phòng
+>   tuyến nào) - trong khi docstring của chính hàm đó hứa *"đổi backend không đổi
+>   tập key hợp lệ"*.
+>   ⭐ Phần đáng vá nhất hoá ra là **NUL chứ không phải `\`**: `exists()` trả `False`
+>   cho khoá sai (**dấu hiệu 3 của luật 03**) và `put()` ném `ValueError` trần thay vì
+>   `StorageError`. Test đi **thành cặp**, hai backend **import chung** `UNSAFE_KEYS`;
+>   đối chứng gỡ vá ra **5 đỏ**. Test **1563 passed, 11 skipped** + data-service 388.
+>   **Không app nào phải sửa** - `data-service` đã tự chuẩn hoá `\` -> `/` từ trước.
+> - ⭐ **F17 - MQTT RPC: reply topic do BÊN GỌI đặt**. Adapter publish reply bằng
+>   credential broker của **dịch vụ**, tới topic **bên gọi chỉ định** - trên broker có
+>   ACL theo client thì bên gọi mượn được quyền của ta (*confused deputy*), và nó còn
+>   điều khiển trọn `CorrelationData`. Thêm `mqtt.rpc.reply_topics`; chủ dự án chốt
+>   **cảnh báo chứ không chặn**. ⚠ Là **topic filter MQTT**, không phải tiền tố chuỗi.
+>   Test **1577 passed** (+14). **Không app nào dùng MQTT** nên không đụng ai.
+> - ⭐ **F15 - trần task `EventBus`**. `publish()` sinh một task mỗi handler, không
+>   trần; đo được **100.000 task** từ 50k publish, và **36 MB** từ 20k event 1 KB vì
+>   `_pending` giữ sống chính object event. Chủ dự án chốt **BỎ** khi quá trần, cấu
+>   hình bằng **`configure_event_bus()` trong `config/*.py`** (framework config, KHÔNG
+>   phải `application.yml`), kèm **`never_drop=(...)`** cho thứ không được phép mất và
+>   `max_pending=None` cho ai cố ý bỏ trần. Test **1593 passed** (+16).
+>   ⛔ Nợ luật 03 (bỏ và xếp lịch cùng trả `None`) khai ra, cố ý để **0.8**.
+> - ⭐⭐ **F1 - WebSocket: có đường đăng ký route, và có xác thực**. ⚠ Đổi API công
+>   khai trong một bản patch, chủ dự án chốt vì **chưa app nào dùng WS**.
+>   ⚠⚠ Kiểm toán bỏ sót: **framework KHÔNG CÓ đường đăng ký route WS nào cả** - nên
+>   đây là **làm nốt tính năng chưa làm**, không phải vá lỗi.
+>   ⭐ **Xác thực nằm ở lớp ĐĂNG KÝ ROUTE, không nằm trong `on_connect`** (khác đề
+>   xuất kiểm toán): đặt trong `on_connect` là để lớp con xoá chốt chặn bằng một dòng
+>   override. `@ws("/path")` · token qua **subprotocol** · `JwtAuthenticator` dùng
+>   chung với HTTP · đóng kết nối khi token hết hạn. Tài liệu: `docs/{vn,en}/websocket.md`.
+>   **1624 passed** (+31).
+
+> ## 0.7.1 (ĐÃ PHÁT HÀNH) có gì (chi tiết: [`docs/ket-qua-0.7.1-2026-08-03.md`](docs/ket-qua-0.7.1-2026-08-03.md))
 >
 > 1. **Server streaming cho bản ghi CÓ KIỂU** - `@stream` + handler async
 >    generator `-> AsyncIterator[Model]`, proto ra `returns (stream Resp)` không
@@ -106,22 +162,30 @@ Cần kênh riêng với repo khác thì **xin leader mở**, đừng tự tạo
 **quyết định cấu trúc, đổi cấu trúc, hoặc thứ ảnh hưởng lớn tới framework thì HỎI CHỦ DỰ ÁN TRƯỚC**.
 Ví dụ đang chờ: đổi thứ tự phân giải `__version__` (mục ngay dưới).
 
-### ⚠ `xime.__version__` trả `0.6.3` là ĐÚNG theo cơ chế, không phải ai quên bump
+### ⚠ `xime.__version__` trả lời câu "lần cuối ai CÀI LẠI gói", không phải "mã đang chạy là bản nào"
 
-Đo 2026-08-04: `xime.__version__` = `0.6.3` · `importlib.metadata` = `0.6.3` ·
-`pyproject.toml` = `0.7.1` · dist-info = `xime-0.6.3.dist-info` · `from xime.core.contract import
-stream` **chạy được** (tức mã đang là 0.7.1).
+✅ **Đã chạy lại `pip install -e .` ngày 2026-08-18** theo yêu cầu chủ dự án. Nay
+`xime.__version__` = `importlib.metadata` = **`0.7.1`**, khớp `pyproject.toml`.
+Kiểm luôn sau khi cài lại: framework **1553 passed**, data-service **388 passed**.
 
-`xime/__init__.py` lấy version từ `importlib.metadata.version("xime")`, chỉ fallback sang hằng số
-trong mã khi metadata vắng. Mà cài editable thì **mã nạp thẳng từ repo (luôn mới), còn metadata
-đóng băng tại lần `pip install -e` cuối** - ở đây là hồi 0.6.3.
+⚠ **Nhưng cơ chế thì không đổi, nên chuyện này sẽ lặp lại.** `xime/__init__.py` lấy version từ
+`importlib.metadata.version("xime")`, chỉ fallback sang hằng số trong mã khi metadata vắng. Cài
+editable thì **mã nạp thẳng từ repo (luôn mới), còn metadata đóng băng tại lần `pip install -e`
+cuối**. Trước hôm nay nó đứng ở `0.6.3` suốt hai bản.
 
-Nên `0.6.3` trả lời câu *"lần cuối ai cài lại gói"*, không phải *"mã đang chạy là bản nào"* - một
-giá trị mang hai nghĩa, đúng [luật 03](../../.claude/rules/03-mot-gia-tri-mot-nghia.md).
+Ngay lúc này nó **lại đang lệch một lần nữa**: mã trong repo là **0.7.2 đang làm dở**, mà số vẫn
+là `0.7.1`. Đó là một giá trị mang hai nghĩa, đúng
+[luật 03](../../.claude/rules/03-mot-gia-tri-mot-nghia.md).
 
-**Cách kiểm đúng: hỏi code, đừng hỏi số.** Hai việc còn treo, thẩm quyền khác nhau: chạy lại
-`pip install -e .` (đụng môi trường dùng chung -> chờ leader/chủ dự án gật) · đổi thứ tự ưu tiên
-của `__version__` (đổi giá trị công khai 30 codebase có thể đọc -> **hỏi chủ dự án**).
+**Cách kiểm đúng vẫn là: hỏi code, đừng hỏi số.**
+
+```python
+from xime.starters.jwt import JwtKeyProvider   # co -> ma la 0.7.2-dev
+from xime.core.contract import stream          # co -> ma tu 0.7.1 tro len
+```
+
+Còn treo, thẩm quyền thuộc chủ dự án: **đổi thứ tự ưu tiên của `__version__`** (đổi một giá trị
+công khai mà 31 codebase đọc được).
 
 ## Ba thư mục, đừng nhầm (đổi cấu trúc 2026-08-01)
 
@@ -387,11 +451,11 @@ Trạng thái các mảng lớn (cập nhật 2026-07-29):
 
 | # | Việc | Ghi chú |
 | --- | --- | --- |
-| 1 | **Commit + đẩy PyPI 0.7.1** | Code xong, CHANGELOG xong, version đã bump. Chủ dự án tự đẩy. Repo phát hành `upload/` **chưa đồng bộ**; cả hai repo **chưa có git tag nào**, kể cả v0.7.0 |
+| 1 | ✅ ~~Commit + đẩy PyPI 0.7.1~~ | **XONG** - PyPI có `0.7.1`, commit `975e10c` / `a3fcad8`. ⚠ Còn lại: **cả hai repo vẫn CHƯA CÓ GIT TAG NÀO**, kể cả `v0.7.0` và `v0.7.1`, dù bước 8 của hướng dẫn phát hành yêu cầu. Bù tag cũ được vì commit phát hành có tên rõ ràng |
 | 2 | ✅ ~~A1 - keyset JWT nhiều khoá theo `kid`~~ | **XONG 2026-08-18 phía framework** - xem mục 4b ở trên và [`docs/jwt-keyset-va-trung-tinh-2026-08-18.md`](docs/jwt-keyset-va-trung-tinh-2026-08-18.md). ⚠ **Phần ở 19 app thì CHƯA**: framework không với tới `config/jwt.py` của họ. Nó chỉ **xoá lý do tồn tại** của lỗ - nay có ô thứ ba thay vì phải chọn giữa *"có sẵn PEM lúc khởi động"* và *"không middleware nào"*. Việc còn lại: vá **`saas-foundation/template` trước** (nguồn sinh sôi của 20 app kia), rồi lần lượt |
-| 3 | **F3 - nâng sàn dependency** (đợt 4) | `pyjwt>=2.13` · `python-multipart>=0.0.31` · `fastapi>=0.115.3`. ⚠ Phải **cài thử và chạy hết bộ test**, đừng chỉ sửa số - nếu không là thay một lời khai đã kiểm chứng bằng một lời khai đoán mò |
-| 4 | **F14 · F15 · F17** (đợt 5) | Đều không phá tương thích: `validate_object_key` từ chối `\` và NUL · trần task `EventBus` · allowlist `ResponseTopic` của MQTT RPC. ⛔ **F9 ĐÃ BỊ XOÁ, không phải được vá**: nó là *"`_read_peer_app_id` neo đầu chuỗi thay vì `find()`"*, mà bản gỡ phụ thuộc khái niệm 2026-08-17 đã bỏ hẳn việc lọc scheme nên **không còn chuỗi nào để neo** |
-| 5 | **F1 - đường xác thực WebSocket** (đợt 5) | Làm được ở 0.7.x nếu opt-in. **Phải xong TRƯỚC app `xime chat`**, mà app đó chưa bắt đầu |
+| 3 | ✅ ~~**F3 - nâng sàn dependency**~~ | **XONG 2026-08-18**, và **rộng hơn đề xuất gốc**: nâng **10 sàn** vì advisory, **sửa 3 sàn khai SAI**, thêm `.claude/scripts/check_dep_advisories.py` làm **bước 1b** của hướng dẫn phát hành. Chi tiết: `CHANGELOG.md` mục `[0.7.2]` + mục F3 của [`docs/kiem-toan-bao-mat-0.7.md`](docs/kiem-toan-bao-mat-0.7.md).<br>⭐ Ba thứ đáng nhớ: vế *"nâng `fastapi` để kéo `starlette`"* của đề xuất gốc **SAI** (mọi fastapi 0.115-0.132 giữ cận dưới `starlette>=0.40.0` đứng yên, chỉ nắp trên di chuyển) nên nay **khai `starlette` trực tiếp** dù không import gì từ nó · phép thử **cài ở đúng sàn rồi chạy test** ra nhiều lỗi hơn `pip-audit`, và cả ba đều **không phải advisory** (`aiomqtt`/`paho-mqtt` mâu thuẫn nhau; `pytest`/`pytest-asyncio` metadata khai hợp mà chạy thì nổ; `sqlalchemy>=2.0` sai suốt **38 bản patch**) · **một advisory không vá được**, đã ghi nhận kèm lý do (`apscheduler` PYSEC-2026-282 - an toàn nhờ **cách nối dây mặc định**, không nhờ thư viện).<br>⚠ **Sàn là `>=` nên pip mặc định cài bản MỚI NHẤT - một sàn sai vì vậy hoàn toàn vô hình cho tới ngày có người ghim xuống.** Đó là lý do bước 1b phải chạy mỗi lần phát hành |
+| 4 | ✅ ~~**F14 · F15 · F17**~~ (đợt 5 XONG) | **F14 XONG 2026-08-18**: `validate_object_key` từ chối `\` và NUL. ⭐ Phạm vi thật **rộng hơn một trục** so với báo cáo: không phải hai backend nhận hai tập khoá mà **BA** kết quả cho cùng một khoá (local Windows từ chối · local **Linux NHẬN** vì `\` là tên file hợp lệ · S3 nhận, không phòng tuyến nào). ⭐ Phần đáng vá nhất hoá ra là **NUL, không phải `\`**: `exists()` trả `False` cho khoá sai (**dấu hiệu 3 luật 03**) và `put()` ném `ValueError` trần thay vì `StorageError` - rò kiểu ngoại lệ qua biên API công khai. Test đi **thành cặp**, hai backend **import chung** `UNSAFE_KEYS` chứ không chép tay; đối chứng gỡ vá ra **5 đỏ**. Không app nào phải sửa (`data-service` đã tự chuẩn hoá `\`->`/` từ trước). **1563 passed** (+10).<br>**F17 XONG cùng ngày**: `mqtt.rpc.reply_topics` - chủ dự án chốt **cảnh báo chứ không chặn**. ⚠ Khoá dùng **topic filter MQTT**, không phải tiền tố chuỗi, và **không** mang tên `reply_prefix` như kiểm toán đề xuất - `nhamay/reply/` đọc như tiền tố hợp lý nhưng là filter thì khớp **không gì cả**. Chưa khai thì hành vi y hệt cũ, chỉ một WARNING lúc khởi động và **chỉ khi** client có `@rpc`. ⭐ Bốn chi tiết cố ý, đừng gỡ: kiểm **trước** khi gọi handler (để log vẫn ra khi handler ném lỗi) · cảnh báo **khử trùng lặp + trần 64 topic** (không thì bên gọi biến cảnh báo thành lũ log bằng cách đổi topic - cùng họ F15) · filter sai cú pháp **nổ lúc khởi động** · cảnh báo khởi động chỉ kêu khi thực sự có `@rpc`. Test **thành cặp ở cả hai tầng** (phải kêu / phải im); đối chứng gỡ phép kiểm ra **4 đỏ** còn nhóm "phải im" vẫn xanh. **1577 passed** (+14).<br>**F15 XONG cùng ngày**: trần task `EventBus`, chủ dự án chốt **BỎ** khi quá trần, và chốt luôn chỗ đặt cấu hình - *"bao nhiêu thì bỏ là việc của người thiết kế app... đặt vào file .py cho lập trình viên"*. Nên là **`configure_event_bus()` trong `config/*.py`, KHÔNG có khoá nào trong `application.yml`**. ⭐ Chủ dự án bổ sung giữa chừng thứ cả kiểm toán lẫn tôi đều thiếu: **`never_drop=(AuditEvent, ...)`** - *"lỡ cái quan trọng bỏ lại dở"*; một con số duy nhất thì đối xử với event kiểm toán y hệt event thông báo. ⭐ Đo được hai thứ báo cáo gốc chưa nói: `_pending` giữ tham chiếu mạnh nên **bộ nhớ tăng theo KÍCH THƯỚC EVENT** (20k event x 1 KB = 36 MB), và **task tồn đọng cũng là quyền hạn tồn đọng** (ngữ cảnh bảo mật sống qua `clear_security()`). ⚠ Ba chi tiết đừng gỡ: **bỏ NGUYÊN CON** (nửa event là trạng thái không ai thiết kế cho) · bộ đếm hãm nhịp của cảnh báo *miễn trần* phải **RIÊNG** (`0 % 1000 == 0` khiến bản nháp đầu kêu ở mọi lần publish, có test canh) · mặc định **10.000** chứ không phải không trần. ⛔ **Nợ luật 03 khai ra, cố ý để 0.8**: bên gọi không phân biệt được event bị bỏ với event đã xếp lịch, cả hai trả `None`. Test **16 cái đi thành cặp**, đối chứng ra **8 đỏ / 8 xanh**. **1593 passed** (+16).<br>⚠ **Phát hiện kèm, CHƯA làm**: framework **không bao giờ tự gọi `drain()` lúc tắt máy** nên handler đang chạy bị cắt ngang - tài liệu nay bảo người dùng tự gọi trong `PreDestroy`, sửa tử tế thì thuộc 0.8 vì chạm vòng đời adapter. ⛔ **F9 ĐÃ BỊ XOÁ, không phải được vá**: nó là *"`_read_peer_app_id` neo đầu chuỗi thay vì `find()`"*, mà bản gỡ phụ thuộc khái niệm 2026-08-17 đã bỏ hẳn việc lọc scheme nên **không còn chuỗi nào để neo** |
+| 5 | ✅ ~~**F1 - đường xác thực WebSocket**~~ | **XONG 2026-08-18 trong 0.7.2** - chủ dự án chốt làm ngay, **vượt luật "0.7.x không đổi API công khai"** một cách có ý thức vì chưa app nào dùng WS. ⚠⚠ **Kiểm toán bỏ sót một mảnh làm đổi cả bức tranh: framework KHÔNG CÓ đường đăng ký route WebSocket nào cả** - `WebSocketHandler` là lớp nền không gắn được vào app, PoC của kiểm toán chạy được vì nó tự dựng `WebSocketRoute` bằng Starlette. Nên đây là **làm nốt một tính năng chưa làm**, không phải vá lỗi. ⭐⭐ **Chỗ lệch khỏi đề xuất, đáng nhớ nhất: xác thực chạy ở lớp ĐĂNG KÝ ROUTE, KHÔNG nằm trong `on_connect`** - đặt trong `on_connect` là biến chốt chặn thành thứ lớp con xoá đi chỉ bằng cách override, mà đó là method đầu tiên ai cũng override; có test canh handler tự `accept()` vẫn không tới được. Gồm: `@ws("/path")` · **`JwtAuthenticator` tách khỏi middleware** (HTTP và WS dùng CHUNG một định nghĩa "token hợp lệ") · token qua **subprotocol** `xime.bearer.` (trình duyệt không đặt được header - giới hạn nền tảng) · `close_on_token_expiry` mặc định BẬT · `public_paths` dùng chung với HTTP · WARNING khi có `@ws` mà chưa `configure_jwt()`. ⛔ **Kiểm `Origin` cố ý KHÔNG làm**: CSWSH chỉ thật khi xác thực bằng **cookie**, mà subprotocol thì trang kẻ tấn công không có token - **ngày nào thêm cookie thì kiểm `Origin` thành bắt buộc**. ⚠ Hai lỗi trong chính bộ test, khuôn dễ lặp: TTL dưới 1 giây vô dụng (PyJWT ép `exp` về int) và **bản đầu chỉ đòi "bị ngắt" nên xanh cả khi bắt tay bị TỪ CHỐI** - đo đúng triệu chứng của nguyên nhân khác hẳn. 31 test mới, đối chứng **5 đỏ**. **1624 passed** (+31) |
 | 6 | Đợt 0 + phần còn lại đợt 1 (A2, A4) | **Nằm ở repo app, không phải framework.** Đợt 0 vẫn chờ chủ dự án quyết A6 (chỗ để secret) |
 
 ⚠ **F10 (cô lập adapter, đợt 3) ĐÃ CHUYỂN SANG 0.8** - nó mở rộng `Adapter` protocol, tức

@@ -32,6 +32,7 @@ Mọi loại config đều theo pattern này — không có ngoại lệ:
 - Middleware → `configure_middleware(...)`
 - CORS → `configure_cors(...)`
 - Exception handler → `configure_exception_handlers(...)`
+- Trần task của event bus → `configure_event_bus(...)`
 
 ### Cái gì KHÔNG đi qua `configure_*`
 
@@ -45,6 +46,17 @@ tương ứng:
   Ngoại lệ duy nhất là server phụ cần cert khác — truyền thẳng
   `WebAdapter(..., ssl=ServerTlsConfig(...))`, để trống thì kế thừa `server.ssl`.
 - Host/port, chuỗi kết nối DB/Redis, secret → cùng lý do.
+
+⭐ Ranh giới này không phải lúc nào cũng hiển nhiên, nên ghi lại một ca đã cân nhắc:
+**trần số task đang bay của `EventBus`** (`configure_event_bus`, 0.7.2) trông rất giống
+một tham số vận hành - nó là một con số về tài nguyên. Nhưng chọn nó đòi hỏi biết
+**handler của app chạy bao lâu, event của app to cỡ nào, và event nào không được phép
+mất** - ba thứ người vận hành không biết và không quyết được. Chủ dự án chốt 2026-08-18:
+*"bao nhiêu thì bỏ là việc của người thiết kế app... cần đặt vào file cấu hình (file .py
+cho lập trình viên)"*.
+
+> **Câu để phân loại: người vận hành có ĐỦ THÔNG TIN để chọn giá trị này không?**
+> Không thì nó là framework config, dù nó là một con số và dù nó nghe như chuyện vận hành.
 
 Đối chiếu: mTLS của **gRPC** thì CÓ `configure_grpc_tls(provider, server_id)` — vì ở đó
 cert lấy động từ Trust lúc chạy, tức là nối dây một `provider` (quyết định kiến trúc),

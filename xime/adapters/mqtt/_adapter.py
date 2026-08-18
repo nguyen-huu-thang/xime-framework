@@ -5,6 +5,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from ._config import MqttConfig, mqtt_registry
+from ._decorators import MqttKind
 from ._dispatcher import MqttDispatcher
 from .routing._builder import MqttRouteBuilder
 from .routing._scanner import MqttControllerScanner
@@ -102,7 +103,10 @@ class MqttAdapter:
         for i, route in enumerate(routes):
             route.subscription_id = i + 1
         self._dispatcher = MqttDispatcher(
-            routes, self._connection, mqtt_registry.get_error_mappings()
+            routes,
+            self._connection,
+            mqtt_registry.get_error_mappings(),
+            allowed_reply_topics=self._config.rpc.reply_topics,
         )
         # (filter, qos, subscription_id) to (re-)issue on every (re)connect.
         self._subscriptions = [
@@ -112,6 +116,7 @@ class MqttAdapter:
         ]
 
         self._warn_insecure_mode()
+        self._warn_unrestricted_rpc_replies(routes)
         await self._run_forever()
 
     def _warn_insecure_mode(self) -> None:
@@ -140,6 +145,32 @@ class MqttAdapter:
                 "are unencrypted and the broker's identity is not verified.",
                 cfg.client_id, cfg.host, cfg.port,
             )
+
+    def _warn_unrestricted_rpc_replies(self, routes: list) -> None:
+        """Say once that RPC replies go wherever the caller asks (F17).
+
+        Only fires when this client actually serves `@rpc`, and only when no
+        `mqtt.rpc.reply_topics` is declared - otherwise the dispatcher reports
+        per message. One line at startup beats one line per message: a check
+        that cries wolf is a check somebody switches off.
+        Chỉ kêu khi client này thực sự phục vụ `@rpc` và chưa khai
+        `mqtt.rpc.reply_topics`; có khai rồi thì dispatcher báo theo từng
+        message. Một dòng lúc khởi động hơn một dòng mỗi message - phép dò kêu
+        oan là phép dò sẽ bị tắt.
+        """
+        cfg = self._config
+        if cfg is None or cfg.rpc.reply_topics:
+            return
+        if not any(r.info.kind is MqttKind.RPC for r in routes):
+            return
+        logger.warning(
+            "MQTT client '%s' serves RPC handlers and publishes each reply to the "
+            "topic the CALLER names, using this client's broker credentials. On a "
+            "broker with per-client ACLs a caller can therefore reach topics its "
+            "own ACL forbids. Declare mqtt.rpc.reply_topics to have replies "
+            "outside the expected topics reported.",
+            cfg.client_id,
+        )
 
     async def stop(self) -> None:
         """Stop reconnecting, cancel in-flight handlers, drop the connection."""

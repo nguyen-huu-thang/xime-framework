@@ -6,6 +6,7 @@ from typing import Any
 from xime.core.config.binding import BindingConfig
 from xime.core.config.runtime import RuntimeConfig
 from xime.core.container import XimeContainer
+from xime.core.event._config import event_bus_registry
 from xime.core.event.bus import EventBus
 from xime.core.lifecycle.manager import LifecycleManager
 
@@ -52,7 +53,7 @@ class StartupOrchestrator:
                 "Call stop() before starting again."
             )
 
-        event_bus = EventBus()
+        event_bus = EventBus(event_bus_registry.get_config())
         container = (
             XimeContainer()
             .register_instance(RuntimeConfig, self._runtime)

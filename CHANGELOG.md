@@ -5,6 +5,359 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [0.7.2] - 2026-08-18
+
+**JWT: khóa xoay theo `kid`, và trả nợ trung tính.**
+
+Starter JWT mô hình hóa JWT như *"một chuỗi ký bằng MỘT khóa cố định"*. Không có
+gì của dự án nào lọt vào nó - mọi trường đều chuẩn RFC, chỉ đổi tên. Vấn đề là
+**những thứ KHÔNG có**: framework **ký** kèm `kid` nhưng **không có một dòng nào
+verify theo `kid`**, nên mọi triển khai có xoay khóa buộc phải viết lại cả
+middleware - tức viết lại chính phần verify mà không ai muốn đụng.
+
+Chi tiết + phép đo: `.claude/docs/jwt-keyset-va-trung-tinh-2026-08-18.md`.
+
+Test: **1553 passed, 11 skipped** (0.7.1: 1516). **Không phá app nào đang chạy.**
+
+⬆ Sau F1 + F3 + F14 + F15 + F17 trong cùng ngày: **1624 passed, 11 skipped**.
+
+### Added
+
+⚠ Phép đo: `grep -rn "kid" xime/starters/jwt/` trước bản này ra **đúng một dòng**, ở
+`_signer.py` lúc KÝ. Phía verify không có gì. Và **21/21 repo dùng framework đã tự
+viết lại** middleware JWT - 413 dòng mỗi repo.
+
+- **`JwtKeyProvider`** - Protocol một method, `keys(kid) -> Sequence[KeyContext]`,
+  đăng ký bằng `configure_jwt(config, key_provider=YourClass)`. Cùng khuôn
+  `configure_grpc_tls(provider=...)`: truyền một CLASS, framework lấy từ DI.
+  `keys()` **bắt buộc đọc bộ nhớ, không bao giờ gọi mạng**; framework không lấy,
+  không hẹn giờ, không cache - **giữ khóa luôn mới hoàn toàn là việc của app**.
+  Nhận `kid` là **chuỗi của RFC 7515**, không phải kiểu dữ liệu nào của framework.
+- **Middleware verify theo `kid`**: đọc header bằng `get_unverified_header` (không
+  cần khóa), hỏi provider, thử lần lượt các khóa ứng viên. Nhiều ứng viên là bình
+  thường trong lúc xoay khóa gối đầu, và đó là thứ làm cho nó liền mạch.
+- **`JwtMiddlewareConfig` phơi ba knob PyJWT vốn có mà config giấu đi**:
+  `algorithms` (danh sách trắng - **trần** chứ không phải phép chọn, khóa nào khai
+  thuật toán ngoài danh sách thì bị từ chối trước khi kiểm chữ ký), `leeway`
+  (dung sai đồng hồ cho `exp`/`nbf`/`iat` - thiếu nó thì hai máy lệch vài giây
+  sinh **401 chập chờn**), `require` (⚠ `exp` chỉ được kiểm khi claim **tồn tại**,
+  nên token không mang `exp` mặc định **không bao giờ hết hạn**).
+- **`sign()` nhận `headers=`.** Trước đây `kid` là header **duy nhất** app đặt
+  được, trong khi payload thì mở toang - nên `typ: "at+jwt"` của RFC 9068 không
+  khai nổi. Ba tên bị **từ chối** chứ không gộp: `alg` (PyJWT cho header ghi đè
+  tham số `algorithm`, đo được, nên nó âm thầm mâu thuẫn với
+  `KeyContext.algorithm`), `b64` (bật chế độ detached payload), `kid` (phải gọi
+  tên đúng khóa đã ký, mà chỉ `KeyContext.key_id` biết đó là khóa nào).
+
+### Fixed
+
+- ⛔ **`configure_jwt()` không có nguồn khóa nào nay NỔ lúc khởi động.**
+  `key_context` từ bắt buộc thành tùy chọn, và phải có **đúng một** trong
+  `key_context` / `key_provider` - không có cái nào, hoặc có cả hai, đều là
+  `StartupException`. Từ chối *"không có cái nào"* là toàn bộ mục đích: trước đây
+  app không lấy được khóa lúc khởi động chỉ đơn giản là **không gọi `configure_jwt`**
+  và lên mà **không có middleware xác thực nào**, tự báo là khỏe trong khi mọi
+  endpoint đều mở. **Không phá app nào đang chạy**: `key_context` vốn bắt buộc nên
+  trạng thái "không có gì" trước nay không tồn tại được.
+- **Middleware nhận `verifier` từ ngoài thay vì tự dựng `PyJwtTokenVerifier()`.**
+  `JwtTokenVerifier` là điểm mở rộng **có tài liệu từ 0.2** - docstring của nó nêu
+  đích danh JWKS endpoint và authorization server bên ngoài - nhưng middleware do
+  adapter dựng chứ không do DI dựng, nên `dependency.bind({JwtTokenVerifier: ...})`
+  **không bao giờ tới được nó**. Không có gì hỏng; phép thay thế chỉ đơn giản là
+  không có tác dụng, và **không test nào tồn tại để bắt được**. Nay khai tường
+  minh qua `configure_jwt(config, verifier=YourClass)`.
+- **`key_id=""` không còn đóng dấu `kid: ""` vào token thật.** `is not None` cho
+  chuỗi rỗng lọt qua. Tệ hơn cả không có `kid`: bên verify tra `""` không thấy gì
+  rồi từ chối, trong khi token vẫn **trông như đã gọi tên khóa** - người gỡ lỗi
+  bắt đầu từ chỗ sai.
+
+### Notes
+
+- **Không có gì phá vỡ.** Mọi mục đều là mở một ô mới hoặc chuyển tiếp thêm tham
+  số; app đang dùng một khóa tĩnh chạy y như cũ.
+- `verify()` nhận thêm ba tham số keyword. Về lý thuyết đó là đổi Protocol
+  `JwtTokenVerifier`; thực tế **không có implementation nào của bên thứ ba được
+  biết tới**. Tới knob thứ tư thì nên gom chúng vào một object options thay vì
+  liệt kê tiếp - đã ghi vào docstring.
+- **Không nằm trong đợt này**, vẫn còn nợ: xác thực WebSocket (F1) và JWT cho
+  gRPC. Cả hai là **bề mặt mới**, không phải sửa chữa.
+- Cảnh báo *"ký mà không có `kid`"* **không làm được**: `sign()` nhận khóa theo
+  từng lời gọi nên lúc khởi động framework chưa biết gì, còn cảnh báo mỗi lần gọi
+  thì thành rác log. Chuyển thành tài liệu trong docstring của `PyJwtTokenSigner`.
+
+---
+
+**Tài liệu: README hết khai sai về WebSocket.**
+
+### Fixed
+
+- `README.md` và `README-vn.md` vẫn viết *"WebSocket support is partial"* /
+  *"WebSocket đang hoàn thiện"*, và mục "cần cộng đồng giúp" vẫn liệt
+  *"completing WebSocket support"*. README là **trang đích trên PyPI**, nên đó
+  là thứ người ngoài đọc trước tiên.
+- ⚠ Kèm một chỗ trôi lệch giữa hai bản: `README-vn.md` mô tả gRPC adapter thiếu
+  **server streaming có kiểu** - tính năng chính của 0.7.1 - trong khi bản tiếng
+  Anh có. Hai trang đích nói hai chuyện khác nhau về cùng một bản.
+- Thêm `docs/{vn,en}/websocket.md` vào bảng tài liệu của cả hai README.
+
+**WebSocket: có đường đăng ký route, và có xác thực (F1).**
+
+⚠ **Đổi API công khai trong một bản patch.** Chủ dự án chốt làm ngay vì **chưa
+app nào dùng WebSocket**, nên hôm nay đổi là miễn phí; đợi tới lúc có app chat
+thì không.
+
+Trước bản này `WebSocketHandler` là một lớp nền **không có đường gắn vào ứng
+dụng** - không `@ws`, không `add_api_websocket_route` ở đâu trong `xime/`, và
+chính docstring của nó viết *"routing API sẽ được thiết kế sau"*. Cộng với việc
+`JwtAuthMiddleware` cho mọi scope không phải `http` đi thẳng, một route WebSocket
+tự dựng bằng tay nhận **mọi** kết nối, kể cả không có token.
+
+### Added
+
+- **`@ws("/path")`** - decorator cấp lớp, đánh dấu một `WebSocketHandler`. Lớp
+  được DI dựng như mọi controller và quét từ cùng danh sách gói.
+- **Xác thực bắt tay bằng subprotocol.** Trình duyệt không đặt được header trên
+  `new WebSocket(...)`, nên token đi trong `Sec-WebSocket-Protocol` - cách chuẩn
+  của ngành (Kubernetes, Firebase), và khác query string nó **không lọt vào log
+  proxy, lịch sử trình duyệt hay `Referer`**.
+
+```js
+new WebSocket(url, ["xime.bearer." + token, "xime"]);
+```
+
+- **`JwtAuthenticator`** - phần verify tách khỏi `JwtAuthMiddleware` để HTTP và
+  WebSocket dùng **chung một** định nghĩa "token hợp lệ".
+- **`close_on_token_expiry`** (mặc định **BẬT**) - đóng kết nối khi token mở nó
+  hết hạn. Thiếu nó thì thu hồi token **không cắt được** phiên WebSocket.
+- **`JWT_CLAIMS` nay export được** từ `xime.starters.jwt`. Script
+  `check_doc_imports.py` bắt được: tài liệu bảo người đọc tra claim, mà hằng số
+  đó chỉ nằm trong `_middleware`.
+- Tài liệu mới: `docs/{vn,en}/websocket.md`.
+
+### Changed
+
+- Đã gọi `configure_jwt()` thì **mọi** đường `@ws` đòi token hợp lệ, trừ đường
+  nằm trong `public_paths` - **cùng danh sách với HTTP**, vì *"đường này mở"* nên
+  mang một nghĩa trong một ứng dụng chứ không phải hai.
+- `on_connect` mặc định nay accept kèm **vọng lại subprotocol đã thoả thuận**,
+  và không bao giờ vọng lại entry chở token.
+- Có route `@ws` mà **chưa** gọi `configure_jwt()` thì WARNING lúc khởi động nêu
+  tên từng handler. Hành vi không đổi; thứ chấm dứt là sự im lặng.
+
+⭐ **Xác thực chạy ở lớp ĐĂNG KÝ ROUTE, không nằm trong `on_connect`** - khác đề
+xuất của kiểm toán, và đây là phần đáng đọc nhất. Đặt trong `on_connect` thì nó
+là một mặc định mà lớp con xoá đi chỉ bằng cách override method đó, mà đó lại là
+method đầu tiên ai cũng override. Có test canh: handler tự gọi `accept()` và
+không gọi `super()` **vẫn không tới được**.
+
+⚠ **Kiểm `Origin` cố ý KHÔNG làm.** Trình duyệt không áp CORS lên bắt tay
+WebSocket, nên *Cross-Site WebSocket Hijacking* là rủi ro thật - **nhưng chỉ khi
+xác thực dựa vào cookie**. Token đi bằng subprotocol thì trang của kẻ tấn công
+**không có token** để đưa vào; rủi ro bị đóng ở gốc. Ngày nào thêm đường xác
+thực bằng cookie thì kiểm `Origin` thành **bắt buộc** - đã ghi trong tài liệu.
+
+31 test mới đi thành **cặp**; đối chứng gỡ phép kiểm ra **5 đỏ**.
+
+**EventBus: trần số handler đang bay, và cách khai thứ không được bỏ (F15).**
+
+`publish()` sinh một asyncio Task cho mỗi handler rồi trả về ngay, không trần.
+Đo trên code cũ: 50.000 `publish` x 2 handler ra **100.000 task đang chờ**; và
+20.000 event x payload 1 KB giữ **36 MB** - vì `_pending` giữ tham chiếu mạnh
+tới task, task giữ coroutine, coroutine giữ **chính object event**. Bộ nhớ vì
+vậy tăng theo **kích thước event**, không theo một hằng số overhead.
+
+Đo thêm: task nền sao chép contextvars lúc tạo, nên handler chạy với
+`identity`/`permissions` của người gửi request kể cả sau `clear_security()`.
+Không phải lỗi (audit handler cần đúng thứ đó), nhưng cộng lại thì **task tồn
+đọng cũng là quyền hạn tồn đọng**.
+
+### Added
+
+- **`configure_event_bus(max_pending=..., never_drop=(...))`** trong
+  `xime.core.event`. Đây là **framework config, viết bằng Python** trong
+  `config/*.py` - **không** có khoá nào trong `application.yml`, vì chọn con số
+  này đòi hỏi biết handler chạy bao lâu, event to cỡ nào, và event nào không
+  được phép mất; người vận hành không biết ba thứ đó.
+- **`EventBus.dropped` / `EventBus.dropped_by_type()`** - log nói *vừa bỏ một
+  cái*, hai số này nói *đã bỏ bao nhiêu*. Chỉ cái sau dùng được để chỉnh trần.
+
+### Changed
+
+- Quá `max_pending` (**mặc định 10.000**) thì event bị bỏ **nguyên con** - hoặc
+  chạy hết handler, hoặc không handler nào. Nửa event là trạng thái không ai
+  thiết kế cho, mà lại không nhìn thấy được từ bên ngoài.
+- Log WARNING **có hãm nhịp** (lần đầu + mỗi 1.000 lần bỏ), nêu tên loại event
+  và cả hai cách sửa.
+
+Hai cách nói "đừng bỏ cái này":
+
+| Khai | Nghĩa |
+|---|---|
+| `never_drop=(AuditEvent,)` | Miễn trần cho vài loại. **Khớp kiểu chính xác**, giống cách tra handler - lớp con không thừa hưởng |
+| `max_pending=None` | Bỏ trần hoàn toàn, đúng hành vi trước 0.7.2 |
+
+⚠ `never_drop` **dời** rủi ro chứ không xoá: lũ event được miễn vẫn phình vô
+hạn, nên vượt trần thì bus ghi WARNING nói đúng điều đó (bộ đếm hãm nhịp
+**riêng** - dùng chung với bộ đếm bỏ thì `0 % 1000 == 0` khiến nó kêu ở mọi lần
+publish, có test canh).
+
+⛔ **Nợ luật 03 khai ra, cố ý chưa trả:** bên gọi không phân biệt được event bị
+bỏ với event đã xếp lịch - cả hai trả `None`. Đóng nó là đổi chữ ký công khai
+nên để **0.8**. Hệ quả đã ghi vào tài liệu: **đừng dùng event bus cho thứ mà mất
+là phải phát hiện được.**
+
+⚠ Ghi nhận, chưa làm: framework **không tự gọi `drain()` lúc tắt máy**, nên
+handler đang chạy bị cắt ngang. Tài liệu nay bảo người dùng gọi trong
+`PreDestroy`; sửa cho tử tế thuộc 0.8 vì chạm vòng đời adapter.
+
+16 test đi thành **cặp** (phải bỏ / phải không bỏ). Đối chứng: gỡ phép kiểm ra
+**8 đỏ / 8 xanh**, và 8 xanh đúng là nhóm "phải không bỏ".
+
+**MQTT RPC: nói ra được reply đi đâu, và kêu khi nó đi chỗ khác (F17).**
+
+MQTT v5 cho **bên gọi** đặt `ResponseTopic`, còn adapter publish reply bằng
+credential broker của **dịch vụ**. Trên broker có ACL theo client, bên gọi vì
+vậy chạm được topic mà ACL của nó cấm - nó mượn quyền của ta (*confused
+deputy*). Bên gọi cũng điều khiển hoàn toàn `CorrelationData`, và bytes đó được
+chép nguyên xi vào reply.
+
+Chủ dự án chốt: **cảnh báo, không chặn.**
+
+### Added
+
+- **`mqtt.rpc.reply_topics`** - danh sách **topic filter MQTT** (không phải tiền
+  tố chuỗi) mà reply RPC được phép rơi vào. Không khai thì hành vi y hệt trước.
+
+```yaml
+mqtt:
+  rpc:
+    reply_topics: [nhamay/reply/#, devices/+/reply]
+```
+
+| Cấu hình | Hành vi |
+|---|---|
+| Không khai | Như cũ. **Một** WARNING lúc khởi động, chỉ khi client có `@rpc` |
+| Khai, reply khớp | Im lặng |
+| Khai, reply không khớp | **Vẫn gửi**, kèm WARNING nêu tên topic |
+
+⚠ Dùng filter chứ không dùng tiền tố vì adapter này vốn đã bắt người dùng nghĩ
+bằng filter ở `@subscribe`; thêm hệ so khớp thứ hai trong cùng một adapter là tự
+tạo bẫy. Cũng vì vậy khoá **không** mang tên `reply_prefix` như kiểm toán đề
+xuất: `nhamay/reply/` đọc như một tiền tố hợp lý nhưng là filter thì nó khớp
+**không gì cả**.
+
+Bốn chi tiết cố ý, đừng gỡ:
+
+- Kiểm **trước** khi gọi handler, để dòng log vẫn xuất hiện khi handler ném lỗi.
+- Cảnh báo **khử trùng lặp + chặn trần 64 topic**, để bên gọi không biến một
+  cảnh báo thành lũ log bằng cách đổi topic.
+- Filter sai cú pháp **nổ lúc khởi động**: filter không bao giờ khớp thì mọi
+  reply đều thành cảnh báo, và cảnh báo kêu oan là cảnh báo sẽ bị tắt.
+- Cảnh báo khởi động chỉ kêu khi client **thực sự có `@rpc`**.
+
+Test đi **thành cặp ở cả hai tầng** (phải kêu / phải im), vì bản hiện thực "luôn
+kêu" cũng qua được nếu chỉ kiểm một vế. Đối chứng: gỡ phép kiểm ra **4 đỏ**,
+nhóm "phải im" vẫn xanh.
+
+⚠ Phòng thủ chiều sâu, **không thay thế ACL broker**.
+
+**Khóa lưu trữ: từ chối gạch ngược và NUL ở MỌI backend (F14).**
+
+`validate_object_key` dùng `PurePosixPath`, mà với nó `\` chỉ là ký tự thường -
+nên một khóa kiểu Windows đi lọt cả ba phép kiểm rồi mang **ba** nghĩa khác nhau:
+traversal trên local Windows, tên file thật trên local Linux, khóa thật trên S3.
+Docstring của chính hàm đó hứa *"đổi backend không đổi tập key hợp lệ"*, và lời
+hứa đó đang sai.
+
+NUL thì thuộc loại khác và nặng hơn: `Path.exists()` trả **`False`** (câu trả lời
+sai đội lốt câu trả lời đúng - dấu hiệu 3 của luật 03), còn `open()` ném
+**`ValueError`** trần chứ không phải `StorageError`, tức rò kiểu ngoại lệ qua
+biên API công khai.
+
+### Changed
+
+- `validate_object_key` từ chối thêm `\` và `\x00`. `StorageError` như mọi phép
+  kiểm khác, thông điệp nói rõ ký tự vi phạm.
+
+⚠ **Đây là siết đầu vào**, nên về lý là phá tương thích với ai đang ghi khóa chứa
+`\` lên S3. Đo trước khi làm: `data-service` là nơi duy nhất gọi tầng storage và
+`ObjectKeyPolicy` của nó đã tự chuẩn hoá `filename.replace("\\", "/")` từ trước,
+nên **không app nào phải sửa**. Chưa app nào dùng starter `s3`.
+
+- Test đi **thành cặp** ở cả hai backend, dùng **chung một danh sách**
+  `UNSAFE_KEYS` (test S3 `import` từ test local chứ không chép tay): một test bắt
+  4 khóa xấu phải bị từ chối, một test bắt `a..b/c` và ba khóa thường **vẫn phải
+  nhận**. Vế sau không thừa - chỉ có vế đầu thì cách sửa sai *"từ chối mọi thứ có
+  dấu chấm"* cũng qua được. Đối chứng: gỡ hai dòng vá thì **5 test đỏ**.
+
+**Sàn dependency: nâng 10 mốc, sửa 3 mốc SAI, thêm một phép kiểm cố định (F3).**
+
+`pip-audit` trên đúng tổ hợp sàn ta khai ra **26 CVE ở 3 gói** - trong khi chú
+thích ngay trên nó viết *"mỗi mốc đều đã CÀI THỬ chứ không phỏng đoán"*. Câu đó
+không sai: nó trả lời *"sàn có CHẠY không"*, còn `pip-audit` hỏi *"sàn có AN TOÀN
+không"*. Hai câu khác nhau, và chỉ câu đầu từng được kiểm.
+
+Test trên **24 sàn ghim thật**: **1553 passed, 11 skipped**. Rồi chạy lại trên
+môi trường mới nhất: 1553 passed, cộng `data-service` 388 và `linh-kien-dien-tu`
+295 - hai app thật, để chắc bước nhảy starlette 0.x -> 1.x không phá gì.
+
+### Changed
+
+Sàn nâng vì **advisory**:
+
+| Gói | Trước | Sau |
+| --- | --- | --- |
+| `pyjwt` | `>=2.8` | `>=2.13` |
+| `python-multipart` | `>=0.0.7` | `>=0.0.31` |
+| `starlette` | *không khai* | `>=1.3.1` |
+| `fastapi` | `>=0.110.1` | `>=0.133.0` |
+| `msgpack` | `>=1.0` | `>=1.2.1` |
+| `aiosmtplib` | `>=3.0` | `>=5.1.1` |
+| `protobuf` | `>=4.25` | `>=6.33.5` |
+| `cryptography` (dev) | `>=42` | `>=50.0.0` |
+| `pytest` (dev) | `>=8.0` | `>=9.0.3` |
+
+⭐ **`starlette` nay được khai TRỰC TIẾP dù xime không import gì từ nó** (mọi ký
+hiệu cần đều được fastapi tái xuất - xem 2026-08-17). Khai để **ràng buộc
+resolver**, và nó cần thiết vì đề xuất ban đầu *"nâng fastapi để kéo starlette"*
+**không chạy được**: mọi bản fastapi từ 0.115 tới 0.132 đều khai
+`starlette>=0.40.0` với một **nắp trên di chuyển**, còn cận dưới thì đứng yên.
+Lái một phụ thuộc bắc cầu bằng sàn của phụ thuộc trực tiếp chỉ đi được tới **cận
+dưới của nó**, mà cận dưới đó không phải của mình. Advisory của starlette lại chỉ
+vá trong nhánh 1.x, không backport về 0.x.
+
+Sàn sửa vì **khai SAI**, tìm ra nhờ cài ở đúng sàn rồi chạy test:
+
+| Gói | Trước | Sau | Sai thế nào |
+| --- | --- | --- | --- |
+| `sqlalchemy[asyncio]` | `>=2.0` | `>=2.0.38` | Lệch **38 bản patch**, sai từ ngày viết. Hai bức tường: `import sqlalchemy` chết trên Python 3.13+, và starter truyền `pool_size` cho `NullPool` |
+| `aiomqtt` | `>=2.0` | `>=2.1.0` | **Mâu thuẫn với `paho-mqtt>=2.1` cùng extra** - `pip install xime[mqtt]` ở đúng sàn là bất khả thi |
+| `pytest-asyncio` (dev) | `>=0.23` | `>=1.3.0` | Nổ `INTERNALERROR` với pytest 9, dù metadata khai tương thích |
+
+### Added
+
+- **`.claude/scripts/check_dep_advisories.py`** - soi advisory của **bộ sàn khai
+  trong `pyproject.toml`**, không phải của môi trường đang chạy. Đọc sàn thẳng từ
+  file (không giữ bản sao thứ hai sẽ trôi lệch), có danh sách **CHẤP NHẬN kèm lý
+  do**, thoát mã 1 nếu còn mục chưa xử. Thêm vào hướng dẫn phát hành thành
+  **bước 1b**.
+
+### Notes
+
+- ⚠ **Một advisory được CHẤP NHẬN, không vá được**: `apscheduler` PYSEC-2026-282 /
+  CVE-2026-31072 (RCE qua `JSONSerializer`/`CBORSerializer`). Dải ảnh hưởng
+  `4.0.0a1..4.0.0a6` **không có bản vá**, mà `4.0.0a6` là bản mới nhất tồn tại.
+  Xime không dính ở cấu hình mặc định - `AsyncScheduler()` không tham số dựng
+  `MemoryDataStore` + `LocalEventBroker`, không cái nào dùng serializer. **Nhưng
+  sự an toàn đó thuộc về CÁCH NỐI DÂY MẶC ĐỊNH, không thuộc về thư viện**: app tự
+  cấu hình kho dữ liệu ngoài thì **có** dính, và không có gì cảnh báo nó.
+- **Bốn sàn không kiểm chứng được trên Python 3.14** (bản mới nhất ta tuyên bố hỗ
+  trợ): `pydantic 2.5`, `grpcio 1.60`, `grpcio-tools 1.60`, `asyncpg 0.29` - đều
+  không build nổi. Giữ nguyên cho người dùng Python cũ, và ghi chú tại chỗ.
+- ⭐ Bài học đắt nhất, đáng nhớ hơn mọi con số ở trên: **sàn là `>=`, nên pip mặc
+  định cài bản MỚI NHẤT. Một sàn sai vì vậy hoàn toàn vô hình - cho tới ngày có
+  người ghim xuống, và khi đó nó đã thành vấn đề của họ.**
+
 ## [0.7.1] - 2026-08-03
 
 **Server streaming cho bản ghi có kiểu, và đợt vá bảo mật thứ nhất.**
@@ -201,73 +554,6 @@ kia đưa cho **chính nó**, không phải cho ta.
   botocore vào một dải ~16 bản patch và dải đó dịch theo mỗi bản mới của nó, nên
   mọi sàn ta viết hoặc vô nghĩa hôm nay hoặc thành xung đột resolver ngày mai.
 - **`types-aiobotocore-s3` khai vào extra `dev`** (import dưới `TYPE_CHECKING`).
-
-### Added - JWT: khóa xoay theo `kid`, và các knob chuẩn từng bị giấu (2026-08-18)
-
-Starter JWT mô hình hóa JWT như *"một chuỗi ký bằng MỘT khóa cố định"*. Không có
-gì của dự án nào lọt vào nó - mọi trường đều chuẩn RFC, chỉ đổi tên (`algorithm`
-là `alg`, `key_id` là `kid`). Vấn đề là **những thứ KHÔNG có**, và cái giá đã đo
-được: framework **ký** kèm `kid` (`_signer.py`) nhưng **không có một dòng nào
-verify theo `kid`**, nên mọi triển khai có xoay khóa buộc phải viết lại cả
-middleware - tức viết lại chính phần verify mà không ai muốn đụng.
-
-- **`JwtKeyProvider`** - Protocol một method, `keys(kid) -> Sequence[KeyContext]`,
-  đăng ký bằng `configure_jwt(config, key_provider=YourClass)`. Cùng khuôn
-  `configure_grpc_tls(provider=...)`: truyền một CLASS, framework lấy từ DI.
-  `keys()` **bắt buộc đọc bộ nhớ, không bao giờ gọi mạng**; framework không lấy,
-  không hẹn giờ, không cache - **giữ khóa luôn mới hoàn toàn là việc của app**.
-  Nhận `kid` là **chuỗi của RFC 7515**, không phải kiểu dữ liệu nào của framework.
-- **Middleware verify theo `kid`**: đọc header bằng `get_unverified_header` (không
-  cần khóa), hỏi provider, thử lần lượt các khóa ứng viên. Nhiều ứng viên là bình
-  thường trong lúc xoay khóa gối đầu, và đó là thứ làm cho nó liền mạch.
-- **`JwtMiddlewareConfig` phơi ba knob PyJWT vốn có mà config giấu đi**:
-  `algorithms` (danh sách trắng - **trần** chứ không phải phép chọn, khóa nào khai
-  thuật toán ngoài danh sách thì bị từ chối trước khi kiểm chữ ký), `leeway`
-  (dung sai đồng hồ cho `exp`/`nbf`/`iat` - thiếu nó thì hai máy lệch vài giây
-  sinh **401 chập chờn**), `require` (⚠ `exp` chỉ được kiểm khi claim **tồn tại**,
-  nên token không mang `exp` mặc định **không bao giờ hết hạn**).
-- **`sign()` nhận `headers=`.** Trước đây `kid` là header **duy nhất** app đặt
-  được, trong khi payload thì mở toang - nên `typ: "at+jwt"` của RFC 9068 không
-  khai nổi. Ba tên bị **từ chối** chứ không gộp: `alg` (PyJWT cho header ghi đè
-  tham số `algorithm`, đo được, nên nó âm thầm mâu thuẫn với
-  `KeyContext.algorithm`), `b64` (bật chế độ detached payload), `kid` (phải gọi
-  tên đúng khóa đã ký, mà chỉ `KeyContext.key_id` biết đó là khóa nào).
-
-### Fixed - JWT (2026-08-18)
-
-- ⛔ **`configure_jwt()` không có nguồn khóa nào nay NỔ lúc khởi động.**
-  `key_context` từ bắt buộc thành tùy chọn, và phải có **đúng một** trong
-  `key_context` / `key_provider` - không có cái nào, hoặc có cả hai, đều là
-  `StartupException`. Từ chối *"không có cái nào"* là toàn bộ mục đích: trước đây
-  app không lấy được khóa lúc khởi động chỉ đơn giản là **không gọi `configure_jwt`**
-  và lên mà **không có middleware xác thực nào**, tự báo là khỏe trong khi mọi
-  endpoint đều mở. **Không phá app nào đang chạy**: `key_context` vốn bắt buộc nên
-  trạng thái "không có gì" trước nay không tồn tại được.
-- **Middleware nhận `verifier` từ ngoài thay vì tự dựng `PyJwtTokenVerifier()`.**
-  `JwtTokenVerifier` là điểm mở rộng **có tài liệu từ 0.2** - docstring của nó nêu
-  đích danh JWKS endpoint và authorization server bên ngoài - nhưng middleware do
-  adapter dựng chứ không do DI dựng, nên `dependency.bind({JwtTokenVerifier: ...})`
-  **không bao giờ tới được nó**. Không có gì hỏng; phép thay thế chỉ đơn giản là
-  không có tác dụng, và **không test nào tồn tại để bắt được**. Nay khai tường
-  minh qua `configure_jwt(config, verifier=YourClass)`.
-- **`key_id=""` không còn đóng dấu `kid: ""` vào token thật.** `is not None` cho
-  chuỗi rỗng lọt qua. Tệ hơn cả không có `kid`: bên verify tra `""` không thấy gì
-  rồi từ chối, trong khi token vẫn **trông như đã gọi tên khóa** - người gỡ lỗi
-  bắt đầu từ chỗ sai.
-
-### Notes - JWT (2026-08-18)
-
-- **Không có gì phá vỡ.** Mọi mục đều là mở một ô mới hoặc chuyển tiếp thêm tham
-  số; app đang dùng một khóa tĩnh chạy y như cũ.
-- `verify()` nhận thêm ba tham số keyword. Về lý thuyết đó là đổi Protocol
-  `JwtTokenVerifier`; thực tế **không có implementation nào của bên thứ ba được
-  biết tới**. Tới knob thứ tư thì nên gom chúng vào một object options thay vì
-  liệt kê tiếp - đã ghi vào docstring.
-- **Không nằm trong đợt này**, vẫn còn nợ: xác thực WebSocket (F1) và JWT cho
-  gRPC. Cả hai là **bề mặt mới**, không phải sửa chữa.
-- Cảnh báo *"ký mà không có `kid`"* **không làm được**: `sign()` nhận khóa theo
-  từng lời gọi nên lúc khởi động framework chưa biết gì, còn cảnh báo mỗi lần gọi
-  thì thành rác log. Chuyển thành tài liệu trong docstring của `PyJwtTokenSigner`.
 
 ## [0.7.0] - 2026-07-30
 

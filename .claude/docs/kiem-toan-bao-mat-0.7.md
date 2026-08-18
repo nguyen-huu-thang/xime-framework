@@ -328,26 +328,26 @@ thật** khóa `..\..\` mà lớp kiểm tra thứ nhất cho lọt (PoC 7).
 | **A1** | 🔴 NGHIÊM TRỌNG | Không có khóa JWT -> app KHÔNG cài middleware xác thực, vẫn chạy | 21 codebase | ⬜ chưa vá |
 | **A2** | 🟠 CAO | `allow_origin_regex` khớp **mọi IPv4 công cộng**, kèm `allow_credentials: true` | 23 codebase | ⬜ chưa vá |
 | **A3** | 🟠 CAO | Sáu app Monolithic ký JWT HS256 bằng **cùng một secret literal**; ở `shop` nó nằm trong git và app đã deploy | 6 app | ⬜ chưa vá |
-| **F1** | 🟠 CAO | WebSocket đi thẳng qua `JwtAuthMiddleware` | framework (chưa app nào dùng WS) | ⬜ chưa vá |
+| **F1** | 🟠 CAO | WebSocket đi thẳng qua `JwtAuthMiddleware` | framework (chưa app nào dùng WS) | ✅ vá 2026-08-18 (0.7.2) |
 | **F2** | 🟠 CAO | `save_upload` tin Content-Type của client, `stream_object` phát lại inline -> XSS lưu trữ | framework | ✅ vá 0.7.1 |
-| **F3** | 🟠 CAO | Sàn dependency cho phép bộ thư viện có **26 CVE**, gồm PyJWT 2.8.0 | mọi bản cài mới | ⬜ chưa vá |
+| **F3** | 🟠 CAO | Sàn dependency cho phép bộ thư viện có **26 CVE**, gồm PyJWT 2.8.0 | mọi bản cài mới | ✅ vá 2026-08-18 (0.7.2) - **rộng hơn đề xuất gốc**, xem mục F3 |
 | **F4** | 🟡 TRUNG | `configure_cors` không kiểm kiểu giá trị YAML -> chuỗi thành wildcard / khớp chuỗi con | framework | ✅ vá 0.7.1 |
 | **F5** | 🟡 TRUNG | `RuntimeConfig.__repr__` in ra toàn bộ secret | framework | ✅ vá 0.7.1 |
 | **F6** | 🟡 TRUNG | Bốn mặc định không an toàn, không cảnh báo (gRPC, OPC UA, MQTT, socket ngoài Linux) | framework | ✅ vá 0.7.1 |
 | **F7** | 🟡 TRUNG | Thiếu file profile YAML -> im lặng chạy bằng config gốc | framework | ✅ vá 0.7.1 |
 | **F8** | 🟡 TRUNG | `Content-Disposition` dựng bằng f-string: tên file tiếng Việt -> HTTP 500 | framework | ✅ vá 0.7.1 |
-| **F9** | 🟡 TRUNG | `_read_peer_app_id` tìm chuỗi trong MỌI loại SAN | framework | ⬜ chưa vá |
-| **F10** | 🟡 TRUNG | Một adapter chết kéo sập cả tiến trình (`TaskGroup`) | framework | ⬜ chưa vá |
+| ~~**F9**~~ | 🟡 TRUNG | `_read_peer_app_id` tìm chuỗi trong MỌI loại SAN | framework | ⛔ **KHÔNG CÒN ÁP DỤNG** - `_read_peer_app_id` đã bị **XOÁ** ở 0.7.1 khi gỡ phụ thuộc khái niệm; `current_peer_sans()` trả SAN thô, không lọc scheme, nên không còn chuỗi nào để neo |
+| **F10** | 🟡 TRUNG | Một adapter chết kéo sập cả tiến trình (`TaskGroup`) | framework | ➡ **DỜI SANG 0.8** - nó mở rộng `Adapter` protocol (đổi API cho cả adapter người dùng tự viết), và supervisor của 0.8 cần đúng tín hiệu "ready" đó |
 | **F11** | 🟡 TRUNG | `audience` mặc định KHÔNG ép | framework | ✅ vá 0.7.1 |
 | **A4** | 🟡 TRUNG | `/docs`, `/redoc`, `/openapi.json` nằm trong `public_paths` | toàn bộ app | ⬜ chưa vá |
 | **A5** | 🟡 TRUNG | 6 app Monolithic: thiếu header Authorization -> đi tiếp **ẩn danh** | 6 app | ⬜ chưa vá |
 | **A6** | 🟡 TRUNG | Tài liệu bảo để secret vào `application-secret.yml` - framework **không nạp file đó** | shop + khuôn mẫu | ⬜ chưa vá |
 | **F12** | ⚪ THẤP | `ErrorMappingInterceptor` gửi tên class exception nội bộ cho **mọi** lỗi | framework | ✅ vá 0.7.1 |
 | **F13** | ⚪ THẤP | localfs: quyền file 0644, tên file tạm đoán được, `put()` không nguyên tử | framework | ✅ vá 0.7.1 |
-| **F14** | ⚪ THẤP | `validate_object_key` cho lọt khóa có `\` (khác nhau giữa các backend) | framework | ⬜ chưa vá |
-| **F15** | ⚪ THẤP | `EventBus.publish` tạo task không giới hạn | framework | ⬜ chưa vá |
+| **F14** | ⚪ THẤP | `validate_object_key` cho lọt khóa có `\` (khác nhau giữa các backend) | framework | ✅ vá 2026-08-18 (0.7.2) |
+| **F15** | ⚪ THẤP | `EventBus.publish` tạo task không giới hạn | framework | ✅ vá 2026-08-18 (0.7.2) |
 | **F16** | ⚪ THẤP | `save_upload` không có giới hạn dung lượng mặc định | framework | ✅ vá 0.7.1 |
-| **F17** | ⚪ THẤP | MQTT RPC trả lời về `ResponseTopic` do client chỉ định | framework | ⬜ chưa vá |
+| **F17** | ⚪ THẤP | MQTT RPC trả lời về `ResponseTopic` do client chỉ định | framework | ✅ vá 2026-08-18 (0.7.2, **cảnh báo chứ không chặn**) |
 | **A7** | ⚪ THẤP | `callback_secret` là chuỗi literal yếu, giống nhau theo khuôn mẫu | nhiều app | ⬜ chưa vá |
 
 ---
@@ -609,6 +609,114 @@ kỹ thuật ASGI, nhưng framework phải cấp một helper tương đương -
 `authenticate()`. (2) Đổi mặc định `on_connect`: nếu `configure_jwt()` đã được gọi mà handler
 không override `on_connect`, thì **từ chối** kết nối kèm thông báo rõ, thay vì accept.
 
+### ✅ ĐÃ VÁ 2026-08-18 (0.7.2)
+
+Chủ dự án chốt làm ngay trong 0.7.2 - **vượt luật "0.7.x không đổi API công khai"** của chính mình,
+và đây là ngoại lệ có ý thức chứ không phải bỏ sót: F1 thêm API mới (`@ws`) và đổi hành vi mặc
+định, nhưng **chưa app nào dùng WebSocket** nên hôm nay đổi là miễn phí, còn đợi tới sau `xime chat`
+thì không.
+
+### ⚠ Kiểm toán bỏ sót MỘT mảnh, và nó đổi cả bức tranh
+
+Đo lại: **framework KHÔNG CÓ đường đăng ký route WebSocket nào cả.** Không `@ws`, không
+`add_api_websocket_route`, không `websocket_route` - grep toàn `xime/` ra rỗng. `WebSocketHandler`
+là một lớp nền **không có cách nào gắn vào ứng dụng**, và chính docstring của nó viết *"routing API
+sẽ được thiết kế sau"*. Tài liệu công khai nói đúng như vậy ở hai chỗ:
+
+| Chỗ | Nội dung (trước bản vá) |
+|---|---|
+| `docs/vn/routing.md` | *"WebSocket và gRPC routing - chưa trong scope của class-based controller"* |
+| `docs/vn/contributing.md` | WebSocket support nằm trong **danh sách việc mời đóng góp** |
+
+PoC 1 chạy được là vì nó **tự dựng `WebSocketRoute` bằng Starlette**, không đi qua đường nào của
+Xime. Nên gọi F1 là "vá lỗ hổng" là gọi sai tên: **WebSocket của Xime chưa được hoàn thành, và cái
+chưa hoàn thành đó bao gồm cả phần xác thực.** Thêm mỗi `require_auth()` như đề xuất gốc là thêm
+một helper **không có nhà** - không app nào gọi được vì không app nào đăng ký được route.
+
+### ⭐ Chỗ lệch khỏi đề xuất, và đây là phần đáng đọc nhất
+
+Đề xuất (2) nói: đổi mặc định `on_connect` thành **từ chối**. Bản vá **không làm vậy** - xác thực
+chạy ở **lớp đăng ký route**, trước khi vào handler.
+
+> Đặt phép từ chối vào `on_connect` là biến nó thành một mặc định mà **lớp con xoá đi chỉ bằng cách
+> override method đó** - tức là chốt chặn biến mất đúng lúc người ta viết code mà tài liệu bảo họ
+> viết. Mà `on_connect` là method đầu tiên ai cũng override.
+
+Có test canh riêng cho điều này (`TestAuthCannotBeOverriddenAway`): một handler tự gọi
+`socket.accept()` và **không** gọi `super()` vẫn không tới được, vì phép kiểm nằm ngoài nó. Override
+cả `handle()` cũng không bỏ qua được.
+
+### Bốn quyết định của chủ dự án
+
+| Câu | Chốt |
+|---|---|
+| Token đi đường nào | **Subprotocol** (`Sec-WebSocket-Protocol`), chuẩn ngành - Kubernetes và Firebase đều dùng |
+| Mặc định | **Từ chối** |
+| Có làm đường đăng ký route không | **Có** |
+| mTLS | *"gRPC 2 dịch vụ mới cần mTLS hai chiều; robot, điện thoại, websocket thì một chiều là đủ"* - đúng, với một đính chính: *"một chiều"* nói về **tầng vận chuyển**; client vẫn được xác thực, chỉ là ở **tầng ứng dụng** bằng token |
+
+### Hiện thực
+
+| Thành phần | Việc |
+|---|---|
+| `@ws("/path")` | Decorator **cấp lớp**, đánh dấu một `WebSocketHandler`. Nổ ngay lúc import nếu gắn vào lớp không phải `WebSocketHandler` |
+| `WebSocketRegistrar` | Đăng ký route, **xác thực chạy trước handler** |
+| `JwtAuthenticator` | **Tách khỏi `JwtAuthMiddleware`** để HTTP và WebSocket dùng **chung một** định nghĩa "token hợp lệ". Hai bản là hai chỗ phải sửa khi thêm knob, và cái không ai nhớ sẽ mục |
+| `split_subprotocols` | Tách `["xime.bearer.<jwt>", "xime"]` thành (token, thứ vọng lại). **Không bao giờ vọng lại entry chở token** - làm vậy là gửi token về đúng nơi vừa hỏi |
+| `close_on_token_expiry` | Mặc định **BẬT**: đóng kết nối khi token hết hạn |
+| Cảnh báo khởi động | Có route `@ws` mà chưa gọi `configure_jwt()` thì WARNING nêu tên từng handler |
+
+**Bốn chi tiết cố ý:**
+
+1. **Mọi lần từ chối dùng chung mã đóng 3000 và không nói bước nào hỏng.** Bắt tay không có body để
+   chở lý do, và hành động của client giống hệt nhau ở cả bốn ca - lấy token hợp lệ rồi thử lại -
+   nên tách ra chỉ mách kẻ tấn công biết nửa nào của phỏng đoán là đúng. Lý do thật đi vào **log**.
+2. **`public_paths` dùng chung với HTTP**, không đẻ ra danh sách thứ hai: *"đường này mở"* nên mang
+   một nghĩa trong một ứng dụng.
+3. **Đồng hồ canh hết hạn là task riêng, không bọc `receive()` bằng `wait_for`** - bọc thì huỷ
+   `receive()` giữa chừng và một message đang trên đường có thể mất.
+4. **Đóng vì hết hạn dùng CÙNG mã 3000 với bắt tay bị từ chối**, cố ý: client làm đúng một việc
+   trong cả hai ca. Đúng phanh thứ hai của [luật 03 mục 4e](../../../.claude/rules/03-mot-gia-tri-mot-nghia.md)
+   - phép kiểm là *"người gọi có làm hai việc khác nhau không"*, không phải *"hai tình huống có khác
+   nhau không"*.
+
+### ⛔ Kiểm `Origin` - cố ý KHÔNG làm, và lý do phải đọc kỹ
+
+Trình duyệt **không áp CORS lên bắt tay WebSocket**, nên *Cross-Site WebSocket Hijacking* là rủi ro
+thật - **nhưng chỉ khi xác thực dựa vào cookie**, vì lúc đó trình duyệt tự gửi cookie cho một trang
+web bất kỳ. Chọn subprotocol đã đóng rủi ro đó **ở gốc**: trang của kẻ tấn công **không có token**
+để đưa vào.
+
+⚠ **Ngày nào có người thêm đường xác thực bằng cookie thì kiểm `Origin` thành BẮT BUỘC.** Đã ghi vào
+`docs/{vn,en}/websocket.md` mục 7.
+
+### Test
+
+**31 test mới** (`test_ws_auth.py` 22 + `test_ws_registration.py` 9), đi thành **cặp** ở mọi chỗ:
+từ chối/nhận · override được/không bỏ qua được · trong `public_paths`/ngoài · có JWT/không có JWT ·
+đồng hồ canh bật/tắt.
+
+**Đối chứng**: gỡ lời gọi `_authenticate` thì **5 đỏ**, gồm cả test then chốt về việc override không
+bỏ qua được xác thực.
+
+⚠ **Hai lỗi trong chính bộ test này, ghi lại vì chúng là khuôn dễ lặp:**
+
+1. **TTL dưới một giây không dùng được** - PyJWT ép `exp` về số nguyên, nên `exp = now + 0.1` bị cắt
+   xuống dưới `now` và token chết ngay lúc bắt tay.
+2. ⭐ **Bản test đầu chỉ đòi "bị ngắt" nên nó XANH cả khi bắt tay bị từ chối** - tức nó đo đúng
+   triệu chứng của một nguyên nhân hoàn toàn khác. Nay test khẳng định bắt tay **đã thành công**
+   (nhận được một message) trước rồi mới đợi bị ngắt, và kiểm luôn mã đóng.
+
+### Một lỗi thật do script phát hành bắt được
+
+`check_doc_imports.py` báo `from xime.starters.jwt import JWT_CLAIMS` **không chạy được**: hằng số
+đó chưa bao giờ được export, nó nằm trong `_middleware`. Tài liệu WebSocket bảo người đọc tra claim,
+mà chỉ họ vào một module có tên bắt đầu bằng gạch dưới là bảo họ thò tay vào ruột framework. Đã
+export ở `xime/starters/jwt/__init__.py`.
+
+**Đo**: framework **1624 passed, 11 skipped** (+31). PoC 1 chạy lại qua đường thật của Xime:
+không token -> **đóng, mã 3000**; có token -> vào được, subprotocol vọng lại `'xime'`.
+
 ## 🟠 F2 - Cặp helper upload/download tạo sẵn một lỗ XSS lưu trữ
 
 Hai dòng, hai file, ghép lại thành lỗ hổng:
@@ -677,6 +785,57 @@ ro của **gói đã phát hành công khai 11 bản trên PyPI**, không phải
 **Đề xuất:** nâng sàn lên bản đã vá (`pyjwt>=2.13`, `python-multipart>=0.0.31`,
 `fastapi>=0.115.3` để kéo starlette >= 0.40) và thêm `pip-audit` vào danh sách kiểm trước mỗi lần
 phát hành, cạnh ba script đã có trong `.claude/scripts/`.
+
+### ✅ ĐÃ VÁ 2026-08-18 - và bản vá RỘNG HƠN đề xuất trên, kèm một chỗ đề xuất SAI
+
+Chi tiết đầy đủ trong `CHANGELOG.md` mục `[0.7.2]`. Ba thứ đáng đọc lại ở đây:
+
+**1. Vế `fastapi>=0.115.3` để kéo starlette lên 0.40 là SAI.** Mọi bản fastapi từ 0.115 tới
+0.132 khai `starlette>=0.40.0` với **nắp trên di chuyển còn cận dưới đứng yên**:
+
+```text
+0.115.3 -> starlette<0.42.0,>=0.40.0
+0.128.0 -> starlette<0.51.0,>=0.40.0
+0.133.0 -> starlette>=0.40.0            <- ban dau tien bo nap
+```
+
+Nên sàn fastapi **vĩnh viễn không kéo starlette quá 0.40**, bất kể nâng lên bao nhiêu. Mà
+advisory của starlette chỉ vá trong nhánh **1.x**, không backport về 0.x.
+
+> **Lái một phụ thuộc bắc cầu bằng sàn của phụ thuộc trực tiếp chỉ đi được tới cận dưới của
+> nó - và cận dưới đó không phải của mình.**
+
+Tệ hơn: đúng ca F3 lo (môi trường ghim fastapi cũ) là ca resolver chọn `0.115.3`, tức nắp
+`<0.42.0`, tức đúng vùng còn advisory. Sàn đó che được ca không cần che và hở đúng ca cần che.
+
+Lời giải: **khai `starlette` trực tiếp** (`>=1.3.1`) dù xime không import gì từ nó, cộng
+`fastapi>=0.133.0` để nắp không chặn.
+
+**2. Phạm vi thật rộng gấp đôi.** F3 chỉ soi sàn của core + web + jwt. Soi cả **28 sàn** thì
+thêm `msgpack`, `aiosmtplib`, `protobuf`, `cryptography`, `pytest`. Cùng khuôn lỗi phạm vi đã
+ghi ở nhiều nơi: *phép dò chỉ thấy thứ nó được trỏ vào*.
+
+**3. Phép thử "cài ở đúng sàn rồi chạy test" ra nhiều lỗi hơn cả pip-audit** - và ba lỗi nó tìm
+ra đều **không phải advisory**:
+
+| Tìm ra | Loại |
+| --- | --- |
+| `aiomqtt>=2.0` + `paho-mqtt>=2.1` mâu thuẫn - `pip install xime[mqtt]` ở đúng sàn **bất khả thi** | hai sàn cùng extra chống nhau |
+| `pytest>=9.0.3` + `pytest-asyncio>=0.23` nổ `INTERNALERROR`, dù metadata khai tương thích (`pytest>=7.0.0`, không nắp) | metadata là lời khai, không phải bằng chứng |
+| `sqlalchemy>=2.0` **chưa bao giờ đúng**, lệch 38 bản patch | sàn sai từ ngày viết |
+
+> ⭐ **Sàn là `>=`, nên pip mặc định cài bản MỚI NHẤT. Một sàn sai vì vậy hoàn toàn vô hình -
+> cho tới ngày có người ghim xuống, và khi đó nó đã thành vấn đề của họ.**
+
+**Còn một advisory KHÔNG vá được, đã ghi nhận:** `apscheduler` PYSEC-2026-282 (RCE qua
+`JSONSerializer`/`CBORSerializer`), dải `4.0.0a1..4.0.0a6` không có bản vá và `4.0.0a6` là bản
+mới nhất tồn tại. Xime không dính ở cấu hình mặc định (`AsyncScheduler()` -> `MemoryDataStore`
++ `LocalEventBroker`, không serializer). ⚠ Nhưng **an toàn đó thuộc về cách nối dây mặc định,
+không thuộc về thư viện**: app tự cấu hình kho ngoài thì có dính.
+
+**Phần `pip-audit` vào quy trình: đã làm**, thành `.claude/scripts/check_dep_advisories.py`
+(bước 1b của hướng dẫn phát hành). Nó soi **bộ sàn khai trong `pyproject.toml`**, không soi môi
+trường đang chạy - vì máy dev bao giờ cũng có bản mới, nên nó luôn sạch và luôn vô nghĩa.
 
 ## 🟡 F4 - `configure_cors` không kiểm kiểu giá trị đọc từ YAML
 
@@ -807,7 +966,20 @@ lỗi 500 file đó.
 percent-encode>` - và lọc bỏ ký tự điều khiển cùng dấu nháy trước khi ghép. `urllib.parse.quote`
 làm được cả hai.
 
-## 🟡 F9 - `_read_peer_app_id` tìm chuỗi trong MỌI loại SAN
+## ~~🟡 F9~~ - `_read_peer_app_id` tìm chuỗi trong MỌI loại SAN
+
+> ⛔ **KHÔNG CÒN ÁP DỤNG từ 0.7.1.** Cả `_read_peer_app_id`, `PEER_APP_ID` và
+> `current_app_id()` đã bị **XOÁ** khi gỡ phụ thuộc khái niệm (xem
+> [`go-phu-thuoc-khai-niem-2026-08-17.md`](go-phu-thuoc-khai-niem-2026-08-17.md)). Thay bằng
+> `current_peer_sans()` trả **mọi** entry SAN dạng thô, không lọc scheme, không kiểm độ dài - nên
+> không còn chuỗi nào để neo và không còn phép lọc nào để làm rộng quá mức.
+>
+> ⚠ Đây là ca **một mục kiểm toán biến mất vì thứ nó nói tới bị xoá, không phải vì được vá.** Hai
+> chuyện khác nhau: bản vá làm hành vi đúng lên, còn ở đây trách nhiệm **chuyển sang người gọi** -
+> app nào cần lọc SAN thì tự lọc, và nếu họ lọc bằng `find()` thì F9 sống lại trong repo của họ.
+> Bảng trạng thái ghi "chưa vá" suốt hai tuần vì không ai phân biệt hai chuyện đó.
+
+Nội dung dưới đây giữ nguyên làm lịch sử.
 
 **Chỗ:** `xime/adapters/grpc/interceptors/_context.py:120-127`
 
@@ -927,6 +1099,49 @@ tên file hợp lệ nên không có traversal. Đây là chuyện nhất quán,
 **Đề xuất:** `validate_object_key` từ chối luôn `\` và ký tự NUL, để hai backend nhận đúng một
 tập khóa như docstring đã hứa.
 
+### ✅ ĐÃ VÁ 2026-08-18 (0.7.2)
+
+Từ chối `\` và NUL trong `validate_object_key`. Đo lại thì phạm vi thật **rộng hơn một trục** so
+với báo cáo gốc: không phải hai backend nhận hai tập khóa, mà **ba** kết quả cho cùng một khóa.
+
+| `..\..\Windows\System32\config\SAM` | Trước bản vá |
+| --- | --- |
+| `validate_object_key` | chấp nhận |
+| Local trên **Windows** | từ chối (thoát root) |
+| Local trên **Linux** | **nhận** - `\` là ký tự tên file hợp lệ, tạo một file tên đúng như vậy trong root |
+| S3 | nhận, không phòng tuyến nào |
+
+**NUL thì thuộc loại khác, và đó mới là phần đáng vá nhất** - nó không phải chuyện nhất quán mà là
+hai lỗi hợp đồng, đo được:
+
+```text
+Path('C:/kho/a\x00b').exists()  ->  False, khong loi
+open(...)                       ->  ValueError: embedded null character
+```
+
+- `exists()` trả **`False`** cho khóa không hợp lệ, tức người gọi không phân biệt được *"không có
+  file"* với *"khóa sai"*. Đúng **dấu hiệu 3 của [luật 03](../../../.claude/rules/03-mot-gia-tri-mot-nghia.md)**.
+- `put()` ném **`ValueError`** chứ không phải `StorageError`, tức rò kiểu ngoại lệ qua biên API
+  công khai - người dùng bắt `StorageError` theo tài liệu thì không bắt được.
+
+**Test đi thành cặp**, cả hai backend dùng **chung một danh sách** `UNSAFE_KEYS` (S3 `import` từ
+file test của local, không chép tay - chép tay là cách hai backend trôi lệch nhau trong im lặng):
+
+| Test | Kỳ vọng |
+| --- | --- |
+| `test_backslash_and_nul_rejected` | 4 khóa xấu bị từ chối ở **cả hai** backend |
+| `test_ordinary_keys_still_accepted` | `a..b/c` và ba khóa thường **vẫn nhận** |
+
+Vế thứ hai không thừa: chỉ có vế đầu thì cách sửa sai *"từ chối mọi thứ có dấu chấm"* cũng qua
+được. `a..b/c` là cái bẫy - chứa `..` nhưng không phải một đoạn đường dẫn.
+
+**Đối chứng đã chạy**: gỡ hai dòng vá thì **5 test đỏ** (1 local + 4 tham số S3), khôi phục thì
+xanh. Không có đối chứng thì không biết test có canh gì thật không.
+
+**Không app nào phải sửa**: `data-service` là nơi duy nhất gọi tầng storage, và `ObjectKeyPolicy`
+của nó đã tự chuẩn hoá `filename.replace("\\", "/").split("/")[-1]` **trước** khi dựng khóa. Đo:
+framework 1563 passed (+10), data-service 388 passed.
+
 ## ⚪ F15 - `EventBus.publish` tạo task không giới hạn
 
 `xime/core/event/bus.py:76` - mỗi handler một `create_task`, không có trần, không có backpressure.
@@ -938,6 +1153,106 @@ request không đụng tới bản sao đó. Ngữ cảnh bảo mật sống lâ
 phải biết mà tính.
 
 **Đề xuất:** thêm trần số task đang chờ (cấu hình được), quá trần thì từ chối và log.
+
+### ✅ ĐÃ VÁ 2026-08-18 (0.7.2)
+
+**Đo trước khi sửa** (ba phép, trên code cũ):
+
+| Phép đo | Kết quả |
+|---|---|
+| 50.000 `publish`, 2 handler | **100.000 task đang chờ** |
+| 20.000 event x payload 1 KB | **36,0 MB**, trung bình **1.889 byte/task** |
+| Ngữ cảnh bảo mật sau `clear_security()` | trong request: `None` · **trong handler nền: `('user-42', ['ADMIN'])`** |
+
+⭐ Phép đo thứ hai nói một chuyện mà báo cáo gốc chưa nói: `_pending` giữ **tham chiếu mạnh**,
+task giữ coroutine, coroutine giữ **chính object event**. Nên bộ nhớ tăng theo **KÍCH THƯỚC
+EVENT**, không theo một hằng số overhead. Event mang ảnh base64 hay danh sách bản ghi thì con số
+1,9 KB kia thành vài trăm KB.
+
+⭐ Phép đo thứ ba xác nhận ghi chú của báo cáo, và cộng với phép đo thứ hai nó thành một câu đáng
+nhớ: **task tồn đọng cũng là quyền hạn tồn đọng.**
+
+### Chủ dự án chốt: **BỎ**, và con số là việc của người thiết kế app
+
+Ba phương án đưa lên - bỏ + log · chặn (backpressure) · ném lỗi. Chọn **bỏ**.
+
+Nguyên văn về chỗ đặt cấu hình: *"bao nhiêu thì bỏ thì đây là việc của người thiết kế app. không
+phải việc của tôi, cần đặt vào file cấu hình (file .py cho lập trình viên)"*.
+
+Nên nó là **framework config, không phải runtime config**: `configure_event_bus()` trong
+`config/*.py`, **không** có khoá nào trong `application.yml`. Lý do ghi lại thành phép kiểm chung ở
+[`../rules/config-discovery.md`](../rules/config-discovery.md): *người vận hành có đủ thông tin để
+chọn giá trị này không?* Trần này đòi biết **handler chạy bao lâu, event to cỡ nào, event nào không
+được phép mất** - ba thứ người vận hành không biết.
+
+```python
+# config/event.py
+from xime.core.event import configure_event_bus
+
+configure_event_bus(max_pending=50_000, never_drop=(AuditEvent, PaymentEvent))
+```
+
+### ⭐ `never_drop` - chủ dự án bổ sung giữa chừng
+
+Nguyên văn: *"cũng có cái cấu hình cho không bao giờ bỏ. lỡ cái quan trọng bỏ lại dở"*. Đây là
+phần mà cả kiểm toán lẫn tôi đều thiếu: đề xuất gốc chỉ có **một** con số, mà một con số thì đối
+xử với event kiểm toán y hệt event thông báo.
+
+| Khai | Nghĩa |
+|---|---|
+| `never_drop=(AuditEvent,)` | Miễn trần cho vài loại, phần còn lại vẫn có trần. **Khớp kiểu chính xác**, giống cách tra handler - lớp con không thừa hưởng |
+| `max_pending=None` | Bỏ trần hoàn toàn - đúng hành vi trước 0.7.2, là lựa chọn hợp lệ miễn là **có ý thức** |
+
+⚠ `never_drop` **dời** rủi ro chứ không xoá: lũ event được miễn vẫn phình vô hạn, nên khi vượt trần
+bus ghi WARNING nói đúng điều đó.
+
+### Bốn quyết định hiện thực
+
+1. **Bỏ NGUYÊN CON, không bao giờ bỏ nửa số handler.** Một tác dụng phụ xảy ra còn cái đi kèm thì
+   không là trạng thái không ai thiết kế cho, mà lại không nhìn thấy được từ bên ngoài.
+2. **Log có hãm nhịp** (lần đầu + mỗi 1.000 lần), kèm **hai bộ đếm** `dropped` và
+   `dropped_by_type()`. Log nói *vừa bỏ một cái*; bộ đếm nói *đã bỏ bao nhiêu* - chỉ cái sau dùng
+   được để chỉnh trần.
+3. **Bộ đếm hãm nhịp của cảnh báo "miễn trần" phải RIÊNG.** Bản nháp đầu dùng chung với `_dropped`,
+   mà `0 % 1000 == 0`, nên nó kêu ở **mọi** lần publish khi chưa bỏ cái nào - đúng cái lũ log mà
+   phép hãm nhịp sinh ra để chặn. Có test canh riêng cho lỗi này.
+4. **Mặc định 10.000** chứ không phải "không trần": chọn "bỏ" là chọn cưỡng chế, mà một chốt chặn
+   chỉ tồn tại khi ai đó gõ tay thì phần lớn sẽ không tồn tại. Ai muốn hành vi cũ thì khai
+   `max_pending=None` - vẫn làm được, nhưng phải tự tay viết ra.
+
+### Nợ luật 03 - khai ra, cố ý chưa trả
+
+Bên gọi **không phân biệt được** event bị bỏ với event đã xếp lịch: cả hai trả `None`. Đúng
+[luật 03](../../../.claude/rules/03-mot-gia-tri-mot-nghia.md), và đóng nó là **đổi chữ ký công
+khai** - thứ 0.7.x không được làm. Để lại cho **0.8**, đã ghi trong docstring `publish()` và trong
+`docs/{vn,en}/core-concepts.md`.
+
+Hệ quả thực dụng đã viết vào tài liệu: **đừng dùng event bus cho thứ mà mất là phải phát hiện
+được** - hoặc khai vào `never_drop`, hoặc đừng đi qua bus.
+
+### Test
+
+**16 test**, đi thành **cặp** ở mọi chỗ:
+
+| Phải bỏ | Phải KHÔNG bỏ |
+|---|---|
+| quá trần | dưới trần · loại trong `never_drop` · `max_pending=None` |
+| loại không được miễn | (lớp con của loại được miễn thì **vẫn bỏ** - khớp kiểu chính xác) |
+| cảnh báo "miễn trần" khi vượt trần | cảnh báo đó **im** khi còn dưới trần |
+
+**Đối chứng**: gỡ phép kiểm trần thì **8 đỏ / 8 xanh**, và 8 cái xanh đúng là nhóm "phải không bỏ"
+cộng nhóm test cấu hình. Đó là bằng chứng cặp test canh hai chiều khác nhau chứ không canh cùng một
+thứ.
+
+### Một thứ phát hiện khi đo, KHÔNG thuộc F15 và chưa làm
+
+`drain()` tồn tại và docstring bảo dùng nó trong shutdown hook, nhưng **framework không bao giờ tự
+gọi** (grep toàn `xime/`). Tắt app là cắt ngang mọi handler đang chạy, không có gì báo. Đã ghi vào
+`docs/{vn,en}/core-concepts.md` để người dùng tự gọi trong `PreDestroy`; sửa cho tử tế thì thuộc
+0.8, vì nó chạm vòng đời adapter.
+
+**Không app nào phải sửa**: quét toàn workspace, **không repo nào dùng `EventBus`**. Đo:
+**1593 passed** (+16).
 
 ## ⚪ F16 - `save_upload` không giới hạn dung lượng mặc định
 
@@ -957,6 +1272,60 @@ topic mà chính nó không được phép (confused deputy).
 
 **Đề xuất:** cho phép khai một allowlist tiền tố topic cho reply (`mqtt.rpc.reply_prefix`), mặc
 định giữ nguyên hành vi.
+
+### ✅ ĐÃ VÁ 2026-08-18 (0.7.2) - chủ dự án chốt **cảnh báo, không chặn**
+
+Ba phương án đưa lên: mặc định bắt buộc khai (nổ lúc khởi động) · mặc định tắt hẳn · **mặc định
+cho qua nhưng có cảnh báo**. Chủ dự án chọn phương án thứ ba.
+
+**Khoá cấu hình `mqtt.rpc.reply_topics`** (⚠ **không phải `reply_prefix` như đề xuất gốc**):
+
+```yaml
+mqtt:
+  rpc:
+    reply_topics: [nhamay/reply/#, devices/+/reply]
+```
+
+Đổi tên vì đổi ngữ nghĩa: chúng là **topic filter MQTT** dùng lại `topic_matches` sẵn có, không
+phải tiền tố chuỗi. Lý do chọn filter: adapter này vốn đã bắt người dùng nghĩ bằng filter ở
+`@subscribe`, nên thêm một hệ so khớp thứ hai trong cùng một adapter là tự tạo bẫy. Và **một cái
+tên nói sai về thứ nó làm thì tệ hơn một cái tên dài hơn** - `prefix` mà thật ra là filter sẽ khiến
+người ta khai `nhamay/reply/` rồi tưởng là xong, trong khi nó khớp **không gì cả**.
+
+| Cấu hình | Hành vi |
+|---|---|
+| Không khai | Y hệt trước. **Một** WARNING lúc khởi động, **chỉ khi** client có `@rpc` |
+| Khai, reply khớp | Im lặng |
+| Khai, reply không khớp | **Vẫn gửi**, kèm WARNING nêu tên topic |
+
+**Bốn quyết định hiện thực đáng ghi:**
+
+1. **Kiểm TRƯỚC khi gọi handler**, không phải trước lúc publish. Đặt sau thì ca handler ném lỗi -
+   đúng ca đáng nhìn nhất - lại là ca không có dòng log nào. Có test riêng cho việc này.
+2. **Khử trùng lặp + chặn trần 64 topic khác nhau.** Không có nó thì bên gọi biến một cảnh báo
+   thành lũ log chỉ bằng cách đổi topic mỗi lần - cùng họ với F15, và nó sẽ nuốt mất chính dòng
+   cảnh báo mà ta vừa dựng lên.
+3. **Filter sai cú pháp thì nổ lúc khởi động.** Filter không bao giờ khớp sẽ biến **mọi** reply
+   thành cảnh báo, tức phép dò kêu oan, tức phép dò sẽ bị tắt.
+4. **Cảnh báo khởi động chỉ kêu khi client thực sự có `@rpc`.** Client chỉ pub/sub không bao giờ
+   publish vào topic do bên gọi đặt, nên kêu ở đó là kêu sai chỗ.
+
+**Test đi thành cặp ở cả hai tầng**, vì bản hiện thực *"luôn kêu"* cũng qua được nếu chỉ kiểm vế
+kêu - mà bản đó còn tệ hơn không có gì, nó dạy người ta bỏ qua log:
+
+| Tầng | Phải kêu | Phải IM |
+|---|---|---|
+| Dispatcher | reply ngoài danh sách | reply trong danh sách · **chưa khai danh sách nào** |
+| Adapter | có `@rpc` mà chưa khai | đã khai · **client chỉ có `@subscribe`** |
+
+**Đối chứng đã chạy**: gỡ lời gọi `_check_reply_topic` thì **4 test đỏ** (đúng nhóm "phải kêu"),
+còn nhóm "phải im" vẫn xanh - đó chính là bằng chứng cặp test đang canh hai chiều khác nhau. Gỡ
+điều kiện `cfg.rpc.reply_topics` ở cảnh báo khởi động thì **1 test đỏ**.
+
+⚠ **Đây là phòng thủ chiều sâu, không thay thế ACL broker** - đã ghi rõ trong `docs/{vn,en}/mqtt.md`.
+
+**Không app nào phải sửa**: quét lại toàn workspace, không repo nào import `xime.adapters.mqtt`,
+không repo nào có `@rpc`, không `application.yml` nào có khối `mqtt`. Đo: **1577 passed** (+14).
 
 ---
 

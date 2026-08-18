@@ -299,7 +299,7 @@ Cả hai hàm tách theo `server_id` (tham số thứ hai), khớp với multi-s
 
 - **Khai báo hai package** — phải liệt kê trong cả `dependency.scan()` và `configure_controllers()`
 - **`__all__` không được controller scanner tôn trọng** — tất cả controller class trong package đều được tìm bất kể `__all__`
-- **WebSocket và gRPC routing** — chưa trong scope của class-based controller
+- **gRPC routing** — chưa trong scope của class-based controller (WebSocket đã có từ 0.7.2, xem [WebSocket](websocket.md))
 
 ---
 

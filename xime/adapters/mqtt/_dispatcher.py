@@ -16,6 +16,10 @@ from .routing._builder import ResolvedMqttRoute
 
 logger = logging.getLogger("xime.mqtt")
 
+# Cap on how many DISTINCT offending reply topics get their own warning line.
+# Số topic reply vi phạm KHÁC NHAU được cấp một dòng cảnh báo riêng.
+_MAX_WARNED_REPLY_TOPICS = 64
+
 
 class MqttDispatcher:
     """Routes one incoming MQTT message to every matching handler.
@@ -38,11 +42,26 @@ class MqttDispatcher:
         error_mappings: dict[type[Exception], str] | None = None,
         *,
         reply_properties_factory: Callable[[bytes | None], Any] | None = None,
+        allowed_reply_topics: list[str] | None = None,
     ) -> None:
         self._routes = routes
         self._connection = connection
         self._error_mappings = error_mappings or {}
         self._reply_props = reply_properties_factory or _default_reply_properties
+        # F17: topic filters an RPC reply is expected to land on. Empty = no
+        # policy declared, so nothing is reported per message (the adapter warns
+        # once at startup instead). Non-empty = advisory: a reply outside the
+        # list is still published, but named in a WARNING.
+        # F17: filter mà reply RPC được phép rơi vào. Rỗng = chưa khai chính
+        # sách nên không cảnh báo theo từng message (adapter cảnh báo một lần
+        # lúc khởi động). Có khai = chỉ cảnh báo, reply vẫn được gửi.
+        self._allowed_reply_topics = list(allowed_reply_topics or [])
+        # Bounded dedupe so a caller cannot turn one warning into a log flood by
+        # varying the topic. Past the cap we say so once and stop listing.
+        # Chặn theo số topic KHÁC NHAU để bên gọi không biến cảnh báo thành lũ
+        # log bằng cách đổi topic. Quá ngưỡng thì nói một câu rồi thôi liệt kê.
+        self._warned_reply_topics: set[str] = set()
+        self._reply_warn_capped = False
         # Subscription Identifier -> route, for exact dispatch when the broker
         # reports which subscription(s) matched (MQTT v5). Avoids re-matching by
         # topic and the double-dispatch overlapping filters can cause.
@@ -121,6 +140,12 @@ class MqttDispatcher:
     ) -> None:
         response_topic = getattr(properties, "ResponseTopic", None)
         correlation = getattr(properties, "CorrelationData", None)
+        # Checked BEFORE the handler runs so the warning is emitted even when the
+        # handler raises - the failing case is exactly the one worth seeing.
+        # Kiểm TRƯỚC khi chạy handler để dòng cảnh báo vẫn xuất hiện kể cả khi
+        # handler ném lỗi - đó đúng là ca đáng nhìn nhất.
+        if response_topic:
+            self._check_reply_topic(response_topic, route)
         try:
             request = route.request_type.model_validate_json(payload or b"{}")
             kwargs: dict[str, Any] = {route.request_param: request}
@@ -146,6 +171,42 @@ class MqttDispatcher:
                         "MQTT: failed to publish RPC error reply to %r", response_topic
                     )
             raise
+
+    def _check_reply_topic(self, response_topic: str, route: ResolvedMqttRoute) -> None:
+        """Warn when an RPC reply is about to leave the declared topic list (F17).
+
+        Advisory by design: the reply is still published. The chosen trade-off is
+        that breaking the SILENCE is what matters - an operator who has declared
+        `reply_topics` gets told when reality disagrees, and one who has not is
+        told once at startup rather than once per message.
+        Cố ý chỉ cảnh báo, reply vẫn được gửi. Thứ đáng giá ở đây là phá vỡ SỰ IM
+        LẶNG: ai đã khai `reply_topics` thì được báo khi thực tế lệch khỏi lời
+        khai, ai chưa khai thì được báo một lần lúc khởi động.
+        """
+        if not self._allowed_reply_topics:
+            return
+        if any(topic_matches(f, response_topic) for f in self._allowed_reply_topics):
+            return
+        if response_topic in self._warned_reply_topics:
+            return
+        if len(self._warned_reply_topics) >= _MAX_WARNED_REPLY_TOPICS:
+            if not self._reply_warn_capped:
+                self._reply_warn_capped = True
+                logger.warning(
+                    "MQTT RPC: more than %d distinct reply topics fell outside "
+                    "mqtt.rpc.reply_topics; further ones are no longer listed "
+                    "individually.",
+                    _MAX_WARNED_REPLY_TOPICS,
+                )
+            return
+        self._warned_reply_topics.add(response_topic)
+        logger.warning(
+            "MQTT RPC: reply for %r goes to caller-chosen topic %r, which matches "
+            "no filter in mqtt.rpc.reply_topics %r. The reply is still sent. The "
+            "caller picks this topic while WE publish it, so on a broker with "
+            "per-client ACLs it reaches topics the caller may not write to.",
+            route.info.topic, response_topic, self._allowed_reply_topics,
+        )
 
     async def _reply(self, response_topic: str, body: bytes, correlation: bytes | None) -> None:
         await self._connection.publish(

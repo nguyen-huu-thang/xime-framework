@@ -13,14 +13,15 @@
 > - 5 mục, kèm khuyến nghị và thứ mỗi mục đang chặn. Mục 1 ở đó (**secret để ở file nào**) đang
 > chặn đúng đường găng của đợt 0, quyết nó trước.
 
-## 0. Bốn quyết định của chủ dự án (chốt 2026-08-01)
+## 0. Quyết định của chủ dự án (bốn mục chốt 2026-08-01, thêm A6 ngày 2026-08-18)
 
 | Câu hỏi | Đã chốt | Kéo theo gì |
 |---|---|---|
+| **A6 - secret để ở file nào** (2026-08-18) | ⭐ **Hướng B: dùng `application-{env}.yml` sẵn có. KHÔNG đụng framework** | **Đợt 0 hết bị chặn.** Không thêm tầng nạp config thứ ba, nên không chạm hành vi khởi động của 31 app. ⚠ Kèm một việc bắt buộc: **sửa chú thích trỏ sang `application-secret.yml`** ở mọi `application-production.yml` và ở `saas-foundation/template` - framework **không bao giờ nạp** file đó, để nguyên là mời người sau đặt secret vào chỗ vô hiệu |
 | `shop` đổi `jwt.secret` thì người dùng bị đăng xuất hết | **Đổi ngay, chấp nhận đăng xuất** | Không cần cơ chế hai khóa, không cần thời gian ân hạn. Đợt 0 gọn hơn hẳn |
-| Vá framework phát hành thế nào | **Vá trong repo, CHƯA đẩy PyPI** | Không đụng version, không đụng CHANGELOG phát hành, không cần `pypi_token.py`. Nhưng xem mục 1.1: vá trong repo **là** vá cho cả 31 app ngay lập tức |
-| Một adapter chết | **Cô lập sau khi đã phục vụ** | F10 thành việc thiết kế thật, không phải sửa một dòng. Xếp riêng ở đợt 3 |
-| Lối thoát dev khi thiếu khóa JWT | **Cờ tường minh trong YAML** | `auth.jwt.allow_insecure_dev: true`, phải gõ tay. Không dựa vào `XIME_ENV` |
+| Vá framework phát hành thế nào | ~~**Vá trong repo, CHƯA đẩy PyPI**~~ → **đã đẩy 0.7.1** | Câu chốt gốc đúng ở thời điểm nó ra. Nay PyPI có 12 bản (`0.1.0` -> `0.7.1`), người ngoài không còn kẹt ở 0.7.0 |
+| Một adapter chết | **Cô lập sau khi đã phục vụ** | F10 thành việc thiết kế thật, không phải sửa một dòng. ~~Đợt 3~~ **đã dời sang 0.8** vì nó mở rộng `Adapter` protocol, tức đổi API |
+| Lối thoát dev khi thiếu khóa JWT | **Cờ tường minh trong YAML** | `auth.jwt.allow_insecure_dev: true`, phải gõ tay. Không dựa vào `XIME_ENV`.<br>⚠ **Chưa hiện thực, và bản vá 2026-08-18 đã đổi bối cảnh của nó**: `configure_jwt()` không có nguồn khóa nay **nổ lúc khởi động**, nên cờ này (nếu làm) là đường mở khóa tường minh cho ca dev, không còn là thứ chặn fail-open |
 
 ---
 
@@ -543,11 +544,11 @@ trong `.claude/scripts/`.
 
 | Mã | Việc | Ghi chú |
 |---|---|---|
-| **F1** | Đường xác thực cho WebSocket | **Phải xong TRƯỚC khi bắt đầu `xime chat`.** Hiện chưa app nào dùng WS nên không gấp, nhưng app chat thì WS là đường chính |
-| **F9** | `_read_peer_app_id` neo đầu chuỗi thay vì `find()` | Không phá tương thích: cert thật do Trust cấp vẫn ở dạng `xime-app://` đứng đầu |
-| **F14** | `validate_object_key` từ chối `\` và NUL | Để hai backend nhận đúng một tập khóa như docstring đã hứa |
-| **F15** | Trần số task của `EventBus` | Cấu hình được, quá trần thì từ chối và log |
-| **F17** | Allowlist tiền tố cho `ResponseTopic` của MQTT RPC | Mặc định giữ nguyên hành vi |
+| ~~**F1**~~ | ✅ **XONG 2026-08-18 (0.7.2)** - `@ws` + xác thực qua subprotocol | Chủ dự án chốt làm ngay, vượt luật "0.7.x không chạm API" một cách có ý thức vì chưa app nào dùng WS. ⚠⚠ Kiểm toán bỏ sót: **framework KHÔNG CÓ đường đăng ký route WS nào cả**, nên đây là làm nốt tính năng chưa làm. ⭐ Xác thực nằm ở **lớp đăng ký route**, không nằm trong `on_connect`. Chi tiết: [`kiem-toan-bao-mat-0.7.md`](kiem-toan-bao-mat-0.7.md) mục F1 |
+| ~~**F9**~~ | ⛔ **KHÔNG CÒN ÁP DỤNG** | `_read_peer_app_id` đã bị **XOÁ** ở 0.7.1 (gỡ phụ thuộc khái niệm). Không còn hàm nào lọc scheme, nên không còn chuỗi nào để neo. ⚠ Đây là ca **một mục kiểm toán biến mất vì thứ nó nói tới bị xoá**, không phải vì được vá - hai chuyện khác nhau, và bảng trạng thái ghi "chưa vá" suốt hai tuần vì không ai phân biệt |
+| ~~**F14**~~ | ✅ **XONG 2026-08-18** - `validate_object_key` từ chối `\` và NUL | ⭐ Phạm vi thật rộng hơn: **BA** kết quả cho một khoá (local Windows / local **Linux** / S3), và phần nặng nhất là **NUL** chứ không phải `\` (`exists()` trả `False` cho khoá sai - dấu hiệu 3 luật 03; `put()` ném `ValueError` trần). Chi tiết: [`kiem-toan-bao-mat-0.7.md`](kiem-toan-bao-mat-0.7.md) mục F14 |
+| ~~**F15**~~ | ✅ **XONG 2026-08-18** - `configure_event_bus(max_pending, never_drop)` | Chủ dự án chốt **BỎ** khi quá trần, và chốt cấu hình nằm ở **file `.py` cho lập trình viên**, không phải `application.yml` (người vận hành không biết handler chạy bao lâu / event to cỡ nào). ⭐ Bổ sung **`never_drop`** cho event không được phép mất - *"lỡ cái quan trọng bỏ lại dở"*. ⛔ Nợ luật 03 khai ra, để 0.8. Chi tiết: [`kiem-toan-bao-mat-0.7.md`](kiem-toan-bao-mat-0.7.md) mục F15 |
+| ~~**F17**~~ | ✅ **XONG 2026-08-18** - `mqtt.rpc.reply_topics` | Chủ dự án chốt **cảnh báo chứ không chặn**. ⚠ Là **topic filter MQTT** chứ không phải tiền tố, và **không** mang tên `reply_prefix`: `nhamay/reply/` đọc như tiền tố hợp lý nhưng là filter thì khớp **không gì cả**. Chi tiết: [`kiem-toan-bao-mat-0.7.md`](kiem-toan-bao-mat-0.7.md) mục F17 |
 | **A5** | 6 app Monolithic: đảo fail-open ở middleware | Việc lớn hơn vẻ ngoài - phải rà từng route xem route nào cố ý công khai |
 | **A7** | `callback_secret` sinh ngẫu nhiên thay vì đặt tay | Gộp vào lúc làm lại quy trình đăng ký app |
 
@@ -591,7 +592,7 @@ Sau mỗi đợt:
 cd "D:/code/xime/xime framework" && pytest        # kỳ vọng: 1463 passed, 5 skipped
 
 # 2. PoC - mục nào vá rồi thì PoC tương ứng phải chuyển sang ĐẠT
-python .claude/scripts/bao-mat/poc_web.py         # F1(chưa vá), F4, F8, F14
+python .claude/scripts/bao-mat/poc_web.py         # F1+F14 (đã vá 08-18), F4, F8
 python .claude/scripts/bao-mat/poc_web2.py        # F2
 python .claude/scripts/bao-mat/poc_config.py      # F5, F7
 python .claude/scripts/bao-mat/poc_cors_real.py   # A2

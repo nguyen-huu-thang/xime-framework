@@ -292,3 +292,133 @@ class TestSubscriptionIdRouting:
         # No subscription ids (e.g. v3 broker) -> match all routes by topic.
         await disp.dispatch("sensors/a/temp", b"1")
         assert sorted(hits) == ["narrow", "wide"]
+
+
+# ---------------------------------------------------------------------------
+# F17 - reply topic do BEN GOI chi dinh, canh bao chu khong chan
+# ---------------------------------------------------------------------------
+
+def _rpc_dispatcher(allowed=None):
+    """Build a dispatcher serving one @rpc route, with an optional reply policy."""
+    class C:
+        @rpc("svc/double")
+        async def double(self, request: Req) -> Resp:
+            return Resp(doubled=request.n * 2)
+
+    routes = MqttRouteBuilder(_FakeApp(C())).build([C])
+    conn = _FakeConnection()
+    disp = MqttDispatcher(
+        routes, conn, None,
+        reply_properties_factory=_fake_props,
+        allowed_reply_topics=allowed,
+    )
+    return disp, conn
+
+
+async def _call(disp, reply_to):
+    props = SimpleNamespace(ResponseTopic=reply_to, CorrelationData=b"c")
+    await disp.dispatch("svc/double", json.dumps({"n": 1}).encode(), props)
+
+
+class TestRpcReplyTopicPolicy:
+    """F17: the caller names the reply topic, WE publish it with our credentials.
+
+    Chosen behaviour (chủ dự án chốt 2026-08-18): warn, do not block. So the
+    tests come in PAIRS - one that the warning fires, one that it does NOT.
+    A test for only the first half would also pass an implementation that warns
+    on every single reply, and that implementation is worse than none: a check
+    which cries wolf is a check somebody switches off.
+    Hành vi đã chốt: cảnh báo chứ không chặn. Nên test đi thành CẶP - một cái
+    bắt cảnh báo phải kêu, một cái bắt nó phải IM. Chỉ có vế đầu thì bản hiện
+    thực "kêu với mọi reply" cũng qua, mà bản đó còn tệ hơn không có gì.
+    """
+
+    @pytest.mark.asyncio
+    async def test_reply_outside_policy_is_still_published(self, caplog):
+        """Advisory, not enforcing: the message must still go out."""
+        disp, conn = _rpc_dispatcher(allowed=["nhamay/reply/#"])
+        with caplog.at_level("WARNING", logger="xime.mqtt"):
+            await _call(disp, "nhamay/BT-99/lenh")
+
+        assert len(conn.published) == 1
+        assert conn.published[0]["topic"] == "nhamay/BT-99/lenh"
+        assert "nhamay/BT-99/lenh" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_reply_inside_policy_is_silent(self, caplog):
+        """Other half of the pair - no warning when reality matches the policy."""
+        disp, conn = _rpc_dispatcher(allowed=["nhamay/reply/#"])
+        with caplog.at_level("WARNING", logger="xime.mqtt"):
+            await _call(disp, "nhamay/reply/abc")
+
+        assert len(conn.published) == 1
+        assert caplog.text == ""
+
+    @pytest.mark.asyncio
+    async def test_no_policy_declared_is_silent_per_message(self, caplog):
+        """Nothing declared -> the adapter warns ONCE at startup, not per message.
+
+        Warning here instead would put one line on every RPC of every app that
+        has not opted in, which is how a warning becomes noise.
+        Chưa khai gì thì adapter cảnh báo MỘT lần lúc khởi động; kêu ở đây là
+        mỗi RPC một dòng, và đó là cách một cảnh báo trở thành tiếng ồn.
+        """
+        disp, conn = _rpc_dispatcher(allowed=None)
+        with caplog.at_level("WARNING", logger="xime.mqtt"):
+            await _call(disp, "bat/ky/dau")
+
+        assert len(conn.published) == 1
+        assert caplog.text == ""
+
+    @pytest.mark.asyncio
+    async def test_same_offending_topic_warns_once(self, caplog):
+        disp, _ = _rpc_dispatcher(allowed=["ok/#"])
+        with caplog.at_level("WARNING", logger="xime.mqtt"):
+            for _ in range(5):
+                await _call(disp, "xau/mot")
+
+        assert caplog.text.count("xau/mot") == 1
+
+    @pytest.mark.asyncio
+    async def test_distinct_offending_topics_are_capped(self, caplog):
+        """A caller must not turn one warning into a log flood by varying topics.
+
+        Bên gọi không được biến một cảnh báo thành lũ log bằng cách đổi topic.
+        """
+        from xime.adapters.mqtt._dispatcher import _MAX_WARNED_REPLY_TOPICS as CAP
+
+        disp, _ = _rpc_dispatcher(allowed=["ok/#"])
+        with caplog.at_level("WARNING", logger="xime.mqtt"):
+            for i in range(CAP + 10):
+                await _call(disp, f"xau/{i}")
+
+        lines = [r for r in caplog.records if r.levelname == "WARNING"]
+        # CAP individual lines + exactly one "stopped listing" line.
+        assert len(lines) == CAP + 1
+        assert "no longer listed" in lines[-1].getMessage()
+
+    @pytest.mark.asyncio
+    async def test_warning_fires_even_when_the_handler_raises(self, caplog):
+        """The check runs BEFORE the handler - the failing case is the one to see."""
+        class Boom(Exception):
+            pass
+
+        class C:
+            @rpc("svc/fail")
+            async def h(self, request: Req) -> Resp:
+                raise Boom("no")
+
+        routes = MqttRouteBuilder(_FakeApp(C())).build([C])
+        conn = _FakeConnection()
+        disp = MqttDispatcher(
+            routes, conn, None,
+            reply_properties_factory=_fake_props,
+            allowed_reply_topics=["ok/#"],
+        )
+        with caplog.at_level("WARNING", logger="xime.mqtt"):
+            props = SimpleNamespace(ResponseTopic="xau/x", CorrelationData=b"c")
+            await disp.dispatch("svc/fail", json.dumps({"n": 1}).encode(), props)
+
+        assert "xau/x" in caplog.text
+        # The error reply still went out on the caller's topic.
+        assert conn.published[0]["topic"] == "xau/x"
