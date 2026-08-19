@@ -9,12 +9,15 @@
 > |---|---|
 > | [`da-tien-trinh-main-va-cau-hinh-2026-08-16.md`](da-tien-trinh-main-va-cau-hinh-2026-08-16.md) | Mô hình chạy, `main.py`, cấu hình, adapter phải đổi gì |
 > | [`cache-lien-tien-trinh-2026-08-16.md`](cache-lien-tien-trinh-2026-08-16.md) | Kho liên tiến trình (LMDB + shared memory), lý do hoãn đa luồng |
+> | **[`bus-lien-tien-trinh-2026-08-18.md`](bus-lien-tien-trinh-2026-08-18.md)** | **Bus - thay hẳn phần Bus của file này.** Tên chốt `ProcessLink` |
+| **[`kho-nhom-1-snapshot-2026-08-18.md`](kho-nhom-1-snapshot-2026-08-18.md)** | **Kho nhóm 1** - tên chốt **`RefData`**. Dữ liệu **có** nguồn bền vững |
+| **[`kho-nhom-2-store-2026-08-19.md`](kho-nhom-2-store-2026-08-19.md)** | **Kho nhóm 2** - tên chốt **`Store`**, trên LMDB. Dữ liệu **không** có nguồn |
 >
 > **Ba thứ trong file này KHÔNG còn dùng:**
 >
 > | Bản 2026-06-27 | Thay bằng |
 > |---|---|
-> | Bus Manager + single shared queue + mutex + transport abstraction + API broadcast | Bus **đổi vai**: chở **tín hiệu** (không chở dữ liệu), có **phản hồi**, đi qua **kênh cha-con** vốn đã cần cho thăng cấp primary. Dữ liệu đi qua LMDB / shared memory |
+> | Bus Manager + single shared queue + mutex + transport abstraction + API broadcast | **Bộ nhớ chung, mỗi tiến trình một vùng ghi riêng; cha KHÔNG chuyển tiếp tin nào.** Bus chở **tín hiệu** (dữ liệu đi LMDB / shared memory), có **phản hồi** với **bốn kết cục**, định tuyến bằng **kênh + khoá lọc ở bên nhận**. Chi tiết: [`bus-lien-tien-trinh-2026-08-18.md`](bus-lien-tien-trinh-2026-08-18.md) |
 > | DI scope `global` / `worker`; Worker 0 giữ global singleton; Worker 0 chết thì crash toàn chương trình | **DI dựng ĐỦ ở mọi tiến trình**, cái nào không được chạy thì **tắt bằng cờ**. Supervisor **thăng cấp** một con đang chạy khi primary chết |
 > | HTTP routing tới worker (defer hẳn) | Không cần - **mỗi tiến trình một cổng, hoặc chung cổng qua kernel** |
 >

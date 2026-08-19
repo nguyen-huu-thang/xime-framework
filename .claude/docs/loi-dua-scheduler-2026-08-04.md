@@ -168,7 +168,7 @@ báo lỗi `user-locator` báo. Test xanh không tự chứng minh mình biết 
 | Vòng lặp **chưa chạy** | **không làm gì** | đợi nó khởi động xong đã, rồi mới dừng |
 
 Không giá trị trả về, không cảnh báo, không log. Đúng **dấu hiệu 3** của
-[luật 03](../../.claude/rules/03-mot-gia-tri-mot-nghia.md): *trạng thái tạm thời (đang khởi động)
+[luật 03](../../../.claude/rules/03-mot-gia-tri-mot-nghia.md): *trạng thái tạm thời (đang khởi động)
 trả về giống hệt kết luận vĩnh viễn (đã dừng)*.
 
 Điểm tổng quát hơn ca này, đã đề xuất lên leader:

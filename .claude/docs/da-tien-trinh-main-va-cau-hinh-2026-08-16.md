@@ -27,7 +27,7 @@
 | **Nguyên lý trung tâm** | **Không id nào trong code.** `main.py` khai *có cửa nào*, cấu hình khai *tiến trình nào mở cửa nào ở cổng nào* |
 | **Mô hình chạy** | Tiến trình gốc **giữ socket nhưng không phục vụ** (bind, không bao giờ `accept`, không dựng DI, không chết); con là `python -m app.main` chạy lại với `XIME_PROCESS_ID`, sinh bằng `multiprocessing` |
 | **Chia tải** | web + unix socket: **cha giữ socket** (cả hai hệ điều hành) · gRPC: **`SO_REUSEPORT`**, Windows không hỗ trợ → **báo lỗi lúc khởi động** |
-| **Bốn hạng adapter** | nhân bản (web, grpc) · **phân mảnh** (modbus, opcua, **mqtt** - mỗi tiến trình một cụm thiết bị / một tập topic) · đơn nhất · - |
+| **BA hạng adapter** | nhân bản (web, grpc) · **phân mảnh** (modbus, opcua, **mqtt** - mỗi tiến trình một cụm thiết bị / một tập topic) · **đơn nhất** (scheduler). ⚠ Bản đầu ghi *"bốn hạng"* khi mqtt còn được xếp riêng; sau khi mqtt gộp vào **phân mảnh** thì còn **ba**, nhưng nhãn không được sửa theo - đã sửa 2026-08-19 |
 | **MQTT** | **Giữ là CLIENT, KHÔNG làm broker.** Chia tải bằng **chia topic** (giữ thứ tự), không dùng shared subscription. Ba việc còn nợ ở 5.7.4 |
 | **Fieldbus** | Tách **LOẠI** (code biết) khỏi **THỰC THỂ** (cấu hình biết). Web **không gọi thẳng** adapter fieldbus - đọc qua DB/vùng nhớ chung, ghi qua **bus** |
 | **Nguyên tắc chủ dự án nêu (2)** | ⭐ *"Cứ thay đổi code framework thoải mái, **để code phục vụ thiết kế**"* → đổi API dứt khoát, không giữ hai đường |
@@ -155,7 +155,39 @@ Phiên nghiêng về **b**, và nó cần một điều kiện: **id phải có 
 `dependency.py` chạy.** Hiện `Application.start()` mới đi tìm binding, nên thứ tự
 này phải sắp lại.
 
-### 2.7. ⭐ CHỐT chiều 2026-08-16: **DI dựng ĐỦ ở mọi tiến trình, cái nào không được chạy thì tắt bằng cờ**
+### 2.7. ⭐ CHỐT chiều 2026-08-16: **DI dựng ĐỦ ở mọi tiến trình**
+
+> ## ⚠ PHÁT BIỂU LẠI 2026-08-19: **VẾ "TẮT BẰNG CỜ" ĐÃ BỎ**
+>
+> Tiêu đề cũ: *"...cái nào không được chạy thì **tắt bằng cờ**"*. Vế đó ra đời khi
+> chưa có `RunOnce` (08-18) và chưa có **adapter hạng đơn nhất** (08-19). Nay soi lại
+> thì **không còn ca nào cần cờ**:
+>
+> | Thứ cần "tắt" | Nay đi đường nào | Còn cần cờ? |
+> |---|---|---|
+> | Job nền chạy mãi | **Adapter hạng đơn nhất** - cha chỉ `start()` ở primary | ❌ không ai gọi thì không chạy |
+> | Việc một lần cho cả cụm | **`run_once()`** - chỉ primary gọi | ❌ |
+> | Dữ liệu nạp từ mạng dùng chung | **`RefData`** - primary publish, mọi người read | ❌ |
+>
+> **Phát biểu đúng:** *DI dựng đủ ở mọi tiến trình; thứ chỉ primary được chạy thì phân
+> biệt bằng **ai gọi nó**, không bằng cờ trong object.*
+>
+> ⭐⭐ **Không phải chuyện chữ nghĩa** - hai cơ chế khác nhau ở chỗ **ai phải nhớ**:
+>
+> | | Ai giữ quyết định | Hỏng thế nào |
+> |---|---|---|
+> | **Cờ trong object** | Object tự biết mình có được chạy không, nên **mỗi object phải nhớ kiểm cờ** | Quên kiểm một chỗ là chạy nhầm ở bốn tiến trình, **im lặng** |
+> | **Không ai gọi** | Framework quyết định, object không cần biết gì | **Không có gì để quên** |
+>
+> Đúng khuôn *"bất biến do thiết kế sống bằng việc mọi người nhớ nó; bất biến được
+> cưỡng chế sống kể cả khi không ai nhớ"* (CLAUDE.md workspace).
+>
+> ⚠ **Điều kiện mở lại:** ai tìm được một ca mà đối tượng **được dựng, được inject,
+> được gọi bởi code nghiệp vụ**, nhưng chỉ primary mới được phép thực thi - thì cờ quay
+> lại. Buổi 08-19 không tìm ra ca đó, nhưng không dám nói là không có.
+>
+> Phần **"DI dựng đủ"** giữ nguyên từng chữ - đó vẫn là điều kiện để thăng cấp primary
+> tức thì.
 
 Đây là **đường a**, và nó thay hẳn phương án "loại trừ node đầu dòng" của buổi sáng.
 Nguyên văn chủ dự án: *"với DI thì dựng đủ, cái nào không được phép chạy thì có cờ
@@ -178,6 +210,26 @@ Ba lợi ích, cái thứ ba mới là lý do thật:
 Không có luật đó thì bốn tiến trình mở bốn kết nối MQTT, bốn pool Redis, bốn kênh
 gRPC mà ba phần tư không bao giờ dùng.
 
+> ### ⚠ PHÁT BIỂU LẠI 2026-08-18: luật này từng CẤM MÀ KHÔNG CHỈ ĐƯỜNG
+>
+> Chủ dự án nêu *"luật 2.7 đang có vấn đề đấy"*. Vấn đề là câu *"mở phải lười"*
+> **không dùng được cho khoá JWT**: hợp đồng `JwtKeyProvider.keys()` chốt ở 0.7.2 nói
+> **không bao giờ gọi mạng**. Lười ở đâu? Không có chỗ nào. Luật cấm một việc mà không
+> để lại đường nào làm việc đó.
+>
+> Sau khi chốt Protocol `RunOnce` (xem banner đầu [2.9](#29--post_construct-cho-tiến-trình-phụ---tạm-gác-chưa-có-lời-giải))
+> thì mỗi loại việc có một nhà:
+>
+> | Loại việc | Đi đường nào |
+> |---|---|
+> | Nhẹ, mỗi tiến trình tự lo | **`post_construct()`** |
+> | Tài nguyên cục bộ (pool DB, kênh gRPC) | **thư viện tự lười** - đã đo: `create_async_engine` không mở kết nối |
+> | **Một lần cho cả cụm, được chạm mạng** | **`run_once()`** |
+> | Dữ liệu phải nạp từ mạng rồi dùng chung | **RefData**: primary publish, mọi người read |
+> | Chạy mãi | **`Adapter.start()`**, và **hạng đơn nhất** nếu chỉ một tiến trình được chạy |
+>
+> Lúc đó cấm là hợp lý, vì mọi loại việc bị cấm đều đã có nhà khác.
+
 ### 2.8. Thăng cấp primary thay vì dựng lại - ĐANG BÀN, bốn ràng buộc
 
 Chủ dự án đề xuất: primary chết thì mẹ **thăng cấp một con đang chạy** lên làm
@@ -187,9 +239,9 @@ Hướng đúng, và 2.7 làm nó khả thi. Bốn chỗ phải xử lý:
 
 | # | Ràng buộc | Vì sao |
 |---|---|---|
-| a | ⭐ **Tín hiệu thăng cấp phải là "đã exit theo kernel", KHÔNG phải "không trả lời health check"** | Primary treo tạm (GC dài, đĩa chậm, swap) → thăng cấp con B → A tỉnh lại vẫn tin mình là primary → **hai primary cùng chạy scheduler**, đúng hạng *chạy hai lần thì SAI* của luật 01. Mô hình cha-con miễn nhiễm **nếu** chỉ tin `waitpid` - đó là sự thật của kernel, không phải suy đoán qua mạng. Con treo thì **giết trước, xác nhận exit, rồi mới thăng cấp** |
-| b | **Cần kênh cha → con lúc chạy** | Biến môi trường đặt một lần lúc sinh, không đổi được sau. Đường tự nhiên nhất là **pipe có sẵn trong quan hệ cha-con** - không cần LMDB (đã chốt không dựa vào), không file, không cổng. Kênh đó dùng lại cho health check, lệnh drain, báo cấu hình đổi |
-| c | **Chống domino** | Primary chết **vì chính job của nó** (cert hỏng làm `CertRotationJob` crash) → thăng cấp B → B chạy job đó → B chết → hết cả đàn trong vài giây. Cần: quá `N` lần thăng cấp trong `T` giây thì **dừng thăng cấp, chạy tiếp không có primary, kêu to**. Mất job nền còn hơn mất khả năng phục vụ |
+| a | ⭐ **Tín hiệu thăng cấp phải là "đã exit theo kernel", KHÔNG phải "không trả lời health check"**. ✅ **BỔ SUNG 2026-08-19: con treo thì phát hiện bằng WATCHDOG** - xem [2.8b](#28b--watchdog-kiểu-phần-cứng---chốt-2026-08-19). Ràng buộc này **không đổi một chữ**: watchdog chỉ là cái cớ để **GIẾT**, thăng cấp vẫn chỉ tin `waitpid` | Primary treo tạm (GC dài, đĩa chậm, swap) → thăng cấp con B → A tỉnh lại vẫn tin mình là primary → **hai primary cùng chạy scheduler**, đúng hạng *chạy hai lần thì SAI* của luật 01. Mô hình cha-con miễn nhiễm **nếu** chỉ tin `waitpid` - đó là sự thật của kernel, không phải suy đoán qua mạng. Con treo thì **giết trước, xác nhận exit, rồi mới thăng cấp** |
+| b | **Cần kênh cha → con lúc chạy** | ~~Đường tự nhiên nhất là **pipe**~~ → ✅ **ĐỔI 2026-08-18: dùng luôn `ProcessLink`.** Cha là **một hàng trong bảng** với vùng ghi riêng; nó ghi được mà **không cần DI** (chỉ là ghi bytes rồi release semaphore) nên không phá nguyên tắc *cha không dựng DI*. Chiều ngược lại (con báo *tôi đã sẵn sàng*) đi cùng đường, nên **F10 dùng chung luôn**. ⚠ **Điều kiện bắt buộc**: framework phải **luôn tạo một kênh nội bộ `__xime__`** không phụ thuộc app khai gì, nếu không thì chốt chặn này phụ thuộc một thành phần **tuỳ chọn** - đúng thứ chủ dự án đã bác khi loại khoá LMDB |
+| c | **Chống domino** | Primary chết **vì chính job của nó** (cert hỏng làm `CertRotationJob` crash) → thăng cấp B → B chạy job đó → B chết → hết cả đàn trong vài giây. Cần: quá `N` lần thăng cấp trong `T` giây thì **dừng thăng cấp, chạy tiếp không có primary, kêu to**. Mất job nền còn hơn mất khả năng phục vụ. ✅ **CHỐT 2026-08-19: `N = 3`, `T = 60` giây** - thăng cấp hợp lệ là chuyện hiếm, ba lần trong một phút thì gần như chắc chắn là domino. ⚠ **Hai công tắc riêng, đừng gộp**: *dựng lại con đã chết* thì **VẪN LÀM** (cụm phải giữ khả năng phục vụ), chỉ *cấp vai primary* mới dừng. ⚠ **"Kêu to" là chỗ trống thật** - xem [2.8c](#28c-cha-không-có-mồm---chỗ-trống-chung-của-kêu-to-và-healthz-tổng) |
 | d | **Việc dở dang** | Job đơn nhất phải **đọc trạng thái từ nguồn bền vững, không từ RAM**. Phần lớn job hiện tại đã vậy (con trỏ đồng bộ ở DB), nhưng đó là **thuộc tính phải giữ**, không phải điều hiển nhiên |
 
 ⚠ **"Cái sau dùng luôn dữ liệu cái cũ" - được với dữ liệu, KHÔNG được với kết nối:**
@@ -205,7 +257,301 @@ import module, nạp dữ liệu*; cái vẫn phải trả là *mở kết nối
 Nhanh hơn dựng tiến trình mới rất nhiều, nhưng **không "gần như bằng không"** - ghi
 đúng con số để sau này không ai ngạc nhiên.
 
+### 2.8b. ⭐⭐ Watchdog kiểu phần cứng - CHỐT 2026-08-19
+
+> Ràng buộc **a** của 2.8 cấm health check làm tín hiệu thăng cấp, rồi lại viết *"con
+> treo thì giết trước"* - mà **không nói ai phát hiện treo**. Nếu cha chỉ tin `waitpid`
+> thì con treo **vẫn sống theo kernel** và cha không bao giờ biết: cụm âm thầm mất một
+> tiến trình, không ai báo.
+>
+> Chủ dự án đề xuất mượn **watchdog của thiết kế phần cứng**. Nó khớp với thứ đã có sẵn
+> hơn cả mong đợi.
+
+### Vì sao watchdog chứ không phải health check
+
+| | Health check | **Watchdog** |
+|---|---|---|
+| Chiều | Cha **hỏi**, con **trả lời** | Con **tự chứng minh**, cha chỉ đọc |
+| Cần gì | Đường request/response, HTTP client ở cha | Một số 8 byte trong vùng nhớ chung |
+| Cha phải dựng gì | Client, timeout, retry | **Không gì** |
+| Con bận | Không trả lời được **dù vẫn khoẻ** | Vẫn vỗ được nếu loop còn quay |
+
+⭐ Chỗ khớp đẹp nhất: **`ProcessLink` đã cho mỗi tiến trình một vùng ghi riêng**. Vỗ
+chính là ghi một mốc thời gian vào vùng của mình - không thêm cơ chế, không thêm kênh,
+không thêm tài nguyên. Ràng buộc **b** ở trên đã chốt dùng `ProcessLink` làm kênh
+cha-con, watchdog **đi chung chuyến đó**.
+
+### ⭐⭐ Bài học phải chép theo: **vỗ ở đâu quyết định nó đo cái gì**
+
+Đây là phần giá trị nhất của việc mượn khái niệm, và cũng là cái bẫy kinh điển của nó.
+
+Trong firmware, lỗi hay gặp nhất là **đặt lệnh vỗ trong ngắt timer**: timer vẫn chạy khi
+vòng lặp chính đã treo, nên watchdog được vỗ đều đặn trong khi thiết bị chết cứng.
+Watchdog hoạt động hoàn hảo - nó chỉ **đang canh sai thứ**.
+
+| Vỗ ở đâu | Đo được gì |
+|---|---|
+| Thread riêng | ⛔ chỉ đo *"process còn tồn tại"* - `waitpid` đã trả lời rồi, thêm cơ chế mà không thêm thông tin |
+| **Task định kỳ trên event loop chính** | ✅ đo *"**event loop chưa bị chặn**"* |
+
+Vế thứ hai mới là thứ đáng canh, vì nó bắt đúng cách hỏng mà hai cơ chế kia mù:
+
+> Một coroutine gọi I/O đồng bộ, hoặc chạy vòng lặp CPU dài, sẽ **chặn cả event loop**.
+> Tiến trình vẫn sống theo kernel (`waitpid` im), còn hỏi qua HTTP thì *chậm* không phân
+> biệt được với *mạng chậm*. Watchdog trên loop thì **im bặt ngay**, và im vì đúng lý do.
+
+⚠ **Chỗ đặt lệnh vỗ là một phần của HỢP ĐỒNG, không phải chi tiết hiện thực.** Ai đó
+"dọn dẹp" bằng cách chuyển nó sang thread riêng thì watchdog xanh mãi mãi và **không gì
+báo**. Phải có test canh.
+
+### ⛔ Ranh giới: watchdog là tín hiệu GIẾT, không phải tín hiệu THĂNG CẤP
+
+```text
+watchdog im quá T  →  cha GIẾT con đó
+                   →  kernel xác nhận exit (waitpid)
+                   →  BÂY GIỜ mới thăng cấp
+```
+
+Ràng buộc **a** giữ nguyên từng chữ. ⭐ Nhờ vậy ca "hai primary" đóng chặt: A treo, cha
+giết A, kernel xác nhận A chết, cha thăng cấp B. **A không thể tỉnh lại** vì nó đã chết
+thật chứ không phải bị coi là chết.
+
+### Thông số chốt
+
+| | |
+|---|---|
+| Nhịp vỗ | **1 giây** |
+| Ngưỡng giết | im quá **10 giây** |
+| Khung tin | **CHỈ `mocVo`** (8 B, `time.time()`). ⭐ Bản đầu chừa thêm 1 B `trangThai` cho **ready** của F10; **bỏ 2026-08-19** theo chủ dự án: *"cha con giao tiếp được với nhau mà, việc gì cứ phải cho mỗi watchdog"* - trạng thái adapter là **SỰ KIỆN**, đi bằng `ProcessLink`, không phải đại lượng đo liên tục. Nhồi nó vào nhịp vỗ là bắt một cơ chế trả lời **hai câu**, đúng thứ [luật 03](../../../.claude/rules/03-mot-gia-tri-mot-nghia.md) cấm. Kèm hai lý do kỹ thuật cùng chiều: nhịp 1 giây thì tin **trễ tới 1 giây**, và nhịp vỗ là **poll** trong khi bus là **push** |
+
+⛔ **Trường "mức bận" đã BỎ** (chủ dự án chốt cùng ngày): nó sinh ra chỉ để phục vụ
+**tắt êm**, mà tắt êm đã hoãn. Đừng thêm lại cho tới khi tắt êm được bàn.
+
+⛔ **Trường `trangThai` cũng ĐÃ BỎ** (cùng ngày, xem ô *Khung tin* ở trên). Sau hai lần
+cắt, nhịp vỗ còn **đúng một trường** - và đó là đúng bản chất watchdog phần cứng: **một
+mạch đếm, một câu hỏi**.
+
+> ⭐ Đáng ghi vì cả hai lần cắt đều theo **cùng một khuôn**: phiên thấy có sẵn một kênh
+> đang chạy đều đặn nên muốn gửi kèm thứ khác vào đó. Rẻ về cơ chế, đắt về ngữ nghĩa.
+
+⚠ Chọn `T` theo nguyên tắc phần cứng: **rộng hơn tác vụ dài nhất còn hợp lệ** (GC pause
+tệ nhất cộng biên). Giết oan thì cha dựng lại, mất vài trăm mili giây; không giết thì
+treo mãi. Hai hậu quả không cùng cỡ nên nghiêng về giết, nhưng `T` vẫn rộng rãi.
+
+### Số đo (2026-08-19, đừng đo lại)
+
+| | |
+|---|---|
+| Vỗ một nhịp (`pack` `time.time()` vào `shared_memory`) | **193 ns** |
+| Cha đọc một nhịp | **124 ns** |
+
+Với nhịp 1 giây thì chi phí không đo nổi.
+
+### ✅ Ai canh CHA: giao cho tầng dưới, đừng tự canh
+
+Chủ dự án hỏi đúng chỗ hồi quy: *"watchdog cho tiến trình cha thì cái nào canh cha"*.
+
+Nguyên tắc mượn nguyên từ phần cứng: **watchdog không nằm trên con CPU nó canh** - mạch
+riêng, clock riêng, đôi khi chip khác. Đó là điều làm nó đáng tin: **nó không cùng số
+phận với thứ nó canh**.
+
+> **Cha canh con vì cha sinh ra con. Cha thì do thứ sinh ra cha canh.**
+
+| Ai canh cha | |
+|---|---|
+| **`systemd`** (Linux, tức prod) | ✅ Có **watchdog thật**: `WatchdogSec=` + gửi `WATCHDOG=1` qua `sd_notify`. Không nhận nhịp thì systemd giết và restart |
+| Windows Service Manager | Có restart khi crash, **không có watchdog nhịp**. Windows chỉ là máy dev |
+| Con canh cha | ⛔ vòng lặp: con chết thì ai dựng lại con |
+| Framework tự viết tiến trình canh thứ ba | ⛔ và ai canh nó? |
+
+Phía ta phải làm rất nhỏ: ghi `WATCHDOG=1` vào unix socket lấy từ biến môi trường
+`NOTIFY_SOCKET`. Không cần thư viện, socket thuần vài dòng. Không có `NOTIFY_SOCKET`
+(chạy tay, máy dev) thì **bỏ qua im lặng**.
+
+⭐ Chọn systemd cũng nhất quán với nguyên tắc đã chốt *"đừng viết bộ cân bằng tải"*:
+**đừng viết lại thứ tầng dưới đã làm tốt hơn**.
+
+### ⭐ Và cha treo không nguy như nghe - đáng nói để cân đúng mức đầu tư
+
+| Cha treo thì mất gì | |
+|---|---|
+| Khả năng **phục vụ** | ✅ **Không mất** - cha không `accept()`, con vẫn phục vụ bình thường |
+| Khả năng **tự phục hồi** | ⛔ Mất: con chết không ai dựng lại, primary chết không ai thăng cấp |
+
+Nên cha treo là **hỏng chậm**: không ai thấy gì cho tới lần đầu có con chết. Nguy hiểm
+nằm ở chỗ **im lặng**, không ở chỗ tức thì - đó chính là lý do giao cho systemd là đủ.
+
+⚠ Cộng thêm: cha **không chạy code nghiệp vụ, không dựng DI, không có event loop của
+app**. Nó chỉ `waitpid`, đọc bộ nhớ, ngủ. Bề mặt treo nhỏ hơn con rất nhiều.
+
+### 2.8c. Cha không có mồm - chỗ trống chung của "kêu to" và `/healthz` tổng
+
+Hai việc khác nhau cùng vấp một chỗ:
+
+| Việc | Vấp gì |
+|---|---|
+| **"Kêu to"** khi dừng thăng cấp (ràng buộc c) | Cha không dựng DI nên **không có logger của app, không notification client** |
+| **`/healthz` tổng** (mục 5.5 nói cha cần một điểm) | Cha **không phục vụ**, không có web adapter - lấy đâu chỗ trả lời |
+
+Kết cục nếu bỏ trống: cụm mất job nền **vĩnh viễn**, vẫn phục vụ bình thường, và dấu vết
+duy nhất là một dòng `stderr` không ai đọc. Đúng khuôn *hỏng chậm và im lặng*.
+
+⭐ Watchdog giải xong **vế dữ liệu**: cha đọc mốc vỗ của từng con là biết ngay ai sống,
+ai treo, treo bao lâu - không hỏi ai, không dựng gì. Còn lại là **vế đường ra**.
+
+**Chủ dự án chốt mức tối thiểu 2026-08-19:** *"kêu kiểu gì cho người vận hành thấy được
+và có log thôi"*, và nêu mong muốn thêm: *"cha mà thiết kế được api đơn giản nào cho hệ
+thống bên ngoài giám sát thì ngon luôn. có đường báo động."*
+
+⚠ Hai vai khác nhau, đừng gộp (luật 03):
+
+| Vai | Kiểu | Ai khởi xướng |
+|---|---|---|
+| **Trạng thái** | pull | hệ thống giám sát hỏi |
+| **Báo động** | push | cha kêu khi có chuyện |
+
+**Chưa chốt hình dạng.** Bốn phương án đã cân, kèm một cái phải loại:
+
+| | Đánh giá |
+|---|---|
+| **File trạng thái JSON, ghi nguyên tử** (ghi file tạm rồi `rename`) | Rẻ nhất, không cổng, không thư viện, agent nào cũng đọc được. Framework **đã có khuôn ghi nguyên tử** ở `storage/localfs` |
+| **Unix domain socket** đọc ra JSON | Không cổng TCP nên **không phải đăng ký `đăng kí mạng.md`**, bảo mật bằng quyền file. `asyncio.start_unix_server`, vài chục dòng |
+| **HTTP cổng riêng ở cha** | Quen thuộc nhất với Prometheus, nhưng **đắt nhất**: cha phải import server, và mâu thuẫn với chốt *"cha không phục vụ"* |
+| ⛔ **Cha ghi vùng nhớ chung, một CON phơi ra** | **Loại.** Giám sát đi qua thứ nó giám sát: con chết hết thì không ai trả lời - đúng lúc cần nhất. Và cha treo thì con vẫn trả số liệu cũ |
+
+Cho **đường báo động** (push), hướng rẻ nhất: cha **chạy một lệnh ngoài** do cấu hình
+khai. Framework không phải biết gì về Slack/email/telegram - người vận hành tự viết
+script.
+
+⭐ Nó **dùng lại năng lực cha vốn đã có** (sinh và trông tiến trình), và **trùng khuôn
+với câu F ở mục 9.2** (*supervisor trông tiến trình ngoài*). Hai thứ nên thiết kế cùng
+lúc.
+
+⚠ Kèm hai phanh: **hãm nhịp** (báo động liên tục là bão log, và người ta sẽ tắt nó) và
+**timeout, không chờ script** (script treo thì cha treo theo là mất luôn thứ vừa dựng lên
+để bảo vệ).
+
 ### 2.9. ⛔ `post_construct` cho tiến trình phụ - **TẠM GÁC**, chưa có lời giải
+
+> ## ✅✅ ĐÃ GIẢI 2026-08-18 - chủ dự án chốt Protocol **`RunOnce`**
+>
+> Mục này viết lúc chưa có bus và RefData. Sau khi hai thứ đó chốt thì vấn đề co lại
+> đủ nhỏ để đóng. **Phần dưới giữ làm lịch sử; đọc banner này thay cho nó.**
+>
+> ### Bài toán thật ra là HAI TRỤC, cho bốn ô
+>
+> | | **Mọi tiến trình** | **Một lần cho cả cụm** |
+> |---|---|---|
+> | **Chạy một lần rồi thôi** | **(1)** khởi tạo hệ thống: gán trường, nối dây | **(2)** lấy khoá, migration, tiêu thụ vé bootstrap cert |
+> | **Chạy mãi** | **(3)** adapter phục vụ: web, gRPC, socket | **(4)** vòng lặp job: làm tươi khoá, xoay cert |
+>
+> Ba trong bốn ô **đã có nhà**: (1) là `post_construct`, (3) là `Adapter.start()`,
+> (4) là **adapter hạng đơn nhất** (một trong **ba** hạng đã chốt ở 5.7).
+>
+> **Chỉ ô (2) không có nhà**, và nó đang ở nhờ trong `post_construct`. Đó là toàn bộ
+> chỗ vướng, và chủ dự án gọi tên đúng nó: *"hai cái chạy lần đầu khác nhau đang bị
+> nhét vào một cái"*.
+>
+> ### Chốt: thêm Protocol thứ ba, cạnh hai cái đã có
+>
+> ```python
+> # xime/core/lifecycle/hooks.py
+> @runtime_checkable
+> class RunOnce(Protocol):
+>     """Chay MOT lan cho ca cum, o primary, truoc khi bat cu ai phuc vu."""
+>     async def run_once(self) -> None: ...
+> ```
+>
+> ```python
+> # app - KHONG co @ nao, KHONG khai o dau ca
+> class KeyRefreshJob:
+>     async def post_construct(self) -> None:   # moi tien trinh, NHE
+>         ...
+>     async def run_once(self) -> None:         # MOT lan cho ca cum
+>         await self._refdata.publish(await self._trust.lay_khoa())
+> ```
+>
+> Vòng lặp làm tươi 6 giờ **không nằm trong class này nữa** - nó là adapter hạng đơn
+> nhất. `KeyRefreshJob` tách thành ba mảnh ở ba nhà, hết cảnh "một method hai việc".
+>
+> ⛔ **Không dùng decorator, không khai trong `config/`.** Chủ dự án chốt: *"không có
+> `@` rải rác trong code"*. Và Protocol là **đúng khuôn framework vốn có** - `post_construct`
+> và `pre_destroy` cũng là Protocol với tên method quy ước, không phải `@` (kiểm ở
+> `xime/core/lifecycle/hooks.py`). Ba hook nay cùng họ.
+>
+> ⭐ **Vì sao Protocol chứ không phải config**, theo đúng ranh giới của
+> [`rules/config-discovery.md`](../rules/config-discovery.md): **lịch chạy** ra config
+> là đúng (cùng một `CleanupJob` chạy 30 phút hay 1 giờ là quyết định vận hành);
+> nhưng *"tôi cần nạp khoá trước khi ai đó dùng tôi"* **thuộc bản chất của class** -
+> không ai đổi được qua cấu hình, và đổi cũng vô nghĩa. Thêm nữa, khai config thì
+> **quên khai là việc im lặng không chạy**, còn viết method là nó chạy.
+>
+> ⚠ Muốn nhìn được toàn cảnh thì có đường rẻ hơn: **framework in ra lúc khởi động
+> danh sách `run_once` nó tìm thấy** - được cái lợi của config mà không mất cái lợi
+> của Protocol.
+>
+> ### Vị trí trong vòng đời
+>
+> ```text
+> CHA:  sinh PRIMARY
+> PRIM: attach vùng nhớ -> dựng DI -> post_construct -> RUN_ONCE -> báo cha "xong"
+> CHA:  nhận báo xong -> sinh các con còn lại
+> CON:  attach -> dựng DI -> post_construct -> (bỏ qua run_once) -> adapter start
+> ```
+>
+> Đây **chính là pha** mà [tài liệu snapshot](kho-nhom-1-snapshot-2026-08-18.md) mục 6
+> đề xuất (*cha đợi primary publish xong RefData bắt buộc*), nay nó có tên.
+>
+> ### Hai ràng buộc phải khai kèm
+>
+> 1. **`run_once()` phải lặp-lại-được.** Primary chết **giữa chừng** thì con được thăng
+>    cấp chạy lại. Cha biết đã hoàn tất chưa (nó chờ tín hiệu "xong"), nên quy tắc:
+>    **chưa nhận tín hiệu thì con thăng cấp chạy lại**.
+> 2. **Không có cặp huỷ.** `post_construct` có `pre_destroy`; `run_once` **cố ý
+>    không**. Ba ca thật (lấy khoá, migration, tiêu thụ vé bootstrap) đều không có gì
+>    để dọn, và thêm một hook huỷ chỉ để cho cân xứng là thêm thứ không ai dùng.
+>
+> ### ⛔ Đừng hiện thực nó bằng một job "chạy một lần" của scheduler
+>
+> Lý do là **thời điểm**: `run_once` phải xong **trước khi bất cứ ai phục vụ**, còn
+> scheduler là adapter nên nó start **sau**. Job một-lần của scheduler nghĩa là *chạy
+> một lần vào một thời điểm*; `run_once` nghĩa là *chạy một lần, và mọi thứ khác đợi
+> nó*.
+>
+> ### ⭐ Đối chiếu Spring Boot - và vì sao Xime rẻ hơn ở đúng chỗ này
+>
+> | Ô | Spring có gì |
+> |---|---|
+> | (1) | `@PostConstruct`, `InitializingBean` |
+> | **(2)** | ⛔ **KHÔNG có trong core.** `ApplicationRunner`/`CommandLineRunner` đúng **thời điểm** nhưng chạy ở **mọi instance** |
+> | (3) | `SmartLifecycle.start()/stop()` + `getPhase()` |
+> | **(4)** | ⛔ **KHÔNG có trong core** |
+>
+> Hai ô thiếu, Spring đẩy hết ra ngoài: **ShedLock** (khoá trong DB/Redis/ZooKeeper),
+> **Quartz clustering** (khoá trong DB), **Spring Cloud + ZooKeeper/Consul** (leader
+> election). Flyway thì tự lo vì bản thân nó khoá trong DB.
+>
+> ⭐ Lý do: **các instance Spring độc lập, không có quan hệ cha-con**, nên câu *"tôi có
+> được chạy không"* chỉ trả lời được bằng cách **mượn một khoá từ bên ngoài**.
+>
+> > Xime thì supervisor **sinh ra** các con và `waitpid` chúng, nên *ai là primary* là
+> > **sự thật của kernel** - đúng ràng buộc (a) của [2.8](#28-thăng-cấp-primary-thay-vì-dựng-lại---đang-bàn-bốn-ràng-buộc).
+> > **Xime làm được ô (2) và (4) mà không cần khoá phân tán, không leader election,
+> > không thêm một thành phần vận hành nào.**
+>
+> ### ⚠ Đo được 2026-08-18
+>
+> | Đo | Kết quả |
+> |---|---|
+> | `create_async_engine` (`starters/sqlalchemy/engine.py:39`) | nằm trong `__init__`, **không mở kết nối**. Pool DB **lười thật** ✅ |
+> | Framework có `post_construct` nào chạm mạng không | **Không**, trừ chính `SchedulerRunner` |
+> | ⛔ **`SchedulerRunner` có phải Adapter không** | **KHÔNG.** Nó dùng `post_construct`/`pre_destroy`, docstring ghi rõ *"no web-adapter involvement needed"* |
+>
+> ⭐ **`SchedulerRunner` là ca thật của đúng bài toán này**: nó khởi động vòng lặp
+> trong `post_construct` (vi phạm chính luật 2.7 - *"không `create_task`"*) và chạy ở
+> **mọi tiến trình**. Tức việc ô **(4)** đang ở nhà ô **(1)**. Chuyển nó thành **adapter
+> hạng đơn nhất** là việc thuộc nhóm *"đổi API adapter một lượt"* của 0.8.
+
 
 Chủ dự án đề xuất: tiến trình phụ **không chạy `post_construct`**, được thăng cấp mới
 chạy. Rồi tự thấy khó và gác lại: *"chỗ này tôi thấy khá khó đấy, tí bàn kỹ cái này,
@@ -361,12 +707,16 @@ các tiến trình phụ **không ai làm mới** - đúng ca dùng của vùng 
 
 ## 4. Adapter phải đổi gì (theo nguyên lý 9)
 
+> ⭐ **Mảng này nay có tài liệu riêng:** [`doi-api-adapter-2026-08-19.md`](doi-api-adapter-2026-08-19.md).
+> **Phần 1 (định danh) đã CHỐT 2026-08-19**; bốn phần còn lại chưa bàn.
+> Bảng dưới giữ làm bản tóm tắt, chi tiết ở tài liệu đó.
+
 Năm điều, rút từ nguyên lý chứ không từ chữ ký hiện có.
 
 | # | Phải đổi | Vì sao |
 |---|---|---|
-| 1 | **Một khái niệm, một tên.** Mọi adapter nhận cùng một định danh, cùng tên, cùng vị trí | Bốn tên hiện tại là di sản, không phải thiết kế |
-| 2 | **Tách định danh khỏi tham số nghiệp vụ** | Xem 3.2. `client_id` MQTT, `device` Modbus là dữ liệu nghiệp vụ, không phải id nội bộ |
+| ~~1~~ | ✅ **CHỐT 2026-08-19**: `adapter_id` ở Protocol (framework dùng) · `server_id` giữ nguyên cho hạng **điểm phục vụ** · **`target_id`** mới cho hạng **kết nối ra**. ⚠ Phát biểu gốc *"mọi adapter cùng một tên"* **bị lật một nửa**: ép một tên cho cả sáu là dán sai nhãn, vì mqtt/modbus/opcua không phải server | Cái sai thật không phải *"sáu adapter bốn tên"* mà là **ba adapter cùng hạng dùng ba tên khác nhau** |
+| ~~2~~ | ✅ **CHỐT 2026-08-19** cùng điều 1. `client_id` thật về cấu hình, đọc **theo id** (`mqtt.clients.<id>`) thay vì một khối chung. ⚠ Phát hiện kèm: **hai `MqttAdapter` khác id hôm nay là HỎNG THẬT** - `MqttConfig.resolve()` đọc `runtime.get("mqtt")` một khối duy nhất, nên YAML khai `client_id` là cả hai nhận cùng một giá trị và đá nhau trên broker | `client_id` đã mang hai nghĩa **ngược nhau** trong cùng framework: gRPC client SDK dùng nó cho **tên service đích**, mqtt dùng cho **tên của chính ta** |
 | 3 | **Adapter KHÔNG tự đi tìm cấu hình nữa** | Hiện web đọc `server.port`, grpc đọc `grpc.port`, mqtt đọc `mqtt.*`: sáu adapter, sáu quy ước khoá. Cổng nay thuộc cặp `(process, server)` nên chỉ **một chỗ** biết cách ánh xạ. Framework **đẩy** khối cấu hình đã phân giải vào adapter |
 | 4 | **Hạng nhân bản phải là DỮ LIỆU, không phải chú thích** | Lý do chống trùng đang nằm trong docstring; framework đọc được nhưng không dùng được. Và theo mục 2 thì hạng là **điều kiện** (*"nhân bản được nếu mỗi bản có X riêng"*), không phải nhãn cứng |
 | 5 | **Vòng đời phải có tín hiệu "đã sẵn sàng"** | `Adapter` hiện chỉ có `start()`/`stop()`. Ba việc cùng hỏi câu này: primary phải làm xong phần một-lần trước khi sinh con · cô lập lỗi cần phân biệt hỏng trước/sau khi phục vụ · health check. **Trùng với F10 của kế hoạch vá bảo mật** - làm một lần được cả hai |
@@ -374,7 +724,12 @@ Năm điều, rút từ nguyên lý chứ không từ chữ ký hiện có.
 ⚠ **Cái giá:** bốn trong năm mục **đổi API công khai của gói đã có 11 bản trên
 PyPI**. Trong nhà thì 31 codebase sửa được; với người ngoài thì đây là thay đổi phá
 tương thích. Phiên đề nghị **đổi dứt khoát, không giữ hai đường** - giữ hai đường
-chính là cách thiết kế mới bị kéo về hình dạng cũ. Nhưng đó là quyết định chưa chốt.
+chính là cách thiết kế mới bị kéo về hình dạng cũ.
+
+✅ **CHỐT chiều 2026-08-16** (mục 9.2 câu 10): *"cứ thay đổi code framework thoải mái,
+**để code phục vụ thiết kế**"* -> **đổi dứt khoát**. ⭐ Và 2026-08-19 thêm một lý do
+nữa để không hoãn: **0.8 là bản Alpha CUỐI CÙNG**, sau đó 0.9 sang Beta nơi API coi
+như đã chốt - xem [`lo-trinh-phien-ban.md`](lo-trinh-phien-ban.md).
 
 ---
 
@@ -600,6 +955,97 @@ một con bình thường được cấp thêm scheduler, và supervisor dựng 
 | có `share_load()`, **không** có env | supervisor |
 | có `share_load()`, **có** env | worker |
 
+### 5.5b. ⭐ NĂM ca của nhánh supervisor - CHỐT 2026-08-19
+
+> Bản chốt 08-16 vẽ nhánh supervisor cho **đúng một tình huống**: nhiều tiến trình, có
+> cổng dùng chung. Bốn tình huống khác không có dòng nào mô tả, và chúng **cần hành vi
+> khác** chứ không phải là ca giàu bớt đi vài phần.
+>
+> Chỗ trống này lộ ra khi chủ dự án hỏi *"tôi có viết được một app không dùng adapter
+> nào không"*.
+
+| # | Tình huống | Cha làm gì | Ghi chú |
+|---|---|---|---|
+| **1** | Nhiều tiến trình, **có** cổng dùng chung | bind, listen, truyền fd, sinh, trông | Bản chốt 08-16 |
+| **2** | Có adapter nhưng **KHÔNG cái nào mở cổng** | **không bind gì**, vẫn sinh con và trông con đầy đủ | ⭐ **Ca DỄ HƠN ca 1**, không phải khó hơn: bỏ hẳn truyền fd, `SO_REUSEPORT`, và giới hạn Windows |
+| **3** | **Không adapter nào** + `share_load()` | **NỔ**, kèm câu chỉ đường | Im lặng sinh 4 tiến trình cùng ngủ vô hạn là thứ tốn cả buổi để hiểu, và không ca dùng thật nào biện minh cho nó |
+| **4** | `share_load()` mà **`processes:` vắng hẳn** | **NỔ** | Khai *"chia tải đi"* mà không nói *"chia thế nào"*. Không mặc định nào đoán được: một tiến trình? hai? mấy cổng? |
+| **5** | `processes:` khai **đúng một khối** | **Vẫn dựng supervisor đầy đủ** | Xem lý do ngay dưới |
+
+⚠ **Ca 5 chọn "vẫn dựng" KHÔNG phải vì nhất quán hình thức**, mà vì phương án ngược
+(tự động bỏ supervisor khi chỉ có một con) có một cách hỏng cụ thể:
+
+> Người vận hành hạ `count` từ 4 xuống 1 lúc gỡ lỗi. Nếu framework tự bỏ supervisor ở
+> con số 1 thì app **mất luôn khả năng tự dựng lại khi chết**, và **không gì báo**. Cùng
+> một cấu hình khai báo, hai mô hình vận hành khác nhau, ranh giới nằm ở một con số.
+
+Đúng [luật 03](../../../.claude/rules/03-mot-gia-tri-mot-nghia.md). Muốn một tiến trình
+**không** có cha thì đã có đường rõ ràng và rẻ hơn: **đừng gọi `share_load()`** (mục
+5.4) - nhánh đó đã tồn tại, đã chốt, và là thứ 31 app đang dùng.
+
+### ⚠ Phát biểu lại mục 5.5 cho đúng cả năm ca
+
+Câu *"cha giữ socket nhưng không phục vụ"* đúng cho ca 1 và **mô tả sai ca 2**. Phát
+biểu đúng:
+
+> Cha **giữ tài nguyên dùng chung NẾU CÓ**, sinh con, trông con, và không bao giờ phục
+> vụ.
+
+Câu đó không đổi một dòng thiết kế nào của ca 1, nhưng nó khiến ca 2 thôi là ngoại lệ.
+
+### ⭐ Ca 2 không phải giả thuyết - chính chúng ta sắp tạo ra nó
+
+Đo 27 app thật trong workspace ngày 2026-08-19:
+
+```text
+Counter({'WebAdapter': 25, 'GrpcAdapter': 9})
+```
+
+Đúng hai loại adapter, **cả hai đều mở cổng**, và **không app nào có 0 adapter**. Nên
+hôm nay ca 2 và ca 3 chưa cắn ai.
+
+Nhưng [phần 5 của mảng đổi API adapter](doi-api-adapter-2026-08-19.md) chuyển
+`SchedulerRunner` thành **adapter hạng đơn nhất**. Từ lúc đó, một app *"chỉ chạy job
+nền"* có **đúng một adapter và không mở cổng nào** - rơi thẳng vào ca 2. Hướng IoT
+(mqtt/modbus/opcua) cũng rơi vào ca 2, nhưng đã lùi sang 0.8.1 nên không gấp bằng.
+
+> Ca này không xuất hiện vì ai đó viết app lạ, mà vì **một quyết định của chính chúng
+> ta**.
+
+### ✅ Bốn phép kiểm ở mục 6 KHÔNG phải sửa
+
+Soi lại: phép kiểm 2 và 3 nói về *tên có trong cấu hình mà `main.py` không khai* và
+ngược lại - hai tập rỗng thì cả hai đúng vô điều kiện. Phép kiểm 1 (`primary`) và 4
+(không nhân bản được) độc lập với socket.
+
+### ⚠ Số đo: supervisor KHÔNG rẻ như bản 08-16 nói
+
+Mục 5.5 viết *"giá phải trả nhỏ vì cha không dựng DI: chỉ đọc YAML, kiểm, sinh, trông"*.
+Câu đó đúng về **DI** nhưng bỏ sót một thứ: mô hình đã chốt là **cha chạy lại chính
+`main.py`** (mục 5.6), nên cha gánh **toàn bộ cây import** của app.
+
+Đo thật 2026-08-19 (Windows, `tasklist`):
+
+| Tiến trình | RSS | số module |
+|---|---|---|
+| `python` trần | **14 MB** | 77 |
+| `+ Application` | **36 MB** | 320 |
+| `+ WebAdapter + GrpcAdapter` | **57 MB** | 579 |
+| `+ starter sqlalchemy` | **83 MB** | 721 |
+
+> Cha của một app điển hình tốn khoảng **83 MB**, không phải 14 MB. Nó không dựng DI,
+> nhưng nó đã `import` xong mọi thứ trước khi tới dòng `if __name__`.
+
+Đây là **cái giá của quyết định 5.6**, và quyết định đó vẫn đúng - một đường khởi động
+duy nhất đáng giá hơn 83 MB. Nhưng con số nên được khai ra, vì nó **cố định** (không phụ
+thuộc số con): với 4 con là ~20% overhead, với 1 con là ~50%. Và tài liệu hạ tầng của
+workspace ghi rõ **RAM là nút thắt của VPS, không phải đĩa**.
+
+⛔ **Đừng tối ưu bây giờ.** Hai cách giảm (cha `del` module không cần · `main.py` để phần
+nặng sau một hàm) đều là thứ **người viết app phải nhớ**, tức lại rơi vào luật *"code
+mức module phải nhẹ"* đang chờ viết.
+
+
 ⚠ Dùng **biến môi trường**, không dùng `sys.argv`: `argv` là chỗ ứng dụng có thể tự
 dùng, còn env thừa kế tự nhiên xuống con và không đụng gì. Và người vận hành vẫn gõ
 `python -m app.main` trống trơn - **đối số do framework tự đặt khi sinh con**, không
@@ -609,6 +1055,30 @@ phải thứ ai gõ tay.
 `current_process_id()` công khai thì sớm muộn sẽ có người viết `if process_id ==
 "main"` trong use case, và từ đó N tiến trình chạy N nhánh code khác nhau. Cần phân
 biệt thì phân biệt bằng **năng lực được cấp**, không bằng **tên**.
+
+### 5.5c. ✅ Nâng cấp code: CHẤP NHẬN DOWNTIME NGẮN (chốt 2026-08-19)
+
+Chỗ trống này là **hệ quả trực tiếp của "cha giữ socket"**, và bản chốt 08-16 không có
+một dòng nào về nó:
+
+| | |
+|---|---|
+| Cha `bind()` + `listen()` một lần rồi giữ mãi | Nên **thay code của cha = đóng socket = đứt kết nối** |
+| Con thì thay được | Cha giết con, sinh con mới với code mới, socket vẫn nguyên |
+| **Bản thân cha thì không** | Sửa `main.py` ở mức module, đổi phiên bản framework, sửa `share_load()` - tất cả đều đòi restart cha |
+
+⚠ [Luật 01](../../../.claude/rules/01-song-song-hoa-va-shard.md) ghi rõ *"rolling deploy
+cũng là lúc có hai tiến trình sống chung - nhiều khả năng đó mới là lần đầu nợ nghĩa 1
+cắn"*. Vậy mà mô hình chạy chưa nói gì về rolling deploy.
+
+**Chủ dự án chốt: chấp nhận downtime ngắn ở 0.8, tương lai tính tiếp.**
+
+Ghi kèm đường ra để ngày ai đó thấy đau thì biết đây là lựa chọn có ý thức, không phải
+sót:
+
+> Đường ra đã biết: cha **`exec` bản mới kế thừa fd**, như nginx làm với tín hiệu `USR2` -
+> socket sống qua lần thay code. **Xét lại khi có khách trả tiền mà cửa sổ bảo trì thành
+> vấn đề.**
 
 ### 5.6. Vì sao chạy lại `main.py` thay vì entry point riêng
 
@@ -704,6 +1174,9 @@ trình một vẫn sống, vẫn `accept()` trên một inode không còn tên, 
 được, và không lỗi nào phát ra**. Nó im lặng cướp chỗ chứ không nổ.
 
 #### 5.7.3. Modbus / OPC UA: **phân mảnh**, không phải nhân bản
+
+> ⏭ **THI CÔNG LÙI SANG 0.8.1** (chủ dự án chốt 2026-08-19) - chưa app nào dùng Modbus/OPC UA/MQTT thật nên nó không chặn ai.
+> ⚠ **Nhưng TÊN và CHỮ KÝ phải khai xong ở 0.8**: 0.8 là bản **Alpha cuối**, và 0.8.x không được đổi API công khai một dòng nào.
 
 Chủ dự án nêu mô hình đúng: hai tiến trình, **mỗi cái điều khiển một dải thiết bị
 khác nhau**, không tranh chấp. Web thì vẫn có ở cả hai và liên kết ngang qua vùng nhớ
@@ -835,6 +1308,12 @@ Luật chủ dự án chốt:
 > **Đọc và ghi thiết bị là việc của tiến trình giữ thiết bị đó. Web đọc kết quả từ DB
 > hoặc vùng nhớ chung, không gọi thẳng adapter fieldbus.**
 
+⚠ **Mở rộng 2026-08-18: luật này áp cho MỌI adapter hạng PHÂN MẢNH, không riêng
+fieldbus.** MQTT sau khi chia theo topic (5.7.4) cũng là phân mảnh, nên tiến trình A
+muốn publish một topic thuộc tập của B thì **cũng phải đi qua bus**. Không sửa câu
+này thì ngày làm MQTT sẽ có người gọi thẳng và **hỏng một nửa số lần** - đúng kiểu
+lỗi tệ nhất để gỡ.
+
 Có luật này thì lỗi "gọi thiết bị không thuộc tiến trình mình" từ chuyện xảy ra
 thường xuyên thành chuyện chỉ xảy ra khi lập trình viên viết sai - và lúc đó thông
 báo rõ (điều kiện 2 ở trên) là đủ.
@@ -859,6 +1338,9 @@ OPC UA y hệt, đổi `modbus.devices` thành `opcua.servers`, `host`/`port` th
 `endpoint`.
 
 #### 5.7.4. MQTT - CHỐT: **giữ nguyên là client, KHÔNG làm broker**
+
+> ⏭ **THI CÔNG LÙI SANG 0.8.1** (chủ dự án chốt 2026-08-19) - chưa app nào dùng Modbus/OPC UA/MQTT thật nên nó không chặn ai.
+> ⚠ **Nhưng TÊN và CHỮ KÝ phải khai xong ở 0.8**: 0.8 là bản **Alpha cuối**, và 0.8.x không được đổi API công khai một dòng nào.
 
 **Hiện trạng đo được:** `MqttAdapter.start()` gọi `aiomqtt.Client(**kwargs)` rồi
 connect tới `mqtt.host:mqtt.port` ([_adapter.py:209](../../xime/adapters/mqtt/_adapter.py),
@@ -1069,6 +1551,26 @@ chúng chỉ thành đường găng vào ngày bắt đầu app nhà kính hoặ
 
 #### 5.7.4b. Bus liên tiến trình - chở LỆNH điều khiển (chốt dùng, bàn kỹ sau)
 
+> ## ✅ ĐÃ BÀN KỸ 2026-08-18 - mục này là BẢN PHÁC, đọc bản đầy đủ thay cho nó
+>
+> **[`bus-lien-tien-trinh-2026-08-18.md`](bus-lien-tien-trinh-2026-08-18.md)** - thiết
+> kế đóng, tên chốt là **`ProcessLink`**.
+>
+> ⚠ **Hai chỗ dưới đây HẾT ĐÚNG, giữ vết gạch vì chúng từng là kết luận:**
+>
+> | Mục này viết | Bản 08-18 chốt |
+> |---|---|
+> | ~~*"dùng lại kênh cha-con, cha làm trung tâm chuyển tiếp"*~~ | **Bộ nhớ chung, cha KHÔNG nằm trên đường đi.** Chủ dự án bác socket (loopback vẫn qua TCP stack, chiếm cổng, trong tầm firewall). Đổi lại được thứ lớn hơn: hết nút cổ chai, hết điểm chết |
+> | ~~*"đánh đổi: cha là nút cổ chai và điểm chết"*~~ | **Không còn đánh đổi đó.** Mọi tiến trình đọc thẳng cùng một vùng nhớ |
+>
+> Ba chỗ thiếu nêu ở bảng dưới thì **đã giải hết**: phản hồi (`ask`) · phân biệt
+> *"không ai nhận"* với *"đã làm xong"* (**bốn** kết cục `Done`/`NoOwner`/`NoAnswer`/`Failed`)
+> · định tuyến (**kênh + khoá, lọc ở bên nhận**, không có tên tiến trình ở đâu cả).
+>
+> Đo được trong buổi đó, đáng nhớ: **bộ nhớ chung 17,4 µs và socketpair 16,8 µs, gần
+> như bằng nhau** - thời gian bị chi phối bởi *đánh thức tiến trình*, không phải bởi
+> copy dữ liệu. Nên đừng chọn bộ nhớ chung vì tưởng nó nhanh hơn.
+
 ⭐ **Chỗ ăn khớp đáng chú ý: kênh cha-con đã phải có sẵn rồi.** Ràng buộc (b) của
 2.8 đòi một kênh cha → con lúc chạy để thăng cấp primary; health check và lệnh drain
 cũng cần đúng kênh đó. Nên bus liên tiến trình **dùng lại chính nó**, cha làm trung
@@ -1207,8 +1709,8 @@ Cộng với file cache cùng buổi, **phần lớn bản kế hoạch đó kh�
 
 | Thành phần trong 0.8 | Còn cần |
 |---|---|
-| Bus Manager · shared queue + mutex · `BusMessage` · transport abstraction · API `broadcast` | **Không** (chủ dự án vẫn muốn **giữ bus** nhưng với vai trò khác: chở **tín hiệu**, không chở dữ liệu - xem file cache mục 6) |
-| DI scope `global` | **Không.** "Global" nay nghĩa là *chỉ khai ở tiến trình primary* |
+| Bus Manager · shared queue + mutex · `BusMessage` · transport abstraction · API `broadcast` | **Không.** Bus **giữ lại nhưng đổi hẳn cơ chế**: bộ nhớ chung, mỗi tiến trình một vùng ghi riêng, **cha không nằm trên đường đi**. Thiết kế đầy đủ chốt 2026-08-18: [`bus-lien-tien-trinh-2026-08-18.md`](bus-lien-tien-trinh-2026-08-18.md) |
+| DI scope `global` | **Không.** ⚠ Dòng này trước ghi *"global nay nghĩa là chỉ khai ở tiến trình primary"* - **hết đúng sau khi [2.7](#27--chốt-chiều-2026-08-16-di-dựng-đủ-ở-mọi-tiến-trình-cái-nào-không-được-chạy-thì-tắt-bằng-cờ) chốt cùng ngày**: **mọi** tiến trình khai đủ, khác nhau ở chỗ **được CHẠY hay không**, không phải ở chỗ được khai hay không |
 | Worker 0 chết thì global singleton mất | **Không tồn tại** |
 | Master spawn/giám sát/restart | Có, nhưng **nhỏ hơn nhiều** - không có trạng thái chung nào phải quản |
 | HTTP routing tới worker | **Không.** Mỗi tiến trình một cổng |
@@ -1269,24 +1771,24 @@ lại tiếp vậy."*
 
 | # | Câu hỏi | Ghi chú |
 |---|---|---|
-| A | **Scheduler: tách ĐĂNG KÝ job khỏi CHẠY vòng lặp lịch** | `config/scheduler.py` được import ở mọi tiến trình nên mọi tiến trình đều **khai** job - đúng nguyên lý DI đồng nhất. Nhưng chỉ primary được **chạy**. Hiện `SchedulerRunner` gộp cả hai |
-| B | **Cổng của server phụ: `processes:` thắng đối số trong code, hay cấm hẳn đối số** | Hôm nay muốn hai gRPC phải truyền cổng thẳng trong code. Phiên nghiêng về **cấm hẳn, báo lúc khởi động**: hai nguồn cho cùng một giá trị là chỗ để lệch, và *người vận hành sửa YAML mà cổng không đổi* là loại bug tốn cả buổi |
+| ~~A~~ | ~~**Scheduler: tách ĐĂNG KÝ job khỏi CHẠY vòng lặp lịch**~~ | ✅ **ĐÓNG 2026-08-18** cùng lời giải với [2.9](#29--post_construct-cho-tiến-trình-phụ---tạm-gác-chưa-có-lời-giải): đăng ký ở `config/scheduler.py` (mọi tiến trình import), chạy vòng lặp là **adapter hạng đơn nhất** (chỉ primary start). ⚠ Việc còn lại là **thi công**: `SchedulerRunner` hiện **KHÔNG phải Adapter** (đo 2026-08-18) mà dùng `post_construct`/`pre_destroy` |
+| ~~B~~ | ✅ **CHỐT 2026-08-19: CẤM HẲN ĐỐI SỐ.** Nguyên văn: *"làm lại 1 lần cho tử tế, **chấp nhận đau thương**"*. Cổng chỉ đến từ `processes:`; truyền `port=` trong code thì **báo lỗi lúc khởi động**, không im lặng bỏ qua. ⭐ Chốt *"cha giữ socket"* làm nó thành bắt buộc chứ không còn là lựa chọn: cha `bind` rồi truyền fd xuống, con **không có cách nào tự chọn cổng**, nên đối số trong code là một lời hứa framework không giữ được | Hôm nay muốn hai gRPC phải truyền cổng thẳng trong code. Phiên nghiêng về **cấm hẳn, báo lúc khởi động**: hai nguồn cho cùng một giá trị là chỗ để lệch, và *người vận hành sửa YAML mà cổng không đổi* là loại bug tốn cả buổi |
 | C | **Luật "code ở mức module phải nhẹ"** | Với `N` tiến trình, mọi thứ ngoài `if __name__` chạy `N+1` lần. `import config` rẻ vì chỉ ghi registry; nhưng `client = SomeClient(...)` ở mức module thành `N+1` kết nối và **không gì báo**. Nên là một dòng trong [`rules/`](../rules/), cạnh luật vòng lặp nền |
 
 ### 9.2. Còn mở
 
 | # | Câu hỏi | Ghi chú |
 |---|---|---|
-| ⭐ | **`post_construct` ở tiến trình phụ** | **Câu khó nhất còn lại.** Chủ dự án gác lại để bàn kỹ. Vấn đề đã được nêu chính xác ở [2.9](#29--post_construct-cho-tiến-trình-phụ---tạm-gác-chưa-có-lời-giải) - đọc đó trước khi bàn tiếp, đừng dựng lại từ đầu |
-| A | **Scheduler: tách ĐĂNG KÝ job khỏi CHẠY vòng lặp lịch** | Xem 9.1 |
-| B | **Cổng server phụ: `processes:` thắng đối số code, hay cấm hẳn đối số** | Xem 9.1. Chốt web "cha giữ socket" làm câu này gấp hơn: `host`/`port` của web nay do **cha** quyết, con chỉ nhận fd - nên hai nguồn cho cùng một giá trị là chuyện chắc chắn xảy ra |
-| C | **Luật "code ở mức module phải nhẹ"** | Xem 9.1 |
+| ~~⭐~~ | ~~**`post_construct` ở tiến trình phụ**~~ | ✅ **ĐÓNG 2026-08-18: chủ dự án chốt Protocol `RunOnce`.** Bài toán là **hai trục bốn ô**, ba ô đã có nhà, chỉ ô *một lần cho cả cụm* thiếu - nay có tên và **không dùng `@`**. Đọc banner đầu [2.9](#29--post_construct-cho-tiến-trình-phụ---tạm-gác-chưa-có-lời-giải). ⚠ Còn lại là **thi công**: chuyển `SchedulerRunner` thành adapter hạng đơn nhất |
+| ~~A~~ | ~~**Scheduler: tách ĐĂNG KÝ job khỏi CHẠY vòng lặp lịch**~~ | ✅ **ĐÓNG 2026-08-18**, xem 9.1 |
+| ~~B~~ | ✅ **CHỐT 2026-08-19: CẤM HẲN ĐỐI SỐ** - xem 9.1. | Chốt web "cha giữ socket" làm câu này gấp hơn: `host`/`port` của web nay do **cha** quyết, con chỉ nhận fd - nên hai nguồn cho cùng một giá trị là chuyện chắc chắn xảy ra |
+| ~~C~~ | ✅ **VIẾT XONG 2026-08-19**: [`rules/module-level-code.md`](../rules/module-level-code.md). ⭐ Phần đáng nhớ nhất **không phải kết nối thừa** mà là **giá trị không tất định**: `uuid4()` ở mức module cho mỗi tiến trình một giá trị **khác nhau** trong khi code đọc nó tin là dùng chung - đó không phải lãng phí, đó là **sai**. Cùng khuôn `hash()` ở kho nhóm 2. Còn lại là **hiện thực hai phép dò** | 📌 Bus cho một ví dụ: mở `ProcessLink` ở mức module là **N+1 lần attach vùng nhớ chung**, và không gì báo |
 | 3 | ⚠ **Dải cổng trong `đăng kí mạng.md` có đủ không** | Base HTTP `8081-8099` = **19 cổng cho 9 service**. Chung cổng (5.7.1) làm câu này nhẹ hẳn: N tiến trình vẫn một dòng sổ. **Việc của workspace, không phải framework** |
-| 5 | **Tiến trình primary chết thì cụm ở trạng thái nào** | Nhẹ hơn nhiều sau 2.8: supervisor **thăng cấp** một con đang chạy. Còn lại: trong lúc chưa thăng cấp xong, `/readyz` của phụ có nên báo không |
-| D | **Bus liên tiến trình: thiết kế lại theo vai trò mới** | ✅ Chốt **dùng** nó cho lệnh điều khiển fieldbus, chủ dự án: *"bàn kỹ sau"*. Ba chỗ 0.8 chưa đủ + một chỗ đừng làm đã ghi ở 5.7.4b |
-| F | **Supervisor trông TIẾN TRÌNH NGOÀI** (phiên đề xuất, chưa chốt) | Sinh ra từ câu hỏi MQTT broker: điều chủ dự án thực sự muốn là *"đừng bắt tôi cài và trông thêm một thứ"*. Supervisor đã sinh và trông tiến trình con rồi, cho nó trông cả `mosquitto` là **gần như miễn phí** - khai `external: { mosquitto: { command: ..., start_before: main } }`, framework không phải biết MQTT là gì. Dùng lại được cho mọi thứ cần sống cùng vòng đời app |
+| ~~5~~ | ✅ **CHỐT 2026-08-19: `/readyz` của con phụ VẪN XANH.** ⭐ Câu này **đã có đáp án nằm sẵn** trong bảng 5.7.1: `/readyz` hỏi *"nhận request mới được không"* - mà con phụ **vẫn nhận được** dù cụm thiếu primary; thứ mất là **job nền**, không phải khả năng phục vụ. ⚠ Trả lời ngược lại thì **LB rút hết con** và cụm chết hoàn toàn vì một job nền không chạy - đúng ngược nguyên tắc *"mất job nền còn hơn mất khả năng phục vụ"* của chống domino. Thông tin *"cụm đang không có primary"* vẫn phải thấy được, nhưng qua `/healthz` và đường ra của cha (mục 2.8c, đã hoãn) |
+| ~~D~~ | ~~**Bus liên tiến trình: thiết kế lại theo vai trò mới**~~ | ✅ **XONG 2026-08-18** - [`bus-lien-tien-trinh-2026-08-18.md`](bus-lien-tien-trinh-2026-08-18.md). Tên chốt **`ProcessLink`**. ⚠ Hai kết luận của 5.7.4b đã bị lật: **bộ nhớ chung chứ không phải kênh cha-con**, và **cha KHÔNG nằm trên đường đi** |
+| ~~F~~ | ⏭ **HOÃN 2026-08-19** - chủ dự án: *"giờ tôi chưa biết dùng nó để làm gì, chưa có nhu cầu"*. ⭐ Hoãn không mất gì vì **nó không phải API** - thêm vào 0.8.2 hay 1.1 đều được, khác hẳn ba phần còn lại của mảng adapter vốn buộc phải chốt ở 0.8 (bản Alpha cuối). ⚠ Bốn cái giá đã cân: **lấn việc systemd** (đúng nguyên tắc *đừng viết bộ cân bằng tải*) · mosquitto **không vỗ watchdog** nên cha mù khi nó treo · thứ tự tắt thành một đồ thị phụ thuộc · log của nó đi đâu. **Điều kiện mở lại:** có app thật giao cho khách **tự cài** trên máy không có người vận hành Linux - lúc đó *"một lệnh chạy hết"* mới là giá trị thật. | Sinh ra từ câu hỏi MQTT broker: điều chủ dự án thực sự muốn là *"đừng bắt tôi cài và trông thêm một thứ"*. Supervisor đã sinh và trông tiến trình con rồi, cho nó trông cả `mosquitto` là **gần như miễn phí** - khai `external: { mosquitto: { command: ..., start_before: main } }`, framework không phải biết MQTT là gì. Dùng lại được cho mọi thứ cần sống cùng vòng đời app |
 | E | **`@poll` / `@on_change` chạy một lần cho MỖI thực thể** | Hệ quả của hướng 3 (5.7.3): handler phải nhận thêm tham số biết mình đang xử lý máy nào. **Đổi chữ ký công khai của decorator**, gộp vào đợt đổi API ở mục 4 |
-| 9 | Tên thống nhất cho đối số định danh của cả sáu adapter | Nay khó hơn: web/grpc/socket dùng **`server_id`** (điểm phục vụ), modbus/opcua dùng **loại thiết bị** - hai khái niệm khác nhau, có thể không nên ép cùng một tên |
+| ~~9~~ | ~~Tên thống nhất cho đối số định danh của cả sáu adapter~~ | ✅ **ĐÓNG 2026-08-19: KHÔNG ép cùng một tên**, đúng như ghi chú này ngờ. Hai tên ở bề mặt (`server_id` · `target_id`) cộng **một tên chung ở tầng framework** (`adapter_id`). Chi tiết: [`doi-api-adapter-2026-08-19.md`](doi-api-adapter-2026-08-19.md) mục 1 |
 | 10 | Đổi dứt khoát hay giữ hai đường (tương thích PyPI) | ✅ Chủ dự án chốt chiều 2026-08-16: *"nếu cần thì cứ thay đổi code framework thoải mái, **để code phục vụ thiết kế**"* → **đổi dứt khoát** |
 | 11 | Hình dạng "hạng nhân bản là điều kiện" trông thế nào trên adapter | Liên quan 5.7. Nay có **ba** hạng chứ không hai: nhân bản · phân mảnh · đơn nhất |
 

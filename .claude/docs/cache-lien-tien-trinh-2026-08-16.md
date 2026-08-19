@@ -1,9 +1,27 @@
 # Cache liên tiến trình: chốt LMDB, và những gì còn treo
 
-> **Trạng thái 2026-08-16: ĐANG BÀN. Đây là biên bản một buổi trao đổi thiết kế,
-> KHÔNG phải thiết kế đã chốt.** Phần "đã chốt" ở mục 2 là chốt thật (chủ dự án
-> quyết trong buổi này); mọi thứ ở mục 3 và 4 thì **chưa ai quyết**, đừng đọc như
-> đã xong.
+> ## ⚠ 2026-08-19: FILE NÀY NAY LÀ **BỐI CẢNH**, KHÔNG PHẢI THIẾT KẾ HIỆN HÀNH
+>
+> Phần thiết kế đã tách sang **ba** file riêng, và cả ba đều chốt xong:
+>
+> | Đọc thay | |
+> |---|---|
+> | [`kho-nhom-1-snapshot-2026-08-18.md`](kho-nhom-1-snapshot-2026-08-18.md) | Nhóm 1, tên chốt **`RefData`** |
+> | [`kho-nhom-2-store-2026-08-19.md`](kho-nhom-2-store-2026-08-19.md) | Nhóm 2, tên chốt **`Store`** trên LMDB |
+> | [`bus-lien-tien-trinh-2026-08-18.md`](bus-lien-tien-trinh-2026-08-18.md) | Bus, tên chốt **`ProcessLink`** |
+>
+> ⚠⚠ **Bảng "chưa quyết" ở mục 3 ĐÃ ĐÓNG HẾT** - nhưng ba câu trong đó **tan chứ không
+> được trả lời** (câu 2 `AtomicStore` · câu 7 ba kết cục · câu 8 mở kho ở đâu): chúng
+> giả định một hình dạng thiết kế mà buổi 08-19 không chọn. Đọc bảng đó như **lịch sử
+> lập luận**, đừng đọc như việc còn phải làm.
+>
+> Thứ file này còn giữ giá trị: **mục 1** (bài toán và chỗ nó bị hiểu thành hai nghĩa) ·
+> **mục 2** (ranh giới hai nhóm, vì sao LMDB, ⛔ **mục 2.7 phạm vi một máy**) · **mục 4**
+> (những chỗ lật `ke-hoach-0.8.md`) · **mục 5** (số đo) · **mục 6** (đã loại kèm lý do) ·
+> **mục 7** (ràng buộc kỹ thuật của LMDB).
+
+> **Trạng thái lúc viết, 2026-08-16: ĐANG BÀN.** Đây là biên bản một buổi trao đổi thiết
+> kế, không phải thiết kế đã chốt.
 >
 > Ghi lại để **không bị trôi** và để buổi sau bàn tiếp từ đây, không phải bàn lại
 > từ đầu. Chưa có một dòng code nào.
@@ -22,7 +40,8 @@
 | **Nhóm 1** (có nguồn bền vững) | Tự viết trên `multiprocessing.shared_memory`, cơ chế **hai bản đổi con trỏ** |
 | **Nhóm 2** (không có nguồn) | **LMDB**, mỗi "bảng" một file riêng |
 | **Mô hình chạy** | **Đa tiến trình trước, đa luồng để sau.** Lý do ở mục 2.5, và nó là số đo chứ không phải sở thích |
-| **Chưa quyết** | 9 mục ở mục 3, trong đó **2 mục là API công khai** nên phải chủ dự án gật |
+| ⛔⭐ **Phạm vi** | **MỘT máy, luôn luôn** (chủ dự án chốt 2026-08-19, mục 2.7). Nhiều máy **đã giải bằng chia shard** - đừng bàn phương án nhiều máy nữa |
+| **Chưa quyết** | Mục 3. ⚠ **Câu 2 và câu 7 chỉ là gợi ý tạm của phiên 08-16**, không phải khung phải theo - chủ dự án nói rõ 2026-08-19 |
 
 ---
 
@@ -73,6 +92,23 @@ qua queue. Nếu sau này ai định đưa cache lên bus thì phải đọc l�
 
 ### 2.2. Nhóm 1: tự viết trên shared memory, hai bản đổi con trỏ
 
+> ## ✅ NHÓM 1 ĐÃ CÓ TÀI LIỆU RIÊNG, THIẾT KẾ CHI TIẾT 2026-08-18
+>
+> **[`kho-nhom-1-snapshot-2026-08-18.md`](kho-nhom-1-snapshot-2026-08-18.md)** - tên
+> chốt là **`RefData[T]`**. Tách ra theo yêu cầu chủ dự án (*"phần không dùng LMDB
+> trước đi"*), và hoá ra tách được sạch: **phần lớn 8 câu treo ở mục 3 chỉ thuộc
+> nhóm 2**.
+>
+> Đã chốt ở đó: API subclass kiểu `CrudRepository` · `read()` trả **object** chứ không
+> bytes (số đời làm chìa khoá cache L1) · **chỉ primary `publish()`** · `None` = *chưa
+> sẵn sàng* và **không cần thêm bit cờ** · chờ qua bus khi chưa sẵn sàng · **chia đoạn
+> khi dữ liệu lớn** · thứ tự ghi và thứ tự đọc.
+>
+> ⭐ Và nó **cắt bớt một mảng của cái vướng ở luật 2.7**: primary gọi Trust rồi
+> `publish()`, tiến trình phụ chỉ `read()` nên **không chạm mạng lần nào**.
+>
+> Phần dưới giữ làm bản tóm tắt cơ chế.
+
 Chốt hướng (chi tiết hiện thực chưa chốt). Hình dạng:
 
 ```
@@ -104,6 +140,20 @@ qua. Giải rẻ: số đời khởi tạo bằng 0, và 0 nghĩa là chưa có 
 
 ### 2.3. Nhóm 2: LMDB
 
+> ## ✅ NHÓM 2 ĐÃ CÓ TÀI LIỆU RIÊNG, THIẾT KẾ CHI TIẾT 2026-08-19
+>
+> **[`kho-nhom-2-store-2026-08-19.md`](kho-nhom-2-store-2026-08-19.md)** - tên chốt là
+> **`Store`**. Tách ra theo đúng cách đã tách nhóm 1.
+>
+> Đã chốt ở đó: ba lớp nền (`Store` / `CounterStore` / `Store[T]`) · cấu hình đi bằng
+> **tham số class** · vào DI bằng `scan` · **chia file theo `crc32(key) % parts`** ·
+> lỗi kho báo bằng **ngoại lệ**.
+>
+> ⚠ **Câu 2, 7 và 8 ở mục 3 dưới đây đã TAN** - không phải được trả lời. Xem lý do ở
+> tài liệu nhóm 2, mục 1.2, 1.3 và 4.
+>
+> Phần dưới giữ làm bối cảnh vì sao chọn LMDB.
+
 **Chủ dự án chốt 2026-08-16**, sau khi cân nhắc và bác hai phương án khác (xem
 mục 6). Nguyên văn lý do: *không tự tin để tự viết, cũng không muốn dùng SQLite.*
 
@@ -115,6 +165,23 @@ bỏ sót - đừng mở lại.**
 ### 2.4. Một "bảng" là một file LMDB riêng, không trộn
 
 Chủ dự án chốt. Đây là lựa chọn tốt hơn vẻ ngoài của nó:
+
+> ### ⭐ BỔ SUNG 2026-08-19 - ba ý, mỗi ý đóng một câu đang treo
+>
+> Nguyên văn: *"tôi tính mỗi bảng là dùng 1 LMDB, **bảng do lập trình viên khai**. **giống
+> mỗi bảng trong sql**, nhưng **linux thì ngay trên ram**. **win thì chỉ là máy dev**."*
+>
+> | Ý | Đóng câu nào |
+> |---|---|
+> | **Bảng do lập trình viên khai** | Danh sách bảng là **framework config** (`.py`), không phải `application.yml` - xem [3.1](#31-khuôn-cấu-hình-đề-xuất-chưa-chốt) |
+> | **Giống bảng SQL** | Khái niệm để người dùng bám vào đã có sẵn, không phải dạy cái mới. ⚠ Kèm một chỗ **KHÁC** SQL phải nói rõ: **không có giao dịch xuyên bảng** |
+> | **Linux ngay trên RAM** | Mặc định trỏ `/dev/shm`, không phải đĩa. **Đây là mặc định, không phải tùy chọn nâng cao** |
+> | **Win chỉ là máy dev** | Hạ cấp toàn bộ [7.4](#74-windows-khác-linux-ở-hai-chỗ) từ *"phải giải"* xuống *"ảnh hưởng máy dev"* |
+>
+> ⚠ Một hệ quả của *"trên RAM"* phải ghi ra vì nó ngược với trực giác về từ "database":
+> **kho mất sạch khi máy khởi động lại**. Với cache thì đúng ý; nhưng đừng để ai đặt vào đó
+> thứ không được phép mất. Còn `sync: false` thì **hết ý nghĩa** khi đã nằm trên tmpfs - không
+> có đĩa nào để đồng bộ xuống.
 
 LMDB khoá ghi **ở mức environment**, tức một người ghi tại một thời điểm cho **cả
 kho**. Gộp mọi bảng vào một file thì hãm nhịp, khoá job nền và thử thách passkey
@@ -183,20 +250,58 @@ vài GB không có cửa nhân bản).
 
 ---
 
+---
+
+## 2.7. ⛔⭐ PHẠM VI LÀ MỘT MÁY - chủ dự án chốt 2026-08-19, ĐỪNG MỞ LẠI
+
+Nguyên văn: *"tôi dùng cái này cho cache liên tiến trình. **phục vụ request**. **luôn là 1
+máy**. đừng bàn nhiều máy nữa. **nhiều máy tôi đã chia shard**."*
+
+| | |
+|---|---|
+| **Kho này là gì** | Cache liên tiến trình, nằm **trên đường đi của request** |
+| **Phạm vi** | **MỘT máy.** Không phải "một máy trước, nhiều máy sau" - là điều kiện thiết kế |
+| **Nhiều máy thì sao** | **Đã giải bằng chia shard**, không giải bằng kho chia sẻ |
+
+⭐ **Lý do nó đúng chứ không phải một sự cắt bớt:** shard làm cho *một máy* đủ dùng.
+Mọi request của cùng một chủ thể đi về cùng một shard, tức cùng một máy - nên trạng thái mà
+các request của chủ thể đó phụ thuộc vào nhau **chỉ cần chia sẻ trong máy ấy**. Dựng thêm một
+kho bắc qua nhiều máy là giải lại một bài toán đã giải, bằng cơ chế đắt hơn và có thêm chế
+độ hỏng.
+
+⛔ **Hệ quả cho mọi phiên sau: không nêu phương án nhiều máy nữa** - không Redis cluster,
+không đồng bộ giữa máy, kể cả dưới dạng *"đường lui"* hay *"ngày mai cần thì"*.
+
+✅ **Đóng luôn mục 7.1** (`TrustKeyL2Cache`) - xem ở đó.
+
+⚠ Điều kiện duy nhất đi kèm, ghi ra để không ai quên: lập luận trên đứng khi **định
+tuyến theo shard**. Ngày một bộ cân bằng tải chia request của cùng một tổ chức sang hai máy
+khác nhau thì kho một máy không còn đủ. Đây là **một dòng điều kiện**, không phải một đề
+xuất mở lại.
+
+---
+
 ## 3. Chưa quyết - phải chốt trước khi viết dòng code đầu tiên
 
 Bảng này là **việc của buổi sau**. Cột khuyến nghị là ý kiến của phiên, chưa ai gật.
 
+> ⚠⚠ **ĐỌC TRƯỚC BẢNG: câu 2 và câu 7 là GỢI Ý TẠM, không phải khung phải theo.**
+> Chủ dự án nói rõ 2026-08-19: *"câu 2 và câu 7 chỉ là phiên trước gợi ý tạm"*. Buổi sau
+> **bàn lại từ nhu cầu thật**, đừng bắt đầu từ hai lựa chọn đã viết sẵn ở đây.
+>
+> ⚠ Và cả bảng này viết **trước khi có chốt phạm vi một máy** ([mục 2.7](#27--phạm-vi-là-một-máy---chủ-dự-án-chốt-2026-08-19-đừng-mở-lại)),
+> nên mọi chỗ nó cân nhắc chuyện nhiều máy đều **hết hiệu lực**.
+
 | # | Quyết định | Khuyến nghị của phiên |
 |---|---|---|
-| 1 | **Nhiều kho thì lấy ra bằng gì?** `CacheService` là một Protocol nên không bind được cho N kho cùng lúc | Một `LmdbStores` inject được, `stores.get("rate_limit") -> CacheService`. Kho tên `default` thì bind luôn cho `CacheService`. Cùng khuôn `RedisClientProvider` đang có |
-| 2 | ⭐ **Mở rộng `CacheService` hay tách `AtomicStore` riêng?** Hợp đồng hiện có đúng 4 method (`get/set/delete/exists`), **không có phép nguyên tử nào**, mà nhóm 2 sống bằng `incr` và `set_if_absent` | **Tách Protocol thứ hai.** Không phá tương thích với ai đang dùng `CacheService`, và nói đúng sự thật rằng không phải kho nào cũng làm được phép nguyên tử |
+| 1 | **Nhiều kho thì lấy ra bằng gì?** `CacheService` là một Protocol nên không bind được cho N kho cùng lúc | Một `LmdbStores` inject được, `stores.get("rate_limit") -> CacheService`. Kho tên `default` thì bind luôn cho `CacheService`. Cùng khuôn `RedisClientProvider` đang có.<br>✅ **Có tiền lệ từ 2026-08-18**: bus dùng `configure_link(channels={"fieldbus": ChannelSpec(...)})`. Cùng khuôn cho `configure_lmdb(stores={...})` |
+| 2 | ⭐ **Mở rộng `CacheService` hay tách `AtomicStore` riêng?** Hợp đồng hiện có đúng 4 method (`get/set/delete/exists`), **không có phép nguyên tử nào**, mà nhóm 2 sống bằng `incr` và `set_if_absent` | **Tách Protocol thứ hai.** Không phá tương thích với ai đang dùng `CacheService`, và nói đúng sự thật rằng không phải kho nào cũng làm được phép nguyên tử.<br>✅ **Cùng lập luận đã dùng ở bus 2026-08-18**: `on_announce` và `on_request` tách làm hai decorator vì **hai hợp đồng khác nhau** (khác kiểu trả về), không gộp rồi bắt người viết tự đoán |
 | 3 | **TTL do framework làm hay app làm?** | **Framework**, vì mục tiêu là mọi dự án được hưởng. Khuôn value: 8 byte hạn dùng ở đầu, phần còn lại là payload. ⚠ Cắt bằng `memoryview`, **`value[8:]` là một lần copy toàn bộ** và như thế là vứt đi chính thứ đã trả tiền để có ở LMDB |
 | 4 | **Dọn key hết hạn** | Một job nền mỗi kho, chu kỳ khai trong config. Theo luật 01 việc này thuộc hạng *chạy hai lần chỉ THỪA* nên **không cần khoá phân tán** |
-| 5 | **Đầy trần thì làm gì** | Tự nới gấp đôi tới một trần cứng khai trong config, log `warning` mỗi lần nới (đó là tín hiệu khai thiếu). Chạm trần cứng thì ném thật + log `critical` |
+| 5 | **Đầy trần thì làm gì** | Tự nới gấp đôi tới một trần cứng khai trong config, log `warning` mỗi lần nới (đó là tín hiệu khai thiếu). Chạm trần cứng thì ném thật + log `critical`.<br>⛔ **ĐỪNG đem lập luận của bus sang đây.** Bus bỏ cấp phát động vì nó chở **tín hiệu thưa**, nên đầy là triệu chứng của một tiến trình treo. Kho thì ngược: nó giữ **trạng thái tăng theo số người dùng thật**, nên đầy là **tải thật**. Hai bản chất khác nhau, hai lời giải khác nhau |
 | 6 | **Đuổi bộ nhớ** | **Không làm LRU thật.** Nó đòi ghi trên đường đọc, mà LMDB một-người-ghi thì làm vậy là phá sập mô hình: các lượt đọc vốn không chặn nhau bỗng xếp hàng qua khoá ghi. Chỉ đuổi theo hạn dùng, cộng dọn theo thời điểm **ghi** khi đầy. **Ghi rõ giới hạn này trong tài liệu** để không ai tưởng nó là Redis |
-| 7 | ⭐ **Ba kết cục thay vì hai** (luật 03) | `có giá trị` / `không có key` / `không hỏi được kho`. ⚠ Gộp lỗi kho vào `None` thì **hãm nhịp gặp lỗi kho sẽ CHO QUA**, và `set_if_absent` không biết mình đã chiếm được khoá hay chưa nên **hai worker cùng chạy một job**. Cả hai đều im lặng |
-| 8 | **Mở kho ở đâu** | Trong `post_construct` của **từng worker, sau khi tiến trình đã tách ra**. ⚠ Environment của LMDB **không sống sót qua `fork`**, và master **không được** mở kho |
+| 7 | ⭐ **Ba kết cục thay vì hai** (luật 03) | `có giá trị` / `không có key` / `không hỏi được kho`. ⚠ Gộp lỗi kho vào `None` thì **hãm nhịp gặp lỗi kho sẽ CHO QUA**, và `set_if_absent` không biết mình đã chiếm được khoá hay chưa nên **hai worker cùng chạy một job**. Cả hai đều im lặng.<br>✅ **Hình dạng đã chốt ở bus 2026-08-18: KIỂU TRẢ VỀ, không phải ngoại lệ.** Lý do dùng nguyên được: ngoại lệ dễ bị `except Exception` nuốt chung với lỗi mạng, mà *"không hỏi được kho"* là **lỗi hạ tầng** người vận hành phải thấy |
+| ~~8~~ | ~~**Mở kho ở đâu**~~ | ✅ **ĐÓNG 2026-08-18: mở TRƯỚC khi dựng DI, KHÔNG qua `post_construct`.** Kho là **hạ tầng của framework**, không phải component của app - cùng lập luận đã dùng cho bus, xem [`bus-lien-tien-trinh-2026-08-18.md`](bus-lien-tien-trinh-2026-08-18.md) mục 6.1. Được hai thứ: câu này có đáp án, **và kho ra khỏi danh sách chờ câu treo `post_construct`**.<br>⚠ Cảnh báo cũ vẫn đúng và **tự thoả**: bước đó nằm **sau** khi tách tiến trình, và đã chốt dùng `spawn` chứ không `fork`, nên master không mở kho |
 | 9 | **Async** | Đọc gọi thẳng trong event loop (vài micro giây, đẩy sang thread còn đắt hơn). **Ghi phải qua executor**, vì lệnh ghi có thể chờ khoá ghi toàn kho trong thời gian không xác định, và chờ đó chặn cả event loop |
 
 ⭐ **Mục 2 và mục 7 là thêm API công khai vào gói MIT đã có trên PyPI** (11 bản,
@@ -204,6 +309,35 @@ Bảng này là **việc của buổi sau**. Cột khuyến nghị là ý kiến
 tiết hiện thực.
 
 ### 3.1. Khuôn cấu hình đề xuất (chưa chốt)
+
+> ⚠⚠ **PHẢI SOI MỘT LẦN CÓ CHỦ Ý: hai tài liệu đang chỉ hai chỗ khác nhau cho cùng
+> loại tham số.**
+>
+> | | Kích thước khai ở đâu |
+> |---|---|
+> | **Bus** (chốt 2026-08-18) | **`config/link.py`**, file `.py`, theo luật đã chốt ở F15 |
+> | **Kho** (khuôn dưới đây) | **`application.yml`**, khối `lmdb:` |
+>
+> Chưa chắc cái nào sai. Phép phân loại đã chốt ở F15 và ghi trong
+> [`rules/config-discovery.md`](../rules/config-discovery.md) là: ***người vận hành có
+> ĐỦ THÔNG TIN để chọn giá trị này không?*** Áp vào từng khoá thì **câu trả lời khác
+> nhau**:
+>
+> | Khoá | Ai đủ thông tin |
+> |---|---|
+> | `map_size`, `map_size_max` | **vận hành** - đây là dung lượng đĩa/RAM còn lại |
+> | `max_readers` | **vận hành** - phụ thuộc số tiến trình nhân số luồng |
+> | `ttl_sweep_seconds` | **lập trình viên** - phụ thuộc nhịp dữ liệu của app |
+>
+> ✅ **MỘT NỬA CÂU NÀY ĐÃ ĐÓNG 2026-08-19:** chủ dự án chốt *"bảng do **lập trình viên**
+> khai"*, nên **danh sách bảng nằm ở `.py`**, không phải `application.yml`. Đúng phép phân
+> loại đã chốt ở F15: người vận hành **không biết** app cần những bảng nào, và thêm/bớt một
+> bảng là **đổi code**, không phải đổi cấu hình.
+>
+> Còn lại đúng phần **kích thước**: nên nhiều khả năng nó **tách đôi**, và đó là kết luận hợp lý. Nhưng phải quyết một
+> lần có chủ ý, chứ không để hai file chốt hai kiểu rồi sáu tháng sau không ai biết
+> bản nào đúng - đúng khuôn hỏng đã gặp ngày 2026-07-31 khi hai bộ test canh khoá hai
+> luật khác nhau mà không ai thấy.
 
 ```yaml
 lmdb:
@@ -241,7 +375,21 @@ Bốn chi tiết cố ý:
 
 ## 4. Phải thiết kế thêm (ngoài phạm vi kho)
 
-### 4.1. ⚠ `ke-hoach-0.8.md` chọn kiểu queue theo một giả định mà cache sẽ lật
+### 4.1. ~~⚠ `ke-hoach-0.8.md` chọn kiểu queue theo một giả định mà cache sẽ lật~~
+
+> ## ✅ MỤC NÀY TAN 2026-08-18, không phải được trả lời
+>
+> Bus thiết kế lại ([`bus-lien-tien-trinh-2026-08-18.md`](bus-lien-tien-trinh-2026-08-18.md))
+> **không còn Bus Manager, không còn queue chung, và cha không nằm trên đường đi** -
+> mọi tiến trình đọc thẳng cùng một vùng nhớ. Nút cổ chai mà mục này cảnh báo
+> **không tồn tại nữa**.
+>
+> Đoạn cuối (*"cần hỏi đáp thì tách làm hai đường, đừng ép chung một queue"*) cũng
+> thành thừa: hỏi đáp đã có sẵn qua `correlation_id` trên cùng cấu trúc, không phải
+> một đường riêng.
+>
+> Giữ nguyên phần dưới làm lịch sử - nó cho biết vì sao bản 06-27 chọn queue chung.
+
 
 Bản kế hoạch chọn **một shared queue duy nhất + mutex ghi**, lý do ghi rõ:
 *"traffic inter-worker thực tế rất thấp (config sync, cert rotation, cache
@@ -500,7 +648,7 @@ trên VPS mà RAM đang là nút thắt, cộng một round trip mỗi lần đ�
 
 ## 7. Ràng buộc còn nguyên, đừng tưởng đã xong
 
-### 7.1. ⚠ `TrustKeyL2Cache` KHÔNG được phủ bởi bất cứ thứ gì chốt hôm nay
+### 7.1. ✅ `TrustKeyL2Cache` - ĐÃ ĐÓNG 2026-08-19: **mỗi máy một kho riêng**
 
 Nó chia sẻ giữa **các instance data-service, có thể khác máy, và sống qua restart**.
 LMDB một máy không làm được. Hai lối:
@@ -508,8 +656,36 @@ LMDB một máy không làm được. Hai lối:
 - giữ Redis riêng cho nó, hoặc
 - chấp nhận **mỗi máy một kho riêng**, mỗi máy tự gọi Trust một lần.
 
-Lối thứ hai nhiều khả năng chấp nhận được vì tầng đó vốn fail-soft tuyệt đối, nhưng
-nó phải là **một quyết định được ghi ra**, không phải một sự bỏ sót. **Chưa quyết.**
+> ### ⭐ VÀ NÓ KHÔNG THUỘC NHÓM 2 - chỉnh 2026-08-19
+>
+> Mục này nằm ở tài liệu LMDB nên dễ bị đọc thành *"khách hàng của nhóm 2"*. Không phải:
+> khóa xác thực Trust **có nguồn bền vững** (chính Trust), mất thì gọi lại được - tức đúng
+> định nghĩa **nhóm 1** ở [mục 1](#1-bài-toán-và-chỗ-nó-bị-hiểu-thành-hai-nghĩa).
+>
+> Nên lời giải của nó là **`RefData`** ([`kho-nhom-1-snapshot-2026-08-18.md`](kho-nhom-1-snapshot-2026-08-18.md)),
+> không phải LMDB. Và nó khớp tới từng chi tiết: tập khóa **thay trọn gói**, **một** tiến
+> trình (primary) gọi Trust rồi `publish()`, các tiến trình khác chỉ `read()` nên **không
+> chạm mạng lần nào** - đúng câu đã ghi ở mục 5.4 của tài liệu snapshot.
+>
+> ⚠ Hệ quả cho bảng “khách hàng của nhóm 2”: **trừ ca này ra**. Nhóm 2 chỉ phục vụ thứ
+> **không có nguồn bền vững** - hãm nhịp, thử thách passkey, chống lặp (idempotency key).
+
+✅ **Chủ dự án chốt 2026-08-19: lối thứ hai.** Đây không phải một quyết định riêng cho
+mục này mà là **hệ quả trực tiếp của [mục 2.7](#27--phạm-vi-là-một-máy---chủ-dự-án-chốt-2026-08-19-đừng-mở-lại)**:
+phạm vi luôn là một máy, nhiều máy đã giải bằng chia shard.
+
+Mỗi máy một kho riêng, mỗi máy tự gọi Trust một lần. Chấp nhận được vì tầng đó **vốn
+fail-soft tuyệt đối** (đọc code: `TrustKeyL2Cache` bọc `except Exception` quanh mọi lời gọi,
+hỏng thì rơi về L1 + Trust), nên cái giá thật chỉ là **mỗi máy một vòng gọi Trust thêm**,
+không phải một chế độ hỏng mới.
+
+⚠ Việc còn lại là **thi công**: `data-service` đang bind `CacheService: RedisCacheService`.
+Đổi sang backend một máy là một dòng `bind`, không sửa `TrustKeyL2Cache`.
+
+📌 Ghi chú 2026-08-18: **bus KHÔNG giải mục này** (nó cũng chỉ một máy). Nó chỉ giúp
+một chút nếu chọn lối thứ hai: khi một tiến trình lấy khoá mới về, nó `announce` cho
+các tiến trình **cùng máy**, nên chúng không phải poll số đời của vùng nhớ nhóm 1.
+Tiện lợi, không phải lời giải.
 
 ### 7.2. Số hiệu đời kho (fencing token)
 
@@ -518,7 +694,29 @@ phân tán thì không**: sau reboot mọi khoá biến mất, hai job có thể
 giữ khoá - đúng thứ luật 01 bắt phải chặn, và nó xảy ra đúng lúc không ai để ý.
 
 Cần một số hiệu tăng dần qua mỗi lần kho khởi động lại, để job cầm khoá đời cũ biết
-mình đã mất khoá. **Chưa thiết kế.**
+mình đã mất khoá.
+
+> ### ⭐ Có lời giải gần như miễn phí từ 2026-08-18: dùng **`link_id`**
+>
+> Bus đã bắt **cha sinh một mã lần chạy ngẫu nhiên** rồi truyền cho con qua biến môi
+> trường (`XIME_LINK_ID`), vì tên vùng nhớ chung phải duy nhất giữa 31 app trên cùng
+> một máy. Mã đó **chính là số hiệu đời** mà mục này cần:
+>
+> - Job cầm khoá ghi kèm `link_id` của lần chạy đã cấp khoá.
+> - Đọc lại thấy `link_id` **khác** thì khoá vô hiệu, tự bỏ.
+>
+> ⭐ **Không cần tăng đơn điệu.** Ca này chỉ cần biết *đời kho đã đổi*, không cần biết
+> đời nào mới hơn. Nên một mã ngẫu nhiên là đủ, và nó đã phải có sẵn cho bus.
+>
+> ⚠ **Chỉ đúng trong phạm vi MỘT MÁY**, mà đó đúng là phạm vi đã chốt cho LMDB. Nhiều
+> máy thì mỗi cha một `link_id` nên phép so luôn ra "khác" và mọi khoá luôn vô hiệu.
+> Ngày kho bắc qua nhiều máy thì lời giải này **hết hiệu lực**, không phải chỉ kém đi.
+>
+> ⚠ App khởi động lại (kho trên đĩa còn nguyên, `link_id` đổi) thì mọi khoá **vô hiệu
+> hết**, và đó là **đúng**: app restart nghĩa là mọi job của nó đã chết, khoá của
+> chúng đáng bị bỏ.
+
+**Chưa chốt hình dạng hiện thực**, nhưng hết là "chưa thiết kế".
 
 ### 7.3. Trần LMDB nới được, nhưng có bẫy
 
@@ -541,7 +739,12 @@ mình đã mất khoá. **Chưa thiết kế.**
 - Theo dõi bằng `env.info()` (`map_size`, `last_pgno`) và `env.stat()` (`psize`).
   `last_pgno` đếm cả trang trống nên hơi bi quan, nhưng đủ làm ngưỡng cảnh báo.
 
-### 7.4. Windows khác Linux ở hai chỗ
+### 7.4. Windows khác Linux ở hai chỗ (⬇ hạ cấp 2026-08-19: **chỉ là máy dev**)
+
+> Chủ dự án chốt: *"win thì chỉ là máy dev"*. Nên mục này **không còn là việc phải giải**,
+> chỉ là thứ phải **chạy được** trên máy dev. Cụ thể: không đi tìm ổ RAM cho Windows, và
+> không thiết kế gì quanh việc file bị cấp phát thật - chỉ cần **trần mặc định khiêm tốn** để
+> máy dev không mất vài GB đĩa cho kho rỗng.
 
 | | Linux | Windows |
 |---|---|---|
