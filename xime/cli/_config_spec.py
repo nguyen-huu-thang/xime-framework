@@ -69,6 +69,24 @@ class Block:
     complete: bool = False
     """Danh sách khoá đã đủ, nên `check config` được phép báo khoá lạ."""
 
+    init_keys: tuple[tuple[str, str, str], ...] = field(default_factory=tuple)
+    """Khoá mà **`xime init` mở sẵn** dù framework có mặc định cho nó.
+
+    Dạng `(tên, giá trị YAML, chú thích)`. Khác `Key.required` ở một điểm cốt
+    lõi: `required` nghĩa là *framework KHÔNG đoán được* - thiếu là chặn khởi
+    động. Còn đây nghĩa là *framework đoán được, nhưng một dự án MỚI nên bắt
+    đầu từ một giá trị khác*.
+
+    Có mặt để giải đúng một chuyện: dự án `xime init` sinh ra nghe trên
+    `0.0.0.0` ngay lần chạy đầu, và file cấu hình có ba dòng chú thích cẩn thận
+    về TLS rồi in `host: "0.0.0.0"` **không một chữ** nói nó nghĩa là *"máy khác
+    trong mạng gọi tới được"*. Phát hiện T13 của kiểm toán 0.8.
+
+    ⚠ Chỉ tác động tới file `xime init` GHI RA. `xime config --print` vẫn in
+    mặc định thật của framework, và **31 ứng dụng hiện có không đổi hành vi** -
+    chúng không chạy lại trình tạo.
+    """
+
     needs: str | None = None
     """Extra phải cài để khối này có nghĩa, ví dụ `xime[lmdb]`."""
 
@@ -161,6 +179,18 @@ SPEC: tuple[Block, ...] = (
         model="xime.adapters.web._server_config:WebServerConfig",
         complete=True,
         see="docs/configuration.md",
+        init_keys=(
+            (
+                "host",
+                '"127.0.0.1"',
+                "127.0.0.1 = only this machine can reach the app.\n"
+                'The framework default is "0.0.0.0", which means EVERY network\n'
+                "interface - anyone who can route to this machine can call it.\n"
+                "That is the right answer inside a container and the wrong one\n"
+                "on a laptop or a shared box. `xime init` starts you on the\n"
+                "narrow side; widen it deliberately.",
+            ),
+        ),
     ),
     Block(
         name="grpc",
@@ -325,6 +355,15 @@ SPEC: tuple[Block, ...] = (
             "Split the application across processes. Only meaningful when\n"
             "main.py calls `share_load()`, and a mismatch between the two is a\n"
             "startup error. For one process with several ports use `process:`."
+        ),
+        see="docs/multi-process.md",
+    ),
+    Block(
+        name="process",
+        doc=(
+            "One process with several ports. This is the shape for the common\n"
+            "case: a single process serving HTTP and gRPC at once. Use\n"
+            "`processes:` (plural) to split the application across several."
         ),
         see="docs/multi-process.md",
     ),

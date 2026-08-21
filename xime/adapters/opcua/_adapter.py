@@ -96,7 +96,7 @@ class OpcuaAdapter(
         # - two adapters on one server would hold two sessions and attach two
         # clients to the one shared OpcuaConnection. See ModbusAdapter.
         self.adapter_id = target_id
-        self._slot: object | None = None
+        self._slot = None
         self._controllers = controllers
         self._config: OpcuaConfig | None = None
         self._connection = opcua_registry.connection(target_id)
@@ -123,7 +123,7 @@ class OpcuaAdapter(
 
         from xime.core.config.runtime import RuntimeConfig
 
-        runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
+        runtime: RuntimeConfig = app.get(RuntimeConfig)
         self._config = OpcuaConfig.resolve(runtime, self._server)
         register_resolved_config(self._config)
         self._sem = asyncio.Semaphore(self._config.max_concurrency)

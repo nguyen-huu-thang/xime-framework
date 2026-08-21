@@ -290,8 +290,8 @@ class TestLocalStorageHardening:
     def test_unquoted_yaml_mode_is_read_as_decimal_int(self, tmp_path):
         # Không phải hành vi mong muốn nhưng phải xác định: số nguyên giữ nguyên,
         # chuỗi mới đọc theo bát phân. Ghi lại để người sau không đoán.
-        from xime.starters.localfs._storage import _parse_mode
+        from xime.core.config._mode import parse_mode
 
-        assert _parse_mode("0600", 0) == 0o600
-        assert _parse_mode(0o600, 0) == 0o600
-        assert _parse_mode(None, 0o600) == 0o600
+        assert parse_mode("0600", 0, "storage.local.file_mode") == 0o600
+        assert parse_mode(0o600, 0, "storage.local.file_mode") == 0o600
+        assert parse_mode(None, 0o600, "storage.local.file_mode") == 0o600

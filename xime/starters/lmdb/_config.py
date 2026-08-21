@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from xime.core.config._mode import parse_mode
 from xime.core.config.runtime import RuntimeConfig
 from xime.core.exception.framework import StartupException
 
@@ -18,6 +19,14 @@ from xime.core.exception.framework import StartupException
 # cấp trong log lúc khởi động.
 DEFAULT_MAP_SIZE = 64 * 1024 * 1024
 DEFAULT_TOTAL_MAX = 1024 * 1024 * 1024
+
+# Owner-only by default. This store holds rate-limit counters and passkey
+# challenges, and the documented path for it is /dev/shm - a directory every
+# user on the machine can enter (mode 1777).
+# Mặc định chỉ chủ sở hữu. Kho này giữ bộ đếm hãm nhịp và thử thách passkey, mà
+# đường dẫn tài liệu khuyên dùng là /dev/shm - thư mục mọi user vào được (1777).
+DEFAULT_FILE_MODE = 0o600
+DEFAULT_DIR_MODE = 0o700
 
 _SIZE_UNITS = {
     "": 1,
@@ -116,11 +125,26 @@ class LmdbConfig:
     đâu, một file bắt đầu ở cỡ nào, và cả kho được phép chiếm bao nhiêu bộ nhớ.
     Mọi thứ khác của một bảng - tên, hạn, chia mấy file - thuộc về lập trình
     viên và khai bằng tham số class trên subclass của Store.
+
+    ⚠ **Thêm hai khoá quyền tệp ngày 2026-08-21, và lý do KHÔNG phải là đối
+    xứng với `storage.local`.** Câu "chỉ ba khoá" ở trên vẫn là quan điểm đúng;
+    thứ lật nó là một ràng buộc mới: từ bản này, mở kho mà thấy tệp rộng hơn
+    mức khai thì framework **hạ quyền xuống**. Một phép sửa như vậy bắt buộc
+    phải có **đích được khai ra** - không có nó thì đó không phải "sửa về mức
+    đã khai" mà là "ghi đè ý định của người vận hành, không đường nào nói
+    khác". Hai khoá này tồn tại để phân biệt hai chuyện đó.
+
+    Bối cảnh: phát hiện **C1** của đợt kiểm toán 0.8. `lmdb.open()` không truyền
+    `mode=` nên tệp ra `0644`, trong khi kho giữ bộ đếm hãm nhịp và thử thách
+    passkey, và chính docstring của gói khuyên đặt kho ở `/dev/shm` (thư mục
+    `1777`). Xem `.claude/docs/kiem-toan/0.8-kiem-toan-toan-dien.md`.
     """
 
     path: str
     map_size: int = DEFAULT_MAP_SIZE
     total_max: int = DEFAULT_TOTAL_MAX
+    file_mode: int = DEFAULT_FILE_MODE
+    dir_mode: int = DEFAULT_DIR_MODE
 
     @classmethod
     def resolve(cls, runtime: RuntimeConfig) -> LmdbConfig:
@@ -166,4 +190,6 @@ class LmdbConfig:
             path=path.strip(),
             map_size=parse_size(raw.get("map_size", DEFAULT_MAP_SIZE), "lmdb.map_size"),
             total_max=parse_size(raw.get("total_max", DEFAULT_TOTAL_MAX), "lmdb.total_max"),
+            file_mode=parse_mode(raw.get("file_mode"), DEFAULT_FILE_MODE, "lmdb.file_mode"),
+            dir_mode=parse_mode(raw.get("dir_mode"), DEFAULT_DIR_MODE, "lmdb.dir_mode"),
         )

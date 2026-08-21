@@ -116,7 +116,7 @@ class MqttAdapter(
             ) from None
 
         from xime.core.config.runtime import RuntimeConfig
-        runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
+        runtime: RuntimeConfig = app.get(RuntimeConfig)
         self._config = MqttConfig.resolve(runtime, self._target_id)
         self._sem = asyncio.Semaphore(self._config.max_concurrency)
 

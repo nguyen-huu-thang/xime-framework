@@ -7,7 +7,7 @@ import os
 import pkgutil
 import sys
 from types import ModuleType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from xime._startup import module_level_seconds, warn_if_module_level_is_heavy
 from xime.core.bootstrap._cluster import ClusterMember
@@ -39,6 +39,9 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger("xime.bootstrap")
 
+
+
+_T = TypeVar("_T")
 
 class Application:
     """
@@ -336,7 +339,10 @@ class Application:
                 handle.refdata_run_id,
                 specs,
                 index=handle.index,
-                primary=self._is_primary,
+                # HÀM, không phải giá trị: vai primary đổi lúc chạy (thăng cấp
+                # / từ chối vai). Truyền giá trị là chụp lại một bản sao đứng
+                # yên - phát hiện C3 của kiểm toán 0.8.
+                primary=lambda: self._is_primary,
             )
         if self._share_load and classes:
             _logger.warning(
@@ -346,7 +352,7 @@ class Application:
                 "hand to debug it (%s=...), and wrong anywhere else.",
                 PROCESS_ID_ENV,
             )
-        return RefDataArena.create(specs, index=0, primary=self._is_primary)
+        return RefDataArena.create(specs, index=0, primary=lambda: self._is_primary)
 
     def _register_framework_adapters(self) -> None:
         """Adapter do starter cấp, đăng ký sau khi DI dựng xong.
@@ -782,10 +788,19 @@ class Application:
     # Singleton access
     # ------------------------------------------------------------------
 
-    def get(self, cls: type) -> object:
+    def get(self, cls: type[_T]) -> _T:
         """
         Return a singleton from the DI container.
         Raises RuntimeError if called before start().
+
+        ⭐ Kiểu trả về **đi theo tham số**, không phải `object`. Chữ ký cũ buộc
+        mọi chỗ gọi phải viết `# type: ignore[assignment]` để nói lại điều mà
+        chính lời gọi đã nói - đo được 8 dòng như vậy trong repo, và mỗi dòng là
+        một chỗ trình kiểm kiểu bị tắt trên một đoạn mã thật. Một trong số đó
+        (`_markers.py`) che luôn một `union-attr` ngay dòng dưới.
+
+        Đây là sửa chú thích cho đúng thứ hàm vốn đã làm, không đổi hành vi:
+        `orchestrator.get(cls)` vẫn trả đúng instance của `cls` như trước.
         """
         if self._orchestrator is None:
             raise RuntimeError(

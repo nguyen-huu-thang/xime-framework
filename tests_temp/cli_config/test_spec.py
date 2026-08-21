@@ -53,8 +53,22 @@ def _blocks_the_code_reads() -> set[str]:
     `adapters/web/_markers.py`, và một khối tên `a` không hề tồn tại. Phép dò
     kêu oan là phép dò sẽ bị tắt.
 
-    Chỗ mù còn lại, khai ra chứ không vá: khoá dựng bằng biến
-    (`runtime.get(name)`) thì không tên nào để đọc.
+    ⭐ **Dạng thứ ba, thêm 2026-08-21 (T10).** Hai dạng đầu chỉ bắt chuỗi
+    literal, nên `build_topology(read, ...)` gọi `read(SINGLE_KEY)` trượt cả
+    hai: hàm không phải `x.get`, và đối số là một **hằng có tên**. Chính
+    docstring này từng khai chỗ mù đó ở dòng dưới - khai đúng, rồi không ai đi
+    kiểm xem nó đang giấu gì. Nó đang giấu khối `process:`, tức **hình dạng
+    chuẩn cho một tiến trình** không có trong bản mô tả cấu hình.
+
+    Nên nay nhận thêm: đối số là một `Name` trỏ tới một hằng **ở mức module
+    trong cùng file** và tên hằng kết thúc bằng `_KEY`.
+
+    ⚠ Ràng buộc `_KEY` là một phép thu hẹp CÓ CHỦ Ý, không phải lười. Nhận mọi
+    hằng chuỗi thì `_log.warning(MOT_THONG_DIEP)` cũng thành một "khối cấu
+    hình", và một phép dò kêu oan là một phép dò sẽ bị tắt.
+
+    Chỗ mù còn lại, khai ra chứ không vá: khoá dựng bằng biến thật sự
+    (`runtime.get(name)` với `name` là tham số) thì không tên nào để đọc.
     """
     found: set[str] = set()
     for path in _ROOT.rglob("*.py"):
@@ -62,6 +76,19 @@ def _blocks_the_code_reads() -> set[str]:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except SyntaxError:  # pragma: no cover
             continue
+        # hằng chuỗi ở mức module của CHÍNH file này, tên kết thúc bằng _KEY
+        hang: dict[str, str] = {}
+        for node in tree.body:
+            dich, gia_tri = None, None
+            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                dich, gia_tri = node.target.id, node.value
+            elif isinstance(node, ast.Assign) and len(node.targets) == 1 \
+                    and isinstance(node.targets[0], ast.Name):
+                dich, gia_tri = node.targets[0].id, node.value
+            if (dich and dich.endswith("_KEY")
+                    and isinstance(gia_tri, ast.Constant)
+                    and isinstance(gia_tri.value, str)):
+                hang[dich] = gia_tri.value
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -76,6 +103,8 @@ def _blocks_the_code_reads() -> set[str]:
                 key = _first_string_arg(node)
             elif isinstance(func, ast.Name) and func.id == "FromConfig":
                 key = _first_string_arg(node)
+            if key is None and node.args and isinstance(node.args[0], ast.Name):
+                key = hang.get(node.args[0].id)
             if key:
                 found.add(key.split(".", 1)[0])
     return found
@@ -102,6 +131,13 @@ class TestTheSpecDoesNotGoStale:
         found = _blocks_the_code_reads()
         assert "server" in found
         assert len(found) >= 5
+        # Đối chứng cho dạng THỨ BA riêng: `process` chỉ tìm thấy được qua
+        # `read(SINGLE_KEY)`. Thiếu dòng này thì hai dạng đầu vẫn đủ để vế trên
+        # xanh, và dạng thứ ba có thể hỏng mà không ai biết.
+        assert "process" in found, (
+            "phép dò không nhận ra dạng `read(SINGLE_KEY)` - khối process: sẽ "
+            "lại biến mất khỏi bản mô tả mà không gì đỏ"
+        )
 
 
 class TestShape:

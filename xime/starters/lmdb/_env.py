@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
+import stat
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,45 @@ from ._errors import StoreFullError, StoreUnavailableError
 from ._storage import human_size, inspect_storage
 
 _log = logging.getLogger(__name__)
+
+
+def _sieu_chat(path: Path, dich: int) -> None:
+    """Hạ quyền của `path` xuống `dích` nếu nó đang RỘNG HƠN. Không bao giờ nới.
+
+    Chỉ so bit, không so bằng: một tệp đang `0400` thì chặt hơn `0600`, và
+    framework không có lý do gì kéo nó nới ra. Phép sửa này chỉ đi một chiều.
+
+    ⭐ Vì sao phải sửa tệp CŨ chứ không chỉ tạo tệp mới cho đúng: bản vá chỉ áp
+    cho tệp mới thì mọi cài đặt đang chạy **vẫn hở nguyên sau khi nâng cấp** -
+    mà đó mới là chỗ có dữ liệu thật. Không có gì nhắc người vận hành, và kho
+    thì cố ý sống qua lần restart nên nó sẽ không tự tạo lại.
+
+    Trên Windows `chmod` gần như không có tác dụng; ở đó hàm này im lặng không
+    làm gì, và đó là đúng - quyền POSIX không phải mô hình bảo mật của nó.
+    """
+    if os.name == "nt":
+        return
+    try:
+        hien = stat.S_IMODE(path.stat().st_mode)
+    except OSError:
+        return
+    thua = hien & ~dich
+    if not thua:
+        return
+    try:
+        os.chmod(path, hien & dich)
+    except OSError as exc:
+        _log.warning(
+            "store: cannot tighten %s from %s to %s: %s. Anyone able to read "
+            "this path can read rate-limit counters and passkey challenges.",
+            path, oct(hien), oct(hien & dich), exc,
+        )
+        return
+    _log.info(
+        "store: tightened %s from %s to %s (lmdb.file_mode / lmdb.dir_mode). "
+        "It was created before this framework version, which did not set a mode.",
+        path, oct(hien), oct(hien & dich),
+    )
 
 # Name of the marker file that records how many partitions a table was created
 # with. See _check_parts() for why it exists.
@@ -155,7 +196,11 @@ class LmdbEnvironment:
         lmdb = _import_lmdb()
         size = self._config.map_size
         self._reserve(file_path, size)
-        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+        thu_muc = Path(file_path).parent
+        thu_muc.mkdir(mode=self._config.dir_mode, parents=True, exist_ok=True)
+        # `mode=` của mkdir bị umask che VÀ không tác động tới thư mục đã tồn
+        # tại, nên chmod tường minh - cùng lý do như localfs.
+        _sieu_chat(thu_muc, self._config.dir_mode)
         try:
             # subdir=False keeps one partition in one file, which is what makes
             # "N files per table" readable on disk. sync/metasync off: this
@@ -174,10 +219,22 @@ class LmdbEnvironment:
                 metasync=False,
                 max_dbs=0,
                 lock=True,
+                # Without this, python-lmdb defaults to 0o755 and the file lands
+                # at 0644 - world readable, in a directory the docs point at
+                # /dev/shm (mode 1777). Measured, audit 0.8 finding C1.
+                # Thiếu dòng này thì python-lmdb lấy mặc định 0o755 và tệp ra
+                # 0644 - ai cũng đọc được, trong thư mục mà tài liệu trỏ tới
+                # /dev/shm (mode 1777). Đo được, phát hiện C1 của kiểm toán 0.8.
+                mode=self._config.file_mode,
             )
         except lmdb.Error as exc:
             self._sizes.pop(file_path, None)
             raise StoreUnavailableError(f"cannot open store file {file_path}: {exc}") from exc
+
+        # Tệp do bản framework CŨ tạo vẫn mang quyền cũ - `mode=` chỉ áp cho
+        # lần tạo. Hạ chúng xuống, kể cả tệp khoá đi kèm.
+        _sieu_chat(Path(file_path), self._config.file_mode)
+        _sieu_chat(Path(file_path + "-lock"), self._config.file_mode)
 
         self._envs[file_path] = env
         _log.debug(
@@ -212,6 +269,12 @@ class LmdbEnvironment:
                 recorded = None  # unreadable marker is treated as a mismatch
 
         if recorded == parts:
+            # Đường thoát sớm này là đường ĐI QUA MỖI LẦN MỞ trong đời sống
+            # bình thường của một kho - marker chỉ được ghi lại khi `parts`
+            # đổi, tức gần như không bao giờ. Nên nếu chỉ hạ quyền ở nhánh ghi
+            # thì marker của kho cũ **không bao giờ được sửa**. Đo được
+            # 2026-08-21: mọi tệp khác về 0600 còn `.parts` ở lại 0644.
+            _sieu_chat(marker, self._config.file_mode)
             return
 
         if table_dir.exists() and recorded != parts:
@@ -224,10 +287,47 @@ class LmdbEnvironment:
                     recorded if recorded is not None else "unknown",
                     parts,
                 )
-                shutil.rmtree(table_dir, ignore_errors=True)
+                # ⛔ ĐỔI TÊN rồi mới xoá, không xoá tại chỗ.
+                #
+                # Đổi `parts` là sự kiện lúc TRIỂN KHAI, tức đúng lúc N tiến
+                # trình cùng khởi động và cùng chạy đoạn này. Xoá tại chỗ thì
+                # tiến trình A có thể đang xoá trong khi B đã tạo file mới bên
+                # trong cùng thư mục - và `ignore_errors=True` nuốt trọn mọi va
+                # chạm nên **không có triệu chứng nào**. Phát hiện T6 của kiểm
+                # toán 0.8.
+                #
+                # `os.rename` trên cùng một hệ tệp là nguyên tử: đúng MỘT tiến
+                # trình đổi được tên, những tiến trình còn lại nhận
+                # `FileNotFoundError` và đi tiếp để tạo thư mục mới. Sau lúc
+                # đó, mọi file mới sinh ra đều nằm trong thư mục MỚI.
+                cu = table_dir.with_name(f"{table_dir.name}.cu-{os.getpid()}")
+                try:
+                    os.rename(table_dir, cu)
+                except FileNotFoundError:
+                    pass  # tiến trình khác vừa dọn - đúng ý, đi tiếp
+                except OSError as exc:
+                    raise StartupException(
+                        f"\nCannot Recreate Store Table\n"
+                        f"  Table : {table}\n"
+                        f"  Path  : {table_dir}\n"
+                        f"  Detail: {exc}\n"
+                        f"  Fix   : the table must be dropped because `parts` "
+                        f"changed, but this process cannot move the old "
+                        f"directory out of the way. Stop every process using "
+                        f"this store and remove the directory by hand."
+                    ) from exc
+                else:
+                    shutil.rmtree(cu, ignore_errors=True)
 
-        table_dir.mkdir(parents=True, exist_ok=True)
-        marker.write_text(str(parts), encoding="utf-8")
+        table_dir.mkdir(mode=self._config.dir_mode, parents=True, exist_ok=True)
+        _sieu_chat(table_dir, self._config.dir_mode)
+        # `write_text` mở bằng 0o666 & ~umask -> 0644. Mở tường minh với quyền
+        # đích ngay từ đầu, không chmod sau: chmod sau để hở một cửa sổ mà
+        # tiến trình khác đọc được.
+        fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, self._config.file_mode)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(str(parts))
+        _sieu_chat(marker, self._config.file_mode)
 
     # ------------------------------------------------------------------
     # Growing

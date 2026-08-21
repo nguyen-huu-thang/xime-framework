@@ -200,6 +200,19 @@ class ChannelLayout:
         return int(_MISSED.unpack_from(buf, self.missed_offset(index))[0])
 
     def bump_missed(self, buf: memoryview, index: int) -> None:
+        """Tăng bộ đếm `missed` của một tiến trình.
+
+        ⚠ **Đọc-sửa-ghi, KHÔNG nguyên tử.** Hai tiến trình cùng tăng một ô
+        trong cùng khoảnh khắc thì một lần tăng biến mất. Chấp nhận được, và
+        khai ra đây thay vì để người sau tự phát hiện: `missed` là **chỉ số
+        chẩn đoán**, dùng để trả lời *"có đang mất tin không"* chứ không phải
+        *"mất đúng bao nhiêu"*. Một con số thấp hơn thực tế vẫn khác 0, và khác
+        0 là toàn bộ tín hiệu.
+
+        `next_sequence` ngay dưới cũng đọc-sửa-ghi nhưng ở đó **chỉ có một
+        người ghi mỗi vùng**, nên nó không có cùng vấn đề - lý do đầy đủ ở chú
+        thích của hàm đó. Phát hiện L5 của kiểm toán 0.8.
+        """
         offset = self.missed_offset(index)
         current = _MISSED.unpack_from(buf, offset)[0]
         _MISSED.pack_into(buf, offset, current + 1)
@@ -302,7 +315,13 @@ class ChannelLayout:
 
     def read_payload(self, buf: memoryview, row: int) -> bytes:
         start = self.row_offset(row) + ROW_HEADER_BYTES
-        return bytes(buf[start : start + self.read_length(buf, row)])
+        # ⛔ Ép trần. Trường độ dài nằm TRONG vùng nhớ chung, tức một tiến trình
+        # ghi bậy (hoặc một lỗi ghi) đặt được vào đó một con số lớn hơn dòng.
+        # Đo được 2026-08-21: kênh khai `payload_bytes=64`, bóp méo trường độ
+        # dài rồi đọc ra **2.104 byte** - lan sang vùng ghi của tiến trình khác,
+        # rồi chảy tiếp vào `stats()` và `dump()`. Phát hiện L1 của kiểm toán 0.8.
+        dai = min(self.read_length(buf, row), self.payload_bytes)
+        return bytes(buf[start : start + dai])
 
     def write_payload(self, buf: memoryview, row: int, payload: bytes) -> None:
         start = self.row_offset(row) + ROW_HEADER_BYTES

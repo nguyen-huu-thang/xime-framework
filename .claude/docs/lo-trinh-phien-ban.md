@@ -299,8 +299,38 @@ quyết cuối cùng chốt 2026-07-29** - không còn gì chặn việc bắt t
 >
 > `da-phu-dinh/ke-hoach-0.8-ban-dau.md` **nên được viết lại chứ không bổ sung**.
 
-Trạng thái: **thiết kế phần lớn đã chốt 2026-08-16, phần bus đóng nốt 2026-08-18**,
-chưa code.
+Trạng thái: **CODE XONG 2026-08-20**, rà trước phát hành 2026-08-20, và **kiểm
+toán toàn diện bốn đợt + vá xong 2026-08-21**. Chưa commit, chưa tag, chưa PyPI.
+
+> ⛔ Dòng cũ ghi *"chưa code"* đã lỗi thời hai lần: nó đã code xong, rồi đã được
+> kiểm toán và vá xong.
+
+### ✅ Nợ luật 03 của `EventBus.publish()` ĐÃ TRẢ ở bản này
+
+Nợ khai từ 0.7.2 (*bên gọi không phân biệt được event **bị bỏ** với event **đã
+xếp lịch** - cả hai trả `None`*) và cố ý hoãn tới 0.8 vì đóng nó là **đổi chữ ký
+công khai**. `publish()` nay trả `PublishOutcome` với **ba** giá trị:
+`SCHEDULED` / `NO_HANDLERS` / `DROPPED`.
+
+⭐ Đây là **chuyến cuối**: 0.8 là bản Alpha cuối, và 0.9 trở đi API coi như đã
+chốt. Nợ được xếp lên đúng chuyến đó, và nó đã lên.
+
+⚠ **Không phá ai**: 31 ứng dụng bỏ qua giá trị trả về chạy y nguyên.
+
+### Kiểm toán 2026-08-21: hai lỗi mà máy phát triển không thể thấy
+
+| | |
+|---|---|
+| **C4** | Ngữ cảnh `multiprocessing` lệch nhau → **toàn bộ đa tiến trình chết trên Linux**. 26 test đỏ ở đó, 0 đỏ trên Windows, cùng một mã nguồn |
+| **C5** | `SocketAdapter.assign_slot()` ném `AttributeError` - `mypy` là thứ duy nhất tìm ra, và mypy không nằm trong extra `dev` cho tới chính đợt đó |
+
+⭐⭐ **Bài học cho mọi bản sau: Windows là máy phát triển, Linux là máy chạy
+thật, và có những lớp lỗi mà máy phát triển KHÔNG THỂ nhìn thấy về mặt cấu
+trúc.** Không phải test yếu - điều kiện gây lỗi không tồn tại ở đó. Từ 0.9, một
+lượt chạy bộ test trên Linux nên là điều kiện phát hành, không phải một việc làm
+thêm khi có thời gian.
+
+Báo cáo đầy đủ: [`kiem-toan/0.8-kiem-toan-toan-dien.md`](kiem-toan/0.8-kiem-toan-toan-dien.md).
 
 **Nguyên tắc chia bản (chốt 2026-08-16):**
 

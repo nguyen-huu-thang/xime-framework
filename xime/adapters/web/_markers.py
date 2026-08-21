@@ -95,7 +95,7 @@ def resolve_options(
                 ) from None
         elif isinstance(value, FromConfig):
             if runtime is None:
-                runtime = app.get(RuntimeConfig)  # type: ignore[assignment]
+                runtime = app.get(RuntimeConfig)
             resolved[name] = runtime.get(value.key, value.default)
         else:
             resolved[name] = value

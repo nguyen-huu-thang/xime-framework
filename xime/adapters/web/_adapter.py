@@ -43,6 +43,22 @@ _CERT_REQS = {
 }
 
 
+def _che_do(tls: ServerTlsConfig) -> str:
+    """Chế độ bảo mật của điểm phục vụ, viết gọn để nhét vào dòng log.
+
+    ⭐ Chế độ nằm **cùng dòng** với địa chỉ, không tách thành cảnh báo riêng:
+    người vận hành đọc log khởi động để biết *"cái gì đã lên"*, và họ thấy dòng
+    này mỗi lần, ở đúng chỗ đang tìm. Bắt người ta nhận ra **sự vắng mặt** của
+    một cảnh báo là một phép đo không ai làm được.
+
+    Cùng khuôn với `_che_do` của adapter gRPC - ba adapter nói cùng một hình
+    dạng, để đọc log của cụm không phải đổi cách đọc giữa các dòng.
+    """
+    if not tls.enabled:
+        return "HTTP"
+    return "HTTPS+mTLS" if tls.cert_reqs == "required" else "HTTPS"
+
+
 def _tls_kwargs(tls: ServerTlsConfig, server_id: str) -> dict[str, Any]:
     """Validate TLS settings and return the ssl_* kwargs for uvicorn.Config.
 
@@ -310,8 +326,9 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
             **_tls_kwargs(tls, self.adapter_id),
         )
         _log.info(
-            "web %s: process %s serving on %s:%s%s",
+            "web %s: process %s serving on %s:%s (%s)%s",
             self.adapter_id, slot.process_id, host, port,
+            _che_do(tls),
             " (shared socket from supervisor)" if slot.sock is not None else "",
         )
         await self._bind(uvicorn, config, [slot.sock] if slot.sock else None)

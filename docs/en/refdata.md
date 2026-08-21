@@ -153,6 +153,13 @@ publish**, not once per read.
 
 ## Writing: `publish()`, and **the primary only**
 
+> ⭐ **The primary role changes at runtime.** The parent promotes a survivor when
+> the old primary dies, and that survivor may **refuse the role** and fall back to
+> standby. `RefData` asks for the role on **every** `publish()` rather than
+> capturing a copy at construction - otherwise the process that just took the role
+> is still blocked from writing, while the parent's log says it is the primary and
+> `/healthz` agrees.
+
 ```python
 # Typically in the primary's startup path
 keyset = await self._trust.fetch_keys()
@@ -202,7 +209,7 @@ stats = self._keys.stats()
 | `written_at_ms` | how long ago the last publish happened |
 | `used_bytes` / `limit_bytes` / `fill_ratio` | current version size against the ceiling |
 | `writer` | index of the process that published the current version |
-| `stale` | ⭐ **the last publish FAILED because it exceeded the ceiling** |
+| `stale` | ⭐ **the last publish FAILED because it exceeded the ceiling**, so the whole cluster is serving the OLD version |
 
 ⚠ It is an **approximate** snapshot - it reads while somebody may be writing. Do
 not use it as a guard in logic; use `read()` for that.
@@ -224,6 +231,23 @@ signed with a new key shows up.
 | `stats().stale = True` | A failed publish nobody knows about is the worst outcome |
 
 Raising `max_bytes` is the fix, and remember it costs double in shared memory.
+
+### ⭐ From 0.8, `stale` is visible from EVERY process
+
+The flag lives in the **shared-memory header**, not in the primary's RAM. Any
+process - including one that is not the primary, including its `/healthz` - can
+answer *"is the data I am serving out of date"*.
+
+Before that it was an instance attribute, so it was only visible from **the very
+process that had failed**, and a **newly promoted** primary started with
+`stale=False` while the data was still old. The three defence layers in the table
+above collapsed into one, and the remaining one sat where no operator looks.
+
+```python
+if self._keys.stats().stale:
+    # The whole cluster is serving the old version. Raise max_bytes.
+    ...
+```
 
 ---
 

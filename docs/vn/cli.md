@@ -86,6 +86,21 @@ và khối mà framework chưa mô tả đủ khoá đều được để yên. 
 lệ sẽ bị tắt trong tuần đầu, và lúc đó nó không bắt được gì nữa. Dòng
 `Blocks checked:` cho biết nó thật sự đã soi những gì.
 
+### Tên KHỐI gõ sai cũng được gợi ý
+
+```text
+  serber: unknown block   did you mean 'server'?
+```
+
+Đây là cùng một lỗi gõ với `server.porrt`, chỉ ở một tầng khác - và cùng một hậu
+quả: ứng dụng chạy với **mặc định của framework**, người vận hành tin là đang
+chạy với giá trị họ vừa viết, và không một dòng log nào nói khác.
+
+⭐ **Chỉ gợi ý khi tên lạ GẦN GIỐNG một tên đã biết**, im khi nó không giống gì
+cả. Đo trên `application.yml` thật của các ứng dụng Xime: `serber`, `sever`,
+`grcp`, `procss` đều được bắt, còn `trust`, `app`, `shard`, `legal`,
+`organization` **không sinh một cảnh báo giả nào**.
+
 ---
 
 ## `xime init`
@@ -113,6 +128,37 @@ chú thích trong một file đi theo git là tài liệu già đi trong im lặ
 
 ⛔ Lệnh **từ chối ghi đè** file đã có. Ghi đè một `application.yml` đang chạy là
 xoá cấu hình thật của một deployment, và không có đường lui. Cần thì `--force`.
+
+### Vài cái tên bị từ chối, và lý do đáng đọc
+
+```bash
+xime init config
+#   Detail: 'config' is reserved: the generated project already has a 'config'
+#           of its own, and the two would overwrite each other
+```
+
+Trình tạo tự đặt hai thư mục `config/` và `resources/`, còn tên dự án thì thành
+tên gói Python. Trùng nhau thì hai đường ghi vào **cùng một file**, và cái sau
+thắng - dự án ra thiếu đúng `config/__init__.py`, nơi `import dependency` nằm.
+Không lỗi nào phát ra lúc tạo; nó nổ lúc chạy, bằng một thông báo không liên
+quan gì tới cái tên.
+
+`xime init xime` còn tệ hơn: gói của dự án **che chính framework**.
+
+Bị từ chối: `config`, `resources`, `xime`, `main`, `test`, `tests`, và mọi tên
+trùng một module của **thư viện chuẩn Python** (`json`, `socket`, `logging`...).
+
+### Dự án mới nghe ở `127.0.0.1`, không phải `0.0.0.0`
+
+`application.yml` sinh ra mở sẵn khối `server:` với `host: "127.0.0.1"` kèm giải
+thích ngay tại chỗ. Mặc định của **framework** vẫn là `0.0.0.0` và không đổi -
+`xime config --print` vẫn in đúng như vậy, và các ứng dụng đang chạy không bị
+ảnh hưởng vì chúng không chạy lại trình tạo.
+
+Lý do: `0.0.0.0` nghĩa là **mọi giao diện mạng** - ai định tuyến tới máy này đều
+gọi được. Đó là câu trả lời đúng trong container và câu trả lời sai trên laptop
+hay máy dùng chung. Trình tạo đặt bạn ở phía hẹp; mở rộng là một quyết định có ý
+thức, không phải một mặc định bạn không biết mình đã nhận.
 
 ---
 

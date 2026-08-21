@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
 
@@ -24,8 +25,16 @@ server/SDK trong một process không bao giờ đụng tên module pb2 (điểm
 DESCRIPTOR_SET_NAME = "_descriptors.binpb"
 
 
-def load_messages_from_descriptor_set(path: str | Path) -> dict[str, type]:
-    """Read a FileDescriptorSet and return {message short name → class}."""
+def load_messages_from_descriptor_set(path: str | Path) -> dict[str, Any]:
+    """Read a FileDescriptorSet and return {message short name → class}.
+
+    ⚠ Kiểu trả về là `Any`, không phải `type`, và đó là chú thích ĐÚNG chứ không
+    phải một chỗ bỏ qua: lớp ở đây do `descriptor_pool` **sinh lúc chạy**, nên
+    hệ thống kiểu tĩnh thật sự không nhìn thấy `FromString`, `DESCRIPTOR` hay
+    bất cứ thành viên nào của chúng. Khai `type` là hứa một điều không đúng, và
+    lời hứa đó biến chín lời gọi hợp lệ thành chín lỗi `attr-defined` - đủ ồn
+    để người ta thôi đọc kết quả của trình kiểm kiểu.
+    """
     data = Path(path).read_bytes()
     fds = descriptor_pb2.FileDescriptorSet.FromString(data)
 

@@ -203,6 +203,22 @@ Socket Adapter uses **kernel-level security** instead of TLS or tokens. Two laye
 
 **File permission:** After binding, the socket file is `chmod`'ed and optionally `chown`'ed. Processes running as the wrong user cannot connect - the kernel blocks them at `connect()`.
 
+> ⛔ **Multi-process (`share_load()`): the parent tightens the mode BEFORE `listen()`.**
+>
+> On that branch the **parent** binds the shared socket and hands it to the
+> children, and only a child reads `socket.<id>.permission` - the parent never
+> builds DI. Between those two moments there is a **window** that covers a full
+> re-import of `main.py`, building DI, opening pools, fetching certificates and
+> running `run_once()` (migrations). The framework itself states that window
+> **can last 60 seconds**, and from the moment `listen()` returns the socket
+> accepts connections.
+>
+> So the order is **tighten first, widen later**: the parent sets `0600` right
+> after `bind()` and before `listen()`, and a child widens it if you declared
+> something broader. The parent **refuses to start** if it cannot restrict the
+> path - `allowed_uids` defaults to empty, so in that window the file mode is the
+> **only** gate.
+
 **SO_PEERCRED:** When a client connects, the server reads the client's UID from the kernel. If `allowed_uids` is configured, connections from unlisted UIDs are dropped immediately before any data is read.
 
 ```yaml

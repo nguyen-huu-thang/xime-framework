@@ -16,6 +16,167 @@ thiết kế.
 mảng "đổi API adapter một lượt" phải làm đủ ở đây, và mọi tên công khai sinh ra
 ở bản này là tên phải sống tiếp.
 
+### Kiểm toán toàn diện (2026-08-21) - 26 mục đã vá, hai trong đó chỉ Linux thấy được
+
+Bốn đợt đọc từng dòng ~11.000 dòng mã mới và sửa, cộng một đợt **chạy thật trên
+Linux** - hệ điều hành mà bản này sẽ chạy trong production, trong khi máy phát
+triển là Windows. Toàn bộ ghi ở `.claude/docs/kiem-toan/0.8-kiem-toan-toan-dien.md`.
+
+#### ⛔⛔ C4 - toàn bộ tính năng đa tiến trình KHÔNG CHẠY trên Linux
+
+```text
+RuntimeError: A SemLock created in a fork context is being shared with a process
+in a spawn context. This is not supported.
+```
+
+`ProcessLink` tạo semaphore bằng ngữ cảnh `multiprocessing` **mặc định**, còn
+`Supervisor` sinh con bằng **`spawn`**. Ngữ cảnh mặc định khác nhau theo hệ điều
+hành: Windows chỉ có `spawn` nên hai vế trùng nhau **một cách tình cờ**; Linux
+mặc định `fork` (và `forkserver` từ Python 3.14), nên chúng lệch.
+
+Đo được: **26 test đỏ** trên Linux, **0 đỏ** trên Windows, cùng một mã nguồn.
+
+⭐ **Không phép đo nào trên Windows có thể phát hiện điều này** - điều kiện gây
+lỗi không tồn tại ở đó.
+
+Vá bằng **một nguồn sự thật**: `xime/core/_mp.py` giữ `MP_CONTEXT`, và cả
+`core/link` lẫn `core/bootstrap` cùng đọc từ đó. Gốc của lỗi không phải chọn sai
+ngữ cảnh mà là **hai chỗ cùng quyết định một thứ mà không biết nhau**. Test canh
+đi thành cặp: không ai tạo nguyên thủy bằng ngữ cảnh mặc định · đúng **một** lời
+gọi `get_context` trong toàn bộ `xime/`.
+
+#### ⛔ C5 - `SocketAdapter.assign_slot()` ném `AttributeError`
+
+Nó đọc `self._path_override`, mà **không nơi nào trong repo gán thuộc tính đó** -
+tàn dư của API trước 0.8, khi `__init__` còn nhận `path`. `assign_slot()` là
+đường **bắt buộc đi qua** khi chạy đa tiến trình, nên mọi ứng dụng dùng
+`SocketAdapter` với `share_load()` sập lúc khởi động.
+
+Bốn lớp lẽ ra bắt được mà không lớp nào bắt: test socket **tự bỏ qua trên
+Windows** · test cụm dùng web adapter · ba đợt đọc mã thấy một `if` trông hợp lý
+· `mypy` **không nằm trong extra `dev`** cho tới chính đợt này.
+
+### Đợt 5 (2026-08-21) - hai lỗi do REPO NGOÀI báo, cả hai là lỗ của 0.8
+
+Bốn đợt trên là **tự soi**. Hai mục dưới đây do `Base Platform/data` báo sau khi
+họ di trú thật sang khối `process:`, và cả hai là **lỗ do chính 0.8 sinh ra** -
+không phải nợ cũ. Báo cáo gốc giữ nguyên ở
+`.claude/docs/bao-cao-van-de-tu-repo-ngoai/`.
+
+#### ⛔ C6 - gRPC tụt xuống PLAINTEXT khi di trú sang khối `process:`
+
+Đường khoá phẳng chép `grpc.tls` vào ô cấu hình (`_FLAT_SOURCES`); đường
+`process:` / `processes:` thì **không**, và adapter gRPC **không có đường lui**.
+Nên đổi cách khai địa chỉ - không đụng một chữ vào khối `grpc:` - là **mất mTLS**.
+
+Đo được hai chiều, cùng một `application.yml`, cùng cert:
+
+```text
+TRƯỚC:  grpc default: ... 9795 (PLAINTEXT)  + WARNING
+SAU:    grpc default: ... 9795 (mTLS)
+```
+
+Ba tính chất khiến nó đắt hơn một lỗi cấu hình thường: nó **đi đúng đường tài
+liệu chỉ** · nó hỏng theo chiều **an toàn -> kém an toàn** (không test nào đỏ,
+service vẫn lên, client cũ **vẫn gọi được** vì plaintext nhận cả bên không cert)
+· và dấu hiệu duy nhất là một dòng WARNING lẫn giữa vài chục dòng khởi động.
+
+⭐ **gRPC là một trong ba adapter, và là cái duy nhất hỏng**: `web` kế thừa
+`server.ssl`, `socket` luôn đọc `permission`/`allowed_uids` từ khối chung. Nên
+đây là **sót**, không phải một lựa chọn thiết kế - và chính docstring của web đã
+lập luận đúng chuyện này, chỉ là gRPC không có hành vi đó.
+
+Sửa: `GrpcAdapter.resolve_tls()`, cùng khuôn `WebAdapter.resolve_tls()`. Ô thắng
+khối chung; muốn plaintext thì khai `tls: {}` tường minh, đúng khuôn `ssl: {}`.
+
+⚠ **App dùng khoá phẳng không đổi hành vi một chút nào** - đường phẳng chỉ chép
+`tls` vào ô *khi `grpc.tls` có mặt*, nên khi nó vắng thì đường lui cũng đọc ra
+`None`. Có test đối chứng dương khoá đúng điều đó.
+
+#### ⚠ C7 - adapter không bao giờ nói nó đã lên, chỉ nói ở đâu nó KHÔNG chạy
+
+`grpc/_adapter.py` có đúng **2 lệnh log, cả hai là `warning`**; `socket/_adapter.py`
+có **0**. Nghĩa là một cụm gRPC **khoẻ** sinh ra log **giống hệt** một cụm gRPC
+**hỏng** - trạng thái tốt không để lại dấu vết nào để đối chiếu.
+
+Nó **cộng hưởng** với C6: khi mọi thứ log nói về gRPC đều là cảnh báo thì không
+có mốc dương nào để so, nên một endpoint tụt xuống plaintext lại càng khó thấy.
+
+Sửa: cả ba adapter ghi một dòng `INFO` lúc bind xong, **chế độ bảo mật nằm cùng
+dòng với địa chỉ**:
+
+```text
+INFO | web default: process main serving on 0.0.0.0:8086 (HTTPS+mTLS)
+INFO | grpc default: process main serving on 0.0.0.0:9095 (mTLS)
+INFO | socket default: process main serving on /run/x.sock (0600, any uid)
+```
+
+Đặt chế độ cùng dòng chứ không tách thành cảnh báo riêng có một cái lợi mà một
+dòng WARNING không có: người đọc thấy nó **mỗi lần**, ở đúng chỗ họ đang tìm, thay
+vì phải nhận ra **sự vắng mặt** của một cảnh báo.
+
+⚠ Dòng của `socket` nói `any uid` khi `allowed_uids` rỗng - lúc đó quyền file là
+chốt chặn **duy nhất**, và đó là thứ trước nay phải suy từ chỗ trống.
+
+#### ⚠ Một con số bàn giao sai, tìm ra nhờ chính đợt này
+
+`.claude/CLAUDE.md` ghi kỳ vọng **2518 passed** cho phiên Windows. Đo lại HEAD
+sạch: **2520 passed / 6 skipped**. Con số cũ ghi giữa chừng commit `1821106`,
+trước khi file test cuối của commit đó xong - **đúng lúc viết, rồi repo đi tiếp**.
+Nó sẽ khiến phiên Windows đi tìm một lỗi không tồn tại. Sau đợt 5: **2528 passed
+/ 6 skipped**.
+
+### Đã thêm
+
+- **`PublishOutcome`** cho `EventBus.publish()`: `SCHEDULED` / `NO_HANDLERS` /
+  `DROPPED`. Trả nợ luật *một giá trị mang một nghĩa* khai từ 0.7.2 và hẹn tới
+  0.8 vì đóng nó là **đổi chữ ký công khai** - mà 0.8 là bản alpha cuối. Bỏ qua
+  giá trị trả về thì hành vi y như trước.
+- **`lmdb.file_mode` / `lmdb.dir_mode`** (mặc định `0600` / `0700`).
+- **`Block.init_keys`** trong bản mô tả cấu hình: khoá mà `xime init` **mở sẵn**
+  dù framework có mặc định riêng.
+- **`xime/core/_mp.py`**: `MP_CONTEXT` và `view_of`, nền đa tiến trình dùng
+  chung, chỉ phụ thuộc thư viện chuẩn.
+- **`xime/core/config/_mode.py`**: `parse_mode` dùng chung cho `localfs` và
+  `lmdb` - trước đó mỗi bên một bản.
+
+### Đã sửa
+
+| | |
+|---|---|
+| **Kho LMDB world-readable** | Tệp và thư mục kho ra `0644`/`0755`, trong khi kho giữ hãm nhịp đăng nhập và thử thách passkey, và đường dẫn tài liệu khuyên dùng là `/dev/shm` (mode `1777`). **Ba** chỗ tạo tệp chứ không phải một. Kho tạo bởi bản cũ được **hạ quyền khi mở lại**, một chiều |
+| **Unix socket dùng chung hở trong cửa sổ khởi động** | Cha `bind()` rồi `listen()` mà không `chmod`, trong khi cửa sổ tới lúc con chặt quyền **có thể dài 60 giây** và `allowed_uids` mặc định rỗng. Nay `chmod 0600` **trước** `listen()` |
+| **Thăng cấp primary không chạm `RefDataArena`** | Cờ *"tôi có phải primary"* nằm ở hai chỗ, chỉ một chỗ được cập nhật, mà `publish()` hỏi đúng cái không được cập nhật - primary **mới** không bao giờ cập nhật được khoá JWT nữa |
+| **Watchdog dùng đồng hồ nhảy được** | Giờ tường nhảy tiến 30 giây làm cha **giết mọi con đang khoẻ** cùng lúc, rồi chống domino **dừng cấp vai primary vĩnh viễn**. Cả hai đầu nay dùng `monotonic` |
+| **Cảnh báo "kênh sắp đầy" đo sai đại lượng** | Đếm hộp thư **đến** rồi in câu về **bảng ghi**. Sai cả hai chiều, và không một test nào chạm tới hàm đó |
+| **`sweep_orphans()` không ai gọi** | Docstring xếp nó là lớp che `kill -9` **duy nhất**, và không đường khởi động nào gọi. Nay chạy trong `run_supervisor()`, và phủ **cả ba** họ vùng nhớ thay vì một |
+| **Cờ `stale` của `RefData` chỉ nhìn thấy từ tiến trình đã hỏng** | Nay nằm trong header vùng nhớ chung, mọi tiến trình đọc được. Dùng 2 byte đệm sẵn có nên **tổng kích thước không đổi** |
+| **`_check_parts` xoá thư mục bảng tại chỗ** | Đổi `parts` là sự kiện lúc triển khai, tức đúng lúc N tiến trình cùng chạy đoạn đó, và `ignore_errors=True` nuốt mọi va chạm. Nay `os.rename` nguyên tử rồi mới xoá |
+| **Không có hãm khi con chết liên tục** | Mỗi giây một lần `spawn` (~83 MB RSS, ~1 giây CPU mỗi lần). Nay 1s, 2s, 4s... trần 30s, reset khi con sống quá 60s, `CRITICAL` từ lần thứ 10. Lời hứa "luôn dựng lại" giữ nguyên |
+| **`xime init <tên>` sinh dự án không chạy được** | `config`, `resources`, `xime` và tên trùng thư viện chuẩn nay bị **từ chối**; khoá trùng trong danh sách file nay **nổ** thay vì đè im lặng |
+| **`xime check config` mù với tên KHỐI gõ sai** | `serber:` cho `clean` trong khi `server.porrt` bắt được. Nay gợi ý khi tên lạ gần giống tên đã biết, im khi không giống |
+| **Khối `process:` không có trong bản mô tả cấu hình** | Phép dò trôi dạt mù về mặt cấu trúc với hình dạng `read(SINGLE_KEY)` |
+| **Dự án `xime init` nghe `0.0.0.0` không một chữ giải thích** | Nay `host: "127.0.0.1"` kèm giải thích. Mặc định framework **không đổi** |
+| **`read_payload` không ép trần** | Trường độ dài nằm trong vùng nhớ chung; bóp méo nó đọc ra 2.104 byte từ một dòng 64 byte |
+| **`ProcessLink.create` kiểm `index` sau khi đã cấp vùng nhớ** | Một `index` sai để lại rác trong `/dev/shm`; Windows tự dọn, Linux thì không |
+| **Dải cổng không được kiểm** | `port: 99999` đi lọt tới `bind()` rồi nổ bằng `OSError` thô |
+| **`ask()` lúc hết giờ đọc một dòng có thể đã bị tái dùng** | Nay so số thứ tự trước khi tin; không phân biệt được thì trả `NoAnswer`, không trả `NoOwner` |
+| **`mypy` và `ruff` được cấu hình mà không được khai** | `[tool.ruff]` và `[tool.mypy]` có trong `pyproject.toml`, không tool nào nằm trong extra nào. Phép kiểm ngược tìm thêm `twine` và `build` cũng vậy |
+| **`redis.from_url` không khai `decode_responses`** | `CacheService.get()` hứa `bytes \| None`; bật giải mã thì nó trả `str` - cùng chữ ký, hai kiểu |
+
+### Chất lượng mã
+
+`mypy` từ **74 xuống 41** lỗi, **không thêm một dòng `# type: ignore` nào** - bốn
+nguyên nhân gốc được sửa cho đúng sự thật: `SharedMemory.buf` thu hẹp một lần ở
+chỗ nhận · lớp protobuf sinh lúc chạy khai là `Any` thay vì `type` ·
+`Application.get(cls: type[_T]) -> _T` thay vì `-> object` (gỡ được **8 dòng
+`# type: ignore[assignment]`** mà chữ ký cũ ép người gọi phải viết) · bốn chỗ
+thiếu chú thích biến.
+
+⚠ 41 lỗi còn lại **cố ý không dập tắt**: chúng là ma sát với stub thư viện ngoài,
+`Adapter` Protocol cố ý không khai `scaling`, và mã nội soi kiểu. C5 được tìm ra
+bởi đúng loại `attr-defined` - dập tắt cả loại là bịt đúng cái vừa trả tiền.
+
 ### Rà trước phát hành (2026-08-20) - bảy phát hiện, ba trong đó chặn phát hành
 
 Một lượt rà toàn bộ trước khi đóng bản, theo mười nhóm: số hiệu bản · test và

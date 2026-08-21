@@ -242,6 +242,8 @@ lmdb:
   # path: runtime/store             # Windows (dev machine): an ordinary directory
   map_size: 64MB                    # STARTING size of EACH partition file
   total_max: 1GB                    # hard ceiling across the WHOLE store
+  # file_mode: "0600"               # default; see the permissions section below
+  # dir_mode: "0700"
 ```
 
 | Key | Default | |
@@ -249,6 +251,37 @@ lmdb:
 | `path` | **none** | Required. The framework deliberately refuses to guess: several Xime services share a machine, and a shared default directory would silently mix their tables |
 | `map_size` | 64MB | Each file **doubles** when full, with a `WARNING` log |
 | `total_max` | 1GB | Reaching it **raises**, rather than silently discarding somebody's data |
+| `file_mode` | `"0600"` | Mode of every store file. POSIX only; no effect on Windows |
+| `dir_mode` | `"0700"` | Mode of the table directory |
+
+### ⛔ File permissions: owner only, and why that is not fussiness
+
+This store holds **login rate-limit counters, passkey challenges, webhook
+replay keys**. And the path recommended just above is `/dev/shm` - a directory
+with mode **`1777`**: **every user on the machine can enter it, no privileges
+needed**. The sticky bit only stops others from **deleting** your files; it does
+not stop them **reading** them.
+
+So from 0.8 the framework passes the mode **explicitly** at creation: `0600` for
+files, `0700` for the directory. Before that it passed nothing, and `python-lmdb`
+defaulted to `0o755`, landing at **`0644`** - world readable.
+
+⚠ **Do not rely on `umask`.** Measured on Linux: `umask 022` and `umask 002`
+both give `0644`; only `umask 077` gives `0600`. A tightly configured machine
+therefore looks fine while the one next to it is exposed, from the same source.
+Passing `mode` explicitly removes that dependency entirely.
+
+**Stores created by an older version are repaired on open.** If a file or
+directory is **wider** than the declared mode, the framework tightens it and
+logs one `INFO` line saying what changed. The repair is **one-way**: a file you
+deliberately made stricter (`0400`, say) is never widened.
+
+> A fix that only applies to new files leaves every running installation exposed
+> after the upgrade, and that is where the real data is. This store also
+> **deliberately survives a restart**, so it will not recreate itself.
+
+Set `file_mode` / `dir_mode` to choose otherwise - the repair then targets **the
+value you declared**, rather than overriding your intent.
 
 ⭐ **See every key with its explanation instead of memorising them:**
 `xime config --print`. Compare your own file: `xime check config`.

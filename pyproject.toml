@@ -214,6 +214,13 @@ redis = [
 # "lmdb chưa có wheel free-threaded" - câu đó nay đã cũ. Nó KHÔNG đổi kết luận
 # "đa tiến trình trước, đa luồng để sau": thứ chặn là `grpcio`, xương sống của
 # Xime, chứ không phải lmdb.
+#
+# ⚠⚠ **Bản người dùng thật sự nhận nay là 2.3.0** - qua một bản MAJOR so với
+# mọi con số đo ở trên. Bước 1b ghim `lmdb==1.7.5` để soi advisory ở SÀN, nên
+# không phép đo nào của đợt phát hành chạm tới nhánh 2.x. Đo lại 2026-08-21
+# trên Linux: 2.3.0 cài và chạy bình thường, 160 test của starter xanh.
+# Không phải lỗi; ghi ra vì một chú thích đo bản 1.x không còn nói về thứ người
+# dùng nhận. Phát hiện L7 của kiểm toán 0.8.
 lmdb = [
     "lmdb>=1.7.5",
 ]
@@ -316,6 +323,29 @@ dev = [
     # thành một phụ thuộc nói ra được. Phần kêu lên khi thiếu thì nằm ở chính
     # script (ba kết cục: SACH / CHUA KET LUAN DUOC / CON MUC CHUA XU LY).
     "pip-audit>=2.7",
+    # ⭐ Cùng khuôn với `pip-audit` ngay trên, và đây là lần vá thứ HAI của
+    # CÙNG MỘT LỖI - lượt rà 2026-08-20 chẩn đoán đúng ("hướng dẫn phát hành
+    # phụ thuộc vào một chương trình mà không file nào nói là cần") rồi vá đúng
+    # MỘT CA thay vì cả một LOẠI. Phát hiện T11 của kiểm toán 0.8.
+    #
+    # `[tool.ruff]` và `[tool.mypy]` đã nằm trong chính file này từ lâu; công cụ
+    # thì không được khai ở đâu. Hậu quả đo được: mypy không có trên máy phát
+    # triển, nên phép kiểm kiểu chưa hề chạy cho 0.8. Và chính file này khai
+    # `types-aiobotocore-s3` với lý do "thiếu nó thì mypy báo thiếu stub" -
+    # tức nó khai một phụ thuộc CỦA mypy trong khi không khai mypy.
+    #
+    # Test canh `tests_temp/api_surface/test_dev_tools.py` chạy phép kiểm NGƯỢC:
+    # mọi công cụ mà `.claude/scripts/` hoặc hướng dẫn phát hành gọi tới đều
+    # phải có mặt ở đây.
+    "mypy>=1.11",
+    "ruff>=0.6",
+    # ⭐ Hai cai nay do CHINH phep quet nguoc cua T11 tim ra, khong phai do bao
+    # cao ke ten. `pypi_token.py --guide` day nguoi phat hanh chay `python -m
+    # build` roi `python -m twine check dist/*`, va ca hai chua bao gio duoc
+    # khai o dau. Vet chinh xac giong pip-audit va giong mypy/ruff - ba lan
+    # cung mot khuon trong cung mot file.
+    "build>=1.0",
+    "twine>=5.0",
 ]
 
 # ---------------------------------------------------------------------------
@@ -348,7 +378,6 @@ include = [
     "/xime",
     "/docs",
     "/README.md",
-    "/README-vn.md",
     "/CHANGELOG.md",
     "/LICENSE",
     "/pyproject.toml",

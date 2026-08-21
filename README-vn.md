@@ -245,6 +245,12 @@ Cách tốt nhất để học XIME là đọc code thật. Các dự án mã ng
 | **Modbus Adapter** | Nói chuyện thẳng với PLC: device model khai báo tự giải mã thanh ghi (endian, thứ tự word, scale), lập kế hoạch đọc an toàn, `@poll` / `@on_change`, và chế độ slave (`@serve` / `@on_write`) |
 | **OPC UA Adapter** | Client và server cho chuẩn công nghiệp hiện đại: node model, subscription thật (`@on_node_change`), đủ ba mức bảo mật |
 | **File Storage** | `StorageService` trung lập backend (filesystem local / S3 / MinIO); API bytes + streaming; helper download HTTP Range và upload theo chunk |
+| **Đa tiến trình** | `share_load()` biến một app thành một cụm có người trông: khối `processes:` quyết định tiến trình nào mở cổng nào, tiến trình cha giữ socket lắng nghe, `run_once()` chạy đúng một lần cho cả cụm, và watchdog khởi động lại con im lặng rồi thăng cấp primary mới |
+| **Dữ liệu tham chiếu dùng chung** | `RefData` - một bản duy nhất trong bộ nhớ chung cho dữ liệu **có** nguồn bền vững (khoá JWT, danh bạ app): primary ghi, mọi tiến trình đọc mà không phải đi vòng qua mạng |
+| **Kho liên tiến trình** | `Store` trên LMDB cho trạng thái **không** có nguồn bền vững - hãm nhịp, thử thách passkey, chống lặp; sống qua lần khởi động lại, và không cần Redis |
+| **Bus liên tiến trình** | `ProcessLink` - lệnh và câu hỏi giữa các tiến trình, bốn kết cục `ask` phân biệt được, thứ tự theo từng kênh, mỗi tiến trình sở hữu vùng ghi riêng |
+| **Đầu dò sức khoẻ** | `/healthz` và `/readyz` báo trạng thái từng tiến trình và cả cụm; **mặc định TẮT**, không khai thì không phơi ra gì |
+| **Bộ lệnh dòng lệnh** | `xime init` dựng dự án · `xime config --print` in mọi khoá kèm mặc định · `xime check config` bắt khoá gõ sai · `xime check module-level` bắt việc làm lúc import |
 
 ---
 
@@ -280,7 +286,9 @@ Module tùy chọn, tương tự `spring-boot-starter-*`:
 
 XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: core DI (registry singleton tự viết, **không phụ thuộc thư viện DI bên thứ ba**) với **dynamic interface binding** (một Protocol → nhiều impl, đổi được lúc runtime), lifecycle, event bus, security context, configuration, JWT starter (ép `audience`/`issuer`, **bộ khóa định địa chỉ bằng `kid`**, dung sai đồng hồ, claim bắt buộc), scheduler starter, SQLAlchemy starter, Cache + Redis starter, **Storage starter** (filesystem local + S3/MinIO) kèm **streaming file HTTP** (download Range, upload theo chunk), Web adapter (FastAPI + routing, middleware request-context & JWT kiểu pure-ASGI, middleware & exception handler tùy chỉnh, **middleware lấy được DI/config qua marker `Inject`/`FromConfig` + helper `configure_cors` hạng nhất**), gRPC adapter (proto-first + **code-first**, **server streaming có kiểu**, **mTLS động**), **gRPC client SDK** (typed, inject qua DI, deadline + lỗi typed + retry tự động), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), **Modbus adapter** (device model khai báo, master polling + chế độ slave), **OPC UA adapter** (node model, subscription, chế độ server, đủ mức bảo mật), multi-server support, **WebSocket** (định tuyến `@ws`, xác thực bắt tay qua `Sec-WebSocket-Protocol`, đóng kết nối khi token hết hạn) và thứ tự khởi tạo (`dependency.order()`).
 
-Core được bao phủ bởi **1400+ test**.
+**0.8 thêm phần chạy đa tiến trình**: `share_load()` kèm supervisor, watchdog và thăng cấp primary; `RefData` (bộ nhớ chung cho dữ liệu có nguồn bền vững); `Store` trên LMDB (cho dữ liệu không có nguồn); `ProcessLink` (bus liên tiến trình); `/healthz` và `/readyz` bật theo yêu cầu; cùng bộ lệnh `xime init` / `xime config` / `xime check`.
+
+Core được bao phủ bởi **2500+ test**.
 
 Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 

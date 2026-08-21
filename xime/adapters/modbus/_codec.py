@@ -257,7 +257,7 @@ def decode_device(
     `payloads` maps an area to {start_address: values_read_from_that_address},
     which is exactly the shape ReadPlan execution produces.
     """
-    instance = object.__new__(info.cls)
+    instance: Any = object.__new__(info.cls)
     for name, field in info.fields.items():
         chunk = _slice_for(field, payloads.get(field.area, {}))
         setattr(instance, name, decode_field(field, info, chunk))

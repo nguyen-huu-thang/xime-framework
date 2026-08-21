@@ -145,8 +145,12 @@ class TestRedisClientProvider:
 
         provider = RedisClientProvider(config)
 
+        # `decode_responses=False` phải nằm trong lời gọi, không phải dựa vào
+        # mặc định của redis-py: `CacheService.get()` hứa `bytes | None`, và bật
+        # giải mã thì nó trả `str` - cùng chữ ký, hai kiểu, không lỗi nào phát
+        # ra. Ghim ở đây để một lần "dọn cho gọn" không âm thầm mở lại.
         asyncio_mod.from_url.assert_called_once_with(
-            "redis://localhost:6379/0", max_connections=7
+            "redis://localhost:6379/0", max_connections=7, decode_responses=False
         )
         assert provider.client is client
 
@@ -157,7 +161,7 @@ class TestRedisClientProvider:
         RedisClientProvider(config)
 
         asyncio_mod.from_url.assert_called_once_with(
-            "redis://localhost:6379/0", max_connections=10
+            "redis://localhost:6379/0", max_connections=10, decode_responses=False
         )
 
     @pytest.mark.asyncio

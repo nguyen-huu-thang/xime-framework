@@ -115,7 +115,7 @@ class OpcuaServerAdapter(Adapter, scaling=SCALING_SINGLETON):
 
         from xime.core.config.runtime import RuntimeConfig
 
-        runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
+        runtime: RuntimeConfig = app.get(RuntimeConfig)
         self._config = OpcuaServerConfig.resolve(runtime)
 
         controllers = self._controllers

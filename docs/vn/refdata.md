@@ -151,6 +151,12 @@ một lần cho mỗi lời đọc.
 
 ## Ghi: `publish()`, và **chỉ primary**
 
+> ⭐ **Vai primary đổi lúc chạy.** Cha thăng cấp một con sống sót khi primary cũ
+> chết, và con đó có thể **từ chối vai** rồi quay lại standby. `RefData` hỏi lại
+> vai ở **mỗi lần** `publish()`, không chụp một bản sao lúc dựng - nếu không thì
+> tiến trình vừa nhận vai vẫn bị chặn ghi, trong khi log của cha nói nó là
+> primary và `/healthz` cũng nói vậy.
+
 ```python
 # Thường nằm ở tầng khởi động của primary
 keyset = await self._trust.fetch_keys()
@@ -200,7 +206,7 @@ stats = self._keys.stats()
 | `written_at_ms` | bao lâu rồi kể từ lần publish cuối |
 | `used_bytes` / `limit_bytes` / `fill_ratio` | cỡ bản đang dùng so với trần |
 | `writer` | chỉ số tiến trình đã publish bản đang dùng |
-| `stale` | ⭐ **lần publish gần nhất THẤT BẠI vì vượt trần** |
+| `stale` | ⭐ **lần publish gần nhất THẤT BẠI vì vượt trần**, nên cả cụm đang phục vụ bản CŨ |
 
 ⚠ Ảnh chụp **gần đúng** - nó đọc trong lúc người khác có thể đang ghi. Đừng dùng
 nó làm chốt chặn logic; dùng `read()` cho việc đó.
@@ -221,6 +227,24 @@ cho tới khi token ký bằng khoá mới xuất hiện.
 | `stats().stale = True` | Một publish hỏng mà không ai biết là chỗ tệ nhất |
 
 Nâng `max_bytes` là cách sửa, và nhớ rằng nó tốn gấp đôi trong bộ nhớ chung.
+
+### ⭐ Từ 0.8, `stale` nhìn thấy được từ MỌI tiến trình
+
+Cờ này nằm trong **header của vùng nhớ chung**, không phải trong RAM của
+primary. Nghĩa là một tiến trình bất kỳ - kể cả tiến trình không phải primary,
+kể cả `/healthz` của nó - trả lời được câu *"dữ liệu tôi đang phục vụ có cũ
+không"*.
+
+Trước đó nó là thuộc tính của instance, nên nó chỉ nhìn thấy được từ **đúng cái
+tiến trình đã hỏng**, và một primary **mới được thăng cấp** bắt đầu với
+`stale=False` trong khi dữ liệu vẫn cũ. Ba lớp phòng thủ ở bảng trên thu về một,
+và lớp còn lại nằm ở chỗ người vận hành không nhìn tới.
+
+```python
+if self._keys.stats().stale:
+    # Cả cụm đang phục vụ bản cũ. Nâng max_bytes.
+    ...
+```
 
 ---
 

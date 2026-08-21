@@ -261,6 +261,30 @@ for.
 | **One thread per process** | The bus's unit is the **process**. `N > 1` threads needs no change to the shared structures, only a dispatch layer inside the process |
 | **No delivery guarantee** | See above. A message is only lost when the destination process dies - and if it died it was also holding the device connection, so no software path could have delivered that command anyway. Fail-safe belongs in the device's own watchdog |
 | **Payloads are raw bytes** | The framework does not decode them and keeps no type registry. ⛔ And **do not use `pickle`**: payloads come from another process, and `pickle` is arbitrary code execution |
+| **Read payloads are always clamped** | The length field lives **inside** shared memory, so a process writing garbage can put a number there larger than the row. The framework truncates at the declared `payload_bytes` rather than trusting what it reads |
+
+### The "channel nearly full" warning is about YOUR write region
+
+It measures the part of the table **this process writes into**, not the inbox.
+That is what actually fills up and loses messages: the cursor wraps after `rows`
+entries and **overwrites a row nobody has read**.
+
+So a process that only **receives** never sees this warning, however full its
+inbox is - a full inbox is a slow-reader problem, and it shows up in
+`stats().readers[i].unread`, not here.
+
+### `ask()` on timeout: `NoOwner` and `NoAnswer` are distinguishable, within limits
+
+On timeout the framework reads one byte on **the very row it sent** to learn
+whether anyone claimed the work. But the write cursor wraps after `rows` entries,
+so with a long timeout or a busy channel that row **may already belong to another
+message**.
+
+The framework compares the sequence number before trusting that byte. When it
+cannot tell, it returns **`NoAnswer`**, not `NoOwner`: `NoOwner` is a
+**conclusion** (*nobody is registered to handle this*) and the caller will stop
+retrying; `NoAnswer` is a transient state. Guessing wrong toward the conclusion
+costs far more.
 
 ---
 

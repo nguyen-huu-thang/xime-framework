@@ -16,7 +16,7 @@ from ._errors import (
     RefDataTooLargeError,
     RefDataTornError,
 )
-from ._layout import NEVER_PUBLISHED, NO_WRITER, RefDataLayout
+from ._layout import FLAG_STALE, NEVER_PUBLISHED, NO_WRITER, RefDataLayout
 from ._stats import RefDataStats
 
 T = TypeVar("T")
@@ -161,7 +161,9 @@ class RefData(Generic[T], ABC):
         # Cache L1 trong RAM riêng của tiến trình, khoá bằng SỐ ĐỜI.
         self._cached: T | None = None
         self._cached_generation = NEVER_PUBLISHED
-        self._stale = False
+        # `_warned_full` cố ý VẪN là thuộc tính instance: nó chỉ là chốt chống
+        # lặp log, và chỉ primary mới chạy tới nhánh đặt nó. Một primary mới
+        # được thăng cấp cảnh báo lại một lần là ĐÚNG, không phải thừa.
         self._warned_full = False
 
     # ------------------------------------------------------------------
@@ -355,7 +357,7 @@ class RefData(Generic[T], ABC):
             )
         payload = segments[0]
         if len(payload) > self.max_bytes:
-            self._stale = True
+            layout.set_flag(view, FLAG_STALE, True)
             _log.critical(
                 "refdata %r: a new version of %d bytes does not fit in the "
                 "declared max_bytes=%d, so THE WHOLE CLUSTER KEEPS USING THE "
@@ -381,7 +383,7 @@ class RefData(Generic[T], ABC):
         generation = layout.read_generation(view) + 1
         layout.write_generation(view, generation)  # <- SAU CÙNG
 
-        self._stale = False
+        layout.set_flag(view, FLAG_STALE, False)
         self._warn_if_nearly_full(len(payload))
         return generation
 
@@ -423,7 +425,10 @@ class RefData(Generic[T], ABC):
             limit_bytes=self.max_bytes,
             segments=layout.read_segments(view),
             writer=None if writer == NO_WRITER else writer,
-            stale=self._stale,
+            # Đọc từ VÙNG NHỚ CHUNG, không đọc thuộc tính instance: mọi tiến
+            # trình phải trả lời được câu "dữ liệu tôi đang phục vụ có cũ
+            # không", kể cả tiến trình không phải primary.
+            stale=bool(layout.read_flags(view) & FLAG_STALE),
         )
 
     # ------------------------------------------------------------------

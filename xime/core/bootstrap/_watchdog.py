@@ -73,6 +73,8 @@ import time
 from multiprocessing.shared_memory import SharedMemory
 from typing import Final
 
+from xime.core._mp import view_of
+
 _log = logging.getLogger("xime.bootstrap")
 
 MAGIC: Final[bytes] = b"XBET"
@@ -137,7 +139,7 @@ class Heartbeats:
 
     def __init__(self, block: SharedMemory, slots: int, *, owner: bool) -> None:
         self._block = block
-        self._view = block.buf
+        self._view = view_of(block)
         self._slots = slots
         self._owner = owner
         self._closed = False
@@ -149,15 +151,15 @@ class Heartbeats:
         block = SharedMemory(
             name=block_name(run_id), create=True, size=total_bytes(slots)
         )
-        _HEADER.pack_into(block.buf, 0, MAGIC, VERSION, slots)
+        _HEADER.pack_into(view_of(block), 0, MAGIC, VERSION, slots)
         for index in range(slots):
-            _BEAT.pack_into(block.buf, HEADER_BYTES + BEAT_BYTES * index, NEVER)
+            _BEAT.pack_into(view_of(block), HEADER_BYTES + BEAT_BYTES * index, NEVER)
         return cls(block, slots, owner=True)
 
     @classmethod
     def attach(cls, run_id: str, slots: int) -> Heartbeats:
         block = SharedMemory(name=block_name(run_id))
-        magic, version, found = _HEADER.unpack_from(block.buf, 0)
+        magic, version, found = _HEADER.unpack_from(view_of(block), 0)
         if magic != MAGIC or version != VERSION or found != slots:
             block.close()
             raise ValueError(
@@ -183,7 +185,20 @@ class Heartbeats:
     # -- đọc và ghi --------------------------------------------------------
 
     def pat(self, index: int) -> None:
-        _BEAT.pack_into(self._view, HEADER_BYTES + BEAT_BYTES * index, time.time())
+        # ⛔ `monotonic()`, KHÔNG phải `time()`. Đồng hồ tường có thể nhảy:
+        # NTP kéo giờ, người vận hành sửa giờ, máy ảo khôi phục ảnh chụp. Một
+        # cú nhảy TIẾN 30 giây làm `silent_for` của MỌI con đang khoẻ vọt lên
+        # 30s > 10s, nên cha giết cả đàn cùng lúc; rồi chống domino đếm đủ ba
+        # lần thăng cấp và **dừng cấp vai primary vĩnh viễn**. Phát hiện T1 của
+        # kiểm toán 0.8.
+        #
+        # `monotonic()` so được giữa hai tiến trình trên cùng một máy (Linux:
+        # CLOCK_MONOTONIC theo hệ thống, không theo tiến trình), và `core/link`
+        # cùng `core/refdata` đã dùng `monotonic_ns` cho đúng lý do đó - hai
+        # nhánh của cùng một hàm ở đây lại dùng hai đồng hồ khác nhau.
+        _BEAT.pack_into(
+            self._view, HEADER_BYTES + BEAT_BYTES * index, time.monotonic()
+        )
 
     def read(self, index: int) -> float:
         return float(
@@ -210,7 +225,7 @@ class Heartbeats:
         beat = self.read(index)
         if beat == NEVER:
             return None
-        return (now if now is not None else time.time()) - beat
+        return (now if now is not None else time.monotonic()) - beat
 
 
 class Watchdog:

@@ -25,7 +25,14 @@ from pathlib import Path
 
 _log = logging.getLogger("xime.link")
 
-_PREFIX = "xime-link-"
+# Cả BA họ vùng nhớ chung của framework, không chỉ bus.
+#
+# `refdata/_arena.py` từng ghi chú thích *"cùng khuôn với bus để một lần dọn
+# rác nhìn thấy cả hai họ"* - câu đó mô tả một ý định chưa bao giờ thành mã:
+# hàm này chỉ lọc `xime-link-`, nên `xime-ref-` và `xime-beat-` **không bao giờ
+# được dọn**. Phát hiện T4 của kiểm toán 0.8.
+_PREFIXES = ("xime-link-", "xime-ref-", "xime-beat-")
+_PREFIX = _PREFIXES[0]  # giữ tên cũ cho test hiện có
 _SHM_DIR = Path("/dev/shm")
 
 
@@ -45,7 +52,7 @@ def sweep_orphans() -> int:
 
     removed = 0
     for entry in _SHM_DIR.iterdir():
-        if not entry.name.startswith(_PREFIX):
+        if not entry.name.startswith(_PREFIXES):
             continue
         pid = _owner_pid(entry.name)
         if pid is None or _alive(pid):
@@ -63,8 +70,13 @@ def sweep_orphans() -> int:
 
 
 def _owner_pid(name: str) -> int | None:
-    """`xime-link-<pid>-<random>-<channel>` -> pid."""
-    parts = name[len(_PREFIX) :].split("-", 1)
+    """`xime-<ho>-<pid>-<random>[-<duoi>]` -> pid. Cả ba họ cùng khuôn này."""
+    for tien_to in _PREFIXES:
+        if name.startswith(tien_to):
+            break
+    else:
+        return None
+    parts = name[len(tien_to) :].split("-", 1)
     if not parts or not parts[0].isdigit():
         return None
     return int(parts[0])

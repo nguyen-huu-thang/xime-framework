@@ -37,7 +37,7 @@ class SdkRuntime:
     def __init__(self, descriptor_file: str | Path) -> None:
         self._messages = load_messages_from_descriptor_set(descriptor_file)
 
-    def message_class(self, name: str) -> type:
+    def message_class(self, name: str) -> Any:
         try:
             return self._messages[name]
         except KeyError:

@@ -73,7 +73,7 @@ class OpcuaClient:
             [info.nodes[name].node_id for name in names],
             timeout=self._config(server).timeout,
         )
-        instance = object.__new__(info.cls)
+        instance: Any = object.__new__(info.cls)
         for name, value in zip(names, values):
             setattr(instance, name, value)
         return instance  # type: ignore[return-value]

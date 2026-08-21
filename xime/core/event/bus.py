@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import enum
 import logging
 from collections import defaultdict
 
@@ -8,6 +9,35 @@ from xime.core.event._config import EventBusConfig
 from xime.core.event.handler import EventHandler
 
 _logger = logging.getLogger(__name__)
+
+
+class PublishOutcome(enum.Enum):
+    """Chuyện gì đã xảy ra với một lần `publish()`. Ba kết cục, không phải hai.
+
+    Trả nợ luật 03 đã khai từ 0.7.2: trước bản này cả ba tình huống dưới đây
+    đều trả `None`, nên bên gọi **không có cách nào** biết event của mình có
+    được xếp lịch hay đã bị bỏ vì đầy trần. Nợ được hoãn tới 0.8 vì đóng nó là
+    đổi chữ ký công khai - mà **0.8 là bản alpha cuối**: `0.8.x` không đổi API
+    và 0.9 trở đi coi như đã chốt. Đây là chuyến cuối. Phát hiện T12 của kiểm
+    toán 0.8.
+
+    ⚠ **Đừng dùng giá trị này như boolean.** Cả ba đều "truthy" - so sánh
+    tường minh với đúng thành viên bạn quan tâm. Ba tình huống này khiến người
+    gọi làm ba việc khác nhau, và đó là toàn bộ lý do chúng là ba giá trị:
+
+    | | |
+    |---|---|
+    | `SCHEDULED` | handler đã xếp lịch chạy nền. Không phải làm gì |
+    | `NO_HANDLERS` | **không ai đăng ký** loại event này. Lúc chạy thì vô hại, nhưng nếu bạn tin là có người nghe thì đây là một lỗi nối dây, và nó chỉ nhìn thấy được ở đây |
+    | `DROPPED` | vượt `max_pending`, event bị bỏ **nguyên con**. Đây là tín hiệu ngược dòng: hệ thống đang mất việc |
+
+    Tương thích: 31 ứng dụng hiện có bỏ qua giá trị trả về vẫn chạy y nguyên -
+    `await bus.publish(e)` không đọc kết quả thì không có gì đổi.
+    """
+
+    SCHEDULED = "scheduled"
+    NO_HANDLERS = "no_handlers"
+    DROPPED = "dropped"
 
 # One WARNING on the first drop, then one every _WARN_EVERY drops. A flood must
 # not be able to turn a warning into a second flood, but the running total has
@@ -100,7 +130,7 @@ class EventBus:
         """
         self._handlers[event_type].append(handler)
 
-    async def publish(self, event: object) -> None:
+    async def publish(self, event: object) -> PublishOutcome:
         """
         Schedule all handlers for the event type as background tasks.
 
@@ -116,14 +146,14 @@ class EventBus:
         xảy ra còn cái đi kèm thì không là trạng thái không ai thiết kế cho, mà
         lại không nhìn thấy được từ bên ngoài.
 
-        ⚠ The caller cannot tell a dropped event from a scheduled one - both
-        return None. That is a known debt against luật 03 (một giá trị mang một
-        nghĩa), deliberately left for 0.8 because closing it changes a public
-        signature. Do not use the event bus for anything whose loss you must
-        detect; drops are logged and counted, not reported back.
-        ⚠ Bên gọi KHÔNG phân biệt được event bị bỏ với event đã xếp lịch - cả
-        hai trả None. Đây là nợ đã biết với luật 03, cố ý để lại cho 0.8 vì đóng
-        nó là đổi chữ ký công khai.
+        Returns a `PublishOutcome`: `SCHEDULED`, `NO_HANDLERS` or `DROPPED`.
+        Ignoring the return value is fine and keeps the old behaviour.
+        Trả về `PublishOutcome`. Bỏ qua giá trị trả về thì hành vi y như cũ.
+
+        ⭐ Nợ luật 03 khai ở 0.7.2 (*bên gọi không phân biệt được event bị bỏ
+        với event đã xếp lịch, cả hai trả `None`*) **được trả ở đây**. Xem
+        `PublishOutcome` để biết vì sao là ba giá trị chứ không phải hai, và vì
+        sao phải trả ở bản này chứ không phải bản sau.
         """
         # Use .get() rather than indexing the defaultdict so publishing an event
         # type that has no subscribers does not create a permanent empty entry.
@@ -132,16 +162,17 @@ class EventBus:
         event_type = type(event)
         handlers = self._handlers.get(event_type)
         if not handlers:
-            return
+            return PublishOutcome.NO_HANDLERS
 
         if not self._has_room(event_type, len(handlers)):
             self._record_drop(event_type, len(handlers))
-            return
+            return PublishOutcome.DROPPED
 
         for handler in handlers:
             task = asyncio.create_task(self._dispatch(handler, event))
             self._pending.add(task)
             task.add_done_callback(self._pending.discard)
+        return PublishOutcome.SCHEDULED
 
     def _has_room(self, event_type: type, needed: int) -> bool:
         """Whether this event may be scheduled: no cap, exempt type, or room left."""

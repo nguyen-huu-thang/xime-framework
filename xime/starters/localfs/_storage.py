@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path, PurePosixPath
 from uuid import uuid4
 
+from xime.core.config._mode import parse_mode
 from xime.core.config.runtime import RuntimeConfig
 from xime.starters.storage import (
     ObjectNotFound,
@@ -21,25 +22,6 @@ from xime.starters.storage._keys import validate_object_key
 # memory per in-flight chunk; matches a common default for file streaming.
 # Kích thước chunk khi stream đọc/ghi - 64 KiB.
 _CHUNK_SIZE = 64 * 1024
-
-
-def _parse_mode(value: object, default: int) -> int:
-    """Read a POSIX mode from YAML, where 0600 is a STRING and 600 is decimal.
-
-    YAML has no octal literal in the shape people expect: `file_mode: 0600`
-    parses as the integer 600 (decimal), which as a mode means 0o1130 - a
-    nonsense the operator never intended. So a string is read as octal and a
-    plain integer is taken as-is, letting `0o600` in Python config work too.
-    YAML không có literal bát phân như người ta tưởng: `file_mode: 0600` ra số
-    600 hệ mười. Nên chuỗi thì đọc theo bát phân, số nguyên thì giữ nguyên.
-    """
-    if value is None:
-        return default
-    if isinstance(value, str):
-        return int(value, 8)
-    if isinstance(value, int):
-        return value
-    raise ValueError(f"storage.local mode must be a string or int, got {value!r}")
 
 
 class LocalFileStorage:
@@ -91,8 +73,8 @@ class LocalFileStorage:
         # service that happens to share the host.
         # Object là dữ liệu của khách. umask mặc định thường ra 0644, tức là mọi
         # tài khoản trên máy đọc được - kể cả service khác dùng chung máy chủ.
-        self._file_mode: int = _parse_mode(config.get("storage.local.file_mode"), 0o600)
-        self._dir_mode: int = _parse_mode(config.get("storage.local.dir_mode"), 0o700)
+        self._file_mode: int = parse_mode(config.get("storage.local.file_mode"), 0o600, "storage.local.file_mode")
+        self._dir_mode: int = parse_mode(config.get("storage.local.dir_mode"), 0o700, "storage.local.dir_mode")
         # Resolve once at startup so every key is checked against a canonical
         # root (symlinks/.. already collapsed).
         # Phân giải root một lần lúc startup để mọi key kiểm tra trên root chuẩn.

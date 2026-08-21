@@ -246,6 +246,12 @@ The best way to learn XIME is to read real code. These open-source projects are 
 | **Modbus Adapter** | Talk to PLCs directly: declarative device model that decodes registers (endianness, word order, scale), safe read planning, `@poll` / `@on_change`, and slave mode (`@serve` / `@on_write`) |
 | **OPC UA Adapter** | Client and server for the modern industrial protocol: node models, real subscriptions (`@on_node_change`), all three security levels |
 | **File Storage** | Backend-neutral `StorageService` (local filesystem / S3 / MinIO); bytes + streaming APIs; HTTP Range download and chunked upload helpers |
+| **Multi-process** | `share_load()` turns one app into a supervised cluster: the `processes:` block decides which process opens which port, the parent holds the listening sockets, `run_once()` runs exactly once cluster-wide, and a watchdog restarts a silent child then promotes a new primary |
+| **Shared Reference Data** | `RefData` - one copy in shared memory for data that **has** a durable source (JWT keys, app registry): the primary publishes, every process reads with no round trip |
+| **Inter-process Store** | `Store` on LMDB for state with **no** durable source - rate limits, passkey challenges, replay protection; survives a process restart, and needs no Redis |
+| **Inter-process Bus** | `ProcessLink` - commands and questions between processes, four distinct `ask` outcomes, per-channel ordering, each process owning its own write region |
+| **Health Endpoints** | Opt-in `/healthz` and `/readyz` reporting per-process and cluster state; **off by default**, so nothing is exposed unless you ask for it |
+| **Command-line Tools** | `xime init` scaffolds a project · `xime config --print` prints every key with its default · `xime check config` catches typos · `xime check module-level` catches work done at import time |
 
 ---
 
@@ -281,7 +287,9 @@ Optional modules, similar to `spring-boot-starter-*`:
 
 XIME is in **active development**. The following are implemented: core DI (hand-rolled singleton registry, **no third-party DI dependency**) with **dynamic interface binding** (one Protocol → many impls, swapped at runtime), lifecycle, event bus, security context, configuration, JWT starter (audience/issuer enforcement, **keysets addressed by `kid`**, clock leeway, required claims), scheduler starter, SQLAlchemy starter, Cache + Redis starters, **Storage starter** (local filesystem + S3/MinIO) with **HTTP file streaming** (Range download, chunked upload), Web adapter (FastAPI + routing, pure-ASGI request-context & JWT middleware, custom middleware & exception handlers, **DI/config-aware middleware via `Inject`/`FromConfig` markers + first-class `configure_cors`**), gRPC adapter (proto-first + **code-first**, **typed server streaming**, **dynamic mTLS**), **gRPC client SDK** (typed, DI-injected, deadlines + typed errors + automatic retry), **Socket adapter** (Unix Domain Socket IPC), **MQTT adapter** (pub/sub + RPC over MQTT v5), **Modbus adapter** (declarative device model, master polling + slave mode), **OPC UA adapter** (node models, subscriptions, server mode, full security), multi-server support, **WebSocket** (`@ws` routing, handshake authentication over `Sec-WebSocket-Protocol`, close-on-token-expiry), and initialization order (`dependency.order()`).
 
-The core is covered by **1500+ tests**.
+**0.8 adds a multi-process runtime**: `share_load()` with a supervisor, watchdog and primary promotion; `RefData` (shared memory for data that has a durable source); `Store` on LMDB (state that has none); `ProcessLink` (inter-process bus); opt-in `/healthz` and `/readyz`; and the `xime init` / `xime config` / `xime check` command-line tools.
+
+The core is covered by **2500+ tests**.
 
 See the [CHANGELOG](CHANGELOG.md) for release history.
 

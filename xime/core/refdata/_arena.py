@@ -34,9 +34,12 @@ import logging
 import os
 import secrets
 import weakref
+from collections.abc import Callable
 from dataclasses import dataclass
 from multiprocessing.shared_memory import SharedMemory
 from typing import TYPE_CHECKING, Any
+
+from xime.core._mp import view_of
 
 from ._layout import RefDataLayout
 
@@ -109,13 +112,14 @@ class RefDataArena:
         *,
         run_id: str,
         index: int,
-        primary: bool,
+        primary: bool | Callable[[], bool],
         blocks: dict[str, SharedMemory],
         owner: bool,
     ) -> None:
         self._run_id = run_id
         self._index = index
-        self._primary = primary
+        # bool HOẶC một hàm trả bool. Xem property `primary` bên dưới.
+        self._primary: bool | Callable[[], bool] = primary
         self._blocks = blocks
         self._owner = owner
         self._closed = False
@@ -135,7 +139,7 @@ class RefDataArena:
         *,
         run_id: str | None = None,
         index: int = 0,
-        primary: bool = True,
+        primary: bool | Callable[[], bool] = True,
     ) -> RefDataArena:
         """Cấp vùng nhớ cho cả cụm. Tiến trình gốc gọi, và **chỉ nó**."""
         identifier = run_id or new_run_id()
@@ -148,7 +152,7 @@ class RefDataArena:
                     create=True,
                     size=layout.total_bytes,
                 )
-                layout.write_header(block.buf)
+                layout.write_header(view_of(block))
                 blocks[spec.name] = block
         except BaseException:
             for block in blocks.values():
@@ -170,7 +174,7 @@ class RefDataArena:
         specs: tuple[TableSpec, ...],
         *,
         index: int,
-        primary: bool,
+        primary: bool | Callable[[], bool],
     ) -> RefDataArena:
         """Gắn vào vùng nhớ cha đã cấp. Con **không tự đoán tên, nó nhận tên**."""
         blocks: dict[str, SharedMemory] = {}
@@ -178,7 +182,7 @@ class RefDataArena:
             for spec in specs:
                 layout = RefDataLayout(spec.max_bytes)
                 block = SharedMemory(name=block_name(run_id, spec.name))
-                layout.verify_header(block.buf, spec.name)
+                layout.verify_header(view_of(block), spec.name)
                 blocks[spec.name] = block
         except BaseException:
             for block in blocks.values():
@@ -207,8 +211,28 @@ class RefDataArena:
 
     @property
     def primary(self) -> bool:
-        """Tiến trình này có được `publish()` không."""
-        return self._primary
+        """Tiến trình này có được `publish()` không.
+
+        ⭐ Nhận được một **hàm** thì hỏi hàm đó mỗi lần, không chụp lại một
+        bản sao. Vai primary **đổi lúc chạy**: cha thăng cấp một con sống sót
+        khi primary cũ chết, và con đó có thể **từ chối vai** rồi quay lại
+        standby. Một bản sao chụp lúc dựng arena sẽ đứng yên qua cả hai lần
+        đổi đó.
+
+        📌 Đây là phát hiện **C3** của kiểm toán 0.8, và nó là mục nặng nhất
+        trong ba mục CAO ban đầu: cờ *"tôi có phải primary"* nằm ở hai chỗ,
+        `Application._is_primary` được cập nhật còn `RefDataArena._primary`
+        thì **không có setter nào tồn tại**. Mà `RefData.publish()` hỏi đúng
+        cái cờ không được cập nhật. Hậu quả: primary MỚI không bao giờ cập
+        nhật được khoá JWT nữa - ca dùng số một của `RefData` - trong khi cha
+        log *"took the primary role"* và `/healthz` trả `primary: true`.
+
+        Sửa bằng cách bỏ hẳn bản sao thứ hai, không phải bằng cách thêm một
+        setter và nhớ gọi nó ở hai nhánh. Cùng lập luận đã dùng cho **C4**:
+        hai chỗ cùng quyết định một thứ thì sớm muộn lệch nhau.
+        """
+        p = self._primary
+        return p() if callable(p) else p
 
     @property
     def tables(self) -> tuple[str, ...]:

@@ -52,7 +52,13 @@ class RedisClientProvider:
                 "Install it with: pip install xime[redis]"
             ) from exc
 
-        self._client: Redis = from_url(url, max_connections=max_connections)
+        # `decode_responses=False` khai TƯỜNG MINH, không dựa vào mặc định của
+        # redis-py: `CacheService.get()` hứa trả `bytes | None`, và bật giải mã
+        # thì nó trả `str` - cùng một chữ ký, hai kiểu dữ liệu, không lỗi nào
+        # phát ra. Đúng luật 03 ở tầng kiểu trả về.
+        self._client: Redis = from_url(
+            url, max_connections=max_connections, decode_responses=False
+        )
 
     @property
     def client(self) -> Redis:

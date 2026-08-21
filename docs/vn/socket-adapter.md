@@ -212,6 +212,19 @@ Socket Adapter dùng **bảo mật kernel** thay vì TLS hoặc token. Hai lớp
 **File permission:** Sau khi bind, socket file được `chmod` và tuỳ chọn `chown`. Process
 chạy sai user không thể kết nối - kernel chặn ngay tại `connect()`.
 
+> ⛔ **Chạy nhiều tiến trình (`share_load()`): cha chặt quyền TRƯỚC `listen()`.**
+>
+> Ở nhánh đó, **cha** bind socket dùng chung rồi trao cho con, và con mới là nơi
+> đọc `socket.<id>.permission` - vì cha không dựng DI. Giữa hai thời điểm ấy có
+> một **cửa sổ** phủ trọn: con import lại `main.py`, dựng DI, mở pool, lấy cert,
+> chạy `run_once()` (migration). Framework tự khai cửa sổ đó **có thể dài 60
+> giây**, và từ lúc `listen()` trả về là socket đã nhận kết nối.
+>
+> Nên thứ tự là **chặt trước, nới sau**: cha đặt `0600` ngay sau `bind()` và
+> trước `listen()`, con nới ra nếu bạn khai rộng hơn. Cha **từ chối khởi động**
+> nếu không chặt được quyền - `allowed_uids` mặc định rỗng, nên trong cửa sổ đó
+> quyền tệp là chốt chặn **duy nhất**.
+
 **SO_PEERCRED:** Khi client kết nối, server đọc UID client từ kernel. Nếu `allowed_uids`
 được cấu hình, kết nối từ UID không có trong danh sách bị từ chối ngay trước khi đọc bất
 kỳ dữ liệu nào.

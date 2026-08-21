@@ -90,6 +90,22 @@ are left alone. A probe that flags valid keys gets turned off in its first week,
 and then it catches nothing at all. The `Blocks checked:` line says what it
 really looked at.
 
+### A misspelt BLOCK name gets a suggestion too
+
+```text
+  serber: unknown block   did you mean 'server'?
+```
+
+This is the same typo as `server.porrt`, one level up - and the same
+consequence: the application runs on the **framework default**, the operator
+believes it is running on the value they just wrote, and no log line says
+otherwise.
+
+⭐ **A suggestion appears only when the unknown name is CLOSE to a known one**,
+and stays silent when it is not. Measured against real Xime `application.yml`
+files: `serber`, `sever`, `grcp` and `procss` are all caught, while `trust`,
+`app`, `shard`, `legal` and `organization` produce **not one false positive**.
+
 ---
 
 ## `xime init`
@@ -120,6 +136,38 @@ silence.
 ⛔ The command **refuses to overwrite** existing files. Overwriting a live
 `application.yml` erases a real deployment's configuration and there is no way
 back. Pass `--force` when that is what you want.
+
+### A few names are rejected, and the reason is worth reading
+
+```bash
+xime init config
+#   Detail: 'config' is reserved: the generated project already has a 'config'
+#           of its own, and the two would overwrite each other
+```
+
+The generator creates `config/` and `resources/` itself, while the project name
+becomes the Python package name. If they collide, two templates write to **the
+same file** and the later one wins - the project ends up missing exactly
+`config/__init__.py`, where `import dependency` lives. Nothing fails at creation
+time; it fails at run time, with a message unrelated to the name.
+
+`xime init xime` is worse still: the project package **shadows the framework**.
+
+Rejected: `config`, `resources`, `xime`, `main`, `test`, `tests`, and any name
+matching a **Python standard library** module (`json`, `socket`, `logging`, ...).
+
+### A new project listens on `127.0.0.1`, not `0.0.0.0`
+
+The generated `application.yml` opens the `server:` block with
+`host: "127.0.0.1"` and explains it in place. The **framework** default is still
+`0.0.0.0` and does not change - `xime config --print` still prints it that way,
+and running applications are unaffected because they do not re-run the generator.
+
+Why: `0.0.0.0` means **every network interface** - anyone who can route to this
+machine can call it. That is the right answer inside a container and the wrong
+one on a laptop or a shared box. The generator starts you on the narrow side;
+widening it is a deliberate decision rather than a default you did not know you
+had accepted.
 
 ---
 

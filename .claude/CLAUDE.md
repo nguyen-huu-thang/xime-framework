@@ -6,9 +6,82 @@
 
 ## Trạng thái
 
-**0.8.0 code xong, đã rà, CHƯA PHÁT HÀNH.** Chưa commit, chưa tag, chưa lên PyPI.
-Vì `xime` cài **editable** nên mọi thay đổi ở đây có hiệu lực ngay với **31 app** trên
-máy này, kể cả phần chưa phát hành.
+**0.8.0 code xong, ĐÃ KIỂM TOÁN SÁU ĐỢT VÀ VÁ XONG (2026-08-21), CHƯA PHÁT HÀNH.**
+Chưa commit, chưa tag, chưa lên PyPI. Vì `xime` cài **editable** nên mọi thay đổi ở đây
+có hiệu lực ngay với **31 app** trên máy này, kể cả phần chưa phát hành.
+
+✅ **Đợt vá trên Linux ĐÃ đưa về `D:\code\xime` ngày 2026-08-21**: 80 file (61 sửa,
+19 mới, **0 xoá**), đối chứng **629/629 file khớp từng byte**. Sổ tay của phiên nhận:
+[`docs/ban-giao-cho-phien-windows.md`](docs/ban-giao-cho-phien-windows.md).
+
+### Kỳ vọng bộ test - HAI con số, theo hệ điều hành
+
+| Nền tảng | `passed` | `skipped` | `failed` | **Tổng** |
+|---|---|---|---|---|
+| **Linux** | **2528** | 6 | 0 | **2534** |
+| **Windows** | **2510** | 24 | 0 | **2534** |
+
+⚠⚠ **Đừng dùng MỘT con số `passed` làm tiêu chí đạt.** Nó phụ thuộc hệ điều hành, nên
+nhãn *"kỳ vọng 2528"* mang hai giá trị - đúng
+[luật 03](../../.claude/rules/03-mot-gia-tri-mot-nghia.md) ở tầng con số nghiệm thu.
+**Thứ bất biến giữa hai bên là TỔNG `2534`.**
+
+Chênh 18 là **test bị chặn bởi nền tảng**, đã đếm từng cái - Windows bỏ qua, Linux chạy:
+
+| Tệp | Số | Lý do bỏ qua |
+|---|---|---|
+| `lmdb/test_file_mode.py` | 7 | POSIX permission bits only |
+| `link/test_cleanup.py` | 3 | `/dev/shm` chỉ có trên Linux |
+| `storage/test_local_storage.py` | 2 | POSIX permission bits only |
+| `socket/test_socket.py` | 2 | Linux Unix sockets + msgpack |
+| `processes/test_socket_mode.py` | 2 | unix socket only |
+| `web/test_tls.py` | 1 | `chmod 000` không chặn đọc trên Windows |
+| `link/test_va_kiem_toan_08.py` | 1 | `/dev/shm` only |
+
+📌 **Sáu lượt bỏ qua của Linux KHÔNG phải chuyện nền tảng** - chúng bỏ qua ở **cả hai**
+bên vì thiếu dịch vụ ngoài: `storage/test_s3_integration.py` (4, không có S3 ở
+`127.0.0.1:9000`) và `mqtt/test_integration.py` (2, không có broker ở `127.0.0.1:1883`).
+Bật hai dịch vụ đó lên thì Linux ra `2534/0`, Windows ra `2516/18`.
+
+⛔ Con số **2518** ở bản trước **SAI** - nó ghi giữa chừng commit `1821106`, trước khi
+file test cuối của chính commit đó xong. HEAD sạch đo lại là **2520**; cộng 8 test canh
+của đợt 6 thành 2528. Đừng tin lại con số cũ.
+
+### Kiểm toán 0.8: 28 mục đã vá, hai trong đó Windows KHÔNG THỂ thấy
+
+| | |
+|---|---|
+| **C4** | Ngữ cảnh `multiprocessing` lệch nhau → **toàn bộ đa tiến trình chết trên Linux**. 26 test đỏ ở đó, 0 đỏ trên Windows |
+| **C5** | `SocketAdapter.assign_slot()` ném `AttributeError` - `mypy` là thứ duy nhất tìm ra |
+
+⭐⭐ **Bài học phải nhớ cho mọi bản sau: có những lớp lỗi mà máy phát triển
+KHÔNG THỂ nhìn thấy về mặt cấu trúc.** Không phải test yếu - điều kiện gây lỗi không
+tồn tại trên Windows. Một lượt chạy bộ test **trên Linux** nên là điều kiện phát hành.
+
+Báo cáo: [`docs/kiem-toan/0.8-kiem-toan-toan-dien.md`](docs/kiem-toan/0.8-kiem-toan-toan-dien.md)
+· sổ đo: [`docs/kiem-toan/0.8-cho-do-tren-linux.md`](docs/kiem-toan/0.8-cho-do-tren-linux.md)
+
+### ⛔ Đợt 6 (2026-08-21): hai lỗ do REPO NGOÀI báo, cả hai do chính 0.8 sinh ra
+
+Năm đợt trên là **tự soi**. Đợt này do `Base Platform/data` báo sau khi họ di trú thật
+sang khối `process:`. Báo cáo gốc:
+[`docs/bao-cao-van-de-tu-repo-ngoai/`](docs/bao-cao-van-de-tu-repo-ngoai/README.md).
+
+| | |
+|---|---|
+| **C6** 🔴 | **gRPC tụt xuống PLAINTEXT khi di trú sang `process:`.** Đường phẳng chép `grpc.tls` vào ô, đường `process:` thì không, và adapter **không có đường lui**. Đổi cách khai địa chỉ - không đụng khối `grpc:` - là **mất mTLS**, và client cũ **vẫn gọi được** nên không gì gãy |
+| **C7** 🟡 | **Không adapter nào có mốc dương trong log.** gRPC có đúng 2 lệnh log, cả hai là `warning`; socket có 0. Cụm gRPC **khoẻ** sinh log **giống hệt** cụm gRPC **hỏng** |
+
+⭐ **Hai lỗi che nhau**: khi mọi thứ log nói về gRPC đều là cảnh báo thì không có mốc
+dương nào để so, nên C6 lại càng khó thấy. C7 tự xếp mức thấp, nhưng ghép với C6 thì không.
+
+⭐ **Framework đo lại rộng hơn báo cáo ở CẢ HAI mục** - có **ba** adapter chứ không phải
+hai, và gRPC là cái **duy nhất** lệch (`socket` cũng kế thừa khối chung). Tức là **sót**,
+không phải lựa chọn thiết kế.
+
+⚠ **Bài học về chỗ mù**: cả hai nằm ở **ranh giới giữa hai cách khai cấu hình**, nơi mỗi
+bên đều đúng khi xét riêng. Năm đợt tự soi đọc từng dòng của từng bên và không thấy - phải
+có người **di trú thật** mới lộ ra.
 
 ⚠⚠ **Đừng tin ba dòng trên, kiểm bằng lệnh.** Cùng một khuôn lỗi đã lặp **bốn lần** ở
 repo này: *"chưa push PyPI"* · *"0.7.0 chưa commit"* · *"0.7.1 đã phát hành"* ·
@@ -239,17 +312,25 @@ giữ nguyên `TrustKeyProvider` + `JwtKeySet`.
 lại **thử tất cả**"*. Framework nay không suy diễn khi `kid` vắng - nó gọi `keys(None)` và
 tin câu trả lời. *"Thử tất cả"* biến `kid` từ phép định tuyến thành thứ trang trí.
 
-## 3. 0.8.1 - hiện thực, KHÔNG đổi API
+## 3. 0.8.1 - hiện thực
 
 > ⭐⭐ **0.8 là bản ALPHA CUỐI CÙNG.** 0.9 đổi sang `4 - Beta` nơi API coi như đã chốt.
-> Nên `0.8.1` **chỉ được hiện thực, không đổi API** - tên và chữ ký của fieldbus/MQTT đã
-> phải khai xong ở 0.8, và đã khai.
+>
+> ⛔ **Đính chính 2026-08-21:** mục này trước ghi *"`0.8.1` chỉ được hiện thực, không
+> đổi API"* - câu đó **mâu thuẫn với `docs/lo-trinh-phien-ban.md` dòng 58**, nơi chính
+> câu ấy đã bị gạch bỏ kèm lời chủ dự án nới ngày 2026-08-19: *"0.8 đang có nhiều phiên
+> bản con nữa mà, vẫn nhiều cơ hội để đổi"*. Luật *"0.7.x không đổi API"* **không suy
+> sang 0.8.x**: 0.7.x là dòng đã phát hành có 31 app chạy trên nó, 0.8.x là dòng đang
+> xây. Leader phát hiện mâu thuẫn này ngày 2026-08-21; nay đã sửa.
+>
+> Dù vậy tên và chữ ký của fieldbus/MQTT **đã khai xong ở 0.8** như dự định, nên 0.8.1
+> trên thực tế chỉ còn phần hiện thực.
 
 | Việc | Ghi chú |
 |---|---|
 | **Fieldbus chia tải** | Tách **loại** (`bang-tai`, code biết) khỏi **thực thể** (`BT-01`, cấu hình biết); `@poll`/`@on_change` chạy một lần **mỗi thực thể**. Chữ ký đã khai ở 0.8 (phần 4b) |
 | **MQTT chia tải** | Chia **theo topic**, không dùng shared subscription; `client_id` + `topics` vào `processes.<p>.mqtt.<id>` |
-| **Nợ luật 03 của `EventBus`** | Bên gọi không phân biệt được event **bị bỏ** với event **đã xếp lịch** - cả hai trả `None`. Khai ra từ 0.7.2, cố ý hoãn |
+| ~~**Nợ luật 03 của `EventBus`**~~ | ✅ **ĐÃ TRẢ ở 0.8** (2026-08-21): `publish()` trả `PublishOutcome` với ba giá trị `SCHEDULED` / `NO_HANDLERS` / `DROPPED`. Chủ dự án chốt trả ở bản này vì 0.8 là chuyến cuối trước khi API đóng |
 | **`drain()` lúc tắt máy** | Framework không bao giờ tự gọi, nên handler đang chạy bị cắt ngang. Tài liệu nay bảo người dùng tự gọi trong `PreDestroy`; sửa tử tế thì chạm vòng đời adapter |
 
 ⏭ **Hoãn có ý thức, đã ghi lý do:** *cha không có mồm* (mục 2.8c tài liệu đa tiến trình -

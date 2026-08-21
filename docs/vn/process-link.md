@@ -255,6 +255,28 @@ bị huỷ ngang sẽ để lại thiết bị ở trạng thái không ai thi�
 | **Một luồng mỗi tiến trình** | Đơn vị của bus là **tiến trình**. `N > 1` luồng không đòi đổi cấu trúc chia sẻ, chỉ thêm một tầng phân phối bên trong tiến trình |
 | **Không đảm bảo giao** | Xem mục trên. Tin chỉ mất khi tiến trình đích chết - mà nó chết thì cũng đang giữ kết nối tới thiết bị, nên không đường phần mềm nào cứu được lệnh đó. Fail-safe nằm ở watchdog của thiết bị |
 | **Payload là bytes thô** | Framework không giải mã, không có sổ đăng ký kiểu. ⛔ Và **đừng dùng `pickle`**: payload đến từ tiến trình khác, `pickle` là thực thi mã tuỳ ý |
+| **Payload đọc ra luôn bị ép trần** | Trường độ dài nằm **trong** vùng nhớ chung, nên một tiến trình ghi bậy đặt được vào đó một con số lớn hơn dòng. Framework cắt theo `payload_bytes` đã khai, không tin con số đọc được |
+
+### Cảnh báo "kênh sắp đầy" nói về VÙNG GHI CỦA BẠN
+
+Nó đo phần bảng mà **tiến trình này ghi vào**, không đo hộp thư đến. Đó là thứ
+thật sự sắp đầy và gây mất tin: con trỏ vòng lại sau `rows` dòng và **đè lên
+dòng chưa ai đọc**.
+
+Nên một tiến trình chỉ **nhận** thì không bao giờ thấy cảnh báo này, dù hộp thư
+của nó đầy - hộp thư đầy là chuyện của người đọc chậm, và nó hiện ra ở
+`stats().readers[i].unread`, không phải ở đây.
+
+### `ask()` lúc hết giờ: `NoOwner` và `NoAnswer` phân biệt được, nhưng có giới hạn
+
+Hết giờ thì framework đọc một byte trên **chính dòng vừa gửi** để biết có ai
+nhận việc chưa. Nhưng con trỏ ghi vòng lại sau `rows` dòng, nên với timeout dài
+hoặc kênh bận, dòng đó **có thể đã bị một tin khác chiếm**.
+
+Framework so số thứ tự trước khi tin byte đó. Không phân biệt được thì nó trả
+**`NoAnswer`**, không trả `NoOwner`: `NoOwner` là một **kết luận** (*không ai
+đăng ký xử lý việc này*) và bên gọi sẽ thôi thử lại; `NoAnswer` là một trạng
+thái tạm thời. Đoán sai về phía kết luận đắt hơn nhiều.
 
 ---
 

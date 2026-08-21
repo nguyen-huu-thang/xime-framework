@@ -22,6 +22,8 @@ file đi theo git là tạo ra tài liệu già đi trong im lặng.
 from __future__ import annotations
 
 import re
+import sys
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,12 +32,37 @@ from ._config_render import render, render_example
 _NAME = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
 
 
+# Tên khiến dự án sinh ra KHÔNG CHẠY ĐƯỢC, hoặc chạy sai một cách im lặng.
+#
+# `config` và `resources` là hai thư mục trình tạo tự đặt: `module_name` biến
+# tên dự án thành tên gói, và gói đó đụng vào chúng thì `build_plan` có hai khoá
+# trùng nhau trong cùng một dict literal - cái sau đè cái trước, dự án ra **11
+# file thay vì 12** và thiếu đúng `config/__init__.py` (nơi `import dependency`
+# nằm). Không lỗi nào phát ra lúc tạo; nó nổ lúc chạy, với một thông báo không
+# liên quan gì tới cái tên.
+#
+# `xime` thì tệ hơn: gói của dự án **che chính framework**, nên `import xime`
+# trong thư mục đó trỏ về dự án. Phát hiện T8 của kiểm toán 0.8.
+_TEN_CAM = frozenset({"config", "resources", "xime", "main", "test", "tests"})
+
+
 def validate_name(name: str) -> str | None:
     """Trả lý do từ chối, hoặc `None` khi tên dùng được."""
     if not _NAME.match(name):
         return (
             "a project name must be lowercase, start with a letter, and contain "
             "only letters, digits and '-'"
+        )
+    module = module_name(name)
+    if module in _TEN_CAM:
+        return (
+            f"{name!r} is reserved: the generated project already has a "
+            f"{module!r} of its own, and the two would overwrite each other"
+        )
+    if module in sys.stdlib_module_names:
+        return (
+            f"{name!r} would create a package called {module!r}, which shadows "
+            f"a module in the Python standard library"
         )
     return None
 
@@ -194,21 +221,34 @@ class Plan:
 
 def build_plan(root: Path, project: str, version: str) -> Plan:
     module = module_name(project)
-    files = {
-        "main.py": MAIN_PY.format(project=project),
-        "config/__init__.py": CONFIG_INIT,
-        "config/dependency.py": CONFIG_DEPENDENCY.format(module=module),
-        "config/web.py": CONFIG_WEB.format(module=module),
-        f"{module}/__init__.py": f'"""{project}."""\n',
-        f"{module}/api/__init__.py": API_INIT,
-        f"{module}/api/controllers.py": CONTROLLERS,
-        "resources/application.yml": render(project),
-        "resources/application.yml.example": render_example(project),
-        "pyproject.toml": PYPROJECT.format(project=project, version=version),
-        ".gitignore": GITIGNORE,
-        "README.md": README.format(project=project),
-    }
-    return Plan(root, files)
+    cap = [
+        ("main.py", MAIN_PY.format(project=project)),
+        ("config/__init__.py", CONFIG_INIT),
+        ("config/dependency.py", CONFIG_DEPENDENCY.format(module=module)),
+        ("config/web.py", CONFIG_WEB.format(module=module)),
+        (f"{module}/__init__.py", f'"""{project}."""\n'),
+        (f"{module}/api/__init__.py", API_INIT),
+        (f"{module}/api/controllers.py", CONTROLLERS),
+        ("resources/application.yml", render(project, for_init=True)),
+        ("resources/application.yml.example", render_example(project)),
+        ("pyproject.toml", PYPROJECT.format(project=project, version=version)),
+        (".gitignore", GITIGNORE),
+        ("README.md", README.format(project=project)),
+    ]
+    # ⛔ Danh sách CẶP rồi mới dựng dict, để khoá trùng NỔ thay vì đè im lặng.
+    #
+    # `validate_name` đã chặn mọi tên biết trước là gây trùng, nên lối này chỉ
+    # chạy khi có một cách trùng mà chưa ai nghĩ tới - và đó chính là ca cần một
+    # thông báo lỗi. Một dict literal thì cái sau luôn thắng, không một chữ nào
+    # nói cho ai biết. Phát hiện T8 của kiểm toán 0.8.
+    trung = [k for k, n in Counter(k for k, _ in cap).items() if n > 1]
+    if trung:
+        raise ValueError(
+            f"xime init: the generated file list has duplicate paths {trung}. "
+            f"That means two templates would write the same file and one would "
+            f"be silently lost. This is a bug in build_plan, not in your input."
+        )
+    return Plan(root, dict(cap))
 
 
 def write(plan: Plan) -> list[str]:

@@ -103,12 +103,41 @@ class TestWhenToKill:
             beats.pat(index)
         # Dịch đồng hồ của người ĐỌC thay vì ngủ mười giây. Chụp mốc thật
         # TRƯỚC khi vá, không thì lambda gọi lại chính nó.
-        later = time.time() + 30
+        #
+        # ⚠ `monotonic`, không phải `time`: cả hai đầu của phép đo nhịp nay
+        # dùng đồng hồ đơn điệu (phát hiện T1). Vá nhầm `time.time` thì test
+        # này XANH mà không kiểm gì cả - nó chỉ chứng minh rằng một hàm không
+        # được gọi.
+        later = time.monotonic() + 30
         monkeypatch.setattr(
-            "xime.core.bootstrap._supervisor.time.time", lambda: later
+            "xime.core.bootstrap._supervisor.time.monotonic", lambda: later
         )
         node._reap_hung_children()
         assert all(c.killed for c in node._children.values())
+
+    def test_dong_ho_TUONG_nhay_thi_KHONG_giet_ai(self, supervisor, monkeypatch) -> None:
+        """Canh T1: NTP kéo giờ, người vận hành sửa giờ, máy ảo khôi phục ảnh.
+
+        ⭐ Đây là VẾ THỨ HAI, và cặp ở đây là bắt buộc: chỉ có test *"im lặng
+        thì bị giết"* thì cách hiện thực sai *"dùng time.time()"* cũng qua được
+        - mà chính nó là lỗi T1. Chỉ có test này thì cách sai *"không bao giờ
+        giết ai"* cũng qua. Hai vế khoá hai chiều ngược nhau.
+
+        Hậu quả nếu để hỏng: một cú nhảy TIẾN 30 giây làm `silent_for` của MỌI
+        con đang khoẻ vọt lên trên ngưỡng, cha giết cả đàn cùng lúc, rồi chống
+        domino đếm đủ ba lần thăng cấp và **dừng cấp vai primary vĩnh viễn**.
+        """
+        node, _, beats = supervisor
+        for index in range(len(_IDS)):
+            beats.pat(index)
+        nhay = time.time() + 30
+        monkeypatch.setattr("xime.core.bootstrap._supervisor.time.time", lambda: nhay)
+        monkeypatch.setattr("xime.core.bootstrap._watchdog.time.time", lambda: nhay)
+        node._reap_hung_children()
+        assert not any(c.killed for c in node._children.values()), (
+            "đồng hồ tường nhảy 30 giây mà con đang KHOẺ bị giết - phép đo nhịp "
+            "đang dùng đồng hồ có thể nhảy"
+        )
 
     def test_a_child_that_never_patted_is_given_time(self, supervisor) -> None:
         """⭐ *Chưa vỗ lần nào* là **đang khởi động**, không phải **treo**.

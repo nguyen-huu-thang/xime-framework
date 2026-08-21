@@ -204,7 +204,7 @@ class _GrpcUploadStream(UploadStream):
     Message wrapper đầu mang metadata; các message sau mang chunk bytes.
     """
 
-    def __init__(self, request_iterator: Any, request_py: type) -> None:
+    def __init__(self, request_iterator: Any, request_py: Any) -> None:
         self._it = request_iterator.__aiter__()
         self._request_py = request_py
 
@@ -233,7 +233,7 @@ class _GrpcUploadStream(UploadStream):
 class _GrpcDownloadStream(DownloadStream):
     """Collects handler writes into wrapper messages yielded by the server stream."""
 
-    def __init__(self, wrapper_pb2: type) -> None:
+    def __init__(self, wrapper_pb2: Any) -> None:
         self._wrapper_pb2 = wrapper_pb2
         self._queue: asyncio.Queue = asyncio.Queue()
 

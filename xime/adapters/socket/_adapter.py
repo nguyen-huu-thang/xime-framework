@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from xime.core.bootstrap._slot import AdapterSlot
 from xime.core.bootstrap.adapter import SCALING_REPLICATED, Adapter
 from xime.core.context import request_context
-from xime.core.exception.framework import EndpointNotFound, StartupException
+from xime.core.exception.framework import EndpointNotFound
 from xime.core.security import clear_security
 
 from ._config import SocketServerConfig, socket_registry
@@ -29,6 +29,24 @@ if TYPE_CHECKING:
     from xime.core.bootstrap.application import Application
 
 logger = logging.getLogger("xime.socket")
+
+
+def _che_do(config: SocketServerConfig) -> str:
+    """Chế độ bảo mật của socket, viết gọn để nhét vào dòng log.
+
+    Unix socket không có TLS; chốt chặn của nó là **quyền file** cộng danh sách
+    uid được phép. Nên đó chính là thứ phải hiện ra, cùng khuôn `_che_do` của web
+    và gRPC - ba adapter nói cùng một hình dạng, để đọc log của một cụm không
+    phải đổi cách đọc giữa các dòng.
+
+    ⚠ `allowed_uids` rỗng nghĩa là **không lọc theo uid**, và khi đó quyền file là
+    chốt chặn duy nhất - nói ra để người vận hành thấy, thay vì phải suy từ sự
+    vắng mặt của một con số.
+    """
+    quyen = f"{config.permission:04o}"
+    if config.allowed_uids:
+        return f"{quyen}, uid {','.join(str(u) for u in config.allowed_uids)}"
+    return f"{quyen}, any uid"
 
 # How often the reaper scans for idle sessions (seconds).
 # Tần suất reaper quét session idle (giây).
@@ -103,16 +121,27 @@ class SocketAdapter(Adapter, scaling=SCALING_REPLICATED):
         ⛔ Truyền `path` trong code là lỗi khởi động - cùng lý do với `port` của
         web và gRPC: ở nhánh `share_load()` thì đường dẫn thuộc về **cặp** `(tiến
         trình, adapter)`, không thuộc riêng adapter.
+
+        ⭐ Phép kiểm cho việc đó **đã bị gỡ, và gỡ là đúng**: từ 0.8
+        `__init__` không còn nhận `path` nữa, nên không có đường nào truyền vào
+        để mà từ chối - `WebAdapter` và `GrpcAdapter` cũng không có phép kiểm
+        tương ứng, vì cùng lý do.
+
+        ⛔ Nhưng mã cũ vẫn còn `if self._path_override is not None:` trong khi
+        **không nơi nào trong repo gán thuộc tính đó**. Nó không phải một phép
+        kiểm không bao giờ đúng; nó là một `AttributeError` chắc chắn nổ:
+
+            AttributeError: 'SocketAdapter' object has no attribute '_path_override'
+
+        Mà `assign_slot()` là đường **bắt buộc đi qua** khi chạy đa tiến trình,
+        nên mọi ứng dụng dùng `SocketAdapter` với `share_load()` sập lúc khởi
+        động, bằng một thông báo không liên quan gì tới nguyên nhân.
+
+        Vì sao không test nào bắt được: test của socket **tự bỏ qua trên
+        Windows** (thiếu `asyncio.start_unix_server`), còn các test cụm thật
+        thì dùng web adapter. `mypy` là thứ duy nhất nhìn thấy nó. Phát hiện
+        **C5** của kiểm toán 0.8, tìm ra 2026-08-21 trên Linux.
         """
-        if self._path_override is not None:
-            raise StartupException(
-                f"\nSocket Path Passed In Code Under share_load\n"
-                f"  Adapter: SocketAdapter({self.adapter_id!r})\n"
-                f"  Config : processes.{slot.process_id}.socket.{self.adapter_id}\n"
-                f"  Detail : with share_load() the path belongs to the pair "
-                f"(process, adapter), so it comes from the processes block. "
-                f"Drop path from SocketAdapter(...)."
-            )
         self._slot = slot
 
     async def start(self, app: Application) -> None:
@@ -125,7 +154,7 @@ class SocketAdapter(Adapter, scaling=SCALING_REPLICATED):
             ) from None
 
         from xime.core.config.runtime import RuntimeConfig
-        runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
+        runtime: RuntimeConfig = app.get(RuntimeConfig)
 
         slot = self._slot
         self._config = SocketServerConfig.resolve(
@@ -165,6 +194,19 @@ class SocketAdapter(Adapter, scaling=SCALING_REPLICATED):
             self._config.permission,
             self._config.owner,
             self._config.group,
+        )
+        # ⭐ Mốc DƯƠNG: trước bản này adapter socket không log một dòng nào, nên
+        # "đã lên và khoẻ" không để lại dấu vết gì để đối chiếu khi nghi ngờ.
+        # Chế độ nằm cùng dòng với địa chỉ, đúng khuôn web và gRPC.
+        logger.info(
+            "socket %s: process %s serving on %s (%s)%s",
+            self.adapter_id,
+            slot.process_id if slot is not None else "-",
+            self._actual_path,
+            _che_do(self._config),
+            " (shared socket from supervisor)"
+            if slot is not None and slot.sock is not None
+            else "",
         )
         self._reaper = asyncio.create_task(self._reap_loop())
 

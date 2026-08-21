@@ -391,6 +391,29 @@ assert notification_mock.called
 
 Từ 0.7.2, số task đang bay có trần, **mặc định 10.000**. Quá trần thì event bị bỏ **nguyên con** (không bao giờ chạy nửa số handler) và được đếm.
 
+#### Từ 0.8: `publish()` nói cho bạn biết chuyện gì đã xảy ra
+
+Tới 0.7.2, `publish()` trả `None` cho **cả ba** tình huống dưới đây, nên bên gọi không có cách nào biết event của mình bị bỏ hay đã được xếp lịch. Đó là một nợ đã khai với luật một giá trị mang một nghĩa, và nó được trả ở 0.8:
+
+```python
+from xime.core.event import PublishOutcome
+
+ket_qua = await self._bus.publish(DonHangDaTao(don.id))
+if ket_qua is PublishOutcome.DROPPED:
+    # Hệ thống đang mất việc - đây là tín hiệu ngược dòng, không phải lỗi lẻ.
+    self._metrics.tang("event_bi_bo")
+```
+
+| Giá trị | Nghĩa | Bên gọi nên làm gì |
+|---|---|---|
+| `SCHEDULED` | handler đã xếp lịch chạy nền | không phải làm gì |
+| `NO_HANDLERS` | **không ai đăng ký** loại event này | lúc chạy thì vô hại; nhưng nếu bạn tin là có người nghe thì đây là một lỗi nối dây, và đây là chỗ duy nhất nhìn thấy nó |
+| `DROPPED` | vượt trần, event bị bỏ **nguyên con** | hãm nhịp phía trên, hoặc nâng trần, hoặc khai `never_drop` |
+
+⚠ **Đừng dùng giá trị này như boolean** - cả ba đều "truthy". So sánh tường minh với thành viên bạn quan tâm.
+
+✅ **Không phá mã cũ**: bỏ qua giá trị trả về thì `publish()` hành xử y hệt trước.
+
 Con số đó là **quyết định thiết kế của app**, không phải cấu hình môi trường - nó phụ thuộc handler của bạn chạy bao lâu và event của bạn to cỡ nào. Vì vậy nó nằm trong **Python**, cạnh routing và DI binding, không nằm trong `application.yml`:
 
 ```python

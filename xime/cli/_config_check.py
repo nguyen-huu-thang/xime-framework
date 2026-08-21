@@ -106,7 +106,27 @@ def check(path: Path) -> CheckResult:
     for name in seen:
         block = BY_NAME.get(name)
         if block is None:
-            # Khối của chính ứng dụng. Framework không biết, và không đoán.
+            # Khối của chính ứng dụng (`trust:`, `app:`, `shard:`...). Framework
+            # không biết chúng và KHÔNG được tố chúng - tố mọi tên lạ là kêu oan
+            # ngay ngày đầu, và một phép dò kêu oan là một phép dò bị tắt.
+            #
+            # Nhưng có đường giữa: **gợi ý khi tên lạ GẦN GIỐNG một tên đã
+            # biết**, im khi nó không giống gì cả. Đo trên chính bộ tên khối của
+            # workspace này với cutoff 0.7: bắt `serber`, `sever`, `grcp`; và
+            # `trust`, `app`, `dental`, `shard` **không sinh một cảnh báo giả
+            # nào**.
+            #
+            # Vì sao đáng: bản rà 2026-08-20 vá việc "vắng `server:` thì rơi về
+            # cổng mặc định 8080" để dự án `xime init` chạy được. Bản vá đó
+            # đúng, nhưng nó khiến `serber:` thành: ứng dụng nghe ở 8080, người
+            # vận hành tin là 8086, `xime check config` nói **clean**, và không
+            # một dòng log nào. Đúng loại lỗi công cụ này sinh ra để bắt.
+            # Phát hiện T9 của kiểm toán 0.8.
+            gan = difflib.get_close_matches(name, list(BY_NAME), n=1, cutoff=0.7)
+            if gan:
+                findings.append(
+                    Finding(name, "unknown block", f"did you mean {gan[0]!r}?")
+                )
             continue
         resolved = resolve(block)
         if resolved.unavailable is not None or not block.complete:

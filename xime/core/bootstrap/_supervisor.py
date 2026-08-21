@@ -31,7 +31,6 @@ tiến trình phục vụ thiếu một middleware xác thực mà không gì b�
 from __future__ import annotations
 
 import logging
-import multiprocessing
 import os
 import socket
 import sys
@@ -40,6 +39,7 @@ from collections.abc import Iterable, Mapping
 from multiprocessing import connection as mp_connection
 from typing import TYPE_CHECKING, Any
 
+from xime.core._mp import MP_CONTEXT
 from xime.core.bootstrap import _control
 from xime.core.bootstrap._processes import (
     PROCESS_ID_ENV,
@@ -67,7 +67,7 @@ from xime.core.bootstrap._watchdog import (
     SILENCE_SECONDS,
     STARTUP_GRACE_SECONDS,
 )
-from xime.core.link import INTERNAL_CHANNEL
+from xime.core.link import INTERNAL_CHANNEL, sweep_orphans
 
 if TYPE_CHECKING:
     from xime.core.bootstrap.adapter import Adapter
@@ -86,6 +86,27 @@ SocketMap = dict[tuple[str, str], socket.socket]
 # trọn một nhân và ghi log không ai đọc kịp. Chặn domino thật (N lần trong T
 # giây thì dừng THĂNG CẤP) thuộc giai đoạn 6; đây chỉ là cái phanh tay.
 _RESPAWN_DELAY = 1.0
+
+# Hãm luỹ tiến khi một con chết đi chết lại. Không có nó thì một con chết ngay
+# lúc khởi động (cấu hình sai, cổng riêng bị chiếm, migration hỏng) sinh ra
+# **mỗi giây một lần spawn** - mà một lần spawn là import lại ~721 module,
+# ~83 MB RSS, ngốn khoảng một giây CPU. Đốt trọn một nhân, không ngưỡng, không
+# leo thang, và dòng log vẫn là một câu WARNING giống hệt nhau lặp mãi. Phát
+# hiện T7 của kiểm toán 0.8.
+#
+# ⭐ Lời hứa "luôn dựng lại" GIỮ NGUYÊN - đây là hãm nhịp, không phải từ bỏ.
+# Một cụm hỏng vì cấu hình phải tự phục hồi ngay khi cấu hình được sửa, nên
+# không có ngưỡng nào làm nó ngừng thử.
+_RESPAWN_DELAY_MAX = 30.0
+
+# Sống được quá ngần này thì coi như con đã khởi động thành công, và bộ hãm của
+# nó về 0. Chọn theo STARTUP_GRACE_SECONDS: một con qua được cửa đó là một con
+# đã phục vụ, không phải một con đang giãy.
+_RESPAWN_RESET_AFTER = 60.0
+
+# Từ lần thứ này trở đi thì log lên CRITICAL: lặp lại một WARNING giống hệt nhau
+# là cách chắc chắn nhất để không ai đọc nó nữa.
+_RESPAWN_LOUD_AFTER = 10
 
 # Thời gian chờ con tự tắt sau Ctrl+C trước khi cha ép.
 _SHUTDOWN_GRACE = 10.0
@@ -419,6 +440,34 @@ def _bind_unix(spec: EndpointSpec) -> socket.socket:
             f"Path  : {spec.path}",
             f"Detail: {exc}",
         ) from exc
+    # ⛔ chmod TRƯỚC listen(), không phải sau. Từ lúc listen() trả về là socket
+    # đã nhận kết nối, và cửa sổ tới lúc con gọi `secure_socket_file()` phủ
+    # trọn: import lại main.py, dựng DI, mở pool, lấy cert, chạy run_once()
+    # (migration). Framework tự khai cửa sổ đó có thể dài 60 giây
+    # (_RUN_ONCE_WAIT, STARTUP_GRACE_SECONDS).
+    #
+    # Cha KHÔNG biết `socket.<id>.permission` đã cấu hình - khoá đó nằm trong
+    # DI mà cha không dựng DI. Nên thứ tự đúng là **chặt trước, nới sau**: cha
+    # đặt 0600, con nới ra nếu người vận hành đã khai rộng hơn.
+    #
+    # ⚠ Đây là hồi quy do 0.8 sinh ra: một tiến trình thì bind và chmod là hai
+    # dòng liền nhau. Phát hiện C2 của kiểm toán 0.8. Và `allowed_uids` mặc
+    # định rỗng, với `authorize_peer` ghi rõ "whitelist rỗng = chấp nhận mọi
+    # UID; lúc đó dựa hoàn toàn vào file permission" - tức quyền tệp là chốt
+    # chặn DUY NHẤT trong cửa sổ này.
+    if os.name != "nt":
+        try:
+            os.chmod(spec.path, 0o600)
+        except OSError as exc:
+            sock.close()
+            raise topology_error(
+                "Cannot Secure A Shared Socket Path",
+                f"Path  : {spec.path}",
+                f"Detail: {exc}",
+                "Fix   : the parent refuses to listen on a socket it cannot "
+                "restrict - any local user could otherwise connect during "
+                "startup.",
+            ) from exc
     sock.listen(_BACKLOG)
     sock.set_inheritable(True)
     return sock
@@ -702,9 +751,11 @@ class Supervisor:
         self._bound = bound
         self._shared = shared or SharedMemoryOwner(None)
         self._attr = main_attribute_of(app)
-        self._ctx = multiprocessing.get_context("spawn")
+        self._ctx = MP_CONTEXT
         self._children: dict[str, Any] = {}
         self._spawned_at: dict[str, float] = {}
+        # Số lần một con chết LIÊN TIẾP mà không sống nổi _RESPAWN_RESET_AFTER.
+        self._respawns: dict[str, int] = {}
         self._stopping = False
         self._previous_handlers: dict[Any, Any] = {}
         # Ai đang giữ vai primary. Cấu hình chỉ nói ai **bắt đầu** với nó; từ
@@ -941,7 +992,12 @@ class Supervisor:
         beats = self._shared.beats
         if beats is None:
             return
-        now = time.time()
+        # ⛔ CÙNG đồng hồ với thứ con ghi vào ô nhịp. Con dùng `monotonic()`
+        # (xem `_watchdog.py`), nên cha so bằng `time()` là trừ hai đại lượng
+        # khác hệ quy chiếu - ra một con số cỡ giờ epoch, và mọi con đều bị coi
+        # là treo. Đây là NHÁNH THỨ HAI của T1: hai dòng cách nhau vài file
+        # cùng đo một khoảng thời gian bằng hai đồng hồ khác nhau.
+        now = time.monotonic()
         for process_id, proc in list(self._children.items()):
             if not proc.is_alive():
                 continue
@@ -1056,7 +1112,30 @@ class Supervisor:
         if process_id == self._primary_id:
             self._primary_id = None
             self._promote_someone(exclude=process_id)
-        time.sleep(_RESPAWN_DELAY)
+        song_duoc = time.monotonic() - self._spawned_at.get(process_id, 0.0)
+        if song_duoc >= _RESPAWN_RESET_AFTER:
+            # Con này đã khởi động được và phục vụ một lúc; lần chết này không
+            # thuộc cùng một chuỗi với những lần trước.
+            self._respawns.pop(process_id, None)
+        lan = self._respawns.get(process_id, 0) + 1
+        self._respawns[process_id] = lan
+        cho = min(_RESPAWN_DELAY * (2 ** (lan - 1)), _RESPAWN_DELAY_MAX)
+        if lan >= _RESPAWN_LOUD_AFTER:
+            _log.critical(
+                "supervisor: %s has died %d times in a row (alive %.1fs last "
+                "time). Waiting %.0fs before the next attempt. This is a "
+                "configuration or startup failure, not a transient crash - the "
+                "supervisor will keep trying, but nothing will improve until "
+                "the cause is fixed.",
+                process_id, lan, song_duoc, cho,
+            )
+        elif lan > 1:
+            _log.warning(
+                "supervisor: %s has died %d times in a row - waiting %.0fs "
+                "before restarting it",
+                process_id, lan, cho,
+            )
+        time.sleep(cho)
         self._spawn(process_id)
 
     def _shutdown(self) -> None:
@@ -1111,6 +1190,16 @@ def run_supervisor(
     """
     adapters = list(adapters)
     validate_against_adapters(topology, adapters)
+    # Dọn vùng nhớ chung của những lần chạy trước đã chết bằng SIGKILL. Phải ở
+    # đây, trước khi cấp vùng mới: đây là điểm duy nhất trong đời một cụm mà ta
+    # biết chắc chưa có tiến trình con nào của MÌNH đang sống.
+    #
+    # ⚠ Hàm này tồn tại từ đầu, có 4 test, nằm trong `__all__`, và docstring
+    # xếp nó là lớp che `kill -9` DUY NHẤT - nhưng **không đường khởi động nào
+    # gọi nó**. Phát hiện T3 của kiểm toán 0.8, và là ca thật của khuôn *"một
+    # cơ chế phòng thủ CÓ MẶT nhưng KHÔNG BAO GIỜ CHẠY"*. Nên test canh cho nó
+    # phải canh **CHỖ GỌI NÀY**, không chỉ canh bản thân hàm.
+    sweep_orphans()
     bound = bind_shared_sockets(topology, adapters)
     # `+ 1` ô cho chính cha: nó là một hàng trong bảng bus như mọi tiến trình
     # khác, vì kênh điều khiển `__xime__` đi hai chiều.

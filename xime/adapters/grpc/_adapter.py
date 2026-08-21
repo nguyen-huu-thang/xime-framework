@@ -30,6 +30,11 @@ def _shared_grpc_settings(runtime: Any) -> dict[str, Any]:
     Ranh giới: thứ **khác nhau giữa các điểm phục vụ** (`port`, `tls`) thì nằm ở
     ô cấu hình; thứ **chung cho cả loại** ở lại đây.
 
+    ⚠ `tls` là ngoại lệ có chủ đích: nó **khai được ở ô** nhưng ô im lặng thì
+    `GrpcAdapter.resolve_tls` **kế thừa `grpc.tls`**, y như web kế thừa
+    `server.ssl`. Nên đừng thêm `tls` vào bộ lọc dưới đây - đường kế thừa nằm ở
+    `resolve_tls`, và gộp hai đường lại thì ô không còn ghi đè được nữa.
+
     ⚠ `grpc.servers.<id>` đã **biến mất** ở 0.8. Nó là cái tên thứ ba cho cùng
     một khái niệm, và nó giữ một khoá `port` **chết**: adapter đọc khối đó xong
     ghi đè vô điều kiện bằng đối số constructor, nên người vận hành sửa
@@ -40,6 +45,23 @@ def _shared_grpc_settings(runtime: Any) -> dict[str, Any]:
     if not isinstance(raw, dict):
         return {}
     return {k: v for k, v in raw.items() if k in ("max_workers", "keepalive")}
+
+
+def _che_do(config: GrpcServerConfig, *, secure: bool) -> str:
+    """Chế độ bảo mật của một điểm phục vụ, viết gọn để nhét vào dòng log.
+
+    ⭐ Ghi chế độ vào **cùng một dòng** với địa chỉ, chứ không để nó thành một
+    cảnh báo riêng: người vận hành đọc log khởi động để trả lời *"cái gì đã lên"*,
+    và họ thấy dòng này **mỗi lần**, ở đúng chỗ họ đang tìm. Bắt người ta nhận ra
+    **sự vắng mặt** của một cảnh báo là một phép đo không ai làm được.
+
+    Trước bản này, mọi thứ log nói về gRPC đều là cảnh báo, nên trạng thái tốt
+    không có dấu vết nào - và *"gRPC khoẻ ở main"* sinh ra log **giống hệt**
+    *"gRPC hỏng ở main"*. Báo từ `Base Platform/data` ngày 2026-08-21.
+    """
+    if not secure:
+        return "PLAINTEXT"
+    return "mTLS" if config.tls.mutual else "TLS"
 
 
 class GrpcAdapter(Adapter, scaling=SCALING_REPLICATED):
@@ -130,6 +152,40 @@ class GrpcAdapter(Adapter, scaling=SCALING_REPLICATED):
         """Nhận ô `process.grpc.<id>` hoặc `processes.<p>.grpc.<id>`."""
         self._slot = slot
 
+    @staticmethod
+    def resolve_tls(slot: AdapterSlot, runtime: Any) -> dict[str, Any]:
+        """TLS của một điểm phục vụ: ô trước, `grpc.tls` sau.
+
+        ⭐ **Kế thừa `grpc.tls` khi ô không khai** là một tính chất bảo mật, không
+        phải tiện lợi - cùng lập luận `WebAdapter.resolve_tls` đã dùng cho
+        `server.ssl`, và ở gRPC nó còn đắt hơn: một endpoint tụt xuống plaintext
+        **vẫn nhận client không có cert**, nên bên gọi cũ không hề gãy và không ai
+        biết lớp lọc theo CN của client vừa mất đối tượng để xét.
+
+        Muốn một điểm phục vụ cố ý chạy plaintext thì khai rỗng, tường minh:
+
+        ```yaml
+        process:
+          grpc:
+            noi_bo:    { port: 9095 }           # kế thừa grpc.tls
+            cong_khai: { port: 9096, tls: {} }  # cố ý plaintext
+        ```
+
+        ⚠ Đây là lỗ hổng do **chính 0.8 sinh ra**, không phải nợ cũ: trước 0.8 chỉ
+        có khoá phẳng, mà đường phẳng chép `tls` vào ô (`_FLAT_SOURCES`) nên nó
+        luôn đúng. Người di trú sang `process:` theo đúng lời tài liệu thì mất
+        mTLS, và dấu hiệu duy nhất là một dòng WARNING lẫn trong log khởi động.
+        Báo từ `Base Platform/data` ngày 2026-08-21, tái hiện được hai chiều.
+
+        Trả về mảnh dict để ghép vào `GrpcServerConfig.model_validate`; rỗng nghĩa
+        là *"không ai nói gì về TLS"*, để mặc định của config lên tiếng.
+        """
+        raw = slot.spec.options.get("tls")
+        if raw is not None:
+            return {"tls": raw}
+        inherited = runtime.get("grpc.tls")
+        return {"tls": inherited} if inherited is not None else {}
+
     # ------------------------------------------------------------------
     # Adapter protocol
     # ------------------------------------------------------------------
@@ -142,7 +198,7 @@ class GrpcAdapter(Adapter, scaling=SCALING_REPLICATED):
         Blocks until the server is stopped (via stop() or SIGINT).
         """
         from xime.core.config.runtime import RuntimeConfig
-        runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
+        runtime: RuntimeConfig = app.get(RuntimeConfig)
 
         self._app = app
 
@@ -165,11 +221,7 @@ class GrpcAdapter(Adapter, scaling=SCALING_REPLICATED):
             {
                 "port": slot.spec.port,
                 **_shared_grpc_settings(runtime),
-                **(
-                    {"tls": slot.spec.options["tls"]}
-                    if "tls" in slot.spec.options
-                    else {}
-                ),
+                **self.resolve_tls(slot, runtime),
             }
         )
         bind_host = slot.spec.host or "[::]"
@@ -202,6 +254,12 @@ class GrpcAdapter(Adapter, scaling=SCALING_REPLICATED):
             self._server.add_secure_port(f"{bind_host}:{config.port}", credentials)
         else:
             self._server.add_insecure_port(f"{bind_host}:{config.port}")
+        _log.info(
+            "grpc %s: process %s serving on %s:%s (%s)%s",
+            self.adapter_id, slot.process_id, bind_host, config.port,
+            _che_do(config, secure=credentials is not None),
+            " (SO_REUSEPORT)" if slot.spec.shared else "",
+        )
         self._warn_insecure_mode(config, secure=credentials is not None)
 
         # ⭐ Hai dòng này VỐN ĐÃ tách sẵn ở tầng dưới - `grpc.aio` cho
@@ -274,7 +332,10 @@ class GrpcAdapter(Adapter, scaling=SCALING_REPLICATED):
             return build_server_credentials(config.tls)
 
         try:
-            provider = app.get(provider_class)
+            # `provider_class` là `type` (do `configure_grpc_tls` nhận bất kỳ lớp
+            # nào thoả Protocol), nên `app.get` không suy được kiểu cụ thể - khai
+            # `Any` ở đây là nói đúng thứ chỗ này biết.
+            provider: Any = app.get(provider_class)
         except KeyError:
             raise RuntimeError(
                 f"GrpcAdapter('{self.adapter_id}'): certificate provider "

@@ -63,7 +63,7 @@ def _reader(run_id: str, index: int, out: Any, go: Any, stop: Any) -> None:
         arena.close()
 
 
-def _torn_reader(run_id: str, index: int, out: Any, stop: Any) -> None:
+def _torn_reader(run_id: str, index: int, out: Any, ready: Any, stop: Any) -> None:
     """Con: đọc liên tục trong lúc cha publish liên tục.
 
     Nó **không** kiểm nội dung đúng hay sai - nó kiểm rằng mọi bản đọc được đều
@@ -73,6 +73,13 @@ def _torn_reader(run_id: str, index: int, out: Any, stop: Any) -> None:
     arena = RefDataArena.attach(run_id, SPECS, index=index, primary=False)
     table = Counter(arena)
     reads, torn, mislabelled, distinct = 0, 0, 0, set()
+    # ⭐ Báo "tôi đã attach xong và sắp vào vòng lặp" TRƯỚC khi cha publish.
+    # Thiếu rào này thì cha publish xong rồi mới tới lượt con chạy, và con vào
+    # vòng lặp khi `stop` đã bật -> `reads == 0` -> phép đo vô nghĩa. Đo trên
+    # Linux 2026-08-21: cha xong 399 lần publish ở 136,7 ms còn con chạy dòng
+    # đầu tiên ở 138,7 ms - thua đúng 2 ms. Máy càng nhanh càng dễ thua, nên
+    # đây là lỗi ngủ yên chứ không phải lỗi ngẫu nhiên.
+    ready.set()
     try:
         while not stop.is_set():
             try:
@@ -158,12 +165,15 @@ def test_reading_while_publishing_never_yields_a_half_written_version() -> None:
     # Bản đủ lớn để một lần ghi không xong trong một lệnh máy - bản nhỏ thì
     # cửa sổ hẹp tới mức test xanh kể cả khi cơ chế sai.
     filler = "x" * 2000
-    out, stop = _SPAWN.Queue(), _SPAWN.Event()
+    out, ready, stop = _SPAWN.Queue(), _SPAWN.Event(), _SPAWN.Event()
     child = _SPAWN.Process(
-        target=_torn_reader, args=(arena.run_id, 1, out, stop), daemon=True
+        target=_torn_reader, args=(arena.run_id, 1, out, ready, stop), daemon=True
     )
     child.start()
     try:
+        # Chờ con vào vị trí. Không chờ thì cha publish xong trước khi con đọc
+        # được lần nào, và test đo một khoảng thời gian không có ai đọc cả.
+        assert ready.wait(timeout=30), "con không bao giờ sẵn sàng"
         for stamp in range(1, 400):
             asyncio.run(table.publish({"stamp": stamp, "echo": stamp, "pad": filler}))
         stop.set()

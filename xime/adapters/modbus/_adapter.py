@@ -82,7 +82,7 @@ class ModbusAdapter(
         # ModbusAdapter trên một thiết bị sẽ chạy hai vòng poll vào cùng một PLC
         # và gắn hai client vào một ModbusConnection dùng chung.
         self.adapter_id = target_id
-        self._slot: object | None = None
+        self._slot = None
         self._controllers = controllers
         self._config: ModbusConfig | None = None
         self._connection = modbus_registry.connection(target_id)
@@ -110,7 +110,7 @@ class ModbusAdapter(
 
         from xime.core.config.runtime import RuntimeConfig
 
-        runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
+        runtime: RuntimeConfig = app.get(RuntimeConfig)
         self._config = ModbusConfig.resolve(runtime, self._device)
         register_resolved_config(self._config)
         self._sem = asyncio.Semaphore(self._config.max_concurrency)
@@ -238,7 +238,9 @@ class ModbusAdapter(
             started = loop.time()
             request_context.set("request_id", str(uuid.uuid4()))
             try:
-                instance = await self._client.read(group.model, device=self._device)
+                instance: Any = await self._client.read(
+                    group.model, device=self._device
+                )
                 for poll in group.polls:
                     await self._dispatch(
                         poll.bound, instance, poll.controller, poll.handler,

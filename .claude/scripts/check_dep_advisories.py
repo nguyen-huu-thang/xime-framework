@@ -198,7 +198,15 @@ def main() -> int:
         )
         return 1
 
-    print("Khong con muc nao ngoai danh sach chap nhan.")
+    # ⚠ Day la ket cuc SACH, chi khac o cho co advisory nhung tat ca deu nam
+    # trong danh sach chap nhan kem ly do. Truoc 2026-08-21 no in mot cau thu
+    # TU khong nam trong ba ket cuc script tu khai (SACH / CHUA KET LUAN DUOC /
+    # CON MUC CHUA XU LY), va no nam o dung duong chay thuong gap nhat - nguoi
+    # doc log khong co cach nao biet minh dang doc ket cuc nao. Phat hien L6.
+    print(
+        f"SACH - da soi. {len(found)} advisory, tat ca deu trong danh sach "
+        f"chap nhan kem ly do."
+    )
     _warn_about_stale_accepted(tuple(found))
     return 0
 

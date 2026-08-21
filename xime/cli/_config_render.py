@@ -65,7 +65,9 @@ def _render_key(key: Key, depth: int, project: str | None, out: list[str]) -> No
     out.append(f"{indent}# {key.name}: {_as_yaml_value(key.default)}")
 
 
-def _render_block(resolved: ResolvedBlock, project: str | None) -> list[str]:
+def _render_block(
+    resolved: ResolvedBlock, project: str | None, for_init: bool = False
+) -> list[str]:
     block: Block = resolved.block
     out: list[str] = []
     out.append("")
@@ -90,8 +92,14 @@ def _render_block(resolved: ResolvedBlock, project: str | None) -> list[str]:
         out.append(f"# {block.name}:")
         return out
 
+    mo_san = {k: (v, d) for k, v, d in block.init_keys} if for_init else {}
     body: list[str] = []
     for key in resolved.keys:
+        if key.name in mo_san:
+            gia_tri, chu_thich = mo_san[key.name]
+            body.extend(_doc_lines(chu_thich, _INDENT))
+            body.append(f"{_INDENT}{key.name}: {gia_tri}")
+            continue
         _render_key(key, 1, project, body)
     opened = any(not line.lstrip().startswith("#") for line in body)
     out.append(f"{block.name}:" if opened else f"# {block.name}:")
@@ -116,11 +124,21 @@ HEADER = """\
 """
 
 
-def render(project: str | None = None, blocks: tuple[Block, ...] = SPEC) -> str:
-    """`application.yml` đầy đủ chú thích."""
+def render(
+    project: str | None = None,
+    blocks: tuple[Block, ...] = SPEC,
+    *,
+    for_init: bool = False,
+) -> str:
+    """`application.yml` đầy đủ chú thích.
+
+    `for_init=True` là bản `xime init` ghi ra: giống hệt, trừ những khoá khai
+    trong `Block.init_keys` thì mở sẵn với giá trị dành cho dự án mới. Mặc định
+    `False` để `xime config --print` luôn nói đúng mặc định của framework.
+    """
     lines = [HEADER.rstrip()]
     for block in blocks:
-        lines.extend(_render_block(resolve(block), project))
+        lines.extend(_render_block(resolve(block), project, for_init))
     return "\n".join(lines).rstrip() + "\n"
 
 

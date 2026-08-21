@@ -223,7 +223,7 @@ tên, nhân bản khối, thêm `shared` ở cổng muốn dùng chung, và đ�
 | `host` | web, grpc | Để trống thì lấy mặc định của adapter |
 | `port` | web, grpc | |
 | `path` | socket | Thay cho `host`/`port`; để trống thì suy `<socket.dir>/<id>.sock` |
-| `ssl` / `tls` | web / grpc | Để trống thì web kế thừa `server.ssl` - xem dưới |
+| `ssl` / `tls` | web / grpc | Để trống thì **kế thừa khối chung** (`server.ssl` / `grpc.tls`) - xem dưới |
 | `shared` | web, grpc, socket | **Chỉ ở `processes:`** - xem ngay dưới |
 
 Khoá cấp tiến trình: `primary` (đúng **một** khối khai) và `count`.
@@ -246,19 +246,35 @@ chia cổng với người khác*. Khai nhầm trùng cổng thì Windows báo l
 Linux chạy êm (gRPC bật `SO_REUSEPORT` mặc định) và **một nửa request đi vào tiến
 trình không ai định gửi tới**.
 
-### TLS: ô trước, `server.ssl` sau
+### TLS: ô trước, khối chung sau
 
-Ô không khai `ssl` thì web **kế thừa `server.ssl`**, và đó là một tính chất bảo
-mật chứ không phải tiện lợi: một server phụ **âm thầm chạy HTTP** trong khi
-server chính đã HTTPS là lỗ hổng không ai để ý, vì nó vẫn trả lời 200. Muốn một
-điểm phục vụ cố ý chạy HTTP thuần thì khai rỗng, tường minh:
+Ô không khai `ssl` / `tls` thì điểm phục vụ **kế thừa khối chung** - web lấy
+`server.ssl`, gRPC lấy `grpc.tls`. Đó là một tính chất bảo mật chứ không phải
+tiện lợi: một server phụ **âm thầm chạy HTTP** trong khi server chính đã HTTPS là
+lỗ hổng không ai để ý, vì nó vẫn trả lời 200. Ở gRPC còn đắt hơn - một endpoint
+tụt xuống plaintext **vẫn nhận client không có cert**, nên bên gọi cũ không hề
+gãy và không ai biết lớp lọc theo CN của client vừa mất đối tượng để xét.
+
+Muốn một điểm phục vụ cố ý chạy không mã hoá thì khai rỗng, tường minh:
 
 ```yaml
 process:
   web:
     public:   { port: 8086 }                # kế thừa server.ssl
     internal: { port: 8082, ssl: {} }       # cố ý HTTP thuần
+  grpc:
+    noi_bo:    { port: 9095 }               # kế thừa grpc.tls
+    cong_khai: { port: 9096, tls: {} }      # cố ý plaintext
 ```
+
+⚠ **Ô thắng khối chung, không phải ngược lại.** Ô khai `tls` gì thì dùng đúng cái
+đó; khối chung chỉ lên tiếng khi ô im lặng.
+
+> ⭐ **Bản 0.8 đầu tiên KHÔNG có đường kế thừa cho gRPC**, và đó là một lỗ hổng
+> thật: người di trú từ khoá phẳng sang `process:` theo đúng lời tài liệu này thì
+> **mất mTLS**, dấu hiệu duy nhất là một dòng WARNING lẫn trong log khởi động.
+> `Base Platform/data` báo ngày 2026-08-21, tái hiện được hai chiều. Nay hai
+> đường đã hành xử giống nhau.
 
 ### Khoá phẳng cũ vẫn chạy nguyên
 
@@ -336,13 +352,56 @@ python -m app.main          (không đối số, không env)
 │
 └─ share_load().run()
    ├─ kiểm cấu hình
-   ├─ bind() + listen() những địa chỉ dùng chung (nếu có)
+   ├─ DỌN vùng nhớ chung mồ côi của những lần chạy trước đã bị kill -9
+   ├─ bind() + listen() những địa chỉ dùng chung (nếu có), chmod 0600 TRƯỚC listen()
    ├─ cấp vùng nhớ chung: RefData · ProcessLink · bảng nhịp watchdog
    ├─ sinh PRIMARY, rồi ĐỢI nó báo run_once() xong
    ├─ sinh những con còn lại
    └─ trông con: chết thì dựng lại và thăng cấp · treo thì giết · Ctrl+C thì tắt cả đàn
       KHÔNG accept() · KHÔNG dựng DI · KHÔNG chạy code nghiệp vụ
 ```
+
+### Dọn rác lúc khởi động
+
+Một tiến trình bị `kill -9` không kịp trả vùng nhớ chung, và trên Linux nó **nằm
+lại trong `/dev/shm` tới lần khởi động máy**. Nên cha quét trước khi cấp vùng
+mới: tên vùng mang **pid của người tạo**, nên câu *"còn ai giữ cái này không"*
+trả lời được bằng một tín hiệu số 0.
+
+Quét cả **ba họ**: `xime-link-` (bus), `xime-ref-` (RefData), `xime-beat-` (nhịp
+watchdog).
+
+⚠ Hệ điều hành **tái dùng pid**, nên thỉnh thoảng một vùng rác sống thêm một
+vòng vì pid của nó tình cờ trùng một tiến trình đang chạy. Không cố giải chính
+xác chuyện đó: giá không xứng với vài megabyte trong RAM.
+
+✅ Xoá tên vùng **không phá** tiến trình đang ánh xạ nó - ánh xạ vẫn sống, chỉ là
+không ai attach theo tên được nữa.
+
+### Con chết đi chết lại: hãm luỹ tiến, nhưng không bao giờ bỏ cuộc
+
+Con chết ngay lúc khởi động (cấu hình sai, cổng riêng bị chiếm, migration hỏng)
+mà cha dựng lại mỗi giây thì mỗi lần là **import lại toàn bộ cây module** - đo
+được khoảng 83 MB RSS và chừng một giây CPU. Đốt trọn một nhân, và dòng log là
+một câu `WARNING` giống hệt nhau lặp mãi.
+
+| Lần chết liên tiếp | Chờ trước khi dựng lại |
+|---|---|
+| 1 | 1 giây |
+| 2 | 2 giây |
+| 3 | 4 giây |
+| ... | gấp đôi dần |
+| từ đó | **trần 30 giây** |
+
+Từ **lần thứ 10** thì log lên `CRITICAL`: lặp một `WARNING` giống hệt nhau là
+cách chắc nhất để không ai đọc nó nữa.
+
+⭐ **Bộ hãm về 0 khi một con sống được quá 60 giây** - qua được ngưỡng đó là một
+con đã phục vụ, không phải một con đang giãy. Không có phép reset này thì một cụm
+khoẻ, sau vài lần restart tình cờ trong nhiều tháng, sẽ chờ 30 giây mỗi lần.
+
+✅ **Lời hứa "luôn dựng lại" giữ nguyên.** Đây là hãm nhịp, không phải từ bỏ: một
+cụm hỏng vì cấu hình phải tự phục hồi ngay khi cấu hình được sửa.
 
 Cha **không được chết**: con chết thì không ai dựng lại, và `Ctrl+C` không có chỗ
 điều phối thứ tự tắt. Nó bắt `SIGINT`, `SIGTERM` (thứ `systemd` gửi) và
@@ -468,6 +527,14 @@ sentinel của nó nổ ở vòng sau nên đường thăng cấp vẫn đi qua 
 
 ⚠ Con **chưa vỗ lần nào** là *đang khởi động*, không phải *treo* - cha cho nó 60
 giây. Gộp hai nghĩa đó là giết mọi con ngay lúc chúng vừa sinh ra.
+
+⛔ **Mốc thời gian dùng đồng hồ ĐƠN ĐIỆU (`monotonic`), không phải giờ tường.**
+Giờ tường nhảy được: NTP kéo giờ, người vận hành sửa giờ, máy ảo khôi phục ảnh
+chụp. Một cú nhảy **tiến 30 giây** làm khoảng-im-lặng của **mọi con đang khoẻ**
+vọt lên trên ngưỡng cùng một lúc, nên cha giết cả đàn - rồi chống domino đếm đủ
+ba lần thăng cấp và **dừng cấp vai primary vĩnh viễn**. Cả hai đầu của phép đo
+(con ghi, cha đọc) phải dùng **cùng một đồng hồ**; chỉ sửa một đầu thì kết quả
+là hiệu của hai hệ quy chiếu, ra một con số cỡ giờ epoch.
 
 ### Bạn không phải làm gì cả
 
@@ -630,6 +697,38 @@ cùng một file.
 | 2 | Tên trong cấu hình mà `main.py` không khai | **lỗi** - chắc chắn gõ sai |
 | 3 | Adapter khai trong `main.py` mà khối này không có | **bỏ qua** + một dòng `WARNING` |
 | 4 | Một địa chỉ dùng ở hai khối mà không khai `shared` | **lỗi** |
+
+### Đọc log khởi động: mỗi điểm phục vụ để lại một dòng, kèm chế độ bảo mật
+
+Mỗi adapter bind xong ghi **một dòng `INFO`** nói nó lên ở đâu và **đang chạy chế
+độ nào**:
+
+```text
+INFO | web default: process main serving on 0.0.0.0:8086 (HTTPS+mTLS)
+INFO | grpc default: process main serving on 0.0.0.0:9095 (mTLS)
+INFO | socket default: process main serving on /run/x.sock (0600, any uid)
+```
+
+Chế độ nằm **cùng dòng** với địa chỉ chứ không tách thành cảnh báo riêng, vì
+người vận hành đọc log khởi động để trả lời *"cái gì đã lên"* - họ thấy dòng này
+**mỗi lần**, ở đúng chỗ đang tìm. Bắt người ta nhận ra **sự vắng mặt** của một
+cảnh báo là một phép đo không ai làm được.
+
+| Adapter | Chế độ có thể thấy |
+|---|---|
+| `web` | `HTTP` · `HTTPS` · `HTTPS+mTLS` |
+| `grpc` | `PLAINTEXT` · `TLS` · `mTLS` |
+| `socket` | quyền file + `any uid` hoặc danh sách uid được phép |
+
+⚠ Dòng của `socket` nói `any uid` khi `allowed_uids` để trống - lúc đó **quyền
+file là chốt chặn duy nhất**, và câu đó đáng hiện ra thay vì phải suy từ chỗ
+trống.
+
+> ⭐ **Trước bản này, gRPC chỉ log khi có chuyện, và `socket` không log gì cả.**
+> Nghĩa là một cụm gRPC **khoẻ** sinh ra log **giống hệt** một cụm gRPC **hỏng**:
+> trạng thái tốt không để lại dấu vết nào để đối chiếu. Báo từ `Base Platform/data`
+> ngày 2026-08-21, cùng đợt với lỗ TLS ở trên - và hai chuyện **cộng hưởng**, vì
+> khi mọi thứ log nói về gRPC đều là cảnh báo thì không có mốc dương nào để so.
 
 Kèm ba phép kiểm nữa quanh chuyện *bật nhầm nhánh*:
 

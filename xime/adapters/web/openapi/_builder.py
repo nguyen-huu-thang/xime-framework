@@ -53,7 +53,7 @@ def _apply_security(
     schema["components"]["securitySchemes"][scheme.scheme_name] = scheme.to_openapi_dict()
 
     public = {_normalize_path(p) for p in public_paths}
-    security_req = [{scheme.scheme_name: []}]
+    security_req: list[dict[str, list[str]]] = [{scheme.scheme_name: []}]
 
     # Apply security cho tất cả endpoint, bỏ qua public_paths (so khớp đã chuẩn hóa)
     for path, path_item in schema.get("paths", {}).items():

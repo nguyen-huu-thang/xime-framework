@@ -7,7 +7,7 @@ khác nhau, và không có lỗi nào phát ra.
 ```text
 ┌──────────────────────────────────────────────────────────┐
 │ HEADER                                                   │
-│   magic · version                                        │
+│   magic · version · co (2B)                              │
 │   so_doi        8B   0 = CHƯA AI PUBLISH LẦN NÀO         │
 │   ghi_luc       8B   monotonic_ns, CHỈ để quan sát       │
 │   do_dai_A      4B                                       │
@@ -70,6 +70,7 @@ _GENERATION = struct.Struct("<Q")
 _WRITTEN_AT = struct.Struct("<Q")
 _LENGTH = struct.Struct("<I")
 _SEGMENTS = struct.Struct("<H")
+_FLAGS = struct.Struct("<H")
 
 GENERATION_OFFSET: Final[int] = 8
 WRITTEN_AT_OFFSET: Final[int] = 16
@@ -79,6 +80,21 @@ LIMIT_OFFSET: Final[int] = 32
 SEGMENTS_OFFSET: Final[int] = 36
 POINTER_OFFSET: Final[int] = 38
 WRITER_OFFSET: Final[int] = 39
+
+# Hai byte ở offset 6 vốn là đệm (`_HEADER` luôn pack 0 vào đó và không ai đọc).
+# Nay chúng chở CỜ TRẠNG THÁI, và đó là chỗ duy nhất đúng cho chúng.
+#
+# `stale` nghĩa là: primary đã thử publish một bản mới và **không vừa trần**,
+# nên cả cụm đang phục vụ bản CŨ. Trước bản vá cờ này là thuộc tính instance,
+# sống trong RAM của **đúng cái tiến trình đã hỏng** - nên `stats().stale` chỉ
+# nhìn thấy được từ nơi không ai nhìn, và một primary MỚI được thăng cấp bắt
+# đầu với `stale=False` trong khi dữ liệu vẫn cũ. Phát hiện T5 của kiểm toán 0.8.
+#
+# ⭐ Làm bây giờ tốn 0 byte vì đệm có sẵn; làm sau là **đổi khuôn vùng nhớ**,
+# tức đổi cách mọi tiến trình đọc. Đúng lập luận đã dùng để đưa `so_doan` vào
+# từ v1.
+FLAGS_OFFSET: Final[int] = 6
+FLAG_STALE: Final[int] = 0x0001
 
 # 255 nghĩa là "chưa ai giữ quyền ghi" - cùng quy ước NO_TAKER của bus, và cùng
 # lý do một cụm không phục vụ quá 255 tiến trình.
@@ -180,6 +196,21 @@ class RefDataLayout:
 
     def write_length(self, buf: memoryview, slot: int, value: int) -> None:
         _LENGTH.pack_into(buf, self._length_offset(slot), value)
+
+    def read_flags(self, buf: memoryview) -> int:
+        return int(_FLAGS.unpack_from(buf, FLAGS_OFFSET)[0])
+
+    def set_flag(self, buf: memoryview, flag: int, value: bool) -> None:
+        """Bật hoặc tắt một cờ. Ghi 2 byte thẳng, không đọc-sửa-ghi trên bit.
+
+        ⚠ Chỉ **primary** gọi hàm này, và mỗi lần chạy chỉ có một primary - đó
+        là điều kiện khiến đọc-sửa-ghi ở đây an toàn. Ngày có cờ thứ hai do một
+        tiến trình KHÁC ghi thì điều kiện đó mất, và phải nghĩ lại.
+        """
+        hien = self.read_flags(buf)
+        moi = (hien | flag) if value else (hien & ~flag)
+        if moi != hien:
+            _FLAGS.pack_into(buf, FLAGS_OFFSET, moi)
 
     def slot_offset(self, slot: int) -> int:
         return self.slot_a_offset if slot == 0 else self.slot_b_offset

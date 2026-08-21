@@ -8,6 +8,8 @@ import time
 from multiprocessing import synchronize
 from multiprocessing.shared_memory import SharedMemory
 
+from xime.core._mp import MP_CONTEXT, view_of
+
 from ._config import INTERNAL_CHANNEL, ChannelSpec, validate_process_count
 from ._decorators import ANNOUNCE, REQUEST, BoundHandler
 from ._errors import LinkError
@@ -96,7 +98,7 @@ class ProcessLink:
             name: ChannelLayout(spec.rows, spec.payload_bytes, process_count)
             for name, spec in specs.items()
         }
-        self._views = {name: block.buf for name, block in blocks.items()}
+        self._views = {name: view_of(block) for name, block in blocks.items()}
         # Con trỏ ghi trong vùng của CHÍNH mình. Nằm trong RAM riêng vì không ai
         # khác ghi vào vùng đó, nên nó không cần chia sẻ.
         self._cursors = dict.fromkeys(specs, 0)
@@ -138,6 +140,15 @@ class ProcessLink:
         một component của ứng dụng, nên nó không đi qua `post_construct` nào cả.
         """
         validate_process_count(process_count)
+        # ⛔ Kiểm `index` TRƯỚC khi cấp bất cứ tài nguyên nào. Bản trước kiểm sau
+        # khi đã tạo vùng nhớ chung và semaphore, nên một `index` sai để lại rác
+        # trong `/dev/shm`: Windows tự dọn khi tiến trình chết, **Linux thì
+        # KHÔNG** - vùng nhớ nằm lại tới lần khởi động máy. Đo được 2026-08-21:
+        # một lời gọi sai để lại `xime-link-<pid>-<rand>-ctl`. Phát hiện L2.
+        if not 0 <= index < process_count:
+            raise LinkError(
+                f"link index {index} is outside 0..{process_count - 1}"
+            )
         # pid nằm trong tên để bước dọn rác lúc khởi động biết chủ của một vùng
         # nhớ mồ côi còn sống hay không; phần ngẫu nhiên để hai ứng dụng Xime
         # chạy cùng máy, cùng đặt tên kênh "fieldbus", không attach vào nhau.
@@ -150,7 +161,7 @@ class ProcessLink:
                 block = SharedMemory(
                     name=_block_name(run_id, name), create=True, size=layout.total_bytes
                 )
-                layout.write_header(block.buf)
+                layout.write_header(view_of(block))
                 blocks[name] = block
         except BaseException:
             for block in blocks.values():
@@ -158,13 +169,11 @@ class ProcessLink:
                 block.unlink()
             raise
 
-        from multiprocessing import Semaphore
-
-        bells = tuple(Semaphore(0) for _ in range(process_count))
-        if not 0 <= index < process_count:
-            raise LinkError(
-                f"link index {index} is outside 0..{process_count - 1}"
-            )
+        # The bell MUST come from the framework's one context: a semaphore made
+        # by the default context cannot cross into a spawn child on Linux.
+        # Chuông BẮT BUỘC lấy từ ngữ cảnh duy nhất của framework: semaphore tạo
+        # bằng ngữ cảnh mặc định không qua nổi ranh giới sang con spawn trên Linux.
+        bells = tuple(MP_CONTEXT.Semaphore(0) for _ in range(process_count))
         return cls(
             link_id=run_id,
             index=index,
@@ -200,7 +209,7 @@ class ProcessLink:
             for name, spec in specs.items():
                 layout = ChannelLayout(spec.rows, spec.payload_bytes, process_count)
                 block = SharedMemory(name=_block_name(link_id, name))
-                layout.verify_header(block.buf, name)
+                layout.verify_header(view_of(block), name)
                 blocks[name] = block
         except BaseException:
             for block in blocks.values():
@@ -337,6 +346,10 @@ class ProcessLink:
         self._pending[correlation] = future
         try:
             row = self._publish(channel, KIND_REQUEST, key, payload, correlation)
+            # Nhớ số thứ tự của ĐÚNG dòng vừa gửi. Xem nhánh hết giờ bên dưới.
+            seq_luc_gui = self._layouts[channel].read_u64(
+                self._views[channel], row, ROW_SEQ
+            )
             return await asyncio.wait_for(asyncio.shield(future), timeout)
         except TimeoutError:
             # Hết giờ: phân biệt "không ai nhận" với "có người nhận mà chậm" bằng
@@ -344,6 +357,17 @@ class ProcessLink:
             # huống bắt người gọi làm hai việc khác nhau lại trông giống hệt.
             layout = self._layouts[channel]
             view = self._views[channel]
+            # ⛔ Chỉ tin byte đó khi dòng VẪN LÀ DÒNG CŨ. Con trỏ ghi vòng lại
+            # sau `rows_per_writer` dòng (mặc định 256), nên với một timeout dài
+            # hoặc một kênh bận, dòng ta gửi có thể đã bị một tin khác chiếm và
+            # `ROW_TAKER` lúc này thuộc về tin đó. Phát hiện L4 của kiểm toán 0.8.
+            #
+            # Không phân biệt được thì trả `NoAnswer`, KHÔNG trả `NoOwner`:
+            # `NoOwner` là một kết luận (*"không ai đăng ký xử lý việc này"*)
+            # và người gọi sẽ thôi thử lại; `NoAnswer` là một trạng thái tạm
+            # thời. Đoán sai về phía kết luận thì đắt hơn nhiều.
+            if layout.read_u64(view, row, ROW_SEQ) != seq_luc_gui:
+                return NoAnswer()
             taker = layout.read_u8(view, row, ROW_TAKER)
             return NoAnswer() if taker != NO_TAKER else NoOwner()
         finally:
@@ -728,8 +752,21 @@ class ProcessLink:
     def _maybe_warn_full(
         self, layout: ChannelLayout, view: memoryview, channel: str
     ) -> None:
-        unread = len(layout.unread_rows(view, self._index))
-        ratio = unread / layout.total_rows if layout.total_rows else 0.0
+        # ⛔ Đo VÙNG GHI CỦA CHÍNH MÌNH, không đo hộp thư đến.
+        #
+        # Bản trước đếm `unread_rows(view, self._index)` - những dòng CHƯA ĐỌC
+        # GỬI TỚI TÔI - rồi chia cho `total_rows` của cả kênh, và in một câu về
+        # *"bảng ghi sắp đầy"*. Hai đại lượng khác hẳn nhau, và nó sai theo cả
+        # hai chiều: đo được 2026-08-21 rằng vùng ghi **8/8 đầy** trong khi phép
+        # đo đọc ra **0/16** nên không kêu; ngược lại một người chỉ nhận mà xử
+        # lý chậm sẽ bị tố là "bảng ghi sắp đầy" dù nó chưa ghi dòng nào.
+        #
+        # Thứ sắp đầy và gây mất tin là **vùng ghi của người gửi**: con trỏ vòng
+        # lại sau `rows_per_writer` dòng và đè lên dòng chưa ai đọc. Phát hiện
+        # T2 của kiểm toán 0.8 - và không một test nào chạm tới hàm này.
+        cua_toi = layout.rows_of(self._index)
+        chua_doc = sum(1 for r in cua_toi if layout.any_unread(view, r))
+        ratio = chua_doc / len(cua_toi) if cua_toi else 0.0
         if ratio >= _FULL_WARN_RATIO and channel not in self._warned_full:
             self._warned_full.add(channel)
             _log.warning(

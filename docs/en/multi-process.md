@@ -226,7 +226,7 @@ share, and change `run()` to `share_load().run()`. **Nothing inside changes.**
 | `host` | web, grpc | Omit to keep the adapter default |
 | `port` | web, grpc | |
 | `path` | socket | Replaces `host`/`port`; omit to derive `<socket.dir>/<id>.sock` |
-| `ssl` / `tls` | web / grpc | Omit and web inherits `server.ssl` - see below |
+| `ssl` / `tls` | web / grpc | Omit and the cell **inherits the shared block** (`server.ssl` / `grpc.tls`) - see below |
 | `shared` | web, grpc, socket | **Only under `processes:`** - see below |
 
 Process-level keys: `primary` (exactly **one** block declares it) and `count`.
@@ -249,19 +249,36 @@ sharing it with someone else*. Declare the same port twice by mistake and Window
 fails loudly, while Linux runs quietly (gRPC enables `SO_REUSEPORT` by default)
 with **half the requests going to a process nobody meant to send them to**.
 
-### TLS: the cell first, `server.ssl` second
+### TLS: the cell first, the shared block second
 
-A cell without `ssl` **inherits `server.ssl`**, and that is a security property
-rather than a convenience: a secondary server **quietly serving HTTP** while the
-main one serves HTTPS is a hole nobody notices, because it still answers 200. To
-opt an endpoint out deliberately, declare it empty:
+A cell without `ssl` / `tls` **inherits the shared block** - web takes
+`server.ssl`, gRPC takes `grpc.tls`. That is a security property rather than a
+convenience: a secondary server **quietly serving HTTP** while the main one
+serves HTTPS is a hole nobody notices, because it still answers 200. On gRPC it
+costs even more - an endpoint that drops to plaintext **still accepts clients
+with no certificate**, so existing callers do not break and nobody notices that
+the filter on the client CN has lost the thing it was filtering.
+
+To opt an endpoint out deliberately, declare it empty:
 
 ```yaml
 process:
   web:
     public:   { port: 8086 }                # inherits server.ssl
     internal: { port: 8082, ssl: {} }       # deliberately plain HTTP
+  grpc:
+    internal: { port: 9095 }                # inherits grpc.tls
+    public:   { port: 9096, tls: {} }       # deliberately plaintext
 ```
+
+⚠ **The cell wins over the shared block, not the other way round.** Whatever the
+cell declares is what runs; the shared block only speaks when the cell is silent.
+
+> ⭐ **The first 0.8 build had no inheritance path for gRPC**, and that was a real
+> hole: migrating from the flat keys to `process:` exactly as this page describes
+> **lost mTLS**, and the only sign was one WARNING line among the startup log.
+> Reported by `Base Platform/data` on 2026-08-21, reproduced in both directions.
+> The two paths now behave the same.
 
 ### The old flat keys still work
 
@@ -339,13 +356,59 @@ python -m app.main          (no arguments, no env)
 │
 └─ share_load().run()
    ├─ validate the configuration
-   ├─ bind() + listen() the shared addresses (if any)
+   ├─ SWEEP orphaned shared memory left by earlier runs that were kill -9'd
+   ├─ bind() + listen() the shared addresses (if any), chmod 0600 BEFORE listen()
    ├─ allocate the shared memory: RefData · ProcessLink · watchdog beats
    ├─ spawn the PRIMARY, then WAIT for it to report run_once() done
    ├─ spawn the remaining children
    └─ watch: restart a dead child and promote · kill a hung one · Ctrl+C stops the tree
       NEVER accept() · NEVER builds DI · NEVER runs business code
 ```
+
+### Sweeping at startup
+
+A process killed with `kill -9` never returns its shared memory, and on Linux it
+**stays in `/dev/shm` until the machine reboots**. So the parent sweeps before
+allocating anything new: a block's name carries the **pid of whoever created
+it**, which makes *"is anyone still holding this"* answerable with signal 0.
+
+All **three families** are swept: `xime-link-` (bus), `xime-ref-` (RefData) and
+`xime-beat-` (watchdog beats).
+
+⚠ The operating system **reuses pids**, so occasionally a stale block survives
+one more round because its pid happens to match a live process. Solving that
+exactly is not worth the price of a few megabytes of RAM.
+
+✅ Unlinking a block does **not** break a process that already mapped it - the
+mapping stays valid, only attaching by name stops working.
+
+### A child that keeps dying: progressive backoff, but never giving up
+
+If a child dies at startup (bad configuration, a private port already taken, a
+broken migration) and the parent restarts it every second, every attempt is a
+**full re-import of the module tree** - measured at roughly 83 MB RSS and about
+a second of CPU. That burns a whole core, and the log is the same `WARNING`
+repeating forever.
+
+| Consecutive deaths | Wait before restarting |
+|---|---|
+| 1 | 1 second |
+| 2 | 2 seconds |
+| 3 | 4 seconds |
+| ... | doubling |
+| from there | **capped at 30 seconds** |
+
+From the **10th** attempt the log rises to `CRITICAL`: repeating an identical
+`WARNING` is the surest way to make everyone stop reading it.
+
+⭐ **The backoff resets once a child survives 60 seconds** - past that mark it is
+a child that served, not a child thrashing. Without the reset, a healthy cluster
+that happened to restart a few times over several months would wait 30 seconds
+every time.
+
+✅ **The "always restart" promise is unchanged.** This is throttling, not giving
+up: a cluster broken by configuration must recover the moment the configuration
+is fixed.
 
 The parent **must not exit**: nothing would restart a dead child, and `Ctrl+C`
 would have no place to sequence shutdown. It handles `SIGINT`, `SIGTERM` (what
@@ -481,6 +544,15 @@ promotion still goes through `waitpid`.
 ⚠ A child that has **never patted** is *starting up*, not *hung* - the parent
 gives it 60 seconds. Collapsing those two meanings kills every child the moment
 it is born.
+
+⛔ **The timestamp uses a MONOTONIC clock, not wall time.** Wall time jumps: NTP
+steps the clock, an operator corrects it, a virtual machine restores a snapshot.
+A **forward jump of 30 seconds** pushes the silence window of **every healthy
+child** over the threshold at once, so the parent kills the whole set - and then
+the anti-domino guard counts three promotions and **stops handing out the primary
+role for good**. Both ends of the measurement (child writes, parent reads) must
+use the **same clock**; fixing only one end yields the difference between two
+frames of reference, a number the size of the epoch.
 
 ### You do not have to do anything
 
@@ -649,6 +721,40 @@ reads the same file.
 | 2 | A name in the configuration that `main.py` never declared | **error** - certainly a typo |
 | 3 | An adapter declared in `main.py` that this block omits | **skipped** + one `WARNING` line |
 | 4 | One address used by two blocks without `shared` | **error** |
+
+### Reading the startup log: every endpoint leaves a line, with its security mode
+
+Each adapter writes **one `INFO` line** once it has bound, saying where it came up
+and **which mode it is running**:
+
+```text
+INFO | web default: process main serving on 0.0.0.0:8086 (HTTPS+mTLS)
+INFO | grpc default: process main serving on 0.0.0.0:9095 (mTLS)
+INFO | socket default: process main serving on /run/x.sock (0600, any uid)
+```
+
+The mode sits on the **same line** as the address rather than in a separate
+warning, because an operator reads the startup log to answer *"what came up"* -
+they see this line **every time**, right where they are already looking. Asking
+someone to notice the **absence** of a warning is not a measurement anyone can
+make.
+
+| Adapter | Modes you can see |
+|---|---|
+| `web` | `HTTP` · `HTTPS` · `HTTPS+mTLS` |
+| `grpc` | `PLAINTEXT` · `TLS` · `mTLS` |
+| `socket` | file mode plus `any uid`, or the list of permitted uids |
+
+⚠ The `socket` line says `any uid` when `allowed_uids` is empty - at that point
+**the file mode is the only gate**, and that deserves to be stated rather than
+inferred from a blank.
+
+> ⭐ **Before this build, gRPC only logged when something was wrong, and `socket`
+> logged nothing at all.** So a **healthy** gRPC cluster produced a log
+> **identical** to a **broken** one: the good state left no trace to compare
+> against. Reported by `Base Platform/data` on 2026-08-21, alongside the TLS hole
+> above - and the two **compound**, because when everything the log says about
+> gRPC is a warning, there is no positive marker to check against.
 
 Plus three more around *being on the wrong branch*:
 

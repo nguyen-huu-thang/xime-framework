@@ -391,6 +391,29 @@ assert notification_mock.called
 
 Since 0.7.2 in-flight tasks are capped, **default 10,000**. Past the cap an event is dropped **whole** (never half its handlers) and counted.
 
+#### From 0.8: `publish()` tells you what happened
+
+Up to 0.7.2 `publish()` returned `None` for **all three** situations below, so a caller had no way to tell a dropped event from a scheduled one. That was a known debt, and 0.8 pays it:
+
+```python
+from xime.core.event import PublishOutcome
+
+outcome = await self._bus.publish(OrderCreated(order.id))
+if outcome is PublishOutcome.DROPPED:
+    # The system is losing work - this is backpressure, not a one-off error.
+    self._metrics.increment("events_dropped")
+```
+
+| Value | Meaning | What the caller should do |
+|---|---|---|
+| `SCHEDULED` | handlers scheduled as background tasks | nothing |
+| `NO_HANDLERS` | **nobody subscribed** to this event type | harmless at runtime, but if you believed someone was listening this is a wiring bug, and this is the only place it shows |
+| `DROPPED` | over the cap, the event was dropped **whole** | throttle upstream, raise the cap, or declare `never_drop` |
+
+⚠ **Do not use the value as a boolean** - all three are truthy. Compare explicitly against the member you care about.
+
+✅ **Nothing old breaks**: ignore the return value and `publish()` behaves exactly as before.
+
 That number is a **design decision of the application**, not an environment setting: it follows from how long your handlers run and how large your events are. So it lives in **Python**, beside routing and DI bindings, not in `application.yml`:
 
 ```python

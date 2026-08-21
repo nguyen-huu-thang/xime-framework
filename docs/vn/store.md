@@ -239,6 +239,8 @@ lmdb:
   # path: runtime/store             # Windows (máy dev): thư mục thường
   map_size: 64MB                    # cỡ KHỞI ĐIỂM của MỖI file
   total_max: 1GB                    # trần cứng cho CẢ kho
+  # file_mode: "0600"               # mặc định; xem mục quyền tệp bên dưới
+  # dir_mode: "0700"
 ```
 
 | Khoá | Mặc định | |
@@ -246,6 +248,36 @@ lmdb:
 | `path` | **không có** | Bắt buộc khai. Framework cố ý không đoán: nhiều service Xime chạy chung một máy, và một mặc định dùng chung sẽ âm thầm trộn bảng của chúng với nhau |
 | `map_size` | 64MB | Mỗi file tự nới **gấp đôi** khi đầy, kèm log `WARNING` |
 | `total_max` | 1GB | Chạm trần thì **báo lỗi**, không âm thầm vứt dữ liệu của ai đó |
+| `file_mode` | `"0600"` | Quyền của mọi tệp kho. POSIX; trên Windows không có tác dụng |
+| `dir_mode` | `"0700"` | Quyền của thư mục bảng |
+
+### ⛔ Quyền tệp: chỉ chủ sở hữu, và vì sao đó không phải chuyện thừa
+
+Kho này giữ **bộ đếm hãm nhịp đăng nhập, thử thách passkey, khoá chống lặp
+webhook**. Và đường dẫn khuyến nghị ở ngay trên là `/dev/shm` - thư mục có mode
+**`1777`**, tức **mọi user trên máy vào được, không cần quyền quản trị**. Bit
+dính `t` chỉ ngăn người khác **xoá** tệp của bạn; nó không ngăn họ **đọc**.
+
+Vì vậy từ 0.8 framework truyền quyền **tường minh** khi tạo: `0600` cho tệp,
+`0700` cho thư mục. Trước đó không truyền gì, và `python-lmdb` lấy mặc định
+`0o755` rồi ra **`0644`** - ai cũng đọc được.
+
+⚠ **Đừng dựa vào `umask`.** Đo được trên Linux: `umask 022` và `umask 002` đều
+cho `0644`, chỉ `umask 077` mới cho `0600`. Nghĩa là một máy cấu hình chặt sẽ
+trông như không có vấn đề, còn máy bên cạnh thì hở - cùng một mã nguồn. Truyền
+`mode` tường minh gỡ hẳn sự phụ thuộc đó.
+
+**Kho tạo bởi bản cũ được sửa khi mở lại.** Mở kho mà thấy tệp hoặc thư mục
+đang **rộng hơn** mức khai thì framework hạ xuống, kèm một dòng log `INFO` nói
+rõ vừa đổi gì. Phép sửa chỉ đi **một chiều**: một tệp bạn cố ý đặt chặt hơn
+(`0400` chẳng hạn) không bao giờ bị nới ra.
+
+> Bản vá chỉ áp cho tệp mới thì mọi cài đặt đang chạy vẫn hở nguyên sau khi nâng
+> cấp, mà đó mới là chỗ có dữ liệu thật. Và kho này **cố ý sống qua lần restart**,
+> nên nó sẽ không tự tạo lại.
+
+Muốn khác thì khai `file_mode` / `dir_mode` - và lúc đó phép sửa lấy **giá trị
+bạn khai** làm đích, chứ không ghi đè ý định của bạn.
 
 ⭐ **Xem mọi khoá kèm giải thích, không phải nhớ:** `xime config --print`.
 Đối chiếu file của bạn: `xime check config`.

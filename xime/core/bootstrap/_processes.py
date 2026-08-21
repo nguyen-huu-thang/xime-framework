@@ -206,6 +206,18 @@ def _parse_endpoint(kind: str, adapter_id: str, raw: Any, where: str) -> Endpoin
             f"Value : {port!r}",
             "Detail: port must be an integer.",
         )
+    if isinstance(port, int) and not isinstance(port, bool) and not 0 <= port <= 65535:
+        # Cả module này có một tầng thông báo lỗi viết cẩn thận; để `port: 99999`
+        # đi lọt tới `bind()` là đổi nó lấy một `OSError` thô không nói gì về
+        # khoá cấu hình nào sai. Phát hiện L3 của kiểm toán 0.8.
+        # 0 hợp lệ và mang nghĩa riêng: "hệ điều hành chọn hộ một cổng trống".
+        raise topology_error(
+            "Endpoint Port Out Of Range",
+            f"Config: {where}.port",
+            f"Value : {port!r}",
+            "Detail: a TCP port must be between 0 and 65535 (0 means "
+            "'let the operating system pick a free one').",
+        )
     path = options.get("path")
     if path is not None and not isinstance(path, str):
         raise topology_error(
