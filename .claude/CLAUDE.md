@@ -6,9 +6,18 @@
 
 ## Trạng thái
 
-**0.8.0 code xong, ĐÃ KIỂM TOÁN SÁU ĐỢT VÀ VÁ XONG (2026-08-21), CHƯA PHÁT HÀNH.**
-Chưa commit, chưa tag, chưa lên PyPI. Vì `xime` cài **editable** nên mọi thay đổi ở đây
-có hiệu lực ngay với **31 app** trên máy này, kể cả phần chưa phát hành.
+**0.8.0 ĐÃ PHÁT HÀNH ngày 2026-08-21.** Kiểm toán sáu đợt, vá 28 mục, lên PyPI.
+
+| | |
+|---|---|
+| PyPI | `0.8.0` (bản thứ **14**) |
+| Repo phát triển | `a982cae v0.8.0` · tag `v0.8.0`, và **`v0.7.2` đã trả nợ** |
+| Repo phát hành | `8a1e376 v0.8.0` · tag `v0.8.0` · hết lệch hai bản |
+| Đối chứng | **SHA256 gói trên PyPI khớp từng bit** với gói dựng ở máy này |
+
+Vì `xime` cài **editable** nên mã ở đây có hiệu lực ngay với **31 app** trên máy này.
+⚠ Nghĩa là **sửa một dòng ở đây là 31 app nhận ngay**, dù PyPI vẫn đứng ở `0.8.0` - đừng
+đọc *"đã phát hành"* thành *"thư mục này đứng yên"*.
 
 ✅ **Đợt vá trên Linux ĐÃ đưa về `D:\code\xime` ngày 2026-08-21**: 80 file (61 sửa,
 19 mới, **0 xoá**), đối chứng **629/629 file khớp từng byte**. Sổ tay của phiên nhận:
@@ -83,9 +92,10 @@ không phải lựa chọn thiết kế.
 bên đều đúng khi xét riêng. Năm đợt tự soi đọc từng dòng của từng bên và không thấy - phải
 có người **di trú thật** mới lộ ra.
 
-⚠⚠ **Đừng tin ba dòng trên, kiểm bằng lệnh.** Cùng một khuôn lỗi đã lặp **bốn lần** ở
-repo này: *"chưa push PyPI"* · *"0.7.0 chưa commit"* · *"0.7.1 đã phát hành"* ·
-*"pyproject = 0.7.2"*. Mỗi lần đều đúng lúc viết rồi bị bỏ quên.
+⚠⚠ **Đừng tin bảng trạng thái ở trên, kiểm bằng lệnh.** Cùng một khuôn lỗi đã lặp
+**năm lần** ở repo này: *"chưa push PyPI"* · *"0.7.0 chưa commit"* · *"0.7.1 đã phát
+hành"* · *"pyproject = 0.7.2"* · *"0.8.0 chưa phát hành"*. Mỗi lần đều đúng lúc viết
+rồi bị bỏ quên, và lần thứ năm sống được đúng bốn ngày.
 
 ```bash
 python -c "import urllib.request,json; print(sorted(json.load(urllib.request.urlopen('https://pypi.org/pypi/xime/json'))['releases']))"
@@ -174,123 +184,51 @@ HỎI CHỦ DỰ ÁN TRƯỚC**.
 
 # Việc đang chờ
 
-## 1. Phát hành 0.8.0 - thuộc thẩm quyền chủ dự án
+## 1. Sau khi phát hành 0.8.0 - còn đúng một việc
 
 | # | Việc |
 |---|---|
-| 1 | ~~`pip install pip-audit`~~ ✅ **ĐÃ CÓ TRÊN MÁY** (đo 2026-08-21: `import pip_audit` chạy). Việc còn lại chỉ là **chạy bước 1b**; `check_dep_advisories.py` không còn lý do trả `CHUA KET LUAN DUOC` nữa. ⚠ Dòng cũ ghi *"chưa cài"* đã lỗi thời |
-| 2 | **`pip install -e .`** để `xime.__version__` theo kịp `0.8.0` (metadata còn đóng băng ở `0.7.2`) |
-| 3 | **Commit · tag `v0.8.0` · đẩy PyPI** |
-| 4 | Nợ cũ chưa trả: **tag `v0.7.2`** và **repo phát hành `upload` còn ở `a3fcad8 v0.7.1`** |
-| 5 | Một **stash từ 2026-06-03** (145 file) nằm trong repo, không phải của đợt nào gần đây - dọn hay giữ là quyết định của chủ dự án |
+| 1 | **Một stash từ 2026-06-03** (`stash@{0}`, WIP trên `ba64bd5`, 145 file) vẫn nằm trong repo. Không phải của đợt nào gần đây - dọn hay giữ là quyết định của chủ dự án |
 
-Kết quả rà trước phát hành: [`docs/kiem-toan/0.8-truoc-phat-hanh.md`](docs/kiem-toan/0.8-truoc-phat-hanh.md).
+Mọi việc khác của đợt phát hành **đã xong**: `pip install -e .`, commit, tag `v0.8.0`,
+tag bù `v0.7.2`, đẩy PyPI, và repo phát hành đã bắt kịp.
 
-> ## ⛔⭐ KIỂM TOÁN TOÀN DIỆN 0.8 - ĐỢT 1 XONG (2026-08-21), CHƯA VÁ GÌ
->
-> Đọc từng dòng `core/link` · `core/refdata` · `core/bootstrap` phần mới ·
-> `starters/lmdb` (~7.600 dòng). **14 phát hiện: 2 Cao, 7 Trung, 5 Thấp.**
-> Báo cáo: [`docs/kiem-toan/0.8-kiem-toan-toan-dien.md`](docs/kiem-toan/0.8-kiem-toan-toan-dien.md).
->
-> ⚠ Lượt rà 08-20 soi **đóng gói và tài liệu**; lượt này soi **cơ chế**. Hai lượt
-> không thay nhau.
->
-> **Hai mục Cao, cả hai là quyền file trên Linux:**
->
-> | | |
-> |---|---|
-> | **C1** | `lmdb.open()` không truyền `mode=` -> file kho **0644 với umask 022**, trong khi nó giữ hãm nhịp và thử thách passkey. `localfs` cùng repo đã hạ về `0600` từ 0.7 (F13) |
-> | **C2** | Cha `bind()` + `listen()` unix socket mà **không chmod** (`grep -c chmod` ra **0**). Con mới chmod, nhưng đó là **sau khi dựng DI và chạy `run_once()`** - cửa sổ khai được là **tới 60 giây**. `allowed_uids` mặc định rỗng nên quyền file là chốt chặn **duy nhất** |
->
-> ⭐ **Khuôn lặp lại nhiều nhất, 5/14 phát hiện: một cơ chế phòng thủ CÓ MẶT nhưng
-> KHÔNG BAO GIỜ CHẠY.** `_maybe_warn_full` đo sai đại lượng (đo được: vùng ghi
-> 8/8 đầy, phép đo đọc 0/16, không kêu) · `sweep_orphans()` **không đường khởi động
-> nào gọi** dù nó là lớp che `kill -9` duy nhất · `xime-ref-*` không ai quét, và
-> chú thích trong code nói ngược lại · `stats().stale` chỉ nhìn thấy từ chính tiến
-> trình đã hỏng. Đúng ba lần đã tự vấp lúc thi công.
->
-> ⚠ **Một cạm bẫy vận hành đã đo được (T1): watchdog dùng `time.time()`.** Đồng hồ
-> nhảy tiến 30 giây thì `silent_for` cho **30.00s > 10s -> giết**, cùng lúc cho
-> **mọi con đang khoẻ**. Rồi chống domino đếm đủ 3 lần thăng cấp và **dừng cấp vai
-> primary vĩnh viễn**. Hai dòng cách nhau vài dòng trong cùng một hàm dùng hai đồng
-> hồ khác nhau; `core/link` và `core/refdata` thì đã dùng `monotonic_ns` giữa các
-> tiến trình.
->
-> ⏳ **C1, C2 và L2 CHƯA KẾT LUẬN ĐƯỢC trên Windows** (không có WSL distro, không
-> có Docker). 11 mục chờ đo nằm ở
-> **[`docs/kiem-toan/0.8-cho-do-tren-linux.md`](docs/kiem-toan/0.8-cho-do-tren-linux.md)**
-> - mỗi mục có lệnh dán vào là chạy, tiêu chí đạt/vi phạm khai trước, và **đối
-> chứng dương**. Sổ đó là **hai chiều**: phiên Linux ghi kết quả ngay vào đó.
->
-> ## ⛔⭐ ĐỢT 2 CŨNG XONG (2026-08-21) - thêm 1 Cao, 3 Trung
->
-> Đọc `application.py` · `orchestrator.py` · `cli/` phần mới · `_startup.py` ·
-> vòng đời adapter. **Nghiệm thu: framework 2412 passed / 14 skipped, cộng ba app
-> thật 388 · 295 · 53 - không hồi quy nào từ đổi API adapter.**
->
-> ⛔⭐ **C3 là phát hiện nặng nhất của cả hai đợt, và nên vá trước mọi thứ khác:**
-> **thăng cấp primary KHÔNG chạm tới `RefDataArena`.** Cờ *"tôi có phải primary"*
-> nằm ở hai chỗ; `_accept_promotion` đặt `Application._is_primary = True`, còn
-> `RefDataArena._primary` **không có setter nào tồn tại**
-> (`grep "_primary" _arena.py` ra đúng hai dòng: gán trong `__init__`, đọc trong
-> property). Mà `publish()` hỏi đúng cái cờ không được cập nhật.
->
-> Đo được: sau thăng cấp, `Application._is_primary=True` nhưng
-> `arena.primary=False`, và `publish()` vẫn ném `RefDataNotWriterError`. Nghĩa là
-> **primary mới không bao giờ cập nhật được khoá JWT nữa** - đúng ca dùng số một
-> của `RefData`. ⚠ Triệu chứng nói ngược sự thật: cha log *"took the primary
-> role"*, `/healthz` trả `primary: true`, chỉ dòng lỗi nói *"called from a
-> non-primary process"*.
->
-> Ba mục Trung còn lại: **`xime init config` sinh dự án không khởi động được**
-> (11 file thay vì 12, `config/__init__.py` mất `dependency` - đo được; cùng họ
-> `xime init xime` shadow chính framework) · **`xime check config` mù với tên
-> KHỐI gõ sai** (`serber:` -> `clean`, trong khi `server.porrt` thì bắt được) ·
-> **khối `process:` không có trong bản mô tả cấu hình**, và phép dò trôi dạt mù
-> về mặt cấu trúc với nó vì `build_topology` gọi `read(SINGLE_KEY)` chứ không
-> `runtime.get("literal")`.
->
-> ✅ Đã kiểm và **sạch**: `/healthz` có đi qua `public_paths` của JWT · `xime init`
-> không ghi đè khi chưa `--force` · phép dò `module-level` **có** được nối vào
-> (khác `sweep_orphans`) · 6/6 adapter đủ `start`/`serve`/`stop` · `SchedulerRunner`
-> không bị khởi động hai lần (nó không phải singleton DI).
->
-> ## ✅ ĐỢT 3 XONG (2026-08-21) - lớp đóng gói LÀNH, thêm 3 Trung + 2 Thấp
->
-> ⭐ Phần lớn là tin tốt. **sdist 289 mục / wheel 243 mục, không rò gì** ·
-> `twine check` **PASSED** cả hai · **bước 1b lần đầu chạy cho 0.8**: đúng 1
-> advisory (`apscheduler PYSEC-2026-282`) và nó đã nằm trong danh sách chấp nhận
-> kèm lý do · `ruff` sạch · ba script tài liệu mã thoát 0 · **dấu gạch dài = 0**
-> toàn repo · giấy phép `lmdb` là **OLDAP-2.8** so với MIT của xime, permissive
-> và là extra tuỳ chọn nên không có việc phải làm · và phép đo mạnh nhất:
-> **venv trắng -> cài từ `xime-0.8.0.tar.gz` -> `xime init` -> `python main.py`
-> -> `GET /ping` -> 200**.
->
-> ⚠⚠ **Ba mục Trung đều cùng một họ: một cổng kiểm được khai trong tài liệu mà
-> không có gì bảo đảm nó chạy.**
->
-> | | |
-> |---|---|
-> | **T11** | **`mypy` và `ruff` được CẤU HÌNH nhưng không được KHAI.** `[tool.ruff]` và `[tool.mypy]` có trong `pyproject.toml`; không tool nào nằm trong extra `dev`. Hậu quả đã xảy ra: mypy không có trên máy, **cổng `mypy --strict` chưa hề chạy cho 0.8**. ⚠ Đây **đúng lỗi lượt rà 08-20 vừa vá cho `pip-audit`** - vá một **ca**, không vá một **loại**. Và chính `pyproject.toml` khai `types-aiobotocore-s3` *"vì mypy"* trong khi không khai mypy |
-> | **T12** | ⛔ **Nợ luật 03 của `EventBus` hẹn trả ở 0.8, và 0.8 là CHUYẾN CUỐI.** `publish()` trả `None` cho cả *event bị bỏ* lẫn *event đã xếp lịch*; docstring khai nợ và ghi lý do hoãn là *"đóng nó là đổi chữ ký công khai"*. Mà lộ trình chốt: **0.8 là Alpha cuối**, `0.8.x` không đổi API một dòng nào, 0.9 là Beta. **Quyết định của chủ dự án, không phải bản vá kỹ thuật** |
-> | **T13** | Dự án `xime init` sinh ra nghe **`0.0.0.0:8080`, không xác thực**, ngay lần chạy đầu. `0.0.0.0` là lựa chọn hợp lý cho framework container, chỗ đáng nói là file sinh ra có ba dòng chú thích cẩn thận về TLS rồi in `host: "0.0.0.0"` **không một chữ** nói nó nghĩa là *"máy khác trong mạng gọi tới được"*. Và `8080` **va ngay trong phép đo** |
->
-> Hai Thấp: `check_dep_advisories.py` in một kết cục **thứ tư** ngoài ba cái nó tự
-> khai, ở đúng đường chạy thường gặp nhất · chú thích wheel `lmdb` đo bản
-> `1.7.5/1.8.1` trong khi bản đang dùng là **2.3.0**.
->
-> ## 📕 BÀN GIAO: [`docs/kiem-toan/0.8-cho-do-tren-linux.md`](docs/kiem-toan/0.8-cho-do-tren-linux.md)
->
-> Chủ dự án chốt 2026-08-21: **sang Linux kiểm toán nốt rồi vá luôn bên đó**, kết
-> quả cập nhật vào chính repo này. Sổ bàn giao đã viết lại thành **bản tự chứa**
-> cho một phiên **chưa từng chạy ở đây, không có bộ nhớ, không có lịch sử**: dự án
-> là gì, trạng thái 0.8.0, luật của chủ dự án, văn hoá đối chứng, cách dựng môi
-> trường, **12 mục đo**, và **cả 23 phát hiện kèm cách vá**.
->
-> ⛔⛔ **Cạm bẫy số một đã ghi ngay đầu sổ: nếu phiên Linux chạy đo trên một phân
-> vùng NTFS được mount thì MỌI phép đo quyền file là vô nghĩa** - `ntfs-3g` gán
-> quyền POSIX giả theo `fmask`/`dmask`, nên C1 và C2 sẽ đo một tuỳ chọn mount chứ
-> không đo framework, và kết quả trông y hệt phép đo thật.
+⚠ **Đừng tin bảng trên, kiểm bằng lệnh** - lý do ở mục [Trạng thái](#trạng-thái).
+
+```bash
+python -c "import urllib.request,json; print(sorted(json.load(urllib.request.urlopen('https://pypi.org/pypi/xime/json'))['releases']))"
+git tag -l | sort -V | tail -3
+git stash list
+```
+
+### Lịch sử đợt kiểm toán 0.8 - KHÔNG ở file này
+
+File này trả lời *"hôm nay đứng ở đâu"*. Chuyện đã xảy ra nằm ở:
+
+| Muốn biết | Đọc |
+|---|---|
+| 28 phát hiện, phép đo, bản vá, đối chứng | [`docs/kiem-toan/0.8-kiem-toan-toan-dien.md`](docs/kiem-toan/0.8-kiem-toan-toan-dien.md) |
+| 12 mục chỉ đo được trên Linux, kèm kết quả | [`docs/kiem-toan/0.8-cho-do-tren-linux.md`](docs/kiem-toan/0.8-cho-do-tren-linux.md) |
+| Chín commit của đợt Linux, nguyên văn lý do | [`docs/kiem-toan/0.8-nhat-ky-va-tren-linux.md`](docs/kiem-toan/0.8-nhat-ky-va-tren-linux.md) |
+| Trình tự nhận bản vá và phát hành | [`docs/ban-giao-cho-phien-windows.md`](docs/ban-giao-cho-phien-windows.md) |
+| Rà đóng gói trước phát hành | [`docs/kiem-toan/0.8-truoc-phat-hanh.md`](docs/kiem-toan/0.8-truoc-phat-hanh.md) |
+
+### Sinh lại README của repo phát hành
+
+Hai bản README khác nhau ở **hai quy tắc máy móc** (huy hiệu PyPI · liên kết tương đối
+thành URL GitHub tuyệt đối). Đừng sửa tay - bản `0.7.2` đã trôi vì sửa tay, nó còn dấu
+gạch dài mà repo này bỏ từ lâu và thiếu năm mục tài liệu của 0.8.
+
+```bash
+python .claude/scripts/sinh_readme_phat_hanh.py          # ghi
+python .claude/scripts/sinh_readme_phat_hanh.py --kiem   # chỉ so
+```
+
+⚠ **PyPI chỉ hiển thị ĐÚNG MỘT README** - cái khai ở `[project] readme`. Không có mô tả
+đa ngôn ngữ. Bản tiếng Việt tới được người đọc **chỉ qua đường dẫn** trong dòng chuyển
+ngôn ngữ, nên đừng bỏ dòng đó đi. Vì vậy `/README-vn.md` cũng đã bị gỡ khỏi danh sách
+trắng sdist: một mục khai mà không bao giờ xảy ra thì tệ hơn là không khai.
+
 
 ## 2. ⚠ A1 fail-open JWT - gốc đã lấp, 19 app vẫn thủng
 
