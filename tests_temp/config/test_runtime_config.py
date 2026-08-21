@@ -1,14 +1,24 @@
 """
-Test RuntimeConfig và ServerConfig:
+Test RuntimeConfig và WebServerConfig:
   - giá trị mặc định
   - from_dict() với dữ liệu đầy đủ / một phần / extra keys
   - get() với dot-notation: key hợp lệ, thiếu, nested, default
   - get_bool() ép kiểu chặt: chuỗi "false" KHÔNG được thành True (0.6.3)
-  - ServerConfig validate kiểu dữ liệu
+  - WebServerConfig validate kiểu dữ liệu
 """
 import pytest
 
-from xime.core.config import RuntimeConfig, ServerConfig
+from xime.adapters.web import WebServerConfig
+from xime.core.config import RuntimeConfig
+
+# ⚠ `ServerConfig` ĐÃ RỜI core ở 0.8 và thành `WebServerConfig` của web
+# adapter - core không được biết về khái niệm *"HTTP adapter"*. Khoá YAML
+# `server:` thì **giữ nguyên từng chữ**, nên các test dưới vẫn đọc đúng khối
+# đó, chỉ qua một cửa khác.
+
+
+def _server(cfg: RuntimeConfig) -> WebServerConfig:
+    return WebServerConfig.from_runtime(cfg)
 from xime.core.exception import StartupException
 
 
@@ -23,12 +33,12 @@ def test_default_env():
 
 def test_default_server_host():
     cfg = RuntimeConfig()
-    assert cfg.server.host == "0.0.0.0"
+    assert _server(cfg).host == "0.0.0.0"
 
 
 def test_default_server_port():
     cfg = RuntimeConfig()
-    assert cfg.server.port == 8080
+    assert _server(cfg).port == 8080
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +48,7 @@ def test_default_server_port():
 def test_from_dict_empty_uses_defaults():
     cfg = RuntimeConfig.from_dict({})
     assert cfg.env == "development"
-    assert cfg.server.port == 8080
+    assert _server(cfg).port == 8080
 
 
 def test_from_dict_overrides_env():
@@ -48,14 +58,14 @@ def test_from_dict_overrides_env():
 
 def test_from_dict_overrides_server():
     cfg = RuntimeConfig.from_dict({"server": {"host": "127.0.0.1", "port": 9000}})
-    assert cfg.server.host == "127.0.0.1"
-    assert cfg.server.port == 9000
+    assert _server(cfg).host == "127.0.0.1"
+    assert _server(cfg).port == 9000
 
 
 def test_from_dict_partial_server_uses_defaults_for_missing():
     cfg = RuntimeConfig.from_dict({"server": {"port": 9999}})
-    assert cfg.server.host == "0.0.0.0"   # mặc định
-    assert cfg.server.port == 9999
+    assert _server(cfg).host == "0.0.0.0"   # mặc định
+    assert _server(cfg).port == 9999
 
 
 def test_from_dict_stores_extra_application_keys():
@@ -70,7 +80,7 @@ def test_from_dict_stores_extra_application_keys():
 
 
 # ---------------------------------------------------------------------------
-# get() — dot-notation access
+# get() - dot-notation access
 # ---------------------------------------------------------------------------
 
 def test_get_top_level_key():
@@ -81,7 +91,23 @@ def test_get_top_level_key():
 def test_get_nested_framework_key():
     cfg = RuntimeConfig.from_dict({"server": {"port": 9090}})
     assert cfg.get("server.port") == 9090
-    assert cfg.get("server.host") == "0.0.0.0"
+
+
+def test_get_no_longer_materialises_web_defaults():
+    """⚠ **Đổi hành vi ở 0.8**, và nó là hệ quả trực tiếp của việc gỡ
+    `ServerConfig` khỏi core.
+
+    Trước đây `server:` là một model có kiểu **trên `RuntimeConfig`**, nên mặc
+    định của nó lọt cả vào `get()`: `get("server.host")` trả `"0.0.0.0"` dù YAML
+    không khai. Nay `server:` chỉ là một khoá thường, và `get()` trả đúng thứ có
+    trong file.
+
+    App nào cần mặc định thì đọc qua `WebServerConfig.from_runtime(runtime)` -
+    chỗ mặc định thật sự sống. Khoá YAML **không đổi một chữ**.
+    """
+    cfg = RuntimeConfig.from_dict({"server": {"port": 9090}})
+    assert cfg.get("server.host") is None
+    assert WebServerConfig.from_runtime(cfg).host == "0.0.0.0"
 
 
 def test_get_nested_extra_key():
@@ -112,7 +138,7 @@ def test_get_path_too_deep_returns_default():
 
 
 # ---------------------------------------------------------------------------
-# get_bool() — ép kiểu boolean chặt (0.6.3)
+# get_bool() - ép kiểu boolean chặt (0.6.3)
 # ---------------------------------------------------------------------------
 
 def _flag(value) -> RuntimeConfig:
@@ -164,16 +190,16 @@ def test_get_bool_does_not_affect_get():
 
 
 # ---------------------------------------------------------------------------
-# ServerConfig validation
+# WebServerConfig validation
 # ---------------------------------------------------------------------------
 
 def test_server_config_rejects_invalid_port():
     with pytest.raises(Exception):
-        ServerConfig(host="0.0.0.0", port="not-a-number")  # type: ignore[arg-type]
+        WebServerConfig(host="0.0.0.0", port="not-a-number")  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
-# Cache — model_dump() chỉ gọi một lần (Issue #10)
+# Cache - model_dump() chỉ gọi một lần (Issue #10)
 # ---------------------------------------------------------------------------
 
 def test_get_does_not_call_model_dump_after_creation():
@@ -205,7 +231,7 @@ def test_get_does_not_call_model_dump_after_creation():
         _ = cfg.get("missing.key", "fallback")
 
     assert call_count == 0, (
-        f"get() gọi model_dump() thêm {call_count} lần — phải dùng _dump cache"
+        f"get() gọi model_dump() thêm {call_count} lần - phải dùng _dump cache"
     )
 
 

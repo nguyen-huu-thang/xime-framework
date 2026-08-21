@@ -240,7 +240,7 @@ The best way to learn XIME is to read real code. These open-source projects are 
 | **gRPC Client SDK** | Generate a typed Pydantic client from `.proto`, inject via DI; deadlines, typed errors, automatic retry |
 | **HTTPS** | TLS for the HTTP server via a `server.ssl` block in `application.yml`, including client-certificate verification; misconfiguration stops startup instead of silently serving plain HTTP |
 | **Dynamic mTLS** | Certificate rotation without restart for both inbound servers and outbound clients |
-| **Peer Identity** | gRPC reads the verified client cert into request context (fail-soft): `current_caller()` gives the CN, `current_peer_sans()` every Subject Alternative Name — raw and uninterpreted, so you match your own scheme (SPIFFE IDs or otherwise) |
+| **Peer Identity** | gRPC reads the verified client cert into request context (fail-soft): `current_caller()` gives the CN, `current_peer_sans()` every Subject Alternative Name - raw and uninterpreted, so you match your own scheme (SPIFFE IDs or otherwise) |
 | **Socket Adapter** | Unix Domain Socket IPC for same-host Native Engine calls (Linux); `@command` / `@stream` |
 | **MQTT Adapter** | Message-driven transport for IoT/embedded: `@subscribe` (pub/sub) + `@rpc` (request/reply over MQTT v5); auto-reconnect; bounded concurrency |
 | **Modbus Adapter** | Talk to PLCs directly: declarative device model that decodes registers (endianness, word order, scale), safe read planning, `@poll` / `@on_change`, and slave mode (`@serve` / `@on_write`) |
@@ -305,6 +305,11 @@ See the [CHANGELOG](CHANGELOG.md) for release history.
 | [Modbus Adapter](docs/en/modbus.md) | Declarative device models, read planning, polling and slave mode for PLCs |
 | [OPC UA Adapter](docs/en/opcua.md) | Node models, subscriptions, server mode, and all three security levels |
 | [File Storage](docs/en/file-storage.md) | `StorageService` (local / S3 / MinIO) + HTTP Range download & chunked upload |
+| [Inter-process Store](docs/en/store.md) | Key-value store on LMDB for state with no durable source: rate limiting, passkey challenges, deduplication |
+| [Shared reference data](docs/en/refdata.md) | `RefData` - one copy in shared memory for JWT keys and the app registry: the primary publishes, every process reads |
+| [Inter-process Bus](docs/en/process-link.md) | `ProcessLink` - commands and questions between processes, four `ask` outcomes, per-channel ordering |
+| [Command-line tools](docs/en/cli.md) | `xime init` scaffolds a project · `xime config --print` prints every key with its default · `xime check config` catches typos |
+| [Multi-process](docs/en/multi-process.md) | `share_load()` - the `processes:` block, shared ports, supervisor, `run_once()`, primary promotion, watchdog, `/healthz`, and two probes for module-level code |
 | [Starters](docs/en/starters.md) | SQLAlchemy, JWT, Scheduler, Cache, Redis, Storage (local / S3 + HTTP streaming) |
 | [Testing](docs/en/testing.md) | DI overrides, fakes, test utilities |
 | [Contributing](docs/en/contributing.md) | How to contribute, roadmap |

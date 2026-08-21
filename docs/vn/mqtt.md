@@ -78,12 +78,12 @@ from xime import Application
 from xime.adapters.mqtt import MqttAdapter
 
 app = Application()
-app.use(MqttAdapter())     # client_id "default"; đọc block mqtt: trong application.yml
+app.use(MqttAdapter())     # target_id "default"; đọc block mqtt: trong application.yml
 app.run()
 ```
 
 ```python
-# config/dependency.py — chỉ khi business code cần publish
+# config/dependency.py - chỉ khi business code cần publish
 from xime.adapters.mqtt import MqttPublisher
 
 dependency.register(MqttPublisher)
@@ -93,7 +93,7 @@ dependency.register(MqttPublisher)
 
 ## Các loại handler
 
-### `@subscribe` — fire-and-forget (pub/sub)
+### `@subscribe` - fire-and-forget (pub/sub)
 
 Handler nhận message **thô**; framework KHÔNG tự deserialize payload (nhất quán với `StorageService` / `CacheService`: cấp cơ chế, không áp policy). Chỉ khai báo tham số bạn cần - khớp **theo tên**, tất cả tùy chọn:
 
@@ -109,7 +109,7 @@ async def on_alert(self, payload: bytes, topic: str) -> None:
     ...
 ```
 
-### `@rpc` — request/reply over MQTT v5
+### `@rpc` - request/reply over MQTT v5
 
 Handler nhận một Pydantic **request** model và trả về một Pydantic **response** model. Adapter decode payload request là JSON, gọi handler, rồi publish response (JSON) ra `ResponseTopic` của request kèm đúng `CorrelationData`. Nếu khai báo thêm tham số `topic: str` thì cũng được inject.
 
@@ -171,11 +171,16 @@ class AlertService:
 
 Publisher không giữ kết nối riêng - nó ủy thác cho client sống mà `MqttAdapter` sở hữu. Publish trước khi adapter kết nối sẽ **chờ** tới khi kết nối (hoặc hết `timeout` tùy chọn). Framework không áp định dạng payload: truyền `bytes` thô (hoặc `str`); tự encode JSON/protobuf.
 
-> **Publisher bám vào client_id `"default"`.** Nếu chạy adapter với id khác (`MqttAdapter("sensors")`) mà inject `MqttPublisher` thường, publish sẽ raise `RuntimeError` rõ ràng thay vì treo vô hạn. Chạy adapter với id mặc định để publisher hoạt động.
+> ⚠ **Đối số đầu của `MqttAdapter` đổi tên thành `target_id` ở 0.8** (trước là
+> `client_id`). Truyền theo vị trí thì không đổi gì; truyền theo tên thì phải sửa.
+> Lý do: `client_id` đã mang **hai nghĩa ngược nhau** trong cùng framework - ở gRPC
+> client SDK nó là tên **service đích**, ở đây là tên **của chính ta** trên broker.
+
+> **Publisher bám vào id `"default"`.** Nếu chạy adapter với id khác (`MqttAdapter("sensors")`) mà inject `MqttPublisher` thường, publish sẽ raise `RuntimeError` rõ ràng thay vì treo vô hạn. Chạy adapter với id mặc định để publisher hoạt động.
 
 ---
 
-## Cấu hình — `application.yml`
+## Cấu hình - `application.yml`
 
 ```yaml
 mqtt:

@@ -54,7 +54,7 @@ class TestScheduledJobProtocol:
     def test_run_as_non_callable_attribute_still_satisfies_structural_check(self):
         # Python's runtime_checkable Protocol chỉ kiểm tra PRESENCE của attribute,
         # không kiểm tra callable hay signature. Đây là limitation đã biết của
-        # structural typing — lỗi thực sự sẽ được phát hiện khi APScheduler gọi run().
+        # structural typing - lỗi thực sự sẽ được phát hiện khi APScheduler gọi run().
         class WeirdJob:
             run = "not_a_method"
 

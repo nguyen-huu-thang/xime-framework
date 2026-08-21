@@ -72,10 +72,10 @@ class TransactionContext:
 
 ## Ưu điểm
 
-- **Không có magic** — không có Proxy, Bytecode Manipulation hay Runtime Method Interception
-- **Dễ đọc** — `async with self.transaction():` thể hiện rõ transaction boundary
-- **Dễ debug** — Stack Trace phản ánh đúng luồng thực tế, không có proxy trung gian
-- **Tương thích async** — hoạt động tự nhiên với FastAPI, grpc.aio, asyncio
+- **Không có magic** - không có Proxy, Bytecode Manipulation hay Runtime Method Interception
+- **Dễ đọc** - `async with self.transaction():` thể hiện rõ transaction boundary
+- **Dễ debug** - Stack Trace phản ánh đúng luồng thực tế, không có proxy trung gian
+- **Tương thích async** - hoạt động tự nhiên với FastAPI, grpc.aio, asyncio
 
 ---
 

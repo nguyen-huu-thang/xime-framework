@@ -1,5 +1,5 @@
 """
-Test S3FileStorage (0.5 - s3 starter) with an in-memory fake S3 client — no
+Test S3FileStorage (0.5 - s3 starter) with an in-memory fake S3 client - no
 network and no aioboto3 required.
 
   - satisfies the StorageService Protocol
@@ -12,7 +12,7 @@ network and no aioboto3 required.
   - delete is idempotent; url() returns a presigned URL
 
 The provider lifecycle (aioboto3 session, post_construct/pre_destroy) is not
-exercised here — that needs the real client; this suite pins the API mapping.
+exercised here - that needs the real client; this suite pins the API mapping.
 """
 import pytest
 

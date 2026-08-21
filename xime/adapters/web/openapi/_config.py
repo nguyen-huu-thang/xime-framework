@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class SecurityScheme(Protocol):
-    """Contract cho mọi security scheme — dùng bởi builder để type-check."""
+    """Contract cho mọi security scheme - dùng bởi builder để type-check."""
 
     scheme_name: str
 

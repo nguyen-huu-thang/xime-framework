@@ -2,7 +2,7 @@
 
 **English** | [Tiếng Việt](../vn/getting-started.md)
 
-**1/9 — Getting Started** · [Core Concepts →](core-concepts.md)
+**1/9 - Getting Started** · [Core Concepts →](core-concepts.md)
 
 ---
 
@@ -87,7 +87,7 @@ my-service/
 
 ---
 
-## Step 1 — Define Your Domain
+## Step 1 - Define Your Domain
 
 ```python
 # app/domain/user.py
@@ -102,7 +102,7 @@ class User:
 
 ---
 
-## Step 2 — Define an Interface (Protocol)
+## Step 2 - Define an Interface (Protocol)
 
 ```python
 # app/application/port/outbound/user_repository.py
@@ -115,7 +115,7 @@ class UserRepository(Protocol):
 
 ---
 
-## Step 3 — Write the Use Case
+## Step 3 - Write the Use Case
 
 ```python
 # app/application/usecase/get_user_use_case.py
@@ -137,7 +137,7 @@ No annotations. No `@service`. XIME discovers this class from the package scan a
 
 ---
 
-## Step 4 — Write the Implementation
+## Step 4 - Write the Implementation
 
 ```python
 # app/infrastructure/persistence/repository/jpa_user_repository.py
@@ -152,7 +152,7 @@ class JpaUserRepository:
 
 ---
 
-## Step 5 — Write the Controller
+## Step 5 - Write the Controller
 
 ```python
 # app/api/rest/user_controller.py
@@ -180,7 +180,7 @@ class UserController:
 
 ---
 
-## Step 6 — Configure Dependency Injection
+## Step 6 - Configure Dependency Injection
 
 ```python
 # app/config/dependency.py
@@ -203,7 +203,7 @@ dependency.bind({
 
 ---
 
-## Step 7 — Configure Routing
+## Step 7 - Configure Routing
 
 ```python
 # app/config/routing.py
@@ -214,7 +214,7 @@ configure_controllers("api.rest")
 
 ---
 
-## Step 8 — Runtime Configuration
+## Step 8 - Runtime Configuration
 
 ```yaml
 # app/resources/application.yml
@@ -222,7 +222,7 @@ server:
   host: 0.0.0.0
   port: 8080
 
-# Optional — XIME configures INFO logging by default; tune or disable it here.
+# Optional - XIME configures INFO logging by default; tune or disable it here.
 logging:
   level: INFO
 ```
@@ -233,7 +233,7 @@ opt-out rule.
 
 ---
 
-## Step 9 — Entry Point
+## Step 9 - Entry Point
 
 ```python
 # app/main.py
@@ -257,7 +257,7 @@ app = Application(config_module="app.config.dependency")
 
 ---
 
-## Step 10 — Run It
+## Step 10 - Run It
 
 ```bash
 python -m app.main
@@ -306,7 +306,7 @@ Missing type hint:
 Missing Type Hint
   Class: GetUserUseCase
   Parameter: repository
-  Hint: add a type annotation — def __init__(self, repository: UserRepository)
+  Hint: add a type annotation - def __init__(self, repository: UserRepository)
 ```
 
 ---
@@ -317,4 +317,4 @@ Follow the link below to continue reading.
 
 ---
 
-**1/9 — Getting Started** · [Core Concepts →](core-concepts.md)
+**1/9 - Getting Started** · [Core Concepts →](core-concepts.md)

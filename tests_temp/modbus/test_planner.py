@@ -1,7 +1,7 @@
 """Read planning: area separation, gap grouping, protocol limits (0.7).
 
 The planner is the piece that decides between "one big block" and "several
-tight commands". A wrong plan does not just waste bytes — reading an address
+tight commands". A wrong plan does not just waste bytes - reading an address
 the device does not implement fails the entire command with ILLEGAL DATA
 ADDRESS, so these assertions guard correctness, not performance.
 """
@@ -73,7 +73,7 @@ class TestGrouping:
             a: int = Holding(0)
             b: int = Holding(5)
 
-        # One command covering 0..5 — the four unused registers cost less than
+        # One command covering 0..5 - the four unused registers cost less than
         # a second round trip.
         assert spans(plan_reads(require_device_info(SmallGap), max_gap=8)) == [(0, 6)]
 
@@ -156,7 +156,7 @@ class TestProtocolLimits:
 
     def test_field_larger_than_the_limit_is_a_modelling_error(self):
         # A field must arrive in one command to be decoded, so this cannot be
-        # solved by splitting — say so with the field name instead of letting
+        # solved by splitting - say so with the field name instead of letting
         # the device answer with a bare exception code.
         @device(unit=1)
         class Huge:

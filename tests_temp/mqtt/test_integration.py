@@ -83,7 +83,8 @@ async def _running_adapter(monkeypatch, ctrl: _Ctrl):
     )
     runtime = RuntimeConfig.from_dict({"mqtt": {"host": _HOST, "port": _PORT}})
     adapter = MqttAdapter("default")
-    task = asyncio.create_task(adapter.start(_FakeApp(runtime, ctrl)))
+    await adapter.start(_FakeApp(runtime, ctrl))
+    task = asyncio.create_task(adapter.serve())
     try:
         await asyncio.sleep(0.7)  # allow connect + subscribe
         yield adapter

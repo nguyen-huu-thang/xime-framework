@@ -2,7 +2,7 @@
 
 **English** | [Tiếng Việt](../vn/configuration.md)
 
-[← Core Concepts](core-concepts.md) · **3/9 — Configuration** · [Routing →](routing.md)
+[← Core Concepts](core-concepts.md) · **3/9 - Configuration** · [Routing →](routing.md)
 
 ---
 
@@ -10,7 +10,7 @@ XIME has a two-layer configuration model designed around two distinct audiences:
 
 ---
 
-## Layer 1 — Framework Configuration (Developer)
+## Layer 1 - Framework Configuration (Developer)
 
 Framework configuration is written in Python. It declares how XIME should behave: which packages to scan, how interfaces map to implementations, which routes to expose.
 
@@ -73,7 +73,7 @@ Security-related configuration (authentication, authorization rules). Details de
 
 ---
 
-## Layer 2 — Runtime Configuration (Operator)
+## Layer 2 - Runtime Configuration (Operator)
 
 Runtime configuration is YAML. It contains environment-specific values: hosts, ports, secrets, database URLs.
 
@@ -177,7 +177,7 @@ Nested keys use dot notation.
 
 ---
 
-## Config Discovery — Explicit, Not Magic
+## Config Discovery - Explicit, Not Magic
 
 XIME **never auto-scans** for config files. Every config source is either:
 
@@ -187,11 +187,11 @@ XIME **never auto-scans** for config files. Every config source is either:
 This makes the configuration surface visible and debuggable. If a config is not applied, you can trace exactly where it should have been registered.
 
 ```python
-# BAD — XIME will not find this
+# BAD - XIME will not find this
 class WebConfig:
     openapi_title = "My Service"
 
-# GOOD — explicitly registered
+# GOOD - explicitly registered
 from xime.adapters.web.openapi import configure_openapi, OpenApiConfig
 
 configure_openapi(OpenApiConfig(
@@ -232,4 +232,4 @@ app = Application(
 
 ---
 
-[← Core Concepts](core-concepts.md) · **3/9 — Configuration** · [Routing →](routing.md)
+[← Core Concepts](core-concepts.md) · **3/9 - Configuration** · [Routing →](routing.md)

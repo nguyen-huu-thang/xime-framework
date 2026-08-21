@@ -81,7 +81,7 @@ class DownloadRequest(BaseModel):
 
 
 class FakeApp:
-    """Application giả — chỉ cần get(cls) trả instance."""
+    """Application giả - chỉ cần get(cls) trả instance."""
 
     def __init__(self, instances: dict | None = None) -> None:
         self._instances = instances or {}
@@ -315,7 +315,7 @@ async def test_e2e_command_and_streams(tmp_path):
     sock_path = str(tmp_path / "crypto.sock")
     controller = CryptoController()
 
-    adapter = SocketAdapter("crypto", path=sock_path)
+    adapter = SocketAdapter("crypto")
     adapter._config = SocketServerConfig(path=sock_path)
     adapter._table = SocketEndpointBuilder(
         FakeApp({CryptoController: controller}), "crypto"
@@ -352,7 +352,7 @@ async def test_e2e_concurrent_sessions(tmp_path):
     from xime.adapters.socket._adapter import SocketAdapter
 
     sock_path = str(tmp_path / "crypto.sock")
-    adapter = SocketAdapter("crypto", path=sock_path)
+    adapter = SocketAdapter("crypto")
     adapter._config = SocketServerConfig(path=sock_path)
     adapter._table = SocketEndpointBuilder(FakeApp(), "crypto").build([CryptoController])
 

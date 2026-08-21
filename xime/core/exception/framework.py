@@ -61,7 +61,7 @@ class UnregisteredDependencyException(StartupException):
 class MissingBindingException(StartupException):
     """
     Raised when a Protocol has exactly one structural candidate but no
-    explicit binding was declared. The implementation exists — the developer
+    explicit binding was declared. The implementation exists - the developer
     only needs to add dependency.bind({Interface: Implementation}).
     """
 
@@ -159,7 +159,7 @@ class OrderRuleCycleException(StartupException):
 
 
 # ---------------------------------------------------------------------------
-# Runtime — Security
+# Runtime - Security
 # ---------------------------------------------------------------------------
 
 class SecurityException(XimeException):
@@ -191,7 +191,7 @@ class AuthorizationException(SecurityException):
 
 
 # ---------------------------------------------------------------------------
-# Runtime — Socket adapter
+# Runtime - Socket adapter
 # ---------------------------------------------------------------------------
 
 class SocketException(XimeException):
@@ -202,10 +202,10 @@ class SocketException(XimeException):
 
 class ProtocolError(SocketException):
     """
-    Raised when a frame on the wire is malformed — bad magic bytes or an
+    Raised when a frame on the wire is malformed - bad magic bytes or an
     unsupported protocol version. Indicates the peer is not speaking the
     Xime socket protocol (or a version mismatch).
-    Frame sai định dạng (magic/version) — peer không nói đúng protocol Xime.
+    Frame sai định dạng (magic/version) - peer không nói đúng protocol Xime.
     """
 
     pass

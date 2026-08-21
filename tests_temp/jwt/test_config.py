@@ -6,7 +6,7 @@ Test JwtMiddlewareConfig và configure_jwt() / jwt_registry:
   - jwt_registry.get() trả về None trước khi configure_jwt()
   - configure_jwt() lưu config vào registry
   - configure_jwt() gọi lần 2 ghi đè config cũ
-  - configure_jwt() không clone config — trả về cùng object
+  - configure_jwt() không clone config - trả về cùng object
 """
 import pytest
 
@@ -27,7 +27,7 @@ def _make_ctx() -> KeyContext:
 
 
 # ---------------------------------------------------------------------------
-# JwtMiddlewareConfig — defaults và giá trị tùy chỉnh
+# JwtMiddlewareConfig - defaults và giá trị tùy chỉnh
 # ---------------------------------------------------------------------------
 
 class TestJwtMiddlewareConfigDefaults:

@@ -125,7 +125,7 @@ async def test_codefirst_serves_over_grpc(tmp_path):
                 resp = await stub.Hash(pb2.HashRequest(file_id="f1"))
                 assert resp.digest == "h:f1"
 
-                # upload (client streaming) — first message metadata, rest chunks
+                # upload (client streaming) - first message metadata, rest chunks
                 async def chunks():
                     yield pb2.EncryptChunk(metadata=pb2.EncryptRequest(name="a"))
                     yield pb2.EncryptChunk(chunk=b"12345")

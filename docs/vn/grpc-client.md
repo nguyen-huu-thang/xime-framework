@@ -2,7 +2,7 @@
 
 [English](../en/grpc-client.md) | **Tiếng Việt**
 
-[← Code-First gRPC](grpc-codefirst.md) · **Phần bổ sung — gRPC Client SDK** · [Starters →](starters.md)
+[← Code-First gRPC](grpc-codefirst.md) · **Phần bổ sung - gRPC Client SDK** · [Starters →](starters.md)
 
 ---
 
@@ -18,7 +18,7 @@ service đích (.proto + contract.json)
 clients/<service>/   ← SDK Python tự chứa (Pydantic + client class)
         │  configure_grpc_clients(...) + application.yml
         ▼
-inject thẳng vào constructor — XimeGrpcChannel lo deadline, lỗi typed, mTLS động
+inject thẳng vào constructor - XimeGrpcChannel lo deadline, lỗi typed, mTLS động
 ```
 
 > **Yêu cầu:** `pip install "xime[grpc]"`
@@ -52,7 +52,7 @@ hai SDK trong cùng tiến trình không bao giờ đụng tên module.
 Client class là gương của controller phía server:
 
 ```python
-# clients/trust/_clients.py — mã sinh, không sửa tay
+# clients/trust/_clients.py - mã sinh, không sửa tay
 class KeyClient:
     def __init__(self, channel: grpc.aio.Channel) -> None: ...
 
@@ -144,12 +144,12 @@ except RemoteCallError as exc:
 
 `RemoteCallError` mang theo:
 
-- `status` — tên gRPC StatusCode (`"NOT_FOUND"`, `"INTERNAL"`...).
-- `code` — tên class exception phía server, đọc từ trailing metadata
+- `status` - tên gRPC StatusCode (`"NOT_FOUND"`, `"INTERNAL"`...).
+- `code` - tên class exception phía server, đọc từ trailing metadata
   `xime-error` mà `ErrorMappingInterceptor` của server gắn vào. Rỗng nếu service
   đích không phải XIME (vẫn typed).
-- `path` — method bị lỗi (`/xime.internal.KeyController/GetKeys`).
-- `error_message` — message từ server.
+- `path` - method bị lỗi (`/xime.internal.KeyController/GetKeys`).
+- `error_message` - message từ server.
 
 > Đây là gương của `configure_grpc_error_mappings` phía server: server map
 > exception → StatusCode, client map StatusCode → exception trở lại.
@@ -198,7 +198,7 @@ grpc:
 ```
 
 ```python
-# config/grpc.py — provider dùng chung cho cả server lẫn client
+# config/grpc.py - provider dùng chung cho cả server lẫn client
 configure_grpc_tls(provider=MyCertificateProvider)
 configure_grpc_clients("trust", KeyClient)
 ```
@@ -406,4 +406,4 @@ cần dựng PyPI riêng. Phiên bản quản lý bằng git tag.
 
 ---
 
-[← Code-First gRPC](grpc-codefirst.md) · **Phần bổ sung — gRPC Client SDK** · [Starters →](starters.md)
+[← Code-First gRPC](grpc-codefirst.md) · **Phần bổ sung - gRPC Client SDK** · [Starters →](starters.md)

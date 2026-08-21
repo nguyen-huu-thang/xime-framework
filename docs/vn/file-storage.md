@@ -47,7 +47,7 @@ Hai dạng truy cập có chủ đích:
 
 ---
 
-## Backend filesystem local — `xime.starters.localfs`
+## Backend filesystem local - `xime.starters.localfs`
 
 ```python
 # config/dependency.py
@@ -77,7 +77,7 @@ storage:
 
 ---
 
-## Backend S3 / MinIO — `xime.starters.s3`
+## Backend S3 / MinIO - `xime.starters.s3`
 
 Cài bằng `pip install "xime[s3]"` (thêm `aioboto3`).
 
@@ -110,7 +110,7 @@ storage:
 
 ---
 
-## Streaming qua HTTP — `xime.adapters.web.files`
+## Streaming qua HTTP - `xime.adapters.web.files`
 
 Hai hàm helper, gọi trong controller (KHÔNG phải component DI):
 

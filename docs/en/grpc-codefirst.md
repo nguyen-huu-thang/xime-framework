@@ -2,14 +2,14 @@
 
 **English** | [Tiếng Việt](../vn/grpc-codefirst.md)
 
-[← Routing](routing.md) · **7/9 — Code-First gRPC** · [Starters →](starters.md)
+[← Routing](routing.md) · **7/9 - Code-First gRPC** · [Starters →](starters.md)
 
 ---
 
 XIME supports two gRPC development modes:
 
-- **Proto-First** (existing) — you write `.proto` files, XIME serves your handwritten servicers.
-- **Code-First** (this page) — you write Python controllers and DTOs, XIME generates the `.proto` files for you.
+- **Proto-First** (existing) - you write `.proto` files, XIME serves your handwritten servicers.
+- **Code-First** (this page) - you write Python controllers and DTOs, XIME generates the `.proto` files for you.
 
 With Code-First, your Python code is the **single source of truth**. You never write or maintain `.proto` files manually.
 
@@ -27,10 +27,10 @@ Controller + DTO  →  xime grpc generate  →  .proto + Python stubs
 
 Two problems with proto-first at scale:
 
-1. **Drift** — you update a Pydantic DTO but forget to update the `.proto`. The two diverge silently.
-2. **Duplication** — every field is defined twice: once in Python, once in protobuf.
+1. **Drift** - you update a Pydantic DTO but forget to update the `.proto`. The two diverge silently.
+2. **Duplication** - every field is defined twice: once in Python, once in protobuf.
 
-Code-First eliminates both. The proto is generated from your Python types — it cannot drift, and there is nothing to duplicate.
+Code-First eliminates both. The proto is generated from your Python types - it cannot drift, and there is nothing to duplicate.
 
 ---
 
@@ -126,9 +126,9 @@ app.run()
 
 ## Endpoint Types
 
-The same two decorators from Socket Adapter work here — the same controller can serve both gRPC and UDS if you register it for both.
+The same two decorators from Socket Adapter work here - the same controller can serve both gRPC and UDS if you register it for both.
 
-### `@command` — unary RPC
+### `@command` - unary RPC
 
 ```python
 @command("hash")
@@ -141,7 +141,7 @@ Generated proto:
 rpc Hash(HashRequest) returns (HashResponse);
 ```
 
-### `@stream` + `UploadStream` — client streaming
+### `@stream` + `UploadStream` - client streaming
 
 ```python
 @stream("encrypt")
@@ -152,7 +152,7 @@ async def encrypt(self, request: EncryptRequest, upload: UploadStream) -> Encryp
     return EncryptResponse(total=total)
 ```
 
-Generated proto uses a `oneof` wrapper — the first message carries metadata, subsequent messages carry raw bytes:
+Generated proto uses a `oneof` wrapper - the first message carries metadata, subsequent messages carry raw bytes:
 
 ```protobuf
 message EncryptChunk {
@@ -167,7 +167,7 @@ rpc Encrypt(stream EncryptChunk) returns (EncryptResponse);
 
 Your business code never sees `EncryptChunk`. XIME handles the marshalling.
 
-### `@stream` + `DownloadStream` — server streaming
+### `@stream` + `DownloadStream` - server streaming
 
 ```python
 @stream("download")
@@ -187,7 +187,7 @@ rpc Download(DownloadRequest) returns (stream DownloadChunk);
 This form is for **bytes** - file download, raw export. To stream **typed records**, use
 the form below.
 
-### `@stream` + `yield` — TYPED server streaming (0.7.1)
+### `@stream` + `yield` - TYPED server streaming (0.7.1)
 
 The handler is an **async generator**; every `yield` is one message:
 
@@ -230,7 +230,7 @@ as usual.
 
 > This is the most important thing about Code-First gRPC.
 
-Protobuf identifies fields by **number**, not name. If the generator reassigns numbers when regenerating, old clients silently misread responses — a hard-to-debug corruption.
+Protobuf identifies fields by **number**, not name. If the generator reassigns numbers when regenerating, old clients silently misread responses - a hard-to-debug corruption.
 
 XIME solves this with `proto.lock.json`:
 
@@ -250,7 +250,7 @@ XIME solves this with `proto.lock.json`:
 
 - Fields already in the lock keep their number forever.
 - New fields get the next available number, skipping reserved ones.
-- Deleted fields become `reserved` — their number is never reused.
+- Deleted fields become `reserved` - their number is never reused.
 
 **Commit `proto.lock.json` to git.** It is part of your source of truth.
 
@@ -348,13 +348,13 @@ class PublicCryptoController:
     ...
 
 class InternalCryptoController:
-    server_id = "internal"    # served by GrpcAdapter("internal", port=50052)
+    server_id = "internal"    # served by GrpcAdapter("internal")
     ...
 ```
 
 ```python
 app.use(GrpcAdapter())                         # serves server_id="default"
-app.use(GrpcAdapter("internal", port=50052))   # serves server_id="internal"
+app.use(GrpcAdapter("internal"))   # port from process.grpc.internal in application.yml
 ```
 
 > **`server_id` must match a registered adapter.** The default `GrpcAdapter()`
@@ -373,11 +373,11 @@ app.use(GrpcAdapter("internal", port=50052))   # serves server_id="internal"
 Code-First and proto-first servicers can live in the same `GrpcAdapter`. Configure each independently:
 
 ```python
-# config/grpc.py — proto-first
+# config/grpc.py - proto-first
 from xime.adapters.grpc import configure_grpc_services
 configure_grpc_services("api.grpc.proto_first")
 
-# config/grpc_codefirst.py — code-first
+# config/grpc_codefirst.py - code-first
 from xime.adapters.grpc.codefirst import configure_grpc_codefirst
 configure_grpc_codefirst(packages=["api.grpc.codefirst"])
 ```
@@ -446,4 +446,4 @@ pip install "xime[grpc]"   # adds grpcio, grpcio-tools, protobuf
 
 ---
 
-[← Routing](routing.md) · **7/9 — Code-First gRPC** · [Starters →](starters.md) · [gRPC Client SDK →](grpc-client.md)
+[← Routing](routing.md) · **7/9 - Code-First gRPC** · [Starters →](starters.md) · [gRPC Client SDK →](grpc-client.md)

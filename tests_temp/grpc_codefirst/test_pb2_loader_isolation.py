@@ -70,14 +70,14 @@ def test_two_server_ids_with_same_message_name_do_not_collide(tmp_path):
     _emit(PublicController, "iso_public", out)
     _emit(InternalController, "iso_internal", out)
 
-    # Load both in the same process — order matters for the old bug.
+    # Load both in the same process - order matters for the old bug.
     public_messages = load_message_classes(str(out), "iso_public")
     internal_messages = load_message_classes(str(out), "iso_internal")
 
     public_record = public_messages["SharedRecord"]
     internal_record = internal_messages["SharedRecord"]
 
-    # Each server's SharedRecord keeps its OWN fields — no cross-contamination.
+    # Each server's SharedRecord keeps its OWN fields - no cross-contamination.
     public_fields = set(public_record.DESCRIPTOR.fields_by_name)
     internal_fields = set(internal_record.DESCRIPTOR.fields_by_name)
 

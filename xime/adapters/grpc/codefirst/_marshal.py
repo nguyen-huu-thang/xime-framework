@@ -73,7 +73,7 @@ def _sanitize(value: Any) -> Any:
         return _sanitize(value.value)
     if isinstance(value, datetime.datetime):
         # proto Timestamp requires an RFC3339 string with a timezone offset.
-        # A naive datetime has none, so ParseDict would crash — assume UTC.
+        # A naive datetime has none, so ParseDict would crash - assume UTC.
         # Timestamp proto cần offset timezone; datetime naive không có nên coi
         # như UTC để ParseDict không lỗi.
         if value.tzinfo is None:
@@ -143,7 +143,7 @@ def _message_to_dict(message: Any) -> dict:
 
     Newer protobuf renamed `including_default_value_fields` to
     `always_print_fields_with_no_presence`; try the modern kwarg first.
-    Protobuf mới đổi tên kwarg — thử kwarg mới trước, fallback kwarg cũ.
+    Protobuf mới đổi tên kwarg - thử kwarg mới trước, fallback kwarg cũ.
     """
     # use_integers_for_enums: Pydantic IntEnum fields validate against the
     # numeric value, not the proto enum NAME string that MessageToDict emits

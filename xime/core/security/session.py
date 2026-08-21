@@ -31,7 +31,7 @@ def authenticate(
     Set security fields for the current async task in one call.
 
     Called by authentication middleware after verifying the request.
-    Only fields explicitly provided are written — omitted fields stay as-is.
+    Only fields explicitly provided are written - omitted fields stay as-is.
     Passing None explicitly clears that field (sets it to None).
 
     Usage:

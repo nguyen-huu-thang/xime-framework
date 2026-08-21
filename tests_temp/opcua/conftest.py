@@ -1,6 +1,6 @@
 """Shared fixtures: a real asyncua server running in-process.
 
-Same reasoning as the Modbus tests — a mock would agree with whatever the
+Same reasoning as the Modbus tests - a mock would agree with whatever the
 adapter believes, so these talk to a genuine OPC UA server over a socket.
 """
 from __future__ import annotations

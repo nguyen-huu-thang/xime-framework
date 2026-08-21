@@ -15,7 +15,7 @@ class FactoryEntry:
 
     provided_type : the type this factory registers into the DI container
     factory_fn    : bound method on the config instance; called by the registry
-    dependencies  : {param_name: dep_type} — injected by the container at startup
+    dependencies  : {param_name: dep_type} - injected by the container at startup
     """
 
     provided_type: type

@@ -1,7 +1,7 @@
 """
 Test TLS (HTTPS) cho web adapter (0.6.3):
 
-  _tls_kwargs() — validate + dựng tham số ssl_* cho uvicorn:
+  _tls_kwargs() - validate + dựng tham số ssl_* cho uvicorn:
     - không cấu hình -> dict rỗng (HTTP thuần, hành vi cũ y nguyên)
     - certfile + keyfile hợp lệ -> ssl_certfile/ssl_keyfile
     - chỉ certfile / chỉ keyfile -> StartupException nêu đúng thiếu gì
@@ -10,12 +10,12 @@ Test TLS (HTTPS) cho web adapter (0.6.3):
     - cert_reqs dạng chữ -> ánh xạ đúng hằng ssl.CERT_*
     - cert_reqs sai chính tả -> Pydantic từ chối lúc dựng config
 
-  uvicorn.Config — nối dây thật, không mock:
+  uvicorn.Config - nối dây thật, không mock:
     - không TLS -> is_ssl False
     - có TLS   -> is_ssl True, config.ssl là SSLContext sau load()
 
-  WebAdapter(ssl=...) — multi-server:
-    - mặc định kế thừa runtime.server.ssl
+  WebAdapter(ssl=...) - multi-server:
+    - mặc định kế thừa WebServerConfig.from_runtime(runtime).ssl
     - truyền ssl tường minh -> đè lên server.ssl
     - truyền ServerTlsConfig() rỗng -> tắt TLS cho riêng server đó
 """
@@ -31,10 +31,13 @@ from xime.adapters.web import ServerTlsConfig, WebAdapter
 from xime.adapters.web._adapter import _tls_kwargs
 from xime.core.config import RuntimeConfig
 from xime.core.exception import StartupException
+from xime.adapters.web import WebServerConfig
+from xime.core.bootstrap._processes import EndpointSpec
+from xime.core.bootstrap._slot import AdapterSlot
 
 
 # ---------------------------------------------------------------------------
-# Fixtures — cert tự ký, không cần CA thật
+# Fixtures - cert tự ký, không cần CA thật
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="module")
@@ -83,7 +86,7 @@ def tls(cert_pair) -> ServerTlsConfig:
 
 
 # ---------------------------------------------------------------------------
-# _tls_kwargs — không cấu hình
+# _tls_kwargs - không cấu hình
 # ---------------------------------------------------------------------------
 
 class TestTlsDisabled:
@@ -91,7 +94,7 @@ class TestTlsDisabled:
         assert _tls_kwargs(ServerTlsConfig(), "default") == {}
 
     def test_default_server_config_has_tls_disabled(self):
-        assert RuntimeConfig().server.ssl.enabled is False
+        assert WebServerConfig.from_runtime(RuntimeConfig()).ssl.enabled is False
 
     def test_enabled_property_follows_certfile_or_keyfile(self, cert_pair):
         certfile, keyfile = cert_pair
@@ -101,13 +104,13 @@ class TestTlsDisabled:
 
 
 # ---------------------------------------------------------------------------
-# _tls_kwargs — fail fast khi cấu hình sai
+# _tls_kwargs - fail fast khi cấu hình sai
 # ---------------------------------------------------------------------------
 
 class TestTlsValidation:
     @staticmethod
     def _missing_line(exc) -> str:
-        """Chỉ lấy dòng 'Missing :' — phần Detail nhắc cả hai tên nên không xét."""
+        """Chỉ lấy dòng 'Missing :' - phần Detail nhắc cả hai tên nên không xét."""
         return next(
             line for line in str(exc.value).splitlines() if "Missing" in line
         )
@@ -188,7 +191,7 @@ class TestTlsValidation:
 
 
 # ---------------------------------------------------------------------------
-# _tls_kwargs — nội dung kwargs
+# _tls_kwargs - nội dung kwargs
 # ---------------------------------------------------------------------------
 
 class TestTlsKwargs:
@@ -200,7 +203,7 @@ class TestTlsKwargs:
         }
 
     def test_unset_optionals_are_not_forwarded(self, tls):
-        """uvicorn có mặc định riêng cho cert_reqs/ciphers — truyền None sẽ vỡ."""
+        """uvicorn có mặc định riêng cho cert_reqs/ciphers - truyền None sẽ vỡ."""
         kwargs = _tls_kwargs(tls, "default")
         assert "ssl_cert_reqs" not in kwargs
         assert "ssl_ciphers" not in kwargs
@@ -320,57 +323,67 @@ async def test_real_https_request_succeeds(tls, cert_pair):
 
 
 # ---------------------------------------------------------------------------
-# WebAdapter — kế thừa và override TLS
+# WebAdapter - kế thừa và override TLS
 # ---------------------------------------------------------------------------
 
 class TestWebAdapterTlsResolution:
+    """⚠ **ĐỔI Ở 0.8**: `ssl` không còn là đối số constructor - nó ở trong ô cấu
+    hình (`process.web.<id>.ssl`). Tính chất bảo mật thì **giữ nguyên**: ô không
+    khai thì kế thừa `server.ssl`, vì một server phụ âm thầm chạy HTTP trong khi
+    server chính đã HTTPS là lỗ hổng không ai để ý.
+    """
+
     @staticmethod
-    def _resolve(adapter: WebAdapter, runtime: RuntimeConfig) -> ServerTlsConfig:
-        """Lặp lại đúng biểu thức resolve trong start(), không chạy uvicorn."""
-        return (
-            adapter._ssl_override
-            if adapter._ssl_override is not None
-            else runtime.server.ssl
+    def _slot(adapter_id: str, options: dict) -> AdapterSlot:
+        spec = EndpointSpec(
+            kind="web", adapter_id=adapter_id, host=None, port=8081,
+            path=None, shared=False, options=options,
+        )
+        return AdapterSlot(
+            process_id="main", primary=True, spec=spec, single=True
         )
 
-    def test_default_adapter_inherits_server_ssl(self, cert_pair):
+    def test_a_cell_without_ssl_inherits_server_ssl(self, cert_pair):
         certfile, keyfile = cert_pair
         runtime = RuntimeConfig.from_dict(
             {"server": {"ssl": {"certfile": certfile, "keyfile": keyfile}}}
         )
-        assert self._resolve(WebAdapter(), runtime).certfile == certfile
+        resolved = WebAdapter.resolve_tls(self._slot("default", {}), runtime)
+        assert resolved.certfile == certfile
 
-    def test_secondary_server_inherits_server_ssl_by_default(self, cert_pair):
+    def test_a_secondary_endpoint_inherits_it_too(self, cert_pair):
         """Server phụ KHÔNG được âm thầm chạy HTTP khi server chính đã HTTPS."""
         certfile, keyfile = cert_pair
         runtime = RuntimeConfig.from_dict(
             {"server": {"ssl": {"certfile": certfile, "keyfile": keyfile}}}
         )
-        adapter = WebAdapter("admin", "0.0.0.0", 8081)
-        assert self._resolve(adapter, runtime).enabled is True
+        resolved = WebAdapter.resolve_tls(self._slot("admin", {}), runtime)
+        assert resolved.enabled is True
 
-    def test_explicit_ssl_overrides_server_ssl(self, cert_pair):
+    def test_a_cell_with_its_own_ssl_wins(self, cert_pair):
         certfile, keyfile = cert_pair
         runtime = RuntimeConfig.from_dict(
             {"server": {"ssl": {"certfile": "/other/cert.pem", "keyfile": keyfile}}}
         )
-        override = ServerTlsConfig(certfile=certfile, keyfile=keyfile)
-        adapter = WebAdapter("admin", "0.0.0.0", 8081, ssl=override)
-        assert self._resolve(adapter, runtime).certfile == certfile
+        slot = self._slot("admin", {"ssl": {"certfile": certfile, "keyfile": keyfile}})
+        assert WebAdapter.resolve_tls(slot, runtime).certfile == certfile
 
-    def test_empty_ssl_config_opts_a_server_out_of_tls(self, cert_pair):
+    def test_an_empty_ssl_block_opts_an_endpoint_out(self, cert_pair):
+        """Vế đối chứng của kế thừa, và là chỗ `ssl=ServerTlsConfig()` cũ về.
+
+        Không có nó thì kế thừa trở thành ép buộc, và một điểm phục vụ nội bộ
+        không có cách nào cố ý chạy HTTP thuần.
+        """
         certfile, keyfile = cert_pair
         runtime = RuntimeConfig.from_dict(
             {"server": {"ssl": {"certfile": certfile, "keyfile": keyfile}}}
         )
-        adapter = WebAdapter("internal", "127.0.0.1", 8082, ssl=ServerTlsConfig())
-        resolved = self._resolve(adapter, runtime)
+        resolved = WebAdapter.resolve_tls(self._slot("internal", {"ssl": {}}), runtime)
         assert resolved.enabled is False
         assert _tls_kwargs(resolved, "internal") == {}
 
     def test_no_ssl_anywhere_stays_plain_http(self):
-        runtime = RuntimeConfig()
-        resolved = self._resolve(WebAdapter(), runtime)
+        resolved = WebAdapter.resolve_tls(self._slot("default", {}), RuntimeConfig())
         assert resolved.enabled is False
         assert _tls_kwargs(resolved, "default") == {}
 
@@ -394,6 +407,6 @@ def test_runtime_config_parses_ssl_block(cert_pair):
             }
         }
     )
-    assert runtime.server.port == 8107
-    assert runtime.server.ssl.cert_reqs == "required"
+    assert WebServerConfig.from_runtime(runtime).port == 8107
+    assert WebServerConfig.from_runtime(runtime).ssl.cert_reqs == "required"
     assert runtime.get("server.ssl.certfile") == certfile

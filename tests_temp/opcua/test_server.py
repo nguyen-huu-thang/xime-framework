@@ -57,7 +57,8 @@ class RunningServer:
     async def __aenter__(self):
         from asyncua import Client
 
-        self._task = asyncio.create_task(self.adapter.start(self._app))
+        await self.adapter.start(self._app)
+        self._task = asyncio.create_task(self.adapter.serve())
         await asyncio.sleep(0.5)  # listener up + first refresh
         self.client = Client(self.endpoint, timeout=4)
         await self.client.connect()
@@ -217,7 +218,7 @@ class TestServerValidation:
             await adapter.start(AppStub(RuntimeStub(endpoint), Emulator()))
 
     async def test_an_unknown_security_mode_fails_at_startup(self):
-        # Typos in a security setting must never be shrugged off — the whole
+        # Typos in a security setting must never be shrugged off - the whole
         # point of the setting is that it is enforced.
         class Emulator:
             @serve_nodes(Boiler)
@@ -233,7 +234,7 @@ class TestServerValidation:
 
 @node_model(namespace="http://xime.test/typed")
 class Mixed:
-    """No default= anywhere — the annotation alone must fix each node's type."""
+    """No default= anywhere - the annotation alone must fix each node's type."""
 
     running: bool = Node("ns=2;s=Mixed.Running")
     label: str = Node("ns=2;s=Mixed.Label")
@@ -246,7 +247,7 @@ class TestNodeDataTypes:
 
     Before this was handled, every node without an explicit `default=` was
     created as a Double, so publishing a bool, a string or an int failed with
-    BadTypeMismatch — inside a caught-and-logged handler, which meant the node
+    BadTypeMismatch - inside a caught-and-logged handler, which meant the node
     simply kept its initial 0.0 forever with nothing visible to the caller.
     Every existing server test declared `default=0.0` on float nodes, which is
     why 1427 tests missed it.
@@ -282,7 +283,7 @@ class TestNodeDataTypes:
 
     async def test_one_rejected_node_does_not_block_the_others(self):
         # `count` is an int node; handing it a string is refused by the server.
-        # The nodes declared after it must still be published — with one try
+        # The nodes declared after it must still be published - with one try
         # around the whole loop, the first rejection froze every later node.
         class Emulator:
             @serve_nodes(Mixed)
@@ -302,7 +303,7 @@ class TestApplicationUri:
     the client's certificate and answers BadCertificateUriInvalid when they
     differ. asyncua defaults to its own placeholder and never reads the value
     out of the certificate, so without this setting no real certificate could
-    be used — the two secure modes were effectively unusable.
+    be used - the two secure modes were effectively unusable.
     """
 
     async def test_server_advertises_the_configured_uri(self):

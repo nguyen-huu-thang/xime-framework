@@ -1,4 +1,4 @@
-# Interface Binding bằng Protocol — Xime Framework
+# Interface Binding bằng Protocol - Xime Framework
 
 ## 1. Mục tiêu
 
@@ -38,7 +38,7 @@ class JpaUserRepository:
 
 Framework không thể biết chắc `JpaUserRepository` là implementation của `UserRepository` hay chỉ là một class tình cờ có cùng method.
 
-`Protocol` sử dụng **Structural Typing** — "nếu hình dạng giống nhau thì được xem là tương thích." Điều này rất hữu ích cho Type Checker nhưng **không phù hợp** để framework tự động xây dựng Dependency Graph.
+`Protocol` sử dụng **Structural Typing** - "nếu hình dạng giống nhau thì được xem là tương thích." Điều này rất hữu ích cho Type Checker nhưng **không phù hợp** để framework tự động xây dựng Dependency Graph.
 
 ---
 
@@ -66,7 +66,7 @@ class UserRepository(Protocol):
 
 ## 4. Khai báo Implementation
 
-Implementation là class bình thường — **không bắt buộc** kế thừa Protocol:
+Implementation là class bình thường - **không bắt buộc** kế thừa Protocol:
 
 ```python
 class JpaUserRepository:
@@ -179,7 +179,7 @@ Business Layer không cần thay đổi.
 
 > "Những quyết định kiến trúc quan trọng nên được thể hiện rõ trong code hoặc cấu hình, thay vì được ẩn phía sau cơ chế tự động của framework."
 
-Binding là quyết định kiến trúc quan trọng — Xime khai báo tường minh trong cấu hình, không để framework tự suy đoán.
+Binding là quyết định kiến trúc quan trọng - Xime khai báo tường minh trong cấu hình, không để framework tự suy đoán.
 
 Nguyên tắc này phù hợp với các giá trị cốt lõi của Xime:
 
@@ -271,9 +271,9 @@ ra thưa** (failover, kill-switch, maintenance, đổi nhà cung cấp). Khi vi�
 impl **phụ thuộc dữ liệu từng request** (theo quốc gia, tenant, user, input) và
 nhiều request cần khác nhau **cùng lúc** → đừng dùng switcher; viết một lớp
 **selector/router** nhận mọi impl qua DI và chọn theo dữ liệu. Chi tiết + ví dụ
-`PaymentRouter` + đối chiếu Spring: `docs/ke-hoach-0.6.md` mục 2.6.
+`PaymentRouter` + đối chiếu Spring: `docs/phien-ban/0.6-ke-hoach.md` mục 2.6.
 
 > Hiện thực: `core/container/switcher.py` (`Switcher`, `SwitcherError`),
 > `core/container/proxy.py` (`DynamicProxy`). Chuẩn hóa tuple trong
-> `XimeContainer._prepare_dynamic_binding()`. Ghi chú thực thi: `docs/ke-hoach-0.6.md`
+> `XimeContainer._prepare_dynamic_binding()`. Ghi chú thực thi: `docs/phien-ban/0.6-ke-hoach.md`
 > mục 2.7.

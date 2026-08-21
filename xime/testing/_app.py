@@ -47,7 +47,7 @@ class TestApplication:
     production, but allows specific dependencies to be replaced with pre-built
     test doubles (fakes, mocks, stubs) via the ``overrides`` parameter.
 
-    Override instances bypass DI scanning and binding resolution — the
+    Override instances bypass DI scanning and binding resolution - the
     framework registers them directly and wires them into any service that
     declares a matching type hint.
 

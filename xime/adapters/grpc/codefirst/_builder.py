@@ -52,21 +52,21 @@ def _unresolved_hint(cls: type) -> str:
 
     The common cause is a controller (or its request/response models) defined
     inside a function: with ``from __future__ import annotations`` every hint is
-    a string resolved later against the module globals only — the enclosing
+    a string resolved later against the module globals only - the enclosing
     function's locals are gone, so the name cannot be found. There is no way to
     recover that scope, so we tell the developer to lift it to module level.
     Nguyên nhân thường gặp: controller định nghĩa trong local scope của hàm.
     """
     if "<locals>" in getattr(cls, "__qualname__", ""):
         return (
-            f"controller '{cls.__qualname__}' is defined inside a function — "
+            f"controller '{cls.__qualname__}' is defined inside a function - "
             f"define it and its request/response models at module level; "
             f"annotations referencing a function's local scope cannot be "
             f"resolved at startup."
         )
     return (
         f"the annotation refers to a name not importable from module "
-        f"'{cls.__module__}' — define or import the referenced type at module level."
+        f"'{cls.__module__}' - define or import the referenced type at module level."
     )
 
 
@@ -137,7 +137,7 @@ class _MessageRegistry:
             for fname, finfo in model.model_fields.items():
                 # Pydantic v2 strips Annotated, moving extras to finfo.metadata.
                 # Re-wrap so map_type sees ProtoInt32 etc. again.
-                # Pydantic v2 tách Annotated, đẩy extras vào finfo.metadata — dựng lại.
+                # Pydantic v2 tách Annotated, đẩy extras vào finfo.metadata - dựng lại.
                 annotation = finfo.annotation
                 if finfo.metadata:
                     annotation = Annotated[(annotation, *finfo.metadata)]
@@ -329,7 +329,7 @@ class ContractBuilder:
         )
 
     # ------------------------------------------------------------------
-    # Signature resolution (no DI — works on the class)
+    # Signature resolution (no DI - works on the class)
     # ------------------------------------------------------------------
 
     def _iter_endpoints(self, cls: type) -> list[tuple[str, EndpointInfo]]:
@@ -355,12 +355,12 @@ class ContractBuilder:
     ) -> tuple[type[BaseModel], type | None, StreamKind, str]:
         # Handlers come in two shapes and the serving glue calls them
         # differently: a coroutine function is awaited once, an async generator
-        # is iterated (typed server stream). Anything else — a plain `def` —
+        # is iterated (typed server stream). Anything else - a plain `def` -
         # would start fine but crash at the first RPC with "object NoneType
         # can't be used in 'await' expression". Fail fast.
         # Handler có hai dạng, glue gọi khác nhau: coroutine thì `await` một
-        # lần, async generator thì lặp (stream có kiểu). Dạng khác — `def`
-        # thường — qua được startup nhưng crash ở RPC đầu tiên.
+        # lần, async generator thì lặp (stream có kiểu). Dạng khác - `def`
+        # thường - qua được startup nhưng crash ở RPC đầu tiên.
         is_async_gen = inspect.isasyncgenfunction(func)
         if not inspect.iscoroutinefunction(func) and not is_async_gen:
             raise StartupException(
@@ -415,7 +415,7 @@ class ContractBuilder:
                     self._err(
                         cls, attr_name,
                         "@command must return one response, so it cannot be an async "
-                        "generator — use @stream for a typed server stream",
+                        "generator - use @stream for a typed server stream",
                     )
                 )
             self._require_response(cls, attr_name, return_type)
@@ -438,7 +438,7 @@ class ContractBuilder:
         if is_async_gen:
             # Typed server stream: the yielded model comes from the return
             # annotation, the only place it is written down.
-            # Stream có kiểu: model lấy từ annotation return — chỗ duy nhất khai.
+            # Stream có kiểu: model lấy từ annotation return - chỗ duy nhất khai.
             yielded = self._yielded_model(cls, attr_name, return_type)
             return request_type, yielded, StreamKind.SERVER_STREAM_TYPED, ""
         raise StartupException(

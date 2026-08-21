@@ -129,7 +129,7 @@ class _JwtRegistry:
         self._verifier = None
 
 
-# Module-level singleton — read by WebAdapter.build() to add JwtAuthMiddleware.
+# Module-level singleton - read by WebAdapter.build() to add JwtAuthMiddleware.
 jwt_registry = _JwtRegistry()
 
 
@@ -145,7 +145,7 @@ def configure_jwt(
     WebAdapter.build_app() reads this registry and adds JwtAuthMiddleware automatically.
 
     This follows the same explicit-call pattern as configure_openapi():
-    the developer opts in by calling this function — no auto-scan magic.
+    the developer opts in by calling this function - no auto-scan magic.
 
     Args:
         config: Everything the middleware validates - claims, paths, tolerances.

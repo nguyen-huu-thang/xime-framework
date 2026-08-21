@@ -9,7 +9,7 @@ from typing import Protocol, runtime_checkable
 class StorageStat:
     """Metadata about a stored object, returned by StorageService.stat().
 
-    Fields that a backend cannot determine are left as None — callers must treat
+    Fields that a backend cannot determine are left as None - callers must treat
     them as optional. `size` is in bytes; `etag` is whatever the backend uses to
     identify a version (S3 ETag, file mtime+size hash, ...), opaque to callers.
     Metadata của object. Backend không xác định được trường nào thì để None.
@@ -37,7 +37,7 @@ class StorageService(Protocol):
 
     The framework only provides the mechanism: objects are raw bytes (or raw
     byte streams). It imposes no policy on naming, authorization, content type
-    sniffing or encoding — that is the application's job. This keeps the contract
+    sniffing or encoding - that is the application's job. This keeps the contract
     small and every backend interchangeable.
     Framework chỉ cấp cơ chế: object là bytes thô (hoặc stream bytes thô). Không
     áp đặt chính sách đặt tên/authorization/định dạng - đó là việc của app.
@@ -69,7 +69,7 @@ class StorageService(Protocol):
     async def get(self, key: str) -> bytes | None:
         """Return the whole object as bytes, or None if the key is absent.
 
-        Loads the entire object into memory — use open_stream for large objects.
+        Loads the entire object into memory - use open_stream for large objects.
         """
         ...
 
@@ -101,7 +101,7 @@ class StorageService(Protocol):
         silently yielding nothing.
         Trả iterator các chunk bytes; offset/length chọn dải byte cho HTTP Range.
 
-        Note: this is NOT `async def` — it returns an async iterator directly so
+        Note: this is NOT `async def` - it returns an async iterator directly so
         callers write `async for chunk in storage.open_stream(key): ...`.
         """
         ...

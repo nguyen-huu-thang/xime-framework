@@ -7,8 +7,10 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from xime.core.bootstrap._slot import AdapterSlot
+from xime.core.bootstrap.adapter import SCALING_REPLICATED, Adapter
 from xime.core.context import request_context
-from xime.core.exception.framework import EndpointNotFound
+from xime.core.exception.framework import EndpointNotFound, StartupException
 from xime.core.security import clear_security
 
 from ._config import SocketServerConfig, socket_registry
@@ -33,8 +35,8 @@ logger = logging.getLogger("xime.socket")
 _REAP_INTERVAL = 5.0
 
 
-class SocketAdapter:
-    """Unix Domain Socket adapter — Local IPC for native engines.
+class SocketAdapter(Adapter, scaling=SCALING_REPLICATED):
+    """Unix Domain Socket adapter - Local IPC for native engines.
 
     Register via app.use() and start via app.run():
 
@@ -55,19 +57,34 @@ class SocketAdapter:
     Không cần TLS/token vì đây là IPC cùng máy giữa các process tin cậy.
 
     Lifecycle (driven by Application._run_async):
-        1. Application.start()      — DI container fully built
-        2. SocketAdapter.start(app) — build endpoint table, bind socket, serve
-        3. SocketAdapter.stop()     — close server, remove socket file
+        1. Application.start() - DI container fully built
+        2. SocketAdapter.start(app) - build endpoint table, bind socket, serve
+        3. SocketAdapter.stop() - close server, remove socket file
     """
 
-    def __init__(self, server_id: str = "default", path: str | None = None) -> None:
-        self._server_id = server_id
-        self._path_override = path
+    # Khoá tầng hai trong khối `processes:` (`processes.<p>.socket.<id>`).
+    adapter_kind = "socket"
+
+    # Một listening socket `AF_UNIX` được nhiều tiến trình cùng `accept()` y hệt
+    # TCP, nên cha bind rồi truyền xuống được. Mặc định của khối `processes:` là
+    # **tách path** (mỗi tiến trình một đường dẫn, client chọn được tiến trình
+    # nào); khai `shared: true` thì chung một path.
+    share_port_by = "inherit"
+
+    def __init__(self, server_id: str = "default") -> None:
+        """⛔ **Không còn nhận `path`** - xem `WebAdapter.__init__`.
+
+        Đường dẫn đến từ ô cấu hình; không khai thì vẫn suy
+        `<socket.dir>/<id>.sock` như cũ.
+        """
+        self.adapter_id = server_id
+        self._slot: AdapterSlot | None = None
         self._server: asyncio.AbstractServer | None = None
         self._reaper: asyncio.Task | None = None
         self._config: SocketServerConfig | None = None
         self._table: dict[str, ResolvedEndpoint] = {}
         self._actual_path: str | None = None
+        self._owns_socket_file = True
         # Live session managers (one per connection) for the reaper to scan.
         # Các session manager đang sống (mỗi connection một cái) cho reaper quét.
         self._managers: set[SessionManager] = set()
@@ -79,6 +96,24 @@ class SocketAdapter:
     # ------------------------------------------------------------------
     # Adapter protocol
     # ------------------------------------------------------------------
+
+    def assign_slot(self, slot: AdapterSlot) -> None:
+        """Nhận ô `processes.<tiến trình>.socket.<id>` do framework đẩy vào.
+
+        ⛔ Truyền `path` trong code là lỗi khởi động - cùng lý do với `port` của
+        web và gRPC: ở nhánh `share_load()` thì đường dẫn thuộc về **cặp** `(tiến
+        trình, adapter)`, không thuộc riêng adapter.
+        """
+        if self._path_override is not None:
+            raise StartupException(
+                f"\nSocket Path Passed In Code Under share_load\n"
+                f"  Adapter: SocketAdapter({self.adapter_id!r})\n"
+                f"  Config : processes.{slot.process_id}.socket.{self.adapter_id}\n"
+                f"  Detail : with share_load() the path belongs to the pair "
+                f"(process, adapter), so it comes from the processes block. "
+                f"Drop path from SocketAdapter(...)."
+            )
+        self._slot = slot
 
     async def start(self, app: Application) -> None:
         """Build the endpoint table, bind the socket, and serve until stopped."""
@@ -92,28 +127,39 @@ class SocketAdapter:
         from xime.core.config.runtime import RuntimeConfig
         runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
 
+        slot = self._slot
         self._config = SocketServerConfig.resolve(
-            runtime, self._server_id, self._path_override
+            runtime,
+            self.adapter_id,
+            slot.spec.path if slot is not None else None,
         )
         self._actual_path = self._config.path
+        # Cha đã bind và sẽ tự dọn file. Con **không được** xoá nó lúc tắt: với
+        # đường dẫn dùng chung thì xoá là cướp chỗ của anh em còn sống, im lặng.
+        self._owns_socket_file = slot is None or slot.sock is None
 
         # 1) Create the directory holding the socket (idempotent).
         Path(self._actual_path).parent.mkdir(parents=True, exist_ok=True)
 
         # 2) Remove a stale socket left by a previous crash before binding.
-        if os.path.exists(self._actual_path):
+        if self._owns_socket_file and os.path.exists(self._actual_path):
             os.remove(self._actual_path)
 
         # 3) Build the endpoint dispatch table (DI is ready).
         from xime.core.contract import ControllerScanner
         scanner = ControllerScanner()
         controllers = scanner.find_controllers(*socket_registry.get_packages())
-        self._table = SocketEndpointBuilder(app, self._server_id).build(controllers)
+        self._table = SocketEndpointBuilder(app, self.adapter_id).build(controllers)
 
         # 4) Bind the Unix server, tighten file permissions, run the reaper.
-        self._server = await asyncio.start_unix_server(
-            self._handle_connection, path=self._actual_path
-        )
+        if slot is not None and slot.sock is not None:
+            self._server = await asyncio.start_unix_server(
+                self._handle_connection, sock=slot.sock
+            )
+        else:
+            self._server = await asyncio.start_unix_server(
+                self._handle_connection, path=self._actual_path
+            )
         secure_socket_file(
             self._actual_path,
             self._config.permission,
@@ -122,6 +168,10 @@ class SocketAdapter:
         )
         self._reaper = asyncio.create_task(self._reap_loop())
 
+    async def serve(self) -> None:
+        """Chặn tới khi bị dừng. Socket đã bind xong ở `start()`."""
+        if self._server is None:
+            return
         async with self._server:
             await self._server.serve_forever()
 
@@ -135,8 +185,8 @@ class SocketAdapter:
             try:
                 await self._server.wait_closed()
             except Exception:
-                # Shutdown must stay best-effort — a failure here must not stop
-                # the rest of the teardown — but swallowing it without a trace
+                # Shutdown must stay best-effort - a failure here must not stop
+                # the rest of the teardown - but swallowing it without a trace
                 # makes a stuck close() indistinguishable from a clean one.
                 # Tắt máy vẫn phải best-effort, nhưng nuốt im lặng thì close()
                 # treo trông y hệt close() sạch.
@@ -145,7 +195,11 @@ class SocketAdapter:
         for task in list(self._command_tasks):
             task.cancel()
         self._command_tasks.clear()
-        if self._actual_path and os.path.exists(self._actual_path):
+        if (
+            self._owns_socket_file
+            and self._actual_path
+            and os.path.exists(self._actual_path)
+        ):
             try:
                 os.remove(self._actual_path)
             except OSError:
@@ -191,9 +245,9 @@ class SocketAdapter:
         mt = frame.msg_type
 
         if mt == MessageType.COMMAND_REQUEST:
-            # Commands are independent — run in their own task. Keep a strong
+            # Commands are independent - run in their own task. Keep a strong
             # reference until done so the loop does not collect it mid-flight.
-            # Command độc lập — chạy task riêng; giữ reference tới khi xong.
+            # Command độc lập - chạy task riêng; giữ reference tới khi xong.
             task = asyncio.create_task(self._run_command(frame, conn))
             self._command_tasks.add(task)
             task.add_done_callback(self._command_tasks.discard)
@@ -259,8 +313,8 @@ class SocketAdapter:
                 self._run_download(endpoint, data, download, frame.session_id, conn, sessions)
             )
         else:
-            # A command was invoked via STREAM_START — protocol misuse.
-            # Command bị gọi qua STREAM_START — dùng sai protocol.
+            # A command was invoked via STREAM_START - protocol misuse.
+            # Command bị gọi qua STREAM_START - dùng sai protocol.
             sessions.destroy(frame.session_id)
             await self._send_error(
                 conn, frame.session_id, "INVALID_ARGUMENT",
@@ -357,14 +411,14 @@ class SocketAdapter:
             payload = msgpack.packb({"code": code, "message": message})
             await conn.send(MessageType.ERROR, session_id, payload)
         except (ConnectionResetError, BrokenPipeError):
-            pass  # peer already gone — nothing to report to
+            pass  # peer already gone - nothing to report to
 
     def _map_error(self, exc: Exception) -> tuple[str, str]:
         """Resolve an exception to (code, message) using the configured mappings.
 
         Mapped (business) exceptions expose their own message intentionally.
         Unmapped exceptions fall back to a generic message so internal details
-        (str(exc)) never leak to the client — mirroring the gRPC
+        (str(exc)) never leak to the client - mirroring the gRPC
         ErrorMappingInterceptor.
         Lỗi đã map phơi message có chủ đích; lỗi chưa map trả message chung để
         không lộ chi tiết nội bộ, giống ErrorMappingInterceptor của gRPC.

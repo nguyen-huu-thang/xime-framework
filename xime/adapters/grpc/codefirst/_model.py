@@ -35,7 +35,7 @@ class FieldContract:
 
     name: str
     proto_type: str        # "string", "int64", "repeated string", "MessageX", ...
-    number: int            # field number — kept stable across regen via the lock
+    number: int            # field number - kept stable across regen via the lock
     optional: bool = False  # proto3 explicit presence (optional keyword)
     oneof: str | None = None  # fields sharing a name are emitted inside oneof <name>{}
 
@@ -82,8 +82,8 @@ class MethodContract:
     stream_param: str = ""        # name of the Upload/DownloadStream parameter
     request_py: Any = None        # Pydantic request type (the metadata for streams)
     response_py: Any = None       # Pydantic response type (None for byte download)
-    # contract metadata (sidecar) — original endpoint name, e.g. "hash"
-    # metadata contract (sidecar) — tên endpoint gốc, vd "hash"
+    # contract metadata (sidecar) - original endpoint name, e.g. "hash"
+    # metadata contract (sidecar) - tên endpoint gốc, vd "hash"
     endpoint_name: str = ""
 
 
@@ -103,7 +103,7 @@ class ContractModel:
     """The full intermediate representation for one server_id.
 
     Single source consumed by every emitter (proto text, Python serving glue,
-    and — later — client SDKs / docs).
+    and - later - client SDKs / docs).
     Nguồn duy nhất cho mọi emitter (text proto, glue serving, sau này SDK/docs).
     """
 
@@ -115,6 +115,6 @@ class ContractModel:
     # tên message/enum → tập file proto tham chiếu (phát hiện shared)
     references: dict[str, set[str]] = field(default_factory=dict)
     # "Message.field" → fidelity hint where proto flattens the Python type
-    # ("decimal" / "uuid" / "date") — consumed by the contract.json sidecar.
+    # ("decimal" / "uuid" / "date") - consumed by the contract.json sidecar.
     # "Message.field" → hint giữ fidelity khi proto làm phẳng kiểu Python.
     field_hints: dict[str, str] = field(default_factory=dict)

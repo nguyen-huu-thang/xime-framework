@@ -2,7 +2,7 @@
 
 The same idea as the Modbus device model, but the problem it solves is smaller:
 OPC UA already carries type information, so there is nothing to decode. What a
-model buys here is a NAME for every NodeId — turning
+model buys here is a NAME for every NodeId - turning
 
     await client.read_values([client.get_node("ns=2;s=Tank.Level")])
 

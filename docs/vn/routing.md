@@ -2,7 +2,7 @@
 
 [English](../en/routing.md) | **Tiếng Việt**
 
-[← Cấu hình](configuration.md) · **4/9 — Routing** · [Transaction →](transaction.md)
+[← Cấu hình](configuration.md) · **4/9 - Routing** · [Transaction →](transaction.md)
 
 ---
 
@@ -204,7 +204,7 @@ class OrderController:
 Route được đăng ký theo **thứ tự khai báo** trong class (Python 3.7+ dict insertion order). Điều này quan trọng với FastAPI khi path trùng nhau:
 
 ```python
-@get("/me")          # đăng ký trước — matched trước /{user_id}
+@get("/me")          # đăng ký trước - matched trước /{user_id}
 async def get_me(self) -> UserResponse: ...
 
 @get("/{user_id}")   # đăng ký sau
@@ -220,7 +220,7 @@ dùng JWT starter). Để thêm middleware riêng hoặc map exception sang resp
 khai báo trong config layer theo đúng pattern `configure_*` - không subclass
 `WebAdapter`.
 
-**Middleware tùy chỉnh** — `configure_middleware(cls, **options)`:
+**Middleware tùy chỉnh** - `configure_middleware(cls, **options)`:
 
 ```python
 # config/web.py
@@ -234,7 +234,7 @@ Middleware của bạn nằm giữa `RequestContextMiddleware` (ngoài cùng) v�
 `JwtAuthMiddleware` (trong cùng), nên ví dụ CORS preflight được xử lý trước
 auth. Trong nhóm middleware của bạn, cái khai báo trước chạy trước.
 
-**Middleware cần service DI / runtime config** (từ 0.6.1) — `configure_middleware`
+**Middleware cần service DI / runtime config** (từ 0.6.1) - `configure_middleware`
 chỉ nhận option **tĩnh**. Khi middleware tự viết cần một singleton từ DI container
 hoặc một giá trị từ runtime config (chỉ biết sau khi container dựng xong), dùng
 marker `Inject` / `FromConfig` làm giá trị option thay vì subclass `WebAdapter`.
@@ -259,7 +259,7 @@ configure_middleware(
 - `FromConfig("a.b", default)` đọc `RuntimeConfig` theo dot-notation, thiếu thì về `default`.
 - Giá trị không phải marker giữ nguyên (tương thích ngược hoàn toàn).
 
-**CORS** (từ 0.6.1) — `configure_cors(...)` là helper hạng nhất. Tham số nào để
+**CORS** (từ 0.6.1) - `configure_cors(...)` là helper hạng nhất. Tham số nào để
 trống sẽ được đọc từ `application.yml` ở khóa `cors.<tên>`, thiếu thì về mặc định
 Starlette - Operator chỉnh CORS qua YAML mà không đụng code. Khai báo nó trước các
 middleware khác để nó luôn ở lớp ngoài cùng.
@@ -272,7 +272,7 @@ configure_cors(allow_origins=["http://localhost:3000"], allow_credentials=True)
 # hoặc configure_cors()  → đọc toàn bộ từ khối cors.* trong application.yml
 ```
 
-**Exception handler toàn cục** — `configure_exception_handlers({Exc: handler})`:
+**Exception handler toàn cục** - `configure_exception_handlers({Exc: handler})`:
 
 ```python
 # config/web.py
@@ -297,10 +297,10 @@ Cả hai hàm tách theo `server_id` (tham số thứ hai), khớp với multi-s
 
 ## Hạn chế đã biết
 
-- **Khai báo hai package** — phải liệt kê trong cả `dependency.scan()` và `configure_controllers()`
-- **`__all__` không được controller scanner tôn trọng** — tất cả controller class trong package đều được tìm bất kể `__all__`
-- **gRPC routing** — chưa trong scope của class-based controller (WebSocket đã có từ 0.7.2, xem [WebSocket](websocket.md))
+- **Khai báo hai package** - phải liệt kê trong cả `dependency.scan()` và `configure_controllers()`
+- **`__all__` không được controller scanner tôn trọng** - tất cả controller class trong package đều được tìm bất kể `__all__`
+- **gRPC routing** - chưa trong scope của class-based controller (WebSocket đã có từ 0.7.2, xem [WebSocket](websocket.md))
 
 ---
 
-[← Cấu hình](configuration.md) · **4/9 — Routing** · [Transaction →](transaction.md)
+[← Cấu hình](configuration.md) · **4/9 - Routing** · [Transaction →](transaction.md)

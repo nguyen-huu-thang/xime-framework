@@ -4,7 +4,7 @@ Test marker Inject/FromConfig cho option middleware + configure_cors().
 Khoảng trống trước đây (shop/dental phải subclass WebAdapter): middleware cần
 service từ DI container hoặc giá trị từ runtime config thì không khai báo được
 qua configure_middleware (chỉ nhận option tĩnh). Marker Inject/FromConfig lấp
-khoảng trống đó — phân giải lúc build_app.
+khoảng trống đó - phân giải lúc build_app.
 """
 import pytest
 

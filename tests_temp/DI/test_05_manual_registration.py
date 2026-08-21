@@ -1,7 +1,7 @@
 """
 Test đăng ký DI thủ công:
-  - register()  — đăng ký class cụ thể, framework tự inject
-  - configure() — config class với factory method (Option B)
+  - register() - đăng ký class cụ thể, framework tự inject
+  - configure() - config class với factory method (Option B)
 """
 from typing import Protocol
 
@@ -12,7 +12,7 @@ from xime.core.container.config_loader import ConfigClassError, ConfigClassLoade
 
 
 # ===========================================================================
-# Sample classes — domain layer (bình thường bị loại trừ khỏi auto-scan)
+# Sample classes - domain layer (bình thường bị loại trừ khỏi auto-scan)
 # ===========================================================================
 
 class IdFactory:
@@ -40,7 +40,7 @@ class AuthService:
 
 
 # ===========================================================================
-# Sample classes — configure() use cases
+# Sample classes - configure() use cases
 # ===========================================================================
 
 class AppConfig:
@@ -81,7 +81,7 @@ class FullConfig:
 
 
 # ===========================================================================
-# Tests — register()
+# Tests - register()
 # ===========================================================================
 
 class TestRegister:
@@ -92,7 +92,7 @@ class TestRegister:
         assert isinstance(c.get(IdFactory), IdFactory)
 
     def test_singleton_behavior(self):
-        """register() tạo singleton — hai lần get() cùng instance."""
+        """register() tạo singleton - hai lần get() cùng instance."""
         c = XimeContainer().register(IdFactory).build()
         assert c.get(IdFactory) is c.get(IdFactory)
 
@@ -130,7 +130,7 @@ class TestRegister:
             def __init__(self, helper):  # không có type hint
                 self.helper = helper
 
-        # Không raise lúc build — class được đăng ký với dep rỗng
+        # Không raise lúc build - class được đăng ký với dep rỗng
         c = XimeContainer().register(ServiceWithoutHint).build()
         # Nhưng get() sẽ fail vì helper không được inject → TypeError
         with pytest.raises(TypeError):
@@ -164,7 +164,7 @@ class TestRegister:
 
 
 # ===========================================================================
-# Tests — configure()
+# Tests - configure()
 # ===========================================================================
 
 class TestConfigure:
@@ -175,7 +175,7 @@ class TestConfigure:
         assert isinstance(c.get(Cipher), Cipher)
 
     def test_factory_singleton(self):
-        """configure() tạo singleton — hai lần get() cùng instance."""
+        """configure() tạo singleton - hai lần get() cùng instance."""
         c = XimeContainer().configure(SimpleConfig).build()
         assert c.get(Cipher) is c.get(Cipher)
 
@@ -286,7 +286,7 @@ class TestConfigure:
 
 
 # ===========================================================================
-# Tests — ConfigClassLoader trực tiếp (unit tests)
+# Tests - ConfigClassLoader trực tiếp (unit tests)
 # ===========================================================================
 
 class TestConfigClassLoader:

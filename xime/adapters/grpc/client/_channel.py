@@ -64,10 +64,10 @@ class XimeGrpcChannel:
         self._client_id = client_id
         self._config = config
         self._channel: grpc.aio.Channel | None = None
-        # Dynamic mTLS (tls.dynamic) — wired by the orchestrator after the DI
+        # Dynamic mTLS (tls.dynamic) - wired by the orchestrator after the DI
         # container is built; certificate version the current channel was
         # created with; channels replaced on rotation, awaiting graceful close.
-        # mTLS động — orchestrator gắn provider sau khi build container;
+        # mTLS động - orchestrator gắn provider sau khi build container;
         # version cert của channel hiện tại; các channel bị thay chờ đóng.
         self._provider: GrpcCertificateProvider | None = None
         self._cert_version: str | None = None
@@ -79,7 +79,7 @@ class XimeGrpcChannel:
         # Serializes the dynamic check-and-replace below. A threading.Lock (not
         # asyncio.Lock) because _dynamic_channel() is synchronous: under asyncio
         # it is already atomic (no await inside), so this only matters if the
-        # channel is touched from multiple OS threads — exactly the case the
+        # channel is touched from multiple OS threads - exactly the case the
         # plain check-and-replace would leak a channel on.
         # threading.Lock (không asyncio.Lock) vì _dynamic_channel() đồng bộ: dưới
         # asyncio vốn đã atomic, lock chỉ cần khi channel bị chạm từ nhiều thread.
@@ -239,7 +239,7 @@ class XimeGrpcChannel:
         try:
             task = asyncio.get_running_loop().create_task(close_later())
         except RuntimeError:
-            return  # no loop — close() sẽ đóng nốt lúc shutdown
+            return  # no loop - close() sẽ đóng nốt lúc shutdown
         # Hold a strong reference until the task finishes (asyncio keeps only a
         # weak ref, so without this the close could be GC'd before completing).
         # Giữ strong-ref tới khi task xong (asyncio chỉ giữ weak-ref).
@@ -264,7 +264,7 @@ class XimeGrpcChannel:
     ) -> Any:
         """Issue a unary call, retrying on configured statuses with backoff.
 
-        Only unary calls go through here — streaming requests/responses cannot
+        Only unary calls go through here - streaming requests/responses cannot
         be replayed. When retry is disabled this is a single attempt, identical
         to the previous behavior.
         Chỉ call unary; stream không replay được. Retry tắt → đúng một lần thử.

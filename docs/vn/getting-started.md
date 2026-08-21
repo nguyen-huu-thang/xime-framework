@@ -2,7 +2,7 @@
 
 [English](../en/getting-started.md) | **Tiếng Việt**
 
-**1/9 — Bắt đầu nhanh** · [Khái niệm cốt lõi →](core-concepts.md)
+**1/9 - Bắt đầu nhanh** · [Khái niệm cốt lõi →](core-concepts.md)
 
 ---
 
@@ -87,7 +87,7 @@ my-service/
 
 ---
 
-## Bước 1 — Định nghĩa Domain
+## Bước 1 - Định nghĩa Domain
 
 ```python
 # app/domain/user.py
@@ -102,7 +102,7 @@ class User:
 
 ---
 
-## Bước 2 — Định nghĩa Interface (Protocol)
+## Bước 2 - Định nghĩa Interface (Protocol)
 
 ```python
 # app/application/port/outbound/user_repository.py
@@ -115,7 +115,7 @@ class UserRepository(Protocol):
 
 ---
 
-## Bước 3 — Viết Use Case
+## Bước 3 - Viết Use Case
 
 ```python
 # app/application/usecase/get_user_use_case.py
@@ -137,7 +137,7 @@ Không annotation. Không `@service`. XIME tự phát hiện class này từ pac
 
 ---
 
-## Bước 4 — Viết Implementation
+## Bước 4 - Viết Implementation
 
 ```python
 # app/infrastructure/persistence/repository/jpa_user_repository.py
@@ -152,7 +152,7 @@ class JpaUserRepository:
 
 ---
 
-## Bước 5 — Viết Controller
+## Bước 5 - Viết Controller
 
 ```python
 # app/api/rest/user_controller.py
@@ -180,7 +180,7 @@ class UserController:
 
 ---
 
-## Bước 6 — Cấu hình DI
+## Bước 6 - Cấu hình DI
 
 ```python
 # app/config/dependency.py
@@ -203,7 +203,7 @@ dependency.bind({
 
 ---
 
-## Bước 7 — Cấu hình Routing
+## Bước 7 - Cấu hình Routing
 
 ```python
 # app/config/routing.py
@@ -214,7 +214,7 @@ configure_controllers("api.rest")
 
 ---
 
-## Bước 8 — Runtime Configuration
+## Bước 8 - Runtime Configuration
 
 ```yaml
 # app/resources/application.yml
@@ -222,7 +222,7 @@ server:
   host: 0.0.0.0
   port: 8080
 
-# Tùy chọn — XIME mặc định cấu hình logging mức INFO; chỉnh hoặc tắt ở đây.
+# Tùy chọn - XIME mặc định cấu hình logging mức INFO; chỉnh hoặc tắt ở đây.
 logging:
   level: INFO
 ```
@@ -232,7 +232,7 @@ Logging được cấu hình tự động lúc khởi động nên app in log `I
 
 ---
 
-## Bước 9 — Entry Point
+## Bước 9 - Entry Point
 
 ```python
 # app/main.py
@@ -256,7 +256,7 @@ app = Application(config_module="app.config.dependency")
 
 ---
 
-## Bước 10 — Chạy ứng dụng
+## Bước 10 - Chạy ứng dụng
 
 ```bash
 python -m app.main
@@ -305,7 +305,7 @@ Thiếu type hint:
 Missing Type Hint
   Class: GetUserUseCase
   Parameter: repository
-  Hint: add a type annotation — def __init__(self, repository: UserRepository)
+  Hint: add a type annotation - def __init__(self, repository: UserRepository)
 ```
 
 ---
@@ -316,4 +316,4 @@ Nhấn link bên dưới để đọc trang tiếp theo.
 
 ---
 
-**1/9 — Bắt đầu nhanh** · [Khái niệm cốt lõi →](core-concepts.md)
+**1/9 - Bắt đầu nhanh** · [Khái niệm cốt lõi →](core-concepts.md)

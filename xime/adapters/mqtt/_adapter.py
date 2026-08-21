@@ -4,6 +4,8 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
+from xime.core.bootstrap.adapter import SCALING_SHARDED, Adapter
+
 from ._config import MqttConfig, mqtt_registry
 from ._decorators import MqttKind
 from ._dispatcher import MqttDispatcher
@@ -16,8 +18,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger("xime.mqtt")
 
 
-class MqttAdapter:
-    """MQTT adapter — message-driven (pub/sub) transport for IoT / embedded peers.
+class MqttAdapter(
+    Adapter,
+    scaling=SCALING_SHARDED,
+    unique_per_process=("client_id",),
+    disjoint_per_process=("topics",),
+):
+    """MQTT adapter - message-driven (pub/sub) transport for IoT / embedded peers.
 
     Register via app.use() and start via app.run():
 
@@ -32,9 +39,9 @@ class MqttAdapter:
     Khác web/grpc/socket (request/response), MQTT là pub/sub.
 
     Lifecycle (driven by Application._run_async):
-        1. Application.start()    — DI container fully built
-        2. MqttAdapter.start(app) — connect, subscribe, dispatch until stopped
-        3. MqttAdapter.stop()     — cancel handlers, disconnect cleanly
+        1. Application.start() - DI container fully built
+        2. MqttAdapter.start(app) - connect, subscribe, dispatch until stopped
+        3. MqttAdapter.stop() - cancel handlers, disconnect cleanly
 
     Resilience: on connection loss the adapter reconnects and re-subscribes all
     topics. Message handlers run in bounded-concurrency tasks (max_concurrency),
@@ -51,17 +58,39 @@ class MqttAdapter:
     Publisher bám vào connection của client_id mặc định.
     """
 
-    def __init__(self, client_id: str = "default", path: str | None = None) -> None:
-        self._client_id = client_id
+    # Khoá tầng hai trong khối `processes:` (`processes.<p>.mqtt.<id>`).
+    adapter_kind = "mqtt"
+
+    def assign_slot(self, slot: object) -> None:
+        """Nhận ô cấu hình, và **hiện chưa dùng tới nó**.
+
+        Adapter hạng phân mảnh đọc khối YAML của riêng mình như cũ; việc chia
+        tập thiết bị / tập topic theo tiến trình thi công ở **0.8.1**.
+
+        ⚠ Không ném ở đây. Từ 0.8 **mọi** adapter luôn nhận một ô, kể cả ở nhánh
+        một tiến trình - nơi adapter này chạy hoàn toàn bình thường. Thứ phải
+        chặn là *chia tải*, không phải *nhận cấu hình*, nên phép chặn nằm ở
+        framework (`_reject_sharded_under_share_load`).
+        """
+        self._slot = slot
+
+    def __init__(self, target_id: str = "default", path: str | None = None) -> None:
+        # ⚠ `target_id`, không phải `client_id`. Chữ `client_id` đã mang HAI
+        # nghĩa NGƯỢC NHAU trong cùng framework: ở gRPC client SDK
+        # (`grpc.clients.<client_id>`) nó là tên **service đích**, ở đây nó là
+        # định danh **phiên của chính ta** trên broker. Một cái là tên người
+        # kia, một cái là tên của mình.
+        self._target_id = target_id
         # Identity used by Application.use() to reject a duplicate registration.
         # MQTT makes this worse than a wasted connection: a broker only allows
         # one session per client id and kicks the older one off, so two adapters
         # on the same id fight each other in a reconnect loop.
         # MQTT chỉ cho MỘT phiên trên mỗi client id và đá phiên cũ ra, nên hai
         # adapter cùng id sẽ đánh nhau trong vòng lặp reconnect.
-        self._server_id = client_id
+        self.adapter_id = target_id
+        self._slot: object | None = None
         self._config: MqttConfig | None = None
-        self._connection = mqtt_registry.connection(client_id)
+        self._connection = mqtt_registry.connection(target_id)
         # Claim the client_id at construction (app.use time), well before any
         # publish, so MqttPublisher bound to this id won't fail fast or hang.
         # Nhận client_id ngay lúc app.use, trước mọi publish.
@@ -88,7 +117,7 @@ class MqttAdapter:
 
         from xime.core.config.runtime import RuntimeConfig
         runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
-        self._config = MqttConfig.resolve(runtime, self._client_id)
+        self._config = MqttConfig.resolve(runtime, self._target_id)
         self._sem = asyncio.Semaphore(self._config.max_concurrency)
 
         # Build the dispatch table from scanned controllers (DI is ready).
@@ -117,6 +146,14 @@ class MqttAdapter:
 
         self._warn_insecure_mode()
         self._warn_unrestricted_rpc_replies(routes)
+
+    async def serve(self) -> None:
+        """Vòng kết nối lại chạy suốt vòng đời.
+
+        ⚠ Kết nối tới broker nằm ở đây chứ không ở `start()`: adapter này
+        vốn thiết kế để **chịu được broker chưa lên**, nên *"chưa nối được"*
+        không phải lỗi khởi động.
+        """
         await self._run_forever()
 
     def _warn_insecure_mode(self) -> None:

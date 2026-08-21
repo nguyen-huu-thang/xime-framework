@@ -20,7 +20,7 @@ class EntityNotFoundError(XimeException):
     """
     Raised by CrudRepository.find_or_fail when no row matches the given id.
 
-    A runtime data error specific to the SQLAlchemy starter — not a startup or
+    A runtime data error specific to the SQLAlchemy starter - not a startup or
     DI error, so it lives here rather than in core/exception.
     Lỗi dữ liệu lúc chạy của riêng starter SQLAlchemy, không phải lỗi startup/DI.
     """
@@ -54,7 +54,7 @@ class CrudRepository(Generic[T], ABC):
       Declaring it abstract makes CrudRepository itself abstract
       (inspect.isabstract → True), so the DI PackageScanner skips the base
       class. A subclass that sets `model = SomeEntity` (a plain class attribute)
-      overrides the abstract name, becomes concrete, and IS registered — with no
+      overrides the abstract name, becomes concrete, and IS registered - with no
       extra boilerplate beyond the `model` line it already needs.
       Khai báo `model` abstract khiến chính CrudRepository là abstract -> scanner
       bỏ qua lớp nền; subclass set `model = Entity` thành class concrete và được

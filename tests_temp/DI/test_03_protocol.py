@@ -1,5 +1,5 @@
 """
-Test Protocol binding — dùng lower-level API (không cần scan thật):
+Test Protocol binding - dùng lower-level API (không cần scan thật):
   - Protocol → Implementation được resolve đúng
   - Instance trả về là implementation cụ thể
   - Singleton hoạt động qua Protocol binding

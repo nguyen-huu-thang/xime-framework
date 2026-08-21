@@ -8,6 +8,24 @@ class CacheService(Protocol):
     """
     Backend-neutral contract for a key/value cache.
 
+    ⭐ Từ 0.8 có ba chỗ để đặt trạng thái dùng chung, và chúng **không thay thế
+    nhau**. Ranh giới gọn nhất:
+
+    > **Mọi thứ framework tự cấp - `RefData`, `Store`, `ProcessLink` - là MỘT
+    > MÁY, luôn luôn. Cần nhiều máy cùng thấy thì đó là lựa chọn của ứng dụng,
+    > và nó đi qua `CacheService`.**
+
+    ⚠ Đừng đọc `Store` (LMDB) như bản thay thế của cái này. `Store` đóng đúng
+    **một tầng** của một lỗ hổng: hãm nhịp giữ trong RAM tiến trình thì hạn mức
+    bị nhân theo **số tiến trình**, và `Store` đưa nó về một bảng chung **trên
+    một máy**. Chạy hai máy sau bộ cân bằng tải thì hạn mức lại nhân theo **số
+    máy** - cùng cách hỏng, chỉ nhỏ hơn. Và **chia shard không giải được**:
+    shard cắt theo `org_id`, còn hãm nhịp khoá theo IP hoặc tên đăng nhập.
+
+    ⛔ Chiều ngược lại cũng đúng: đừng dùng cái này cho thứ `Store` làm được -
+    một vòng mạng cho mỗi lần đọc là giá thật trả cho thứ nằm sẵn trong RAM
+    cùng máy. Bảng chọn đầy đủ: `docs/{vn,en}/starters.md`.
+
     Define this once; bind a concrete backend in config/dependency.py, e.g.
 
         dependency.bind({ CacheService: RedisCacheService })

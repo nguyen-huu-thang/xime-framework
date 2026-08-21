@@ -45,72 +45,60 @@ from xime.core.bootstrap.application import Application
 # WebAdapter.__init__ validation
 # ===========================================================================
 
-class TestWebAdapterInit:
-    def test_default_no_args_ok(self):
-        adapter = WebAdapter()
-        assert adapter._server_id == "default"
+class TestAdaptersNoLongerTakeAnAddress:
+    """⛔ **ĐỔI Ở 0.8: `host` / `port` / `ssl` / `path` không còn là đối số.**
 
-    def test_default_with_host_port_ok(self):
-        adapter = WebAdapter("default", "0.0.0.0", 8080)
-        assert adapter._server_id == "default"
+    Ba khối test cũ ở đây khoá đúng thứ vừa bị bỏ - chúng đòi `ValueError` khi
+    server phụ thiếu cổng. Nay không có gì để thiếu: địa chỉ đến từ cấu hình
+    (`process.<loại>.<id>` cho một tiến trình, `processes.<p>.<loại>.<id>` cho
+    nhiều), và constructor chỉ còn nhận **định danh**.
 
-    def test_non_default_with_host_and_port_ok(self):
-        adapter = WebAdapter("admin", "0.0.0.0", 8081)
-        assert adapter._server_id == "admin"
-        assert adapter._host_override == "0.0.0.0"
-        assert adapter._port_override == 8081
+    Hai lý do khác nhau cho cùng một lệnh cấm:
 
-    def test_non_default_missing_host_raises(self):
-        with pytest.raises(ValueError) as exc_info:
-            WebAdapter("admin", None, 8081)
-        assert "admin" in str(exc_info.value)
-        assert "host" in str(exc_info.value).lower() or "required" in str(exc_info.value).lower()
+    | | |
+    |---|---|
+    | `host` / `port` / `path` | **Mô tả sự thật** - ở nhánh chia tải thì cha `bind()` rồi truyền socket xuống, nên con không có cách nào tự chọn cổng |
+    | `ssl` | **Ngoại lệ hết lý do tồn tại** - nó sinh ra cho server phụ cần cert khác, mà server phụ nay có ô cấu hình riêng |
+    """
 
-    def test_non_default_missing_port_raises(self):
-        with pytest.raises(ValueError) as exc_info:
-            WebAdapter("admin", "0.0.0.0", None)
-        assert "admin" in str(exc_info.value)
+    def test_web_takes_only_an_id(self):
+        import inspect
 
-    def test_non_default_missing_both_raises(self):
-        with pytest.raises(ValueError):
-            WebAdapter("admin")
+        assert list(inspect.signature(WebAdapter.__init__).parameters) == [
+            "self", "server_id",
+        ]
 
-    def test_server_id_stored_correctly(self):
-        adapter = WebAdapter("metrics", "127.0.0.1", 9000)
-        assert adapter._server_id == "metrics"
+    def test_grpc_takes_only_an_id(self):
+        import inspect
 
+        assert list(inspect.signature(GrpcAdapter.__init__).parameters) == [
+            "self", "server_id",
+        ]
 
-# ===========================================================================
-# GrpcAdapter.__init__ validation
-# ===========================================================================
+    def test_socket_takes_only_an_id(self):
+        import inspect
 
-class TestGrpcAdapterInit:
-    def test_default_no_args_ok(self):
-        adapter = GrpcAdapter()
-        assert adapter._server_id == "default"
+        from xime.adapters.socket import SocketAdapter
 
-    def test_default_with_port_ok(self):
-        adapter = GrpcAdapter("default", port=50051)
-        assert adapter._server_id == "default"
+        assert list(inspect.signature(SocketAdapter.__init__).parameters) == [
+            "self", "server_id",
+        ]
 
-    def test_non_default_with_port_ok(self):
-        adapter = GrpcAdapter("internal", port=50052)
-        assert adapter._server_id == "internal"
-        assert adapter._port_override == 50052
+    def test_passing_an_address_is_a_TypeError_now(self):
+        """Bỏ hẳn đối số thì không cần phép kiểm nào - Python từ chối sẵn.
 
-    def test_non_default_missing_port_raises(self):
-        with pytest.raises(ValueError) as exc_info:
-            GrpcAdapter("internal")
-        assert "internal" in str(exc_info.value)
-        assert "port" in str(exc_info.value).lower()
+        Đây là cái được của *"làm lại một lần cho tử tế"*: chốt chặn ở giai đoạn
+        3 (*"cấm đối số cổng"*) nay là **mã chết**, vì thứ nó canh không còn tồn
+        tại.
+        """
+        with pytest.raises(TypeError):
+            WebAdapter("admin", "0.0.0.0", 8081)  # type: ignore[call-arg]
+        with pytest.raises(TypeError):
+            GrpcAdapter("internal", port=50052)  # type: ignore[call-arg]
 
-    def test_non_default_port_none_raises(self):
-        with pytest.raises(ValueError):
-            GrpcAdapter("internal", port=None)
-
-    def test_server_id_stored_correctly(self):
-        adapter = GrpcAdapter("analytics", port=50053)
-        assert adapter._server_id == "analytics"
+    def test_the_id_is_still_stored(self):
+        assert WebAdapter("metrics").adapter_id == "metrics"
+        assert GrpcAdapter("analytics").adapter_id == "analytics"
 
 
 # ===========================================================================
@@ -119,7 +107,7 @@ class TestGrpcAdapterInit:
 
 class TestApplicationUseDuplicateDetection:
     def _make_app(self):
-        # Tạo Application không cần config thật — chỉ test logic use()
+        # Tạo Application không cần config thật - chỉ test logic use()
         app = Application.__new__(Application)
         app._adapters = []
         app._binding = None
@@ -130,30 +118,30 @@ class TestApplicationUseDuplicateDetection:
 
     def test_two_web_adapters_same_id_raises(self):
         app = self._make_app()
-        app.use(WebAdapter("default", "0.0.0.0", 8080))
+        app.use(WebAdapter("default"))
         with pytest.raises(ValueError) as exc_info:
-            app.use(WebAdapter("default", "0.0.0.0", 8090))
+            app.use(WebAdapter("default"))
         assert "WebAdapter" in str(exc_info.value)
         assert "default" in str(exc_info.value)
 
     def test_two_grpc_adapters_same_id_raises(self):
         app = self._make_app()
-        app.use(GrpcAdapter("default", port=50051))
+        app.use(GrpcAdapter("default"))
         with pytest.raises(ValueError) as exc_info:
-            app.use(GrpcAdapter("default", port=50052))
+            app.use(GrpcAdapter("default"))
         assert "GrpcAdapter" in str(exc_info.value)
         assert "default" in str(exc_info.value)
 
     def test_two_web_adapters_different_ids_ok(self):
         app = self._make_app()
         app.use(WebAdapter())
-        app.use(WebAdapter("admin", "0.0.0.0", 8081))
+        app.use(WebAdapter("admin"))
         assert len(app._adapters) == 2
 
     def test_two_grpc_adapters_different_ids_ok(self):
         app = self._make_app()
         app.use(GrpcAdapter())
-        app.use(GrpcAdapter("internal", port=50052))
+        app.use(GrpcAdapter("internal"))
         assert len(app._adapters) == 2
 
     def test_web_and_grpc_same_server_id_ok(self):
@@ -165,9 +153,9 @@ class TestApplicationUseDuplicateDetection:
 
     def test_non_default_web_adapter_duplicate_raises(self):
         app = self._make_app()
-        app.use(WebAdapter("metrics", "0.0.0.0", 9000))
+        app.use(WebAdapter("metrics"))
         with pytest.raises(ValueError) as exc_info:
-            app.use(WebAdapter("metrics", "0.0.0.0", 9001))
+            app.use(WebAdapter("metrics"))
         assert "metrics" in str(exc_info.value)
 
     def test_use_returns_self_for_chaining(self):
@@ -177,11 +165,11 @@ class TestApplicationUseDuplicateDetection:
 
 
 # ===========================================================================
-# GrpcServiceBuilder.register_all() — server_id filtering
+# GrpcServiceBuilder.register_all() - server_id filtering
 # ===========================================================================
 
 class TestGrpcServiceBuilderServerIdFiltering:
-    """server_id filter là tính năng mới — test bổ sung ngoài test_service_builder.py."""
+    """server_id filter là tính năng mới - test bổ sung ngoài test_service_builder.py."""
 
     def _make_app(self):
         app = MagicMock()
@@ -284,7 +272,7 @@ class TestGrpcServiceBuilderServerIdFiltering:
 
 
 # ===========================================================================
-# WebAdapter._register_controllers() — server_id filtering
+# WebAdapter._register_controllers() - server_id filtering
 #
 # _register_controllers() dùng lazy import bên trong hàm:
 #   from .routing._config import controller_registry
@@ -305,7 +293,7 @@ _BUILDER_PATH   = "xime.adapters.web.routing._builder.RouteBuilder"
 class TestWebAdapterRegisterControllersServerIdFiltering:
 
     def _make_fastapi_app(self):
-        return MagicMock()  # FastAPI app — mock để kiểm tra include_router()
+        return MagicMock()  # FastAPI app - mock để kiểm tra include_router()
 
     def _make_xime_app(self, instance_map: dict):
         app = MagicMock()
@@ -396,7 +384,7 @@ class TestWebAdapterRegisterControllersServerIdFiltering:
 
             WebAdapter._register_controllers(fastapi_app, xime_app, "default")
 
-            # Chỉ PublicController được build — AdminController bị lọc ra
+            # Chỉ PublicController được build - AdminController bị lọc ra
             assert MockBuilder.return_value.build.call_count == 1
             call_args = MockBuilder.return_value.build.call_args[0]
             assert call_args[0] is PublicController
@@ -419,7 +407,7 @@ class TestDuplicateDetectionCoversEveryAdapter:
     """Every adapter type must be covered by the duplicate guard, not just three.
 
     The guard reads a `_server_id` attribute, and mqtt/modbus/opcua originally
-    named their identity `_client_id` / `_device` / `_server` — so two adapters
+    named their identity `_client_id` / `_device` / `_server` - so two adapters
     on the same broker, PLC or OPC UA server were accepted silently. The result
     is two poll loops hammering one device, two clients replacing each other on
     one shared connection, and (for MQTT) a broker that kicks one session off

@@ -154,8 +154,8 @@ class SocketClient:
                     exc = SocketCommandError(err.get("code", "INTERNAL"), err.get("message", ""))
                     self._fail(sid, exc)
         finally:
-            # Connection dropped — fail anything still waiting.
-            # Connection rớt — báo lỗi mọi thứ còn đang chờ.
+            # Connection dropped - fail anything still waiting.
+            # Connection rớt - báo lỗi mọi thứ còn đang chờ.
             self._fail_all()
 
     def _fail(self, session_id: int, exc: Exception) -> None:

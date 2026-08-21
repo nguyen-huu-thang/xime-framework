@@ -65,13 +65,13 @@ def _read_peer_sans(context: Any) -> tuple[str, ...]:
     Unlike the CN, SANs are a multi-valued property, and gRPC hands them over as
     a FLAT, UNTAGGED list: DNS names, IP addresses and URIs arrive mixed together
     with nothing marking which is which. So this returns all of them, decoded and
-    in the order gRPC supplied, and interprets nothing — picking out a particular
+    in the order gRPC supplied, and interprets nothing - picking out a particular
     entry is the caller's job, because only the caller knows what it is looking
     for.
     Khác CN, SAN là property nhiều giá trị, và gRPC trả về một danh sách PHẲNG,
     KHÔNG GẮN NHÃN: tên DNS, địa chỉ IP và URI lẫn vào nhau, không có gì phân
     biệt. Nên hàm này trả HẾT, đã decode, giữ nguyên thứ tự gRPC đưa, và không
-    diễn giải gì — chọn ra entry nào là việc của bên gọi, vì chỉ bên gọi biết
+    diễn giải gì - chọn ra entry nào là việc của bên gọi, vì chỉ bên gọi biết
     mình đang tìm cái gì.
 
     Fail-soft by design, exactly like _read_peer_cn: no mTLS, no such property or
@@ -112,7 +112,7 @@ def _set_peer_identity(handler_args: tuple[Any, ...]) -> None:
     so the ServicerContext is the second positional argument. Two neutral keys are
     written when the certificate supplies them: PEER_CN identifies the calling
     process, PEER_SANS carries every Subject Alternative Name. Both stay raw and
-    uninterpreted — the framework reports what the certificate said, nothing more.
+    uninterpreted - the framework reports what the certificate said, nothing more.
     Handler được gọi dạng (request, context) nên context là tham số thứ hai. Ghi
     hai key trung tính khi cert có: PEER_CN định danh tiến trình gọi, PEER_SANS
     chở mọi SAN. Cả hai giữ nguyên dạng thô - framework thuật lại đúng thứ cert
@@ -149,7 +149,7 @@ class RequestContextInterceptor(grpc.aio.ServerInterceptor):
     Implementation note: intercept_service() wraps the *handler function*
     returned by continuation(), not the continuation() call itself.
     With grpc.aio, continuation() only returns an RpcMethodHandler descriptor
-    — the actual RPC invocation happens later.  Wrapping at the handler level
+ - the actual RPC invocation happens later.  Wrapping at the handler level
     ensures the context is set and cleared around each real invocation.
     """
 
@@ -172,7 +172,7 @@ class RequestContextInterceptor(grpc.aio.ServerInterceptor):
 
         Response-streaming handlers (unary_stream / stream_stream) are async
         generator functions, so they must be wrapped with `async for ... yield`,
-        not `await` — awaiting an async_generator raises TypeError and breaks
+        not `await` - awaiting an async_generator raises TypeError and breaks
         every server-streaming RPC. Mirrors ErrorMappingInterceptor.
         Handler có response-streaming là async generator nên phải bọc bằng
         `async for ... yield`, không được `await` (sẽ TypeError, hỏng mọi RPC

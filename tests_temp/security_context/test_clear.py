@@ -59,7 +59,7 @@ class TestClearSecurity:
 
     @pytest.mark.asyncio
     async def test_clear_only_affects_current_task(self):
-        """clear_security() xóa context của task hiện tại — không ảnh hưởng task khác."""
+        """clear_security() xóa context của task hiện tại - không ảnh hưởng task khác."""
         import asyncio
 
         results: dict = {}

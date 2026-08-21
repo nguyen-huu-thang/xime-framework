@@ -1,5 +1,5 @@
 """
-Web file helpers — stream stored objects to/from HTTP without buffering.
+Web file helpers - stream stored objects to/from HTTP without buffering.
 
 These are plain helper functions called from inside controller methods; they are
 NOT scanned into the DI container. Pair them with a StorageService backend

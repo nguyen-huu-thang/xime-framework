@@ -2,7 +2,7 @@
 
 **English** | [Tiếng Việt](../vn/architecture.md)
 
-[← Testing](testing.md) · **8/9 — Architecture** · [Contributing →](contributing.md)
+[← Testing](testing.md) · **8/9 - Architecture** · [Contributing →](contributing.md)
 
 ---
 
@@ -100,7 +100,7 @@ Application.start()
   └─ 8. Start adapters         (WebAdapter, GrpcAdapter, ...)
 ```
 
-Step 6 is the key differentiator — validation happens **before** any singleton is created. A misconfigured application never starts silently.
+Step 6 is the key differentiator - validation happens **before** any singleton is created. A misconfigured application never starts silently.
 
 ---
 
@@ -152,7 +152,7 @@ Business logic reads context passively:
 user = current_user.get()
 ```
 
-Context is automatically isolated per-request because `ContextVar` is async-safe — each asyncio task has its own copy.
+Context is automatically isolated per-request because `ContextVar` is async-safe - each asyncio task has its own copy.
 
 ---
 
@@ -160,8 +160,8 @@ Context is automatically isolated per-request because `ContextVar` is async-safe
 
 Security is split between Core and adapters:
 
-- **Core** — `SecurityContext`, `AuthenticationManager`, `AuthorizationManager`, `SecuritySession`
-- **Adapters** — HTTP middleware that performs authentication and populates `SecurityContext`
+- **Core** - `SecurityContext`, `AuthenticationManager`, `AuthorizationManager`, `SecuritySession`
+- **Adapters** - HTTP middleware that performs authentication and populates `SecurityContext`
 
 Business logic calls `AuthorizationManager` to check permissions. It never touches HTTP headers or tokens directly.
 
@@ -193,8 +193,8 @@ A read-only block never commits. Keeping it a separate interface means reads can
 
 The `testing/` module provides:
 
-- `FakeTransactionManager` / `FakeReadOnlyManager` — in-memory transaction and read-only block for unit tests
-- DI override helpers — replace a singleton with a test double without touching production config
+- `FakeTransactionManager` / `FakeReadOnlyManager` - in-memory transaction and read-only block for unit tests
+- DI override helpers - replace a singleton with a test double without touching production config
 
 ```python
 dependency.bind({UserRepository: FakeUserRepository})
@@ -213,4 +213,4 @@ XIME orchestrates these tools. It does not replace them.
 
 ---
 
-[← Testing](testing.md) · **8/9 — Architecture** · [Contributing →](contributing.md)
+[← Testing](testing.md) · **8/9 - Architecture** · [Contributing →](contributing.md)

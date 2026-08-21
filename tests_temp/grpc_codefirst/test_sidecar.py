@@ -134,7 +134,7 @@ class TestPythonHint:
 
 class TestGeneratorIncludesSidecar:
     def test_build_proto_files_contains_contract_json(self, monkeypatch):
-        # tests_temp không phải package import được — stub scanner để trả
+        # tests_temp không phải package import được - stub scanner để trả
         # thẳng controller mẫu.
         class StubScanner:
             def find_controllers(self, *packages):

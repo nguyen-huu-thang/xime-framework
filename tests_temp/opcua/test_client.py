@@ -59,7 +59,8 @@ class RunningAdapter:
         self._task = None
 
     async def __aenter__(self):
-        self._task = asyncio.create_task(self._adapter.start(self._app))
+        await self._adapter.start(self._app)
+        self._task = asyncio.create_task(self._adapter.serve())
         await asyncio.sleep(0.4)  # connect + subscribe
         return self._adapter
 

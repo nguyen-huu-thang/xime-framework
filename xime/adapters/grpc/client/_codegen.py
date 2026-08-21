@@ -273,8 +273,8 @@ def _render_field(
     field_types: dict[str, str],
     uses: dict[str, bool],
 ) -> tuple[str, str | None]:
-    # map<K, V> — proto encodes it as repeated MapEntry nested type.
-    # map<K, V> — proto mã hóa thành repeated MapEntry.
+    # map<K, V> - proto encodes it as repeated MapEntry nested type.
+    # map<K, V> - proto mã hóa thành repeated MapEntry.
     if f.type == _F.TYPE_MESSAGE:
         entry = map_entries.get(_short_name(f.type_name))
         if entry is not None:
@@ -397,7 +397,7 @@ def _emit_client_class(
             # the sidecar to say which message is the metadata wrapper, and a
             # foreign proto may not follow that convention at all.
             # This path is how a Python service consumes a stream from a JAVA
-            # service — the case the feature was asked for.
+            # service - the case the feature was asked for.
             # Không có sidecar: unary và server-stream map thẳng được (stream
             # chỉ là các message kiểu response). Client-stream thì không: quy
             # ước upload của xime cần sidecar chỉ ra message nào là wrapper.

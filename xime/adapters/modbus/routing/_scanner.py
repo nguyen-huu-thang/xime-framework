@@ -14,7 +14,7 @@ class ModbusControllerScanner:
 
     A class is a Modbus controller if at least one of its methods carries the
     MODBUS_ATTR attribute (set by @poll / @on_change / @serve / @on_write).
-    Mirrors MqttControllerScanner; returns types only — instances come from DI.
+    Mirrors MqttControllerScanner; returns types only - instances come from DI.
     Chỉ trả về type, instance lấy từ DI container.
     """
 

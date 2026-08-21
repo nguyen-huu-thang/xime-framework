@@ -3,7 +3,7 @@ Test GrpcServiceBuilder.register_all():
 
   - Gọi add_fn đúng một lần với (instance, server) khi có một binding
   - Gọi add_fn cho mỗi binding khi có nhiều bindings
-  - Instance được lấy từ Application.get(handler_cls) — đúng class được truyền
+  - Instance được lấy từ Application.get(handler_cls) - đúng class được truyền
   - Không làm gì khi bindings rỗng
   - Instance từ DI được pass vào add_fn đúng thứ tự: (instance, server)
 """
@@ -93,7 +93,7 @@ class TestGrpcServiceBuilder:
         mock_application.get.assert_not_called()
 
     def test_instance_is_first_arg_server_is_second(self, mock_application, mock_server):
-        """gRPC convention: add_fn(servicer, server) — thứ tự không được đảo."""
+        """gRPC convention: add_fn(servicer, server) - thứ tự không được đảo."""
         instance = _HandlerA()
         mock_application.get.return_value = instance
 

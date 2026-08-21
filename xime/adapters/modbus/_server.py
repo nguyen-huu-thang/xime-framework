@@ -39,6 +39,7 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import TYPE_CHECKING, Any
 
+from xime.core.bootstrap.adapter import SCALING_SINGLETON, Adapter
 from xime.core.context import request_context
 from xime.core.exception.framework import StartupException
 from xime.core.security import clear_security
@@ -78,7 +79,7 @@ class ServedModel:
     writer_names: dict[str, str] = dataclass_field(default_factory=dict)
 
 
-class ModbusServerAdapter:
+class ModbusServerAdapter(Adapter, scaling=SCALING_SINGLETON):
     """Serve device models over Modbus TCP (Xime as the slave/server).
 
     Register it like any other adapter:
@@ -121,7 +122,7 @@ class ModbusServerAdapter:
         # instance would bind the same port. Application.use() rejects it here
         # with a message, instead of leaving an OSError from deep inside the
         # listener at start-up.
-        self._server_id = "default"
+        self.adapter_id = "default"
         self._config: ModbusServerConfig | None = None
         self._models: dict[int, list[ServedModel]] = {}   # unit -> models
         self._server: Any = None
@@ -173,10 +174,13 @@ class ModbusServerAdapter:
         # background=True trả về ngay khi đã lắng nghe.
         await self._server.serve_forever(background=True)
         logger.info(
-            "Modbus server listening on %s:%s — unit(s) %s",
+            "Modbus server listening on %s:%s - unit(s) %s",
             self._config.host, self._config.port, sorted(self._models),
         )
 
+
+    async def serve(self) -> None:
+        """Vòng làm tươi thanh ghi. Cổng đã mở từ `start()`."""
         await self._refresh_forever()
 
     async def stop(self) -> None:

@@ -1,5 +1,5 @@
 """
-Test CrudRepository (SQLAlchemy starter) — the generic base repository giving
+Test CrudRepository (SQLAlchemy starter) - the generic base repository giving
 apps find/find_all/find_or_fail/exists/count/save/save_all/delete for free.
 
   CRUD round-trip (against a temp-file SQLite DB, inside a transaction):

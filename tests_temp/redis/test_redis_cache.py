@@ -1,5 +1,5 @@
 """
-Test the redis starter (0.4) using mocks only — no live Redis server required.
+Test the redis starter (0.4) using mocks only - no live Redis server required.
 
   RedisCacheService (implements cache.CacheService):
     - satisfies the CacheService Protocol
@@ -58,7 +58,7 @@ def fake_redis_module(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# RedisCacheService — Protocol conformance
+# RedisCacheService - Protocol conformance
 # ---------------------------------------------------------------------------
 
 class TestRedisCacheServiceProtocol:
@@ -67,7 +67,7 @@ class TestRedisCacheServiceProtocol:
 
 
 # ---------------------------------------------------------------------------
-# RedisCacheService — command delegation
+# RedisCacheService - command delegation
 # ---------------------------------------------------------------------------
 
 class TestRedisCacheServiceCommands:
@@ -128,7 +128,7 @@ class TestRedisCacheServiceCommands:
 
 
 # ---------------------------------------------------------------------------
-# RedisClientProvider — fail-fast & lifecycle
+# RedisClientProvider - fail-fast & lifecycle
 # ---------------------------------------------------------------------------
 
 class TestRedisClientProvider:

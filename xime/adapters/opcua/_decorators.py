@@ -46,7 +46,6 @@ class OpcuaHandlerInfo:
     model: type | None = None
     deadband: float | None = None
     initial: bool = False
-    server: str | None = None
 
 
 def on_node_change(
@@ -54,7 +53,6 @@ def on_node_change(
     *,
     deadband: float | None = None,
     initial: bool = False,
-    server: str | None = None,
 ) -> Callable:
     """Call the method when the server reports a new value for `node`.
 
@@ -65,7 +63,7 @@ def on_node_change(
     the handler runs only once the value moved by MORE than the deadband.
 
     `initial` decides what to do with the value OPC UA delivers immediately on
-    subscribing. It defaults to False so this behaves like Modbus @on_change —
+    subscribing. It defaults to False so this behaves like Modbus @on_change -
     the first reading establishes a baseline and is not reported as news.
     Set it True when the handler genuinely wants the current state at startup.
     `initial=False` (mặc định) để giống @on_change của Modbus: lần đầu chỉ lấy
@@ -77,7 +75,7 @@ def on_node_change(
             OPCUA_ATTR,
             OpcuaHandlerInfo(
                 OpcuaKind.ON_CHANGE, node=node, deadband=deadband,
-                initial=initial, server=server,
+                initial=initial,
             ),
         )
         return func

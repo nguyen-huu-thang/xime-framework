@@ -14,7 +14,7 @@ class GrpcServiceBuilder:
     For each (HandlerClass, add_fn) pair in the binding dict:
       1. Skip handlers whose server_id class variable does not match this builder's server_id.
       2. Fetch the DI-managed singleton from the Application container.
-      3. Call add_fn(instance, server) — the generated proto helper that
+      3. Call add_fn(instance, server) - the generated proto helper that
          attaches the servicer to the server's method dispatch table.
 
     Handlers without a server_id class variable default to "default".

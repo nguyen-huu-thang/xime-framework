@@ -129,10 +129,10 @@ class CodeFirstGrpcBuilder:
                 await task  # re-raise handler exceptions → ErrorMappingInterceptor maps them
             finally:
                 # On client cancellation the generator is closed (GeneratorExit
-                # at `yield`) and `await task` is never reached — cancel the
+                # at `yield`) and `await task` is never reached - cancel the
                 # handler task so it does not run on detached, writing to a queue
                 # nobody reads.
-                # Khi client cancel, generator bị đóng và `await task` không tới —
+                # Khi client cancel, generator bị đóng và `await task` không tới -
                 # huỷ task handler để nó không chạy mồ côi.
                 if not task.done():
                     task.cancel()
@@ -168,7 +168,7 @@ class CodeFirstGrpcBuilder:
                 # Close the handler's generator explicitly so its `finally:`
                 # (DB session, file handle) runs now. Left to the garbage
                 # collector it would run whenever asyncio finalizes async
-                # generators — which on a cancelled long-lived watch stream can
+                # generators - which on a cancelled long-lived watch stream can
                 # be much later.
                 # Đóng generator của handler tường minh để `finally:` của nó
                 # chạy ngay; để GC dọn thì có thể muộn hơn nhiều.
@@ -193,7 +193,7 @@ def _serialize(message: Any) -> bytes:
 
 
 # ---------------------------------------------------------------------------
-# Stream adapters — bridge gRPC streaming to the shared Upload/DownloadStream
+# Stream adapters - bridge gRPC streaming to the shared Upload/DownloadStream
 # ---------------------------------------------------------------------------
 
 class _GrpcUploadStream(UploadStream):

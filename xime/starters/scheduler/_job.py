@@ -11,7 +11,7 @@ class ScheduledJob(Protocol):
     Implement this Protocol to mark a class as a runnable scheduled job.
     The framework calls run() on each scheduled interval or cron tick.
 
-    Constructor injection works normally — declare dependencies in __init__
+    Constructor injection works normally - declare dependencies in __init__
     and the DI container resolves them before the scheduler starts.
 
     Example:

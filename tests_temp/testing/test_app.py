@@ -13,7 +13,7 @@ Test TestApplication:
     - Bypasses YAML loading and uses the provided RuntimeConfig
     - RuntimeConfig singleton is accessible via get()
 
-  overrides — Protocol dependency injection:
+  overrides - Protocol dependency injection:
     - Override instance is returned by get(Protocol type)
     - Override instance is injected into scanned service that depends on the Protocol
     - Service uses the override instance for business calls
@@ -30,6 +30,7 @@ from xime.core.config.runtime import RuntimeConfig
 from xime.testing import TestApplication
 
 from tsvc.service import SampleService, StoragePort
+from xime.adapters.web import WebServerConfig
 
 
 # ---------------------------------------------------------------------------
@@ -126,7 +127,7 @@ class TestTestApplicationRuntimeConfig:
         async with TestApplication(runtime_config=custom) as app:
             runtime = app.get(RuntimeConfig)
             assert runtime.env == "test"
-            assert runtime.server.port == 9999
+            assert WebServerConfig.from_runtime(runtime).port == 9999
 
     @pytest.mark.asyncio
     async def test_empty_runtime_config_is_valid(self):
@@ -135,7 +136,7 @@ class TestTestApplicationRuntimeConfig:
 
 
 # ---------------------------------------------------------------------------
-# Override — Protocol dependency injection
+# Override - Protocol dependency injection
 # ---------------------------------------------------------------------------
 
 class TestTestApplicationOverrides:
@@ -229,7 +230,7 @@ class TestTestApplicationOverrides:
 
 
 # ---------------------------------------------------------------------------
-# Fail-fast — DI validation still applies when overrides are incomplete
+# Fail-fast - DI validation still applies when overrides are incomplete
 # ---------------------------------------------------------------------------
 
 class TestTestApplicationFailFast:
@@ -237,7 +238,7 @@ class TestTestApplicationFailFast:
     async def test_missing_protocol_dep_without_override_raises_at_start(self):
         """
         If a scanned service depends on a Protocol and no override (and no binding)
-        is provided, startup must fail immediately — not at get() time.
+        is provided, startup must fail immediately - not at get() time.
         """
         binding = _sample_binding()  # scans SampleService which needs StoragePort
         # NO override for StoragePort provided → DI cannot resolve it

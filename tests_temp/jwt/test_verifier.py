@@ -48,7 +48,7 @@ def make_expired_token(secret: str = TEST_SECRET) -> str:
 
 
 # ---------------------------------------------------------------------------
-# HS256 — happy path
+# HS256 - happy path
 # ---------------------------------------------------------------------------
 
 class TestPyJwtTokenVerifierHs256ValidToken:
@@ -81,7 +81,7 @@ class TestPyJwtTokenVerifierHs256ValidToken:
 
 
 # ---------------------------------------------------------------------------
-# HS256 — error cases
+# HS256 - error cases
 # ---------------------------------------------------------------------------
 
 class TestPyJwtTokenVerifierHs256Errors:
@@ -130,7 +130,7 @@ class TestPyJwtTokenVerifierHs256Errors:
             self.verifier.verify(make_token(), ctx)
 
     def test_algorithm_mismatch_raises_authentication_exception(self):
-        """Token ký bằng secret khác algorithm — vẫn là invalid token."""
+        """Token ký bằng secret khác algorithm - vẫn là invalid token."""
         token_with_different_algo = pyjwt.encode(
             {"sub": "u", "exp": datetime.now(UTC) + timedelta(minutes=5)},
             TEST_SECRET,
@@ -181,7 +181,7 @@ class TestPyJwtTokenVerifierRoundTrip:
 
 
 # ---------------------------------------------------------------------------
-# RS256 — bỏ qua nếu cryptography chưa cài
+# RS256 - bỏ qua nếu cryptography chưa cài
 # ---------------------------------------------------------------------------
 
 class TestPyJwtTokenVerifierRs256:

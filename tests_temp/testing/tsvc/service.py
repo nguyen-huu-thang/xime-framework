@@ -2,7 +2,7 @@ from typing import Protocol
 
 
 class StoragePort(Protocol):
-    """Minimal storage interface — used as a Protocol dep in SampleService."""
+    """Minimal storage interface - used as a Protocol dep in SampleService."""
 
     def store(self, value: str) -> None: ...
 

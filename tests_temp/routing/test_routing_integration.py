@@ -1,5 +1,5 @@
 """
-Test tích hợp routing layer — RouteBuilder → FastAPI → TestClient:
+Test tích hợp routing layer - RouteBuilder → FastAPI → TestClient:
   - GET route trả về response đúng
   - GET với path parameter được parse đúng
   - GET với query parameter được parse đúng
@@ -162,7 +162,7 @@ def test_delete_route_returns_204():
 # ---------------------------------------------------------------------------
 
 def test_controller_instance_is_reused_across_requests():
-    """Cùng một instance controller dùng cho mọi request — state được giữ nguyên."""
+    """Cùng một instance controller dùng cho mọi request - state được giữ nguyên."""
     call_log: list[int] = []
 
     class CounterController:

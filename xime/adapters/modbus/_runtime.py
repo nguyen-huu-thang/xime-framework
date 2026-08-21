@@ -21,7 +21,7 @@ from ._errors import ModbusConnectionError, ModbusDeviceError
 from ._model import Area
 
 # Which pymodbus client method serves each area. The four areas are read by
-# four different function codes — this table is that mapping, nothing more.
+# four different function codes - this table is that mapping, nothing more.
 _READ_METHODS: dict[Area, str] = {
     Area.COIL: "read_coils",
     Area.DISCRETE: "read_discrete_inputs",
@@ -83,7 +83,7 @@ class ModbusConnection:
         """Execute one read command and return exactly `count` raw values.
 
         Bit areas come back from pymodbus padded to a multiple of 8, so the
-        list is trimmed here — a caller asking for 3 coils gets 3 booleans.
+        list is trimmed here - a caller asking for 3 coils gets 3 booleans.
         Vùng bit được pymodbus đệm cho tròn 8 -> cắt lại đúng số lượng.
         """
         client = await self._require_client(timeout)

@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import TYPE_CHECKING, Any
 
+from xime.core.bootstrap.adapter import SCALING_SINGLETON, Adapter
 from xime.core.context import request_context
 from xime.core.exception.framework import StartupException
 from xime.core.security import clear_security
@@ -58,7 +59,7 @@ class ServedNodeModel:
     writer_names: dict[str, str] = dataclass_field(default_factory=dict)
 
 
-class OpcuaServerAdapter:
+class OpcuaServerAdapter(Adapter, scaling=SCALING_SINGLETON):
     """Publish node models over OPC UA.
 
         app.use(OpcuaServerAdapter())
@@ -83,13 +84,13 @@ class OpcuaServerAdapter:
             raise ValueError(f"max_concurrency must be >= 1 (got {max_concurrency}).")
         self._controllers = controllers
         self._refresh = refresh
-        # Upper bound on write handlers running at once — same reasoning as
+        # Upper bound on write handlers running at once - same reasoning as
         # ModbusServerAdapter: a client can write faster than a handler finishes.
         self._max_concurrency = max_concurrency
         self._sem: asyncio.Semaphore | None = None
         # One `opcua.server` block, so a second instance would bind the same
         # endpoint. See ModbusServerAdapter.
-        self._server_id = "default"
+        self.adapter_id = "default"
         self._config: OpcuaServerConfig | None = None
         self._models: list[ServedNodeModel] = []
         self._server: Any = None
@@ -148,7 +149,7 @@ class OpcuaServerAdapter:
         # subscription service before that.
         await self._watch_writes()
         logger.info(
-            "OPC UA server listening on %s (security=%s) — %d node(s)",
+            "OPC UA server listening on %s (security=%s) - %d node(s)",
             self._config.endpoint, self._config.security, len(self._variables),
         )
         if str(self._config.security).lower() == "none":
@@ -160,6 +161,9 @@ class OpcuaServerAdapter:
                 self._config.endpoint,
             )
 
+
+    async def serve(self) -> None:
+        """Vòng làm tươi node. Endpoint đã mở từ `start()`."""
         await self._refresh_forever()
 
     async def stop(self) -> None:
@@ -432,7 +436,7 @@ class OpcuaServerAdapter:
 
 # Zero value per declared Python type. An OPC UA variable takes its data type
 # from the value it is created with, and a client can never write a value of a
-# different type afterwards — so getting this wrong is not cosmetic.
+# different type afterwards - so getting this wrong is not cosmetic.
 # bool must come before int in intent: dict lookup is exact, so `bool` never
 # falls through to the `int` entry.
 # Biến OPC UA lấy kiểu từ giá trị lúc tạo và về sau KHÔNG nhận giá trị khác kiểu.
@@ -451,8 +455,8 @@ def _initial_value(info: NodeModelInfo, node: OpcuaNode) -> Any:
     Order: an explicit `default=` wins, otherwise the type annotated in the
     model. Neither available is a start-up error rather than a guess: creating
     the node as a Double and letting the first refresh fail with
-    BadTypeMismatch — inside a caught-and-logged handler, so the node just
-    silently keeps its initial value — is exactly the kind of failure this
+    BadTypeMismatch - inside a caught-and-logged handler, so the node just
+    silently keeps its initial value - is exactly the kind of failure this
     framework is supposed to catch at start-up.
     Thứ tự: `default=` tường minh thắng, sau đó tới annotation trong model.
     Không có cái nào thì báo lỗi lúc khởi động chứ không đoán - đoán sai là node

@@ -16,7 +16,7 @@ from xime.starters.cache import CacheService
 class _FakeCache:
     """Minimal in-memory CacheService used to pin the interface shape.
 
-    TTL is accepted but not enforced (no clock) — the cache starter only defines
+    TTL is accepted but not enforced (no clock) - the cache starter only defines
     the contract; real expiry is the backend's job (tested in the redis suite).
     """
 

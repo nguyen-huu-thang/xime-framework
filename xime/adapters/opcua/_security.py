@@ -2,15 +2,15 @@
 
 OPC UA offers three levels, and the project decided to support all of them:
 
-    None             — no signing, no encryption. Fine on an isolated
+    None - no signing, no encryption. Fine on an isolated
                        machine network, never over anything routable.
-    Sign             — messages are signed: tampering is detected, but the
+    Sign - messages are signed: tampering is detected, but the
                        payload travels in clear text.
-    SignAndEncrypt   — signed and encrypted.
+    SignAndEncrypt - signed and encrypted.
 
 Both Sign and SignAndEncrypt need a client certificate and private key, so a
 half-configured setup fails at startup rather than silently falling back to an
-unprotected connection — a fallback would be the worst possible outcome for a
+unprotected connection - a fallback would be the worst possible outcome for a
 setting whose entire purpose is protection.
 Cấu hình nửa vời sẽ NỔ lúc startup chứ không âm thầm tụt xuống kết nối không
 bảo vệ - tụt xuống là kết cục tệ nhất cho một tuỳ chọn sinh ra để bảo vệ.
@@ -52,7 +52,7 @@ def build_security_string(
 ) -> str | None:
     """Build the string asyncua's Client.set_security_string() expects.
 
-    Returns None for mode "None" — the caller then simply skips the call.
+    Returns None for mode "None" - the caller then simply skips the call.
     Format: "<Policy>,<Mode>,<cert path>,<key path>".
     """
     mode = normalize_mode(mode)

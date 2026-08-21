@@ -150,7 +150,7 @@ class TestErrorPaths:
 
 
 # ===========================================================================
-# Thread safety — double-checked locking
+# Thread safety - double-checked locking
 # ===========================================================================
 
 class TestConcurrency:

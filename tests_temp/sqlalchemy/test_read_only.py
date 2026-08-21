@@ -1,11 +1,11 @@
 """
-Test the read-only block (SQLAlchemy starter) — `async with self.read_only():`,
+Test the read-only block (SQLAlchemy starter) - `async with self.read_only():`,
 the sibling of `async with self.transaction():` for use cases that only read.
 
   Reading:
     - repository methods work inside a read-only block
     - a block that reads nothing is harmless
-  The core guarantee — a read-only block never commits:
+  The core guarantee - a read-only block never commits:
     - an entity changed inside the block does not reach the database
   Entities survive the block (this is what expunge_all() before rollback buys):
     - already-loaded attributes stay readable after the block exits
@@ -292,7 +292,7 @@ class TestWiring:
 
     def test_only_the_manager_is_exported_for_scanning(self):
         assert "SqlAlchemyReadOnlyManager" in sqlalchemy_starter.__all__
-        # The per-block context is not a singleton — it must stay out of __all__.
+        # The per-block context is not a singleton - it must stay out of __all__.
         assert "SqlAlchemyReadOnlyContext" not in sqlalchemy_starter.__all__
 
     @pytest.mark.asyncio

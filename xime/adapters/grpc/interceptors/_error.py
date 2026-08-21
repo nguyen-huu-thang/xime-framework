@@ -15,7 +15,7 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
     client instead of a generic INTERNAL error.
 
     Unmapped exceptions become StatusCode.INTERNAL (grpc default behavior).
-    Exceptions that are already grpc.RpcError are re-raised untouched — they
+    Exceptions that are already grpc.RpcError are re-raised untouched - they
     carry a status code already set by the handler or a lower interceptor.
 
     Usage:
@@ -66,12 +66,12 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
             except Exception as exc:
                 # grpc.RpcError carries a status already; grpc.aio.AbortError is
                 # raised by an inner interceptor/handler that already called
-                # context.abort() — it is NOT a subclass of grpc.RpcError, so
+                # context.abort() - it is NOT a subclass of grpc.RpcError, so
                 # without this it would be aborted a second time here. Re-raise
                 # both as terminal.
                 # grpc.RpcError đã có status; grpc.aio.AbortError nghĩa là một
                 # interceptor/handler bên trong đã abort rồi (nó KHÔNG kế thừa
-                # grpc.RpcError) — thiếu nhánh này sẽ abort lần hai. Re-raise cả hai.
+                # grpc.RpcError) - thiếu nhánh này sẽ abort lần hai. Re-raise cả hai.
                 if isinstance(exc, (grpc.RpcError, grpc.aio.AbortError)):
                     raise
                 await context.abort(
@@ -96,12 +96,12 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
             except Exception as exc:
                 # grpc.RpcError carries a status already; grpc.aio.AbortError is
                 # raised by an inner interceptor/handler that already called
-                # context.abort() — it is NOT a subclass of grpc.RpcError, so
+                # context.abort() - it is NOT a subclass of grpc.RpcError, so
                 # without this it would be aborted a second time here. Re-raise
                 # both as terminal.
                 # grpc.RpcError đã có status; grpc.aio.AbortError nghĩa là một
                 # interceptor/handler bên trong đã abort rồi (nó KHÔNG kế thừa
-                # grpc.RpcError) — thiếu nhánh này sẽ abort lần hai. Re-raise cả hai.
+                # grpc.RpcError) - thiếu nhánh này sẽ abort lần hai. Re-raise cả hai.
                 if isinstance(exc, (grpc.RpcError, grpc.aio.AbortError)):
                     raise
                 await context.abort(
@@ -126,7 +126,7 @@ class ErrorMappingInterceptor(grpc.aio.ServerInterceptor):
     def _safe_details(self, exc: Exception) -> str:
         """Message sent to the client.
 
-        Mapped (business) exceptions expose their own message intentionally —
+        Mapped (business) exceptions expose their own message intentionally -
         the developer chose to surface them. Unmapped exceptions fall back to a
         generic string so internal details (str(exc)) never leak to the caller.
         Lỗi đã map: phơi message có chủ đích. Lỗi chưa map: trả message chung,

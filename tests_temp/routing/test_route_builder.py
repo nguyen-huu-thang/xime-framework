@@ -96,7 +96,7 @@ class TestMakeHandler:
         assert handler(a=3, b=4) == 7
 
     def test_handler_uses_correct_instance(self):
-        """Handler gọi đúng instance — self.value được giữ nguyên."""
+        """Handler gọi đúng instance - self.value được giữ nguyên."""
         class Ctrl:
             def __init__(self, value: int):
                 self.value = value
@@ -107,7 +107,7 @@ class TestMakeHandler:
         ctrl = Ctrl(value=99)
         handler = _make_handler(ctrl.get_value)
 
-        # Chỉ cần kiểm tra signature — giá trị self.value được dùng đúng
+        # Chỉ cần kiểm tra signature - giá trị self.value được dùng đúng
         sig = inspect.signature(handler)
         assert list(sig.parameters.keys()) == []  # không có param nào ngoài self đã bind
 
@@ -264,7 +264,7 @@ class TestRouteBuilder:
     # Declaration order
 
     def test_routes_registered_in_declaration_order(self):
-        """Routes phải xuất hiện theo thứ tự khai báo trong class — không alphabetical."""
+        """Routes phải xuất hiện theo thứ tự khai báo trong class - không alphabetical."""
         class Ctrl:
             @get("/first")
             async def first(self): ...
@@ -295,5 +295,5 @@ class TestRouteBuilder:
 
         instance = Ctrl(name="xime")
         router = RouteBuilder().build(Ctrl, instance)
-        # Route được đăng ký — kiểm tra đủ 1 route
+        # Route được đăng ký - kiểm tra đủ 1 route
         assert len(router.routes) == 1

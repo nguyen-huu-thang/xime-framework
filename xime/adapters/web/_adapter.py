@@ -4,17 +4,22 @@ import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from ssl import CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED
 from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI
 
-from xime.core.config.runtime import ServerTlsConfig
+from xime.core.bootstrap._slot import AdapterSlot
+from xime.core.bootstrap.adapter import SCALING_REPLICATED, Adapter
+from xime.core.config.runtime import RuntimeConfig
 from xime.core.exception.framework import StartupException
 
 from ._cors import validate_cors_options
+from ._health import add_health_routes, public_health_paths
 from ._markers import resolve_options
 from ._registry import registry
+from ._server_config import ServerTlsConfig, WebServerConfig
 from .middleware import RequestContextMiddleware
 from .openapi._builder import build_custom_openapi
 
@@ -118,7 +123,7 @@ def _tls_kwargs(tls: ServerTlsConfig, server_id: str) -> dict[str, Any]:
     }
     # Only forward what was actually configured. uvicorn defaults ssl_cert_reqs
     # to ssl.CERT_NONE and ssl_ciphers to a non-empty string, so passing None
-    # does not mean "use the default" — it overwrites it and breaks the
+    # does not mean "use the default" - it overwrites it and breaks the
     # handshake (verified: ssl_cert_reqs=None raises "None is not a valid
     # VerifyMode" while building the context).
     # Chỉ chuyển tiếp thứ thực sự được cấu hình. uvicorn đặt mặc định
@@ -136,8 +141,8 @@ def _tls_kwargs(tls: ServerTlsConfig, server_id: str) -> dict[str, Any]:
     return kwargs
 
 
-class WebAdapter:
-    """HTTP adapter — wraps FastAPI + uvicorn into the Xime adapter lifecycle.
+class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
+    """HTTP adapter - wraps FastAPI + uvicorn into the Xime adapter lifecycle.
 
     Register via app.use() and start via app.run():
 
@@ -152,8 +157,13 @@ class WebAdapter:
 
     Quy tắc:
     - server_id="default" (mặc định): host/port đọc từ application.yml khi không truyền.
-    - server_id khác "default": host và port bắt buộc phải truyền vào constructor.
-    - Không được có hai WebAdapter cùng server_id — Application.use() sẽ báo lỗi.
+    - server_id khác "default": host và port bắt buộc, kiểm ở start() chứ không ở
+      constructor - xem ghi chú trong __init__.
+    - Không được có hai WebAdapter cùng server_id - Application.use() sẽ báo lỗi.
+
+    Dưới share_load() thì mọi thứ khác: host/port/shared đến từ khối
+    processes.<tiến trình>.web.<server_id>, và truyền chúng trong code là **lỗi
+    khởi động**. Xem docs/{vn,en}/multi-process.md.
 
     HTTPS bật bằng khối server.ssl trong application.yml (để trống = HTTP thuần
     như cũ):
@@ -164,7 +174,7 @@ class WebAdapter:
             certfile: "/etc/letsencrypt/live/example.com/fullchain.pem"
             keyfile: "/etc/letsencrypt/live/example.com/privkey.pem"
 
-    Mọi WebAdapter kế thừa server.ssl, kể cả server phụ — để server phụ không âm
+    Mọi WebAdapter kế thừa server.ssl, kể cả server phụ - để server phụ không âm
     thầm chạy HTTP khi server chính đã HTTPS. Muốn khác thì truyền tường minh:
 
         app.use(WebAdapter("admin", "0.0.0.0", 8081, ssl=ServerTlsConfig(...)))
@@ -184,13 +194,13 @@ class WebAdapter:
             # không khai báo → mặc định "default"
 
     Startup order (driven by Application._run_async):
-        1. Application.start()       — DI container fully built
-        2. WebAdapter.start(app)     — builds FastAPI, registers controllers,
+        1. Application.start() - DI container fully built
+        2. WebAdapter.start(app) - builds FastAPI, registers controllers,
                                        runs uvicorn (blocks until stopped)
 
     Shutdown order:
-        3. WebAdapter.stop()         — sets uvicorn.should_exit = True
-        4. Application.stop()        — PreDestroy hooks, DI dispose
+        3. WebAdapter.stop() - sets uvicorn.should_exit = True
+        4. Application.stop() - PreDestroy hooks, DI dispose
 
     For HTTP-level integration tests, use build_app() to obtain the FastAPI
     instance without running uvicorn:
@@ -200,33 +210,70 @@ class WebAdapter:
             ...
     """
 
-    def __init__(
-        self,
-        server_id: str = "default",
-        host: str | None = None,
-        port: int | None = None,
-        ssl: ServerTlsConfig | None = None,
-    ) -> None:
-        if server_id != "default" and (host is None or port is None):
-            raise ValueError(
-                f"WebAdapter(server_id='{server_id}'): "
-                "host and port are required for non-default servers."
-            )
-        self._server_id = server_id
-        self._host_override = host
-        self._port_override = port
-        self._ssl_override = ssl
+    # Khoá tầng hai trong khối `processes:` (`processes.<p>.web.<id>`).
+    adapter_kind = "web"
+
+    # Cổng dùng chung: cha `bind()` + `listen()` rồi truyền socket xuống con.
+    # uvicorn nhận `serve(sockets=[...])` nên chạy được trên cả hai hệ điều hành
+    # (Windows chuyển socket qua `WSADuplicateSocket`, `multiprocessing` lo).
+    share_port_by = "inherit"
+
+    def __init__(self, server_id: str = "default") -> None:
+        """⛔ **Không còn nhận `host` / `port` / `ssl`.**
+
+        Ba thứ đó nay đến từ cấu hình - `process.web.<id>` cho một tiến trình,
+        `processes.<p>.web.<id>` cho nhiều. Lý do khác nhau cho từng cái:
+
+        | | |
+        |---|---|
+        | `host` / `port` | **Mô tả sự thật** - ở nhánh chia tải thì cha `bind()` rồi truyền socket xuống, nên con **không có cách nào tự chọn cổng**. Một đối số ở đây là lời hứa framework không giữ được |
+        | `ssl` | **Ngoại lệ hết lý do tồn tại** - nó sinh ra để phục vụ server phụ cần cert khác, mà server phụ nay có ô cấu hình riêng |
+        """
+        self.adapter_id = server_id
         self._server: uvicorn.Server | None = None
+        self._slot: AdapterSlot | None = None
+        self._sockets: list[Any] | None = None
 
     # ------------------------------------------------------------------
     # Adapter protocol
     # ------------------------------------------------------------------
 
-    async def start(self, app: Application) -> None:
-        """Build the FastAPI app, resolve host/port, and run uvicorn.
+    def assign_slot(self, slot: AdapterSlot) -> None:
+        """Nhận ô `process.web.<id>` hoặc `processes.<p>.web.<id>`."""
+        self._slot = slot
 
-        Blocks until the server is stopped (via stop() or SIGINT).
-        Called by Application._run_async() after DI is fully built.
+    @staticmethod
+    def resolve_tls(slot: AdapterSlot, runtime: RuntimeConfig) -> ServerTlsConfig:
+        """TLS của một điểm phục vụ: ô trước, `server.ssl` sau.
+
+        ⭐ **Kế thừa `server.ssl` khi ô không khai** là một tính chất bảo mật,
+        không phải tiện lợi: một server phụ **âm thầm chạy HTTP** trong khi server
+        chính đã HTTPS là lỗ hổng không ai để ý, vì nó vẫn trả lời 200.
+
+        Muốn một điểm phục vụ **không** dùng TLS thì khai rỗng, tường minh:
+
+        ```yaml
+        process:
+          web:
+            public:   { port: 8086 }                       # kế thừa server.ssl
+            internal: { port: 8082, ssl: {} }              # cố ý HTTP thuần
+        ```
+
+        Đây là chỗ `ssl=ServerTlsConfig()` cũ chuyển tới - cùng ý nghĩa, nhưng
+        nay nằm trong cấu hình chứ không trong code.
+        """
+        raw = slot.spec.options.get("ssl")
+        if raw is None:
+            return WebServerConfig.from_runtime(runtime).ssl
+        return ServerTlsConfig.model_validate(raw)
+
+    # ------------------------------------------------------------------
+
+    async def start(self, app: Application) -> None:
+        """Dựng FastAPI và **bind cổng** theo ô cấu hình - rồi TRẢ VỀ.
+
+        ⭐ Từ 0.8 ô **luôn có** ở cả ba nhánh của `run()`, nên ở đây không còn
+        nhánh nào để adapter tự đi tìm khoá của riêng nó.
         """
         try:
             import uvicorn
@@ -236,39 +283,70 @@ class WebAdapter:
                 "Run: pip install 'uvicorn[standard]' or pip install 'xime[web]'"
             ) from None
 
-        from xime.core.config.runtime import RuntimeConfig
-        runtime: RuntimeConfig = app.get(RuntimeConfig)  # type: ignore[assignment]
+        slot = self._slot
+        if slot is None:
+            raise StartupException(
+                "\nWeb Adapter Started Without A Configuration Cell\n"
+                f"  Adapter: WebAdapter({self.adapter_id!r})\n"
+                "  Detail : the framework pushes one in every branch of run(); "
+                "seeing none means start() was called outside run()."
+            )
 
-        if self._server_id == "default":
-            # Explicit None checks so a valid host="" or port=0 (ask the OS for a
-            # free port) is honoured instead of falling back to the YAML value.
-            # Kiểm tra None tường minh để host=""/port=0 hợp lệ không bị rơi về YAML.
-            host = self._host_override if self._host_override is not None else runtime.server.host
-            port = self._port_override if self._port_override is not None else runtime.server.port
-        else:
-            host = self._host_override  # type: ignore[assignment]  # validated in __init__
-            port = self._port_override  # type: ignore[assignment]
+        host = slot.spec.host if slot.spec.host is not None else "0.0.0.0"
+        port = slot.spec.port
+        if port is None and slot.sock is None:
+            raise StartupException(
+                "\nWeb Endpoint Without A Port\n"
+                f"  Config: {slot.where}\n"
+                "  Detail: a web endpoint must declare a port."
+            )
 
-        # TLS is inherited from server.ssl unless the adapter was given its own.
-        # Inheriting (rather than defaulting to plain HTTP) is deliberate: a
-        # secondary server quietly serving HTTP while the main one serves HTTPS
-        # is a security hole nobody would notice. Pass ssl=ServerTlsConfig() to
-        # opt a secondary server out explicitly.
-        # TLS kế thừa từ server.ssl trừ khi adapter được truyền riêng. Kế thừa
-        # (thay vì mặc định HTTP thuần) là có chủ đích: server phụ âm thầm chạy
-        # HTTP trong khi server chính đã HTTPS là lỗ hổng không ai để ý. Muốn
-        # server phụ không dùng TLS thì truyền ssl=ServerTlsConfig() tường minh.
-        tls = self._ssl_override if self._ssl_override is not None else runtime.server.ssl
-
+        tls = self.resolve_tls(slot, app.get(RuntimeConfig))  # type: ignore[arg-type]
         fastapi_app = self.build_app(app)
         config = uvicorn.Config(
             fastapi_app,
             host=host,
-            port=port,
-            **_tls_kwargs(tls, self._server_id),
+            port=port if port is not None else 0,
+            **_tls_kwargs(tls, self.adapter_id),
         )
+        _log.info(
+            "web %s: process %s serving on %s:%s%s",
+            self.adapter_id, slot.process_id, host, port,
+            " (shared socket from supervisor)" if slot.sock is not None else "",
+        )
+        await self._bind(uvicorn, config, [slot.sock] if slot.sock else None)
+
+    async def _bind(
+        self, uvicorn: Any, config: Any, sockets: list[Any] | None = None
+    ) -> None:
+        """Nửa đầu của `uvicorn.Server._serve()` - tới lúc cổng đã mở.
+
+        ⚠ Ba dòng dưới là **những dòng đầu của `_serve()`**, chép ra chứ không
+        gọi vào, vì `serve()` gộp cả hai giai đoạn. Chúng phải đi cùng nhau:
+        `config.load()` dựng ASGI app, `lifespan_class` phải có trước
+        `startup()`, và `startup()` là chỗ cổng thật sự mở.
+        """
+        if not config.loaded:
+            config.load()
         self._server = uvicorn.Server(config)
-        await self._server.serve()
+        self._server.lifespan = config.lifespan_class(config)
+        self._sockets = sockets
+        await self._server.startup(sockets=sockets)
+
+    async def serve(self) -> None:
+        """Nửa sau: phục vụ tới khi `stop()` được gọi, rồi tắt êm.
+
+        `capture_signals()` giữ nguyên hành vi của `Server.serve()`: uvicorn bắt
+        `SIGINT`/`SIGTERM` để tắt êm. Bỏ nó là mất tắt êm dưới `systemd`, và cái
+        mất đó **không có triệu chứng** cho tới lần deploy đầu tiên.
+        """
+        if self._server is None:
+            return
+        with self._server.capture_signals():
+            if not self._server.should_exit:
+                await self._server.main_loop()
+        if self._server.started:
+            await self._server.shutdown(sockets=self._sockets)
 
     async def stop(self) -> None:
         """Signal uvicorn to shut down gracefully. No-op if start() was not called."""
@@ -292,20 +370,20 @@ class WebAdapter:
         The Application must be started (app.start() called) before
         build_app() is invoked so that the DI container is available.
         """
-        openapi_config = registry.get_openapi(self._server_id)
+        openapi_config = registry.get_openapi(self.adapter_id)
         has_custom_swagger_title = (
             openapi_config is not None and openapi_config.swagger_ui_title is not None
         )
 
         @asynccontextmanager
         async def lifespan(fastapi_app: FastAPI) -> AsyncGenerator[None, None]:
-            # DI container already built by Application.start() — only register routes.
-            self._register_controllers(fastapi_app, xime_app, self._server_id)
+            # DI container already built by Application.start() - only register routes.
+            self._register_controllers(fastapi_app, xime_app, self.adapter_id)
             yield
 
         fastapi_app = FastAPI(
             lifespan=lifespan,
-            # Disable default Swagger UI when custom title is set — we add our own route below.
+            # Disable default Swagger UI when custom title is set - we add our own route below.
             docs_url=None if has_custom_swagger_title else (openapi_config.docs_url if openapi_config else "/docs"),
             redoc_url=openapi_config.redoc_url if openapi_config else "/redoc",
             openapi_url=openapi_config.openapi_url if openapi_config else "/openapi.json",
@@ -318,10 +396,10 @@ class WebAdapter:
         # e.g. CORS preflight is handled before auth; declared-first runs first.
         # Middleware của user (configure_middleware) nằm giữa: ngoài JwtAuth để
         # CORS preflight chạy trước auth; khai báo trước chạy trước.
-        self._add_jwt_middleware(fastapi_app, xime_app)
-        for middleware, options in reversed(registry.get_middlewares(self._server_id)):
+        self._add_jwt_middleware(fastapi_app, xime_app, self.adapter_id)
+        for middleware, options in reversed(registry.get_middlewares(self.adapter_id)):
             # Phân giải marker Inject/FromConfig (DI service, runtime config) ngay
-            # tại đây — DI container đã dựng xong nên option động lấy được giá trị
+            # tại đây - DI container đã dựng xong nên option động lấy được giá trị
             # thật mà không cần app subclass WebAdapter.
             resolved = resolve_options(options, xime_app)
             # CORS options come from YAML more often than from code, and two
@@ -335,8 +413,13 @@ class WebAdapter:
 
         # Global exception handlers registered via configure_exception_handlers().
         # Exception handler toàn cục đăng ký qua configure_exception_handlers().
-        for exc_type, handler in registry.get_exception_handlers(self._server_id).items():
+        for exc_type, handler in registry.get_exception_handlers(self.adapter_id).items():
             fastapi_app.add_exception_handler(exc_type, handler)
+
+        # Route sức khoẻ gắn TRƯỚC OpenAPI, và `include_in_schema=False` nên
+        # chúng không hiện trong tài liệu API: chúng phục vụ hạ tầng, không phải
+        # người dùng API.
+        add_health_routes(fastapi_app, xime_app, self.adapter_id)
 
         if openapi_config is not None:
             fastapi_app.openapi = build_custom_openapi(fastapi_app, openapi_config)
@@ -363,9 +446,11 @@ class WebAdapter:
             return get_swagger_ui_html(openapi_url=openapi_url, title=title)
 
     @staticmethod
-    def _add_jwt_middleware(app: FastAPI, xime_app: Application) -> None:
+    def _add_jwt_middleware(
+        app: FastAPI, xime_app: Application, server_id: str = "default"
+    ) -> None:
         # Reading the registry runs on EVERY web start-up, including apps that
-        # never touch JWT — so this import must not require the [jwt] extra.
+        # never touch JWT - so this import must not require the [jwt] extra.
         # Đọc registry chạy ở MỌI lần khởi động web, kể cả app không dùng JWT -
         # nên import này không được đòi extra [jwt].
         from xime.starters.jwt._config import jwt_registry
@@ -428,6 +513,18 @@ class WebAdapter:
         # tức cái khe thay thế mà docstring của chính nó quảng cáo âm thầm không
         # áp cho cái gì cả.
         verifier_cls = jwt_registry.get_verifier()
+        # Đường dẫn sức khoẻ luôn công khai, và đó là quyết định chứ không phải
+        # sót: chúng phải trả lời được **khi mọi thứ khác đã hỏng**, kể cả khi
+        # không lấy nổi khoá verify. Một `/healthz` đòi token là một `/healthz`
+        # im lặng đúng lúc cần nhất. Bù lại thân phản hồi không mang gì nhạy cảm.
+        health_paths = public_health_paths(server_id)
+        if health_paths:
+            missing = [p for p in health_paths if p not in jwt_config.public_paths]
+            if missing:
+                jwt_config = replace(
+                    jwt_config,
+                    public_paths=[*jwt_config.public_paths, *missing],
+                )
         app.add_middleware(
             JwtAuthMiddleware,
             config=jwt_config,

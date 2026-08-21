@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from ._health import HealthConfig
     from .openapi._config import OpenApiConfig
 
 
@@ -14,6 +15,7 @@ class _WebRegistry:
         # (class middleware, options) theo thứ tự khai báo, theo từng server_id.
         self._middlewares: dict[str, list[tuple[type, dict[str, Any]]]] = {}
         self._exception_handlers: dict[str, dict[type[Exception], Callable]] = {}
+        self._health: dict[str, HealthConfig] = {}
 
     def set_openapi(self, config: OpenApiConfig, server_id: str = "default") -> None:
         self._openapi[server_id] = config
@@ -44,6 +46,12 @@ class _WebRegistry:
     ) -> dict[type[Exception], Callable]:
         return dict(self._exception_handlers.get(server_id, {}))
 
+    def set_health(self, config: HealthConfig, server_id: str = "default") -> None:
+        self._health[server_id] = config
+
+    def get_health(self, server_id: str = "default") -> HealthConfig | None:
+        return self._health.get(server_id)
+
     def reset(self) -> None:
         """Clear all registrations - test cleanup only.
 
@@ -52,6 +60,7 @@ class _WebRegistry:
         self._openapi.clear()
         self._middlewares.clear()
         self._exception_handlers.clear()
+        self._health.clear()
 
 
 registry = _WebRegistry()

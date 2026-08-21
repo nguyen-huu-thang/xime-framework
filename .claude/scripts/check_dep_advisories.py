@@ -55,6 +55,25 @@ ACCEPTED: dict[str, str] = {
 }
 
 
+def _warn_about_stale_accepted(found: tuple[str, ...]) -> None:
+    """Mot muc ACCEPTED khong con xuat hien la mot quyet dinh HET HAN.
+
+    Danh sach ACCEPTED tu mo ta minh la "quyet dinh co thoi han, khong phai
+    dau tick vinh vien". Nhung truoc day no chi duoc IN RA khi co gi do khop,
+    nghia la dung luc no het han thi no bien mat khoi man hinh, im lang.
+    Doc nguoc lai: cang sach thi cang khong ai doc lai no.
+    """
+    text = "\n".join(found)
+    stale = [vuln for vuln in ACCEPTED if vuln not in text]
+    if not stale:
+        return
+    print()
+    print(f"XEM LAI ACCEPTED ({len(stale)} muc khong con xuat hien):")
+    for vuln in stale:
+        print(f"  {vuln} - khong con bi bao. Co the da co ban va, hoac advisory")
+        print("      da bi rut. Kiem lai roi XOA khoi ACCEPTED, dung de no o lai.")
+
+
 def _floors_from_pyproject(pyproject: Path) -> list[str]:
     """Rút mọi sàn `>=` thành pin `==` để pip-audit soi đúng bản thấp nhất.
 
@@ -127,11 +146,32 @@ def main() -> int:
     ]
 
     if not found:
-        if "pip_audit" not in output and proc.returncode not in (0, 1):
-            print("KHONG CHAY DUOC pip-audit:\n" + output, file=sys.stderr)
-            print("Cai bang: pip install pip-audit", file=sys.stderr)
+        # BA ket cuc, khong phai hai (luat 03 muc 4b). 'Khong tim thay gi'
+        # mang HAI nghia: *da soi, sach* va *khong soi duoc*. In cung mot
+        # dong cho ca hai la buoc nguoi doc doan, va o buoc 1b cua huong
+        # dan phat hanh thi ho se doan la 'sach'.
+        #
+        # Phanh cu la `"pip_audit" not in output`, va no HONG DUNG O CA NO
+        # SINH RA DE BAT: thieu pip-audit thi Python in
+        #     No module named pip_audit
+        # tuc chinh thong bao loi CHUA chuoi `pip_audit`, nen dieu kien
+        # thanh False va script roi xuong nhanh 'SACH'. Do that 2026-08-20:
+        # pip-audit khong duoc cai tren may nay, va script van in SACH.
+        #
+        # Nay doi chieu bang MOC DUONG TINH: chay xong sach thi pip-audit in
+        # 'No known vulnerabilities found'. Khong thay moc do -> khong ket
+        # luan duoc, du returncode co la 0.
+        if "No known vulnerabilities found" not in output:
+            print(
+                "CHUA KET LUAN DUOC - pip-audit khong chay xong."
+                "\n\nDay KHONG phai 'sach': khong co phep do nao chay ca.\n",
+                file=sys.stderr,
+            )
+            print(output.strip() or "(khong co dau ra)", file=sys.stderr)
+            print("\nCai bang: pip install pip-audit", file=sys.stderr)
             return 2
-        print("SACH - khong advisory nao tren bo san dang khai.")
+        print("SACH - da soi, khong advisory nao tren bo san dang khai.")
+        _warn_about_stale_accepted(())
         return 0
 
     remaining, accepted = [], []
@@ -159,6 +199,7 @@ def main() -> int:
         return 1
 
     print("Khong con muc nao ngoai danh sach chap nhan.")
+    _warn_about_stale_accepted(tuple(found))
     return 0
 
 

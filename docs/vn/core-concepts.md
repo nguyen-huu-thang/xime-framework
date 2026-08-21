@@ -2,7 +2,7 @@
 
 [English](../en/core-concepts.md) | **Tiếng Việt**
 
-[← Bắt đầu nhanh](getting-started.md) · **2/9 — Khái niệm cốt lõi** · [Cấu hình →](configuration.md)
+[← Bắt đầu nhanh](getting-started.md) · **2/9 - Khái niệm cốt lõi** · [Cấu hình →](configuration.md)
 
 ---
 
@@ -21,7 +21,7 @@ class UserService:
         self.transaction = transaction
 ```
 
-XIME đọc type hint, giải quyết từng dependency và tạo object — bạn không bao giờ phải gọi `UserService(...)` thủ công.
+XIME đọc type hint, giải quyết từng dependency và tạo object - bạn không bao giờ phải gọi `UserService(...)` thủ công.
 
 **Quy tắc:**
 
@@ -67,7 +67,7 @@ Package **bị loại trừ** khỏi DI (class ở đây không bao giờ đư�
 
 - `domain`, `dto`, `entity`, `vo`, `constant`, `exception`
 
-Bị loại trừ vì chúng là data object, không phải service — inject chúng không có ý nghĩa.
+Bị loại trừ vì chúng là data object, không phải service - inject chúng không có ý nghĩa.
 
 ---
 
@@ -79,13 +79,13 @@ Một class được đăng ký vào DI container khi **tất cả** điều ki�
 2. Tất cả tham số `__init__` có type hint
 3. Package của nó nằm trong danh sách scan và không trong danh sách exclude
 
-Nếu class có tham số thiếu type hint, nó bị bỏ qua yên lặng — không phải lỗi. Điều này cho phép class bên thứ ba tồn tại trong package được scan mà không gây vấn đề.
+Nếu class có tham số thiếu type hint, nó bị bỏ qua yên lặng - không phải lỗi. Điều này cho phép class bên thứ ba tồn tại trong package được scan mà không gây vấn đề.
 
 ---
 
 ## 4. Interface Binding bằng Protocol
 
-`Protocol` của Python cho phép structural typing — một class thỏa mãn Protocol nếu có đúng method, không cần kế thừa tường minh.
+`Protocol` của Python cho phép structural typing - một class thỏa mãn Protocol nếu có đúng method, không cần kế thừa tường minh.
 
 Định nghĩa interface:
 
@@ -97,7 +97,7 @@ class UserRepository(Protocol):
     async def save(self, user: User) -> None: ...
 ```
 
-Viết implementation — **không bắt buộc kế thừa**:
+Viết implementation - **không bắt buộc kế thừa**:
 
 ```python
 class JpaUserRepository:
@@ -127,7 +127,7 @@ Binding Validation Failed
 
 **Tại sao cần binding tường minh?**
 
-`Protocol` dùng structural typing — Python không thể biết class có cố ý implement interface hay chỉ tình cờ có cùng method. Binding tường minh làm quyết định kiến trúc rõ ràng trong code. Xem [Interface Binding](../en/core-concepts.md) để biết lý do đầy đủ.
+`Protocol` dùng structural typing - Python không thể biết class có cố ý implement interface hay chỉ tình cờ có cùng method. Binding tường minh làm quyết định kiến trúc rõ ràng trong code. Xem [Interface Binding](../en/core-concepts.md) để biết lý do đầy đủ.
 
 ### 4.1 Dynamic binding (nhiều implementation)
 
@@ -236,7 +236,7 @@ Circular dependency detected:
 Missing Type Hint
   Class: UserService
   Parameter: repository
-  Hint: add a type annotation — def __init__(self, repository: UserRepository)
+  Hint: add a type annotation - def __init__(self, repository: UserRepository)
 ```
 
 ---
@@ -306,12 +306,38 @@ async def pre_destroy(self) -> None:
 
 `pop_all()` là mấu chốt: đi hết block mà không lỗi thì quyền đóng được chuyển sang `pre_destroy`; lỗi giữa chừng thì `AsyncExitStack` đóng mọi thứ đã mở, theo thứ tự ngược.
 
+### Hook thứ ba: `run_once()` - chạy MỘT lần cho cả cụm
+
+`post_construct()` chạy ở **mọi tiến trình**. Với một tiến trình thì đó là toàn bộ câu chuyện; với bốn thì *"chạy lúc khởi động"* có **hai** nghĩa, và chúng ngược nhau:
+
+| | Mọi tiến trình | **Một lần cho cả cụm** |
+|---|---|---|
+| **Chạy một lần rồi thôi** | `post_construct()` | **`run_once()`** |
+| **Chạy mãi** | `Adapter.start()` | adapter `scaling="singleton"` |
+
+```python
+class KeyRefreshJob:
+    async def post_construct(self) -> None:      # MỌI tiến trình, và phải NHẸ
+        self._cache = {}
+
+    async def run_once(self) -> None:            # MỘT lần cho cả cụm
+        await self._refdata.publish(await self._trust.fetch_keys())
+```
+
+Cùng cơ chế với hai hook kia: **đặt đúng tên method**, không decorator, không đăng ký gì. Framework chạy nó ở primary sau khi mọi `post_construct()` đã xong và **trước khi bất cứ adapter nào phục vụ**.
+
+Đúng chỗ cho: migration, lấy khoá ký lần đầu, tiêu thụ vé bootstrap cert. Ba việc đó không được chạy bốn lần trong một cụm bốn tiến trình.
+
+⚠ **`run_once()` phải LẶP LẠI ĐƯỢC**: primary chết giữa chừng thì tiến trình được thăng cấp chạy lại nó. Và nó **cố ý không có cặp huỷ** - ba ca trên đều không có gì để dọn.
+
+⚠ Ứng dụng **một tiến trình** vẫn chạy `run_once()`: nó *là* cả cụm. Không có nhánh nào để quên. Chi tiết: [Đa tiến trình](multi-process.md).
+
 ---
 
 ## 9. Event Bus
 
 Event bus nội bộ tách biệt các component không nên phụ thuộc trực tiếp vào nhau.
-`publish()` hoạt động theo kiểu **fire and forget** — mỗi handler được schedule như một
+`publish()` hoạt động theo kiểu **fire and forget** - mỗi handler được schedule như một
 background task độc lập, publisher trả về ngay mà không chờ handler hoàn thành.
 
 ```python
@@ -326,7 +352,7 @@ class NotificationHandler:
         await send_welcome_email(event.user_id)
 ```
 
-Publish từ use case — caller không bị block:
+Publish từ use case - caller không bị block:
 
 ```python
 class CreateUserUseCase:
@@ -337,7 +363,7 @@ class CreateUserUseCase:
     async def execute(self, command: CreateUserCommand) -> User:
         user = await self._repository.save(User(...))
         await self._bus.publish(UserCreatedEvent(user.id))
-        # trả về ngay — handler chạy ở background
+        # trả về ngay - handler chạy ở background
         return user
 ```
 
@@ -351,7 +377,7 @@ event_bus.subscribe(UserCreatedEvent, notification_handler)
 event_bus.subscribe(UserCreatedEvent, audit_handler)
 ```
 
-**Testing** — dùng `drain()` để chờ tất cả handler chạy xong trước khi assert:
+**Testing** - dùng `drain()` để chờ tất cả handler chạy xong trước khi assert:
 
 ```python
 await use_case.execute(command)
@@ -446,7 +472,7 @@ Cơ chế fail-soft: call plaintext hay chỉ TLS một phía sẽ khiến `curr
 
 ## 11. Multi-Server
 
-Một tiến trình XIME có thể chạy nhiều `WebAdapter` và `GrpcAdapter` cùng lúc — mỗi cái trên một port khác nhau với bộ controller/servicer riêng.
+Một tiến trình XIME có thể chạy nhiều `WebAdapter` và `GrpcAdapter` cùng lúc - mỗi cái trên một port khác nhau với bộ controller/servicer riêng.
 
 ```python
 # app/main.py
@@ -455,14 +481,30 @@ from xime.adapters.web import WebAdapter
 from xime.adapters.grpc import GrpcAdapter
 
 app = Application()
-app.use(WebAdapter())                               # server_id="default", port từ application.yml
-app.use(WebAdapter("admin", "127.0.0.1", 8081))    # server_id="admin", host + port tường minh
-app.use(GrpcAdapter())                              # server_id="default", port từ application.yml
-app.use(GrpcAdapter("internal", port=50052))        # server_id="internal", port tường minh
+app.use(WebAdapter())               # server_id="default"
+app.use(WebAdapter("admin"))        # server_id="admin"
+app.use(GrpcAdapter())
+app.use(GrpcAdapter("internal"))
 app.run()
 ```
 
-**Gán controller cho server** — khai báo class variable `server_id`:
+Địa chỉ nằm trong `application.yml`, không trong code:
+
+```yaml
+process:
+  web:
+    default: { port: 8086 }
+    admin:   { host: 127.0.0.1, port: 8081 }
+  grpc:
+    default:  { port: 50051 }
+    internal: { port: 50052 }
+```
+
+⚠ **App một cổng không phải viết khối này** - khoá phẳng `server:` / `grpc.port`
+vẫn chạy nguyên. Chỉ khi cần điểm phục vụ **thứ hai** mới cần `process:`. Chi
+tiết: [Đa tiến trình](multi-process.md).
+
+**Gán controller cho server** - khai báo class variable `server_id`:
 
 ```python
 class PublicController:
@@ -477,9 +519,10 @@ class AdminController:
 **Quy tắc:**
 
 - `server_id` mặc định là `"default"` khi bỏ qua trên cả adapter lẫn controller/servicer.
-- Adapter non-default **bắt buộc** truyền `host` và `port` vào constructor — không đọc từ config.
+- ⚠ **ĐỔI Ở 0.8:** adapter **chỉ nhận định danh**. `host` / `port` / `ssl` /
+  `path` đã bỏ khỏi constructor và đến từ ô cấu hình - truyền vào là `TypeError`.
 - Hai adapter cùng loại với cùng `server_id` → `ValueError` tại `app.use()`.
-- Tất cả adapter dùng chung DI container — singleton không bị nhân đôi.
+- Tất cả adapter dùng chung DI container - singleton không bị nhân đôi.
 - TLS/mTLS chỉ hỗ trợ cho gRPC adapter `"default"`.
 - OpenAPI theo server: `configure_openapi(config, server_id="admin")`.
 
@@ -487,7 +530,7 @@ class AdminController:
 
 ## 12. Thứ tự khởi tạo (`dependency.order`)
 
-Mặc định, `post_construct()` chạy theo thứ tự topological — class được phụ thuộc chạy trước. Khi hai class không có constructor dependency với nhau nhưng `post_construct()` của class này phải chạy xong trước class kia, dùng `dependency.order()`:
+Mặc định, `post_construct()` chạy theo thứ tự topological - class được phụ thuộc chạy trước. Khi hai class không có constructor dependency với nhau nhưng `post_construct()` của class này phải chạy xong trước class kia, dùng `dependency.order()`:
 
 ```python
 # app/config/dependency.py
@@ -522,4 +565,4 @@ Initialization Order Conflict
 
 ---
 
-[← Bắt đầu nhanh](getting-started.md) · **2/9 — Khái niệm cốt lõi** · [Cấu hình →](configuration.md)
+[← Bắt đầu nhanh](getting-started.md) · **2/9 - Khái niệm cốt lõi** · [Cấu hình →](configuration.md)

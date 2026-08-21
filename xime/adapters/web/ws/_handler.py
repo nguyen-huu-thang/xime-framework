@@ -18,7 +18,7 @@ _log = logging.getLogger("xime.web.ws")
 class WebSocketHandler:
     """Base class cho WebSocket handler trong Xime.
 
-    Override các method cần thiết — framework quản lý toàn bộ vòng đời kết nối.
+    Override các method cần thiết - framework quản lý toàn bộ vòng đời kết nối.
 
     BaseHTTPMiddleware không chạy cho WebSocket connection, nên handle()
     tự setup và teardown request_context / security context.
@@ -97,7 +97,7 @@ class WebSocketHandler:
         """
 
     async def handle(self, ws: WebSocket) -> None:
-        """Main loop — framework gọi hàm này để chạy vòng đời kết nối.
+        """Main loop - framework gọi hàm này để chạy vòng đời kết nối.
 
         Override chỉ khi cần toàn quyền kiểm soát message loop.
         Trong trường hợp thông thường, override on_connect / on_message /
@@ -116,12 +116,12 @@ class WebSocketHandler:
             connected = True
             while True:
                 message = await ws.receive()
-                # Starlette's low-level receive() does NOT raise on disconnect —
+                # Starlette's low-level receive() does NOT raise on disconnect -
                 # it returns a {"type": "websocket.disconnect", "code": ...} dict
                 # and only the typed helpers (receive_text/bytes) raise
                 # WebSocketDisconnect. Handle the disconnect message explicitly so
                 # the real close code is reported instead of leaking a RuntimeError.
-                # receive() của Starlette KHÔNG raise khi disconnect — nó trả dict
+                # receive() của Starlette KHÔNG raise khi disconnect - nó trả dict
                 # {"type": "websocket.disconnect", "code": ...}; chỉ receive_text/
                 # bytes mới raise. Xử lý message disconnect tường minh để báo đúng
                 # close code thay vì để lọt RuntimeError.

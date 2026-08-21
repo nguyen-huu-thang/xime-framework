@@ -7,7 +7,7 @@ the server's data-change notifications into calls on your @on_node_change
 handlers.
 
 Where the Modbus adapter has to poll, this one subscribes: OPC UA pushes. That
-removes the interval question entirely but adds one of its own — asyncua
+removes the interval question entirely but adds one of its own - asyncua
 delivers notifications through a SYNCHRONOUS callback, so handlers are
 scheduled as tasks rather than awaited inline. Awaiting there would block the
 library's receive loop and stall every other subscription.
@@ -24,6 +24,7 @@ import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from xime.core.bootstrap.adapter import SCALING_SHARDED, Adapter
 from xime.core.context import request_context
 from xime.core.exception.framework import StartupException
 from xime.core.security import clear_security
@@ -42,6 +43,11 @@ logger = logging.getLogger("xime.opcua")
 
 _UNSEEN = object()
 
+# Tên tham số handler khai để nhận tên THỰC THỂ đang được xử lý - đối xứng với
+# `DEVICE_PARAM` của Modbus. Một hằng chứ không phải chuỗi rải rác, vì nó là một
+# phần hợp đồng công khai.
+SERVER_PARAM = "server"
+
 
 @dataclass
 class NodeWatch:
@@ -53,27 +59,49 @@ class NodeWatch:
     handler: str
     deadband: float | None = None
     initial: bool = False
+    wants_server: bool = False
 
 
-class OpcuaAdapter:
+class OpcuaAdapter(
+    Adapter,
+    scaling=SCALING_SHARDED,
+    disjoint_per_process=("servers",),
+):
     """Maintain a session to one OPC UA server and dispatch data changes."""
+
+    # Khoá tầng hai trong khối `processes:` (`processes.<p>.opcua.<id>`).
+    adapter_kind = "opcua"
+
+    def assign_slot(self, slot: object) -> None:
+        """Nhận ô cấu hình, và **hiện chưa dùng tới nó**.
+
+        Adapter hạng phân mảnh đọc khối YAML của riêng mình như cũ; việc chia
+        tập thiết bị / tập topic theo tiến trình thi công ở **0.8.1**.
+
+        ⚠ Không ném ở đây. Từ 0.8 **mọi** adapter luôn nhận một ô, kể cả ở nhánh
+        một tiến trình - nơi adapter này chạy hoàn toàn bình thường. Thứ phải
+        chặn là *chia tải*, không phải *nhận cấu hình*, nên phép chặn nằm ở
+        framework (`_reject_sharded_under_share_load`).
+        """
+        self._slot = slot
 
     def __init__(
         self,
-        server: str = DEFAULT_SERVER,
+        target_id: str = DEFAULT_SERVER,
         *,
         controllers: list[type] | None = None,
     ) -> None:
-        self._server = server
+        self._server = target_id
         # Identity used by Application.use() to reject a duplicate registration
-        # — two adapters on one server would hold two sessions and attach two
+        # - two adapters on one server would hold two sessions and attach two
         # clients to the one shared OpcuaConnection. See ModbusAdapter.
-        self._server_id = server
+        self.adapter_id = target_id
+        self._slot: object | None = None
         self._controllers = controllers
         self._config: OpcuaConfig | None = None
-        self._connection = opcua_registry.connection(server)
+        self._connection = opcua_registry.connection(target_id)
         self._connection.mark_served()
-        self._client = OpcuaClient(server)
+        self._client = OpcuaClient(target_id)
         self._watches: list[NodeWatch] = []
         self._by_node_id: dict[str, list[NodeWatch]] = {}
         self._last: dict[str, Any] = {}
@@ -111,7 +139,7 @@ class OpcuaAdapter:
             self._by_node_id.setdefault(watch.node.node_id, []).append(watch)
 
         logger.info(
-            "OPC UA server '%s' at %s (security=%s) — %d watched node(s)",
+            "OPC UA server '%s' at %s (security=%s) - %d watched node(s)",
             self._server, self._config.endpoint, self._config.security,
             len(self._watches),
         )
@@ -122,6 +150,9 @@ class OpcuaAdapter:
                 "proves who it is. Use Sign or SignAndEncrypt outside a lab.",
                 self._server, self._config.endpoint,
             )
+
+    async def serve(self) -> None:
+        """Vòng kết nối lại chạy suốt vòng đời - xem `ModbusAdapter.serve`."""
         await self._run_forever()
 
     async def stop(self) -> None:
@@ -148,8 +179,6 @@ class OpcuaAdapter:
                 ) from None
 
             for attr_name, info in _iter_handlers(cls, OpcuaKind.ON_CHANGE):
-                if info.server is not None and info.server != self._server:
-                    continue
                 bound = getattr(instance, attr_name)
                 if not inspect.iscoroutinefunction(bound):
                     raise StartupException(
@@ -174,6 +203,7 @@ class OpcuaAdapter:
                     NodeWatch(
                         node, bound, cls.__name__, attr_name,
                         info.deadband, info.initial,
+                        _wants_server(cls, attr_name, bound),
                     )
                 )
         return watches
@@ -275,7 +305,7 @@ class OpcuaAdapter:
             if before is _UNSEEN and not watch.initial:
                 # OPC UA delivers the current value the moment you subscribe.
                 # Reporting it as a "change" would fire every handler on every
-                # startup, so by default it is only a baseline — same rule as
+                # startup, so by default it is only a baseline - same rule as
                 # the Modbus @on_change.
                 continue
             if before is not _UNSEEN and not _has_changed(
@@ -294,7 +324,10 @@ class OpcuaAdapter:
         async with self._sem:
             request_context.set("request_id", str(uuid.uuid4()))
             try:
-                await watch.bound(value)
+                if watch.wants_server:
+                    await watch.bound(value, server=self._server)
+                else:
+                    await watch.bound(value)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -349,6 +382,40 @@ def _iter_handlers(cls: type, *kinds: OpcuaKind) -> list[tuple[str, Any]]:
             if info is not None and (not kinds or info.kind in kinds):
                 result.append((attr_name, info))
     return result
+
+
+def _wants_server(cls: type, attr_name: str, bound: Any) -> bool:
+    """Whether the handler asked to know which entity this call is about.
+
+    Đối xứng với `device` của Modbus (thiết kế 5.7.3): một adapter phục vụ một
+    **loại** và giữ **nhiều thực thể**, nên handler chạy một lần cho mỗi thực
+    thể và muốn biết máy nào thì khai thêm một tham số tên `server` - khớp theo
+    TÊN, đúng quy ước `topic` của `@subscribe`.
+
+    ⭐ Mỗi adapter giữ từ vựng của miền nó: Modbus nói *device*, OPC UA nói
+    *server*. Đây là chỗ **khác** với `adapter_id`/`target_id` ở phần 1 - ở đó
+    một cái tên chung là đúng vì nó nói về **framework**; ở đây cái tên nói về
+    **thứ thật ngoài kia**, và ép chung một chữ là dán sai nhãn.
+
+    ⚠ Tên phải khớp chính xác: một tham số thứ hai mang tên khác là **lỗi khởi
+    động**, không phải một tham số bị bỏ qua im lặng.
+    """
+    params = [
+        p for p in inspect.signature(bound).parameters.values()
+        if p.kind
+        in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    ]
+    if len(params) == 1:
+        return False
+    if len(params) == 2 and params[1].name == SERVER_PARAM:
+        return True
+    raise StartupException(
+        _err(
+            cls, attr_name,
+            f"handler takes the new value, plus an optional parameter named "
+            f"'{SERVER_PARAM}'; got {[p.name for p in params]}",
+        )
+    )
 
 
 def _err(cls: type, attr_name: str, detail: str) -> str:

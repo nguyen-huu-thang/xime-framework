@@ -5,6 +5,1567 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [0.8.0] - 2026-08-20
+
+Thi công theo bảy giai đoạn của `.claude/docs/ke-hoach-code-0.8-2026-08-19.md`,
+cộng một giai đoạn thứ tám phát sinh giữa chừng (trình tạo cấu hình). Thiết kế
+đóng ngày 2026-08-19; phần dưới ghi những gì đã CODE, không phải những gì đã
+thiết kế.
+
+⭐ **Bản ALPHA CUỐI.** 0.9 chuyển sang `4 - Beta`, nơi API coi như đã chốt - nên
+mảng "đổi API adapter một lượt" phải làm đủ ở đây, và mọi tên công khai sinh ra
+ở bản này là tên phải sống tiếp.
+
+### Rà trước phát hành (2026-08-20) - bảy phát hiện, ba trong đó chặn phát hành
+
+Một lượt rà toàn bộ trước khi đóng bản, theo mười nhóm: số hiệu bản · test và
+lint · đóng gói · phụ thuộc · ba script kiểm tài liệu · bề mặt API công khai ·
+bốn app thật · `xime init` đầu-cuối · tài liệu · rác còn sót.
+
+⭐ **Ba lỗi nặng nhất đều nằm ở chỗ CÔNG CỤ ĐO nói dối**, không nằm ở logic - và
+cả ba đều lọt qua 2376 test đang xanh.
+
+#### ⛔ A. Dự án do `xime init` sinh ra KHÔNG khởi động được
+
+```text
+StartupException: Web Endpoint Without A Port
+  Config: process.web.default
+```
+
+Trước 0.8, khối `server:` và khối `grpc:` đều **tuỳ chọn**: vắng mặt thì
+`WebServerConfig()` cho `0.0.0.0:8080`, `GrpcServerConfig()` cho `:50051`, và
+ứng dụng chạy - docstring của lớp sau nói thẳng *"All fields have sensible
+defaults so the block is optional."* Phép **dịch khoá phẳng** của 0.8 làm rơi
+mất phần đó.
+
+Trình tạo thì cố ý để `server:` ở dạng chú thích, đúng theo luật chia đã chốt
+(*"chú thích những gì framework mặc định ĐƯỢC"*). Hai quyết định đúng riêng lẻ,
+gặp nhau thì `xime init x && cd x && python main.py` chết ngay lúc khởi động.
+
+⭐⭐ **Vì sao 100 test của giai đoạn 8 không thấy: test đầu-cuối GHI THÊM một
+khối `server:` vào `application.yml` trước khi chạy**, để ghim một cổng trống.
+Nó chứng minh được việc nối dây, và mù hoàn toàn với câu hỏi *"file vừa xuất ra
+có chạy được không"* - vì nó sửa chính cái file đang cần đo.
+
+Vá ở `_FLAT_DEFAULT_PORTS` (`core/bootstrap/_processes.py`), **chỉ trên đường
+khoá phẳng**: vắng `server:` nghĩa là *"cho tôi mặc định"* - hợp đồng cũ; còn
+viết `process: web: { default: {} }` nghĩa là *"tôi đang mô tả topology"*, và ở
+đó một ô thiếu địa chỉ nhiều khả năng là gõ nhầm (`porrt:`) - khoá lạ hiện chưa
+bị từ chối, nên chính thông báo lỗi đó là thứ duy nhất bắt được nó.
+
+Đo bán kính: **0/27 app** trong workspace bị ảnh hưởng (tất cả đều đã khai
+`server:`). Nó cắn **người dùng ngoài** và cắn chính trình tạo.
+
+Kèm hai test đo **đúng file trình tạo xuất ra**, không thêm một dòng nào; đối
+chứng gỡ bản vá ra thì **cả hai đỏ**.
+
+#### ⛔ B. `xime config --print` chưa từng tồn tại
+
+```text
+xime: error: unrecognized arguments: --print
+```
+
+Được nhắc ở **19 chỗ**: tài liệu vn/en, cả hai README, README của dự án do
+`xime init` sinh, một thông báo lỗi lúc chạy của starter lmdb, và **header của
+mọi `application.yml` đã sinh ra** - tức những file nằm trên đĩa người dùng và
+không bao giờ được sửa lại.
+
+Vì thế nhận `--print` (hành động mặc định) thay vì gỡ chữ đó khỏi tài liệu; loại
+trừ lẫn nhau với `--example`, vì hai cờ hỏi hai file khác nhau.
+
+⭐ Kèm phép dò mới, và nó là phần đáng giữ hơn bản vá: `tests_temp/cli_docs/`
+**chạy mọi dòng lệnh `xime ...` viết trong khối code của tài liệu qua chính
+parser của CLI**. Không phép dò nào có sẵn bắt được lỗi này -
+`check_doc_imports.py` chỉ soi dòng `from xime... import`, còn 100 test của
+giai đoạn 8 gọi `main([...])` bằng đối số **do test tự chọn**. Đúng bài học
+0.7.0: *đi đúng con đường TÀI LIỆU hướng dẫn* - ở đây theo nghĩa đen nhất, chính
+những ký tự người đọc sẽ gõ lại.
+
+⚠ Bản đầu của phép dò soi cả nháy đơn ngược trong văn xuôi và **kêu oan 15/16
+lần** (ô bảng, câu văn nhắc tên lệnh). Đã siết về đúng phạm vi nó khai. Nó vẫn
+tìm ra một dòng lỗi thời thật: bảng "việc cần đóng góp" của `contributing.md`
+còn liệt kê `xime new my-service` như việc chưa ai làm.
+
+#### ⛔ C. `check_dep_advisories.py` in `SACH` trong khi pip-audit KHÔNG chạy
+
+Bước 1b của hướng dẫn phát hành. Phanh dò cũ:
+
+```python
+if "pip_audit" not in output and proc.returncode not in (0, 1):
+```
+
+**Nó hỏng đúng ở ca nó sinh ra để bắt**: thiếu pip-audit thì Python in
+`No module named pip_audit`, tức chính thông báo lỗi **chứa chuỗi `pip_audit`**,
+điều kiện thành `False`, và script rơi xuống nhánh `SACH`.
+
+Đo 2026-08-20: **pip-audit không được cài trên máy này**, và script vẫn in
+`SACH - khong advisory nao tren bo san dang khai` kèm mã thoát 0.
+
+Nay **ba kết cục** (luật 03 mục 4b): `SACH` (0) · `CHUA KET LUAN DUOC` (2) ·
+`CON MUC CHUA XU LY` (1), và cái đầu chỉ in khi thấy **mốc dương tính**
+`No known vulnerabilities found` trong đầu ra của pip-audit.
+
+⭐⭐ Nguyên nhân sâu hơn bản vá: **công cụ của bước 1b không được khai ở đâu
+cả** - hướng dẫn phát hành phụ thuộc vào một chương trình mà không file nào nói
+là cần, nên nó biến mất khỏi máy lúc nào không ai biết. Nay `pip-audit>=2.7` nằm
+trong extra `dev`.
+
+Kèm `_warn_about_stale_accepted()`: danh sách `ACCEPTED` tự khai là *"quyết định
+có thời hạn"* nhưng trước đây chỉ được in ra **khi có gì đó khớp** - nghĩa là
+đúng lúc nó hết hạn thì nó biến mất khỏi màn hình. Đọc ngược lại: càng sạch thì
+càng không ai đọc lại nó.
+
+#### ⚠ D. Số hiệu bản còn ở 0.7.2
+
+`pyproject.toml`, giá trị dự phòng trong `xime/__init__.py`, và tiêu đề
+`## [Chưa phát hành]` của chính file này. Đã nâng 0.8.0.
+
+⚠ `xime.__version__` đọc từ metadata distribution, **đóng băng tại lần
+`pip install -e .` cuối** - nên nó còn báo `0.7.2` cho tới khi cài lại. Đây là
+cơ chế đã biết, không phải lỗi mới.
+
+#### ⚠ E. `LayoutMismatch` là một tên mang hai nghĩa
+
+`xime.core.link` và `xime.core.refdata` cùng xuất khẩu tên đó cho **hai lớp khác
+nhau**:
+
+```text
+xime.core.link     xuất  LayoutMismatch  ->  lớp A
+xime.core.refdata  xuất  LayoutMismatch  ->  lớp B
+
+import cả hai trong một file: cái sau che cái trước, im lặng.
+```
+
+Sau hai dòng import đó `except LayoutMismatch:` bắt đúng một trong hai, cái còn
+lại đi xuyên qua. Không lỗi lúc import, không cảnh báo. Luật 03 ở tầng **từ vựng**.
+
+⚠ Khối minh hoạ trên cố ý **không viết dạng `from ... import ...`**: hai lớp đó nay mang
+tên khác (`LinkLayoutMismatch` / `RefDataLayoutMismatch`), nên một dòng import thật ở đây
+sẽ làm `check_doc_imports.py` kêu mãi mãi về một API đã được sửa. Phép dò kêu oan là phép
+dò sẽ bị tắt.
+
+Và cùng lúc một chỗ hỏng thứ hai: **cả hai kế thừa thẳng `Exception`**, nên
+`except XimeException:` - lưới cuối mà framework dạy người dùng bắt - không bắt
+được chúng, `except LinkError:` / `except RefDataError:` cũng không.
+
+Nay là `LinkLayoutMismatch(LinkError)` và `RefDataLayoutMismatch(RefDataError)`,
+cả hai dưới `XimeException`. `LinkError` chuyển sang module lá
+`core/link/_errors.py` để `_layout.py` lấy được lớp nền mà không tạo vòng import.
+
+Kèm `tests_temp/api_surface/` canh cả hai bất biến: không hai package công khai
+nào xuất cùng một tên cho hai thứ khác nhau · mọi ngoại lệ xuất khẩu đều nằm
+dưới `XimeException` **và** dưới lớp nền của chính package nó. Đối chứng: **2 đỏ**.
+
+#### ⚠ F. 1.063 dấu gạch dài trong toàn repo
+
+Luật văn phong của chủ dự án cấm dấu gạch ngang dài trong **mọi** văn bản, kể cả
+comment code. Đếm ra:
+
+| Vùng | Số dấu |
+|---|---|
+| `docs/` + hai README | **287** trên 29 file, trong đó **34 nằm bên trong khối code** |
+| `xime/**/*.py` | **350** trên 117 file (137 chú thích · 196 docstring · **11 chuỗi thông điệp**) |
+| `tests_temp/**/*.py` + `.claude/` + `CLAUDE.md` | **418** |
+| `pyproject.toml` | **8** |
+
+Tài liệu của 0.8 thì sạch từ đầu (**0 dấu**) - toàn bộ số trên là văn bản của các
+bản trước.
+
+⚠ Phép quét đầu tiên bằng `grep` với escape unicode trả về **0** và **con số đó
+sai**; Python đếm ra 287. Đúng bài học đã ghi: *con số 0 của một phép dò hỏng
+trông y hệt một repo sạch*, nên phải có đối chứng.
+
+⚠ Phép kiểm thứ hai tôi dùng để tự trấn an **cũng nhắm sai**: nó ghép cặp dòng
+từ `git diff -U0` (312 dòng cũ với 644 dòng mới) nên so những dòng không liên
+quan. Phép đo đúng là đưa thẳng cho `ast`: **400/400 khối code Python trong tài
+liệu vẫn phân tích được**, và **0 dòng nào từng bắt đầu bằng dấu gạch dài** nên
+rủi ro ăn mất thụt lề chưa bao giờ tồn tại. Đã gói thành
+`.claude/scripts/check_doc_code.py`.
+
+⭐ Với mã nguồn thì phân loại trước khi quét, bằng `tokenize` + `ast`: chỉ **11**
+trong 350 dấu nằm ngoài chú thích và docstring, và cả 11 đều là thông điệp log
+hoặc lỗi (`"Modbus device '%s' at %s:%s - %d poll group(s)"`). Không test nào
+khoá cứng chúng. Nghiệm thu là **2412 test chạy lại sau khi quét**, cộng
+`ast.parse` trên toàn bộ `xime/` và `tests_temp/`, cộng `tomllib` trên
+`pyproject.toml`.
+
+#### ℹ G. `ruff check xime/` không bao giờ xanh
+
+Ba cảnh báo `UP046` (dùng cú pháp type parameter PEP 695 thay `Generic[T]`) ở
+`CrudRepository`, `Store`, `RefData`. **Cố ý không sửa** - cả ba là lớp nền công
+khai người dùng kế thừa và nhận cấu hình bằng tham số class; đổi cỗ máy dựng lớp
+của chúng để lấy về một cú pháp mới hơn thì không người dùng nào được lợi.
+
+Nhưng để nó đỏ mãi cũng sai: **một phép dò không bao giờ xanh là một phép dò
+không ai còn đọc** - ba dòng quen thuộc dạy người ta lướt qua, và dòng thứ tư sẽ
+lướt cùng. Nay nằm trong `ignore` **kèm lý do và điều kiện xét lại**.
+
+#### Những gì đã kiểm và SẠCH
+
+| Nhóm | Kết quả |
+|---|---|
+| Đóng gói | `twine check` PASSED · sdist 288 mục / 671 KB, **không rò rỉ** `.claude/`, `tests_temp/`, `pypi_token` · wheel 0 file `.pyc` |
+| Cài venv trắng | cài từ **sdist** rồi import cả bốn package mới: chạy |
+| Bốn app thật | data **388** · linh-kien **295** · crm **53**, tất cả xanh trên cây mã editable |
+| Ba script tài liệu | `check_doc_imports` 344 tên / 44 file ALL OK · `check_doc_register` 0 fail · `find_reexport_gap` 3 file, đều là re-export riêng tư có chủ đích |
+| Tài liệu vn/en | số mục khớp từng cặp cho cả sáu tài liệu của 0.8 |
+| Rác giàn đối chứng | không còn mutation nào sót trong `xime/` |
+| `xime init` đầu-cuối | `check config` CLEAN · `check module-level` CLEAN trên dự án vừa sinh |
+
+### Giai đoạn 8 - Trình tạo cấu hình: `xime init` · `config` · `check config` (2026-08-20)
+
+Chủ dự án đề xuất giữa lúc đang bàn chỗ đặt `lmdb.path`: **một công cụ sinh file
+cấu hình, mặc định nằm ở công cụ chứ không ở framework, tạo hết nhưng phần lớn
+để dạng chú thích để người vận hành gỡ ra và sửa.**
+
+⭐ Ý đó **giải luôn câu đang mở**. Framework không đoán được `lmdb.path` vì nhiều
+service dùng chung một máy; **trình tạo thì đoán được, vì nó biết tên dự án lúc
+tạo**. Cả cái thang phân giải bốn bậc từng bàn (`$RUNTIME_DIRECTORY` -> băm
+đường dẫn -> temp) biến mất.
+
+#### ⚠ Một nửa đề xuất bị chỉnh, và repo này có bằng chứng cả hai chiều
+
+Đề xuất ở dạng mạnh - *"mặc định nằm ở tool tạo, không phải framework"* - là
+nguy:
+
+| Ca thật trong chính repo này | Kết cục |
+|---|---|
+| 0.7.1 đổi **bốn hành vi** (`save_upload` trần 32 MiB, `stream_object` ép tải xuống...) | tới **cả 31 app** ngay, vì chúng là **mặc định của framework** |
+| **A1 fail-open JWT** | **19 app vẫn thủng**, vì lỗ nằm trong `config/jwt.py` **của họ** |
+
+> Giá trị nào rời khỏi framework thì hành vi của app **đóng băng ở phiên bản nó
+> được tạo**.
+
+**Luật chia đã chốt:**
+
+> **Chú thích những gì framework mặc định ĐƯỢC. Ghi thẳng chỉ những gì nó KHÔNG
+> mặc định được.**
+
+Đọc file là biết ngay: dòng không chú thích = thứ deployment này thật sự đã
+quyết; dòng chú thích = tài liệu, và nó có cũ đi cũng không cắn ai vì nó trơ.
+
+#### ⭐ Ranh giới "framework được đoán tới đâu", phát biểu lại cho đúng
+
+Framework **đã** mặc định `server.port: 8080` trong khi `lmdb.path` thì từ chối.
+Nghe như bất nhất, nhưng không:
+
+| Trùng nhau thì | Ví dụ | Mặc định được? |
+|---|---|---|
+| **Hỏng ỒN ÀO** | hai app cùng cổng 8080 -> `EADDRINUSE`, chết lúc khởi động | ✅ |
+| **Hỏng IM LẶNG** | hai app cùng `lmdb.path` -> dùng chung bảng hãm nhịp, không lỗi, không log | ⛔ |
+
+> **Framework được phép đoán khi đoán sai thì có tiếng động. Không được phép khi
+> đoán sai thì im lặng.**
+
+#### Thêm
+
+- **`xime config --print`** - in toàn bộ bề mặt cấu hình ra stdout, **không ghi
+  gì**. ⭐ Mảnh giá trị cao nhất và rủi ro gần bằng 0: nó phục vụ được **cả 31
+  ứng dụng đang có ngay hôm nay**, trong khi `xime init` chỉ giúp app mới.
+- **`xime check config`** - đối chiếu `application.yml` của app với bề mặt đó.
+  Bắt **khoá gõ sai**, thứ hôm nay là một server im lặng không có route nào.
+- **`xime init <ten>`** - cây thư mục + file cơ bản. Sinh **ít** có chủ ý:
+  `main.py`, `config/`, một controller mẫu, hai file cấu hình, `pyproject.toml`,
+  `.gitignore`, `README.md`.
+- `xime/cli/_config_spec.py` - **một** bản mô tả, ba lệnh dùng chung.
+- `docs/{vn,en}/cli.md`.
+
+#### ⭐⭐ Bản mô tả tự nó cũng già đi, nên nó có hai lớp chống
+
+Một bản mô tả viết tay là **một ảnh chụp** - đúng loài lỗi mà file cấu hình sinh
+sẵn mắc phải, chỉ lùi lên một tầng.
+
+| Lớp | Làm gì |
+|---|---|
+| **Suy từ pydantic** | `server`, `grpc`, `logging` đã có model, nên đọc thẳng `model_fields`: mặc định **không thể lệch** với code đọc chúng |
+| **Test canh** | quét `runtime.get("<khối>")` trong `xime/`; thiếu ở bản mô tả là **test đỏ** |
+
+⭐ Kèm một **test đối chứng cho chính phép quét**: nó phải tìm thấy ít nhất 5
+khối, vì con số 0 của một phép quét hỏng trông y hệt một framework sạch.
+
+#### ⚠⚠ `complete` - công tắc chống kêu oan, và nó trả nợ ngay lượt chạy đầu
+
+Chỉ khối tự khai đã liệt kê **đủ** khoá mới được `check config` báo *"khoá lạ"*.
+
+Lượt chạy đầu tiên trên `data-service` tố `grpc.clients` và `grpc.internal`.
+**Cả hai đều hợp lệ** - `grpc:` còn mang cả cấu hình client SDK, do một module
+khác đọc. Đã hạ `complete` của `grpc` và thêm khối `cors` còn thiếu.
+
+⭐ **Hiệu chuẩn trên 30 file cấu hình thật của workspace: 29 file sạch**, và file
+duy nhất kêu là một app **Java Spring Boot** (`server.ssl.key-store`), không
+phải cấu hình Xime.
+
+#### ⭐⭐ Một lỗi trong code sinh ra, một chẩn đoán sai của chính tôi
+
+**Lỗi thật:** trình tạo gọi `configure_routing`, một hàm **không tồn tại**. Nó
+trông y hệt một hàm hợp lệ, và chỉ lần khởi động thật mới nói. Đúng khuôn 0.7.0
+- ba lỗi mức Cao của bản đó đều nằm ở **chỗ nối**.
+
+⚠⚠ **Và một bài không có trong kế hoạch: phép đo đầu tiên của tôi cũng sai.**
+Sau khi sửa `configure_routing`, tôi liệt kê route bằng `adapter.build_app(app)`
+và thấy `/ping` vắng mặt, rồi kết luận *"`configure_controllers` phải nhận
+module chứ không nhận package"*. Kết luận đó **sai**: `build_app()` không chạy
+`lifespan`, mà route được đăng ký **chính trong lifespan**. *"Không có route"* là
+triệu chứng của **công cụ đo**, không phải của code sinh ra.
+
+📌 Cái sai thật là **đổi hai biến cùng lúc** (dạng module + cách đo) rồi gán công
+cho biến sai. **Đối chứng bắt được**: gỡ bản "sửa" đó ra thì **không test nào
+đỏ**, vì nó chưa bao giờ sửa gì cả. Đã trả về dạng package - nó còn hợp hơn cho
+một dự án sinh sẵn, vì thêm một file controller là có route mà không phải sửa
+`config/web.py`.
+
+Nay có một test khởi động dự án vừa sinh bằng **tiến trình thật**, cổng thật,
+một lời gọi HTTP thật; cộng hai test bắt nó qua được **chính hai lệnh kiểm của
+framework**; cộng ba test soi **hình dạng `main.py` bằng AST** - vì `use()` đặt
+nhầm vào `if __name__` chạy hoàn hảo với một tiến trình và chỉ hỏng khi có
+`share_load()`, thứ test khởi động cũng không thấy.
+
+#### Đổi
+
+- **Kho LMDB in một dòng lúc khởi động**: đường dẫn · **RAM hay đĩa** · chỗ trống
+  · `total_max`. Câu *"kho ở `/dev/shm/x`"* mang **hai nghĩa** (mất khi reboot /
+  sống qua reboot) mà trước nay không gì tách ra - luật 03.
+  ⭐ **BA kết cục, không phải hai**: Linux đọc `/proc/mounts` nên biết chắc;
+  Windows thì **không biết**, và trả `False` ở đó là nói dối vì một ổ đĩa RAM
+  trông y hệt ổ thật với mọi API Python.
+- ⛔ **`total_max` vượt dung lượng trống của hệ tệp nay CHẶN KHỞI ĐỘNG.** Trên
+  tmpfs trang nhớ **không đuổi ra được**, mà VPS thường không có swap - nên lời
+  hứa đó không vỡ bằng *chậm đi* mà bằng **OOM kill cả tiến trình**. Bắt luôn ca
+  Docker cấp `/dev/shm` mặc định 64 MB.
+  ⚠ *"Không đo được"* **không** bị đối xử như *"không đủ chỗ"*.
+- `docs/{vn,en}/store.md`: thêm mục đặt kho trên tmpfs, kèm khuôn systemd
+  (`RuntimeDirectoryPreserve=restart` là dòng dễ quên nhất) và cảnh báo `/tmp`
+  **không chắc là RAM**.
+
+#### ⛔ Đã thử rồi bỏ: đổi khối `lmdb:` thành `store:`
+
+Bản đầu của giai đoạn này đổi tên khối vì *"`Store` là khái niệm, `lmdb` là
+backend"*. Chủ dự án chỉ ra chỗ hỏng, và đo lại thì đúng:
+
+- `store:` đứng cạnh `storage:` (kho file/blob) trong cùng file YAML, **khác
+  nhau hai chữ cái mà là hai hệ thống con không liên quan gì nhau**. Tệ hơn bẫy
+  `process`/`processes`: hai cái kia là cùng một khái niệm ở hai số lượng.
+- `storage:` tách `storage.local` / `storage.s3` **vì nó có Protocol và nhiều
+  backend**. `Store` thì **cố ý không có Protocol, một backend duy nhất** - buổi
+  08-19 đã bỏ Protocol đi. Không có tầng khái niệm nào để lơ lửng bên trên.
+- **`redis:` đã là một khối mang tên backend cho một kho KV khác.** `lmdb:` nhất
+  quán với nó.
+
+📌 Lý do bản đầu sai không phải là chọn nhầm tên, mà là **áp khuôn của `storage`
+lên một thứ không cùng hình dạng với `storage`**.
+
+#### ⭐ Redis Ở LẠI, và ranh giới ba chiều được viết ra (chốt 2026-08-20)
+
+Câu hỏi của chủ dự án: `starters/cache` và `starters/redis` có trùng nhau không,
+có nên xoá không, và *"nếu cần Redis thật thì nó ở tầng ứng dụng thôi đúng
+không"*.
+
+Đo trước: `cache` là **Protocol**, `redis` là **backend** - đúng khuôn `storage`,
+không trùng nhau; và `CacheService` có **đúng một** chỗ dùng thật trong 31
+codebase (`TrustKeyL2Cache` của data-service).
+
+✅ **Chủ dự án chốt: giữ cả hai.** *"Không phải lúc nào cũng dùng LMDB được."*
+
+⭐⭐ Và lý do đó có một cơ chế cụ thể đằng sau: **`Store` đóng đúng MỘT TẦNG của
+một lỗ hổng, không đóng cả cái lỗ.**
+
+| Hãm nhịp đăng nhập giữ ở đâu | Hạn mức thật bị nhân theo |
+|---|---|
+| RAM tiến trình | **số tiến trình** |
+| `Store` (LMDB) | **số máy** |
+| Redis | không nhân |
+
+⚠ **Chia shard không cứu được tầng còn lại**: shard cắt theo `org_id`, còn hãm
+nhịp khoá theo **IP hoặc tên đăng nhập** - hai trục khác nhau, và người **chưa
+đăng nhập được thì chưa có `org_id`** để mà định tuyến.
+
+⭐ Ca này hoá ra **chính là điều kiện mà mục 2.7 tự viết ra** hồi 08-19
+(*"lập luận trên đứng khi định tuyến theo shard"*), nên nó **không mở lại** chốt
+*"phạm vi một máy"*. Ranh giới giữ hai quyết định tương thích:
+
+> **Mọi thứ framework tự cấp - `RefData`, `Store`, `ProcessLink` - là MỘT MÁY,
+> luôn luôn. Cần nhiều máy cùng thấy thì đó là lựa chọn của ứng dụng, và nó đi
+> qua `CacheService`.**
+
+Đã ghi: bảng chọn ba chiều ở `docs/{vn,en}/starters.md` · cùng ranh giới trong
+docstring `CacheService` · mục **2.7b** của tài liệu cache · khối `redis` trong
+bản mô tả cấu hình nay có **khoá thật** (`url` bắt buộc, `max_connections`).
+
+⚠ Kèm hai dòng **vừa thành lỗi thời vì chính quyết định này**, đã sửa: tài liệu
+cache mở đầu bằng *"muốn bỏ Redis"*, và tài liệu bus dựa một lập luận vào câu đó.
+
+📌 Con số *"đúng một chỗ dùng"* là lý do câu hỏi được đặt ra, và nó **không** phải
+lý do để xoá: thứ quyết định là **việc mà không cái nào khác làm được**, không
+phải số người đang dùng hôm nay.
+
+#### ⚠⚠ Đính chính phạm vi: "một máy" là chính sách của XIME, không phải của FRAMEWORK
+
+Chủ dự án chỉnh cùng ngày, và nó đổi trọng tâm của cả mục trên: *"cái phạm vi 1
+máy là cho **dự án của tôi** thôi. Tôi làm framework cho mọi người dùng thì tôi
+phải làm nhiều trường hợp hơn... họ có thể nhiều máy, Docker, k8s các kiểu."*
+
+Đọc lại nguyên văn chốt 08-19 thì nó vốn đã nói vậy: *"nhiều máy **TÔI** đã chia
+shard"*. Bản ghi khi đó tổng quát hoá chữ *"tôi"* thành một điều kiện thiết kế
+của framework - và đó là chỗ sai.
+
+| Câu | Là loại gì | Áp cho ai |
+|---|---|---|
+| *"`RefData`, `Store`, `ProcessLink` chỉ trong một máy"* | **sự thật của CƠ CHẾ** - bộ nhớ chung và file cục bộ không bắc qua máy | **mọi người dùng framework** |
+| *"chúng tôi không cần kho liên máy vì đã chia shard"* | **chính sách TRIỂN KHAI của Xime Platform** | **chỉ Xime** |
+
+⭐ Trộn hai câu đó là đúng khuôn `PEER_APP_ID` đã phải gỡ ở 0.7.1: **framework
+mang khái niệm của một người dùng cụ thể vào trong nó.**
+
+⛔⭐ **Và nó lộ ra một cái bẫy thật cho người dùng ngoài:** `run_once()` khai là
+*"MỘT lần cho cả cụm"*, nhưng *"cụm"* = **nhóm tiến trình của một `share_load()`,
+tức một máy**. Ba pod k8s là **ba lần**, chạy song song.
+
+```text
+1 máy, count: 4        ->  run_once() chạy 1 lần
+3 pod, mỗi pod count: 4 ->  run_once() chạy 3 lần
+```
+
+Ai đặt migration cơ sở dữ liệu vào đó rồi lên k8s sẽ có ba lần migrate đồng thời,
+và framework **không có cách nào ngăn** - nó không biết pod kia tồn tại. Đã ghi
+cảnh báo vào docstring `RunOnce` và một mục mới ở `docs/{vn,en}/multi-process.md`.
+
+⭐ Trọng tâm của Redis cũng đổi theo: nó **không** phải thứ giữ lại cho một ca
+hẹp, nó là **câu trả lời của framework cho cả một lớp triển khai**. `Store` là
+đường nhanh của một máy; `CacheService` là đường chung của nhiều máy.
+
+#### Kiểm chứng
+
+| | |
+|---|---|
+| Bộ test | **2376 passed, 14 skipped** (sau GĐ7: 2250) - **+126** |
+| Đối chứng | **34/34 đỏ** sau khi bịt bốn lỗ hổng lượt đầu |
+| Bốn app thật | `data` 388 · `linh-kien` 295 · `shop` 192 · `crm` 53 |
+| `check config` trên 30 file thật | 29 sạch; file còn lại là app Java |
+| `check_doc_imports` | 344 tên / 44 file ALL OK |
+
+### Giai đoạn 7 - Hai phép dò, tài liệu, đo thật (2026-08-20)
+
+Giai đoạn cuối của 0.8. Sáu giai đoạn trước dựng cơ chế; giai đoạn này dựng thứ
+**canh** một luật mà cơ chế không tự giữ được.
+
+Luật *"code ở mức module phải nhẹ"* (`rules/module-level-code.md`) chốt ngày
+2026-08-19 nhưng chưa có gì cưỡng chế. Nó là luật khó giữ nhất của 0.8 vì cả hai
+cách vi phạm đều **không có triệu chứng**, và vì **hôm nay chúng đúng, ngày mai
+chúng sai, mà code không đổi**: thêm `count: 3` vào `application.yml` là cùng
+đoạn code đó chạy bốn lần - thứ đổi nằm ở file cấu hình, không nằm ở file có lỗi.
+
+#### Thêm
+
+- **`xime/_startup.py`** - mốc thời gian của lần import Xime đầu tiên, và phép
+  dò thứ nhất. `share_load()` đóng băng số đo tại đúng thời điểm code mức module
+  vừa chạy xong; cha kêu **một** dòng nếu vượt trần, sau khi đã cấu hình logging
+  và đã biết cụm có bao nhiêu tiến trình.
+- **`xime check module-level`** (`xime/cli/_module_level.py`) - phép dò thứ hai.
+  Quét tĩnh `main.py` và mọi module **trong dự án** mà nó import ở mức module,
+  tìm lời gọi không tất định.
+- **`docs/{vn,en}/multi-process.md`** - mục *"Code ở mức module chạy `N+1` lần"*:
+  bảng được/không được, hai kiểu hỏng, và cả hai phép dò.
+
+#### ⭐ Vì sao là HAI phép dò, không phải một
+
+Hai nhóm bị cấm hỏng theo hai kiểu khác hẳn nhau, và không phép dò nào bắt được
+cả hai:
+
+| | Hỏng thế nào | Ai bắt |
+|---|---|---|
+| Kết nối mở ở mức module | **thừa** - `N+1` kết nối, mọi tiến trình vẫn đúng | phép dò 1 (nó **chậm**) |
+| `uuid4()` ở mức module | **sai** - mỗi tiến trình một giá trị, mà code đọc nó tin là dùng chung | phép dò 2 (nó **nhanh**, phép dò 1 mù) |
+
+> Một cái đo **hậu quả** mà không biết nguyên nhân; cái kia tìm **nguyên nhân**
+> theo tên mà không thấy hậu quả. Bỏ cái nào cũng thủng theo hướng riêng.
+
+#### ⚠⚠ Ngưỡng 1 giây của kế hoạch ĐO RA LÀ SAI
+
+Kế hoạch thi công đề nghị **1 giây**. Đo ngày 2026-08-20, cùng máy dev, cache ấm:
+
+| Đo | Kết quả |
+|---|---|
+| Riêng import framework (`xime` -> `+web` -> `+grpc` -> `+sqlalchemy`) | **1,08s**, trong đó **0,75s** nằm SAU mốc |
+| `linh-kien-dien-tu` (`xime` + web + `app.config`) | **0,996s** |
+| `shop-hoa-qua-tang`, ba lần chạy | **1,057s · 1,033s · 1,059s** |
+
+> **Cả hai ứng dụng thật và lành mạnh đều vượt ngưỡng đề nghị.** Một phép dò kêu
+> oan là một phép dò sẽ bị tắt, nên ngưỡng lấy ~3x số đo đó: **3,0 giây**.
+
+⭐ Điều đáng nhớ hơn con số: **cửa sổ này bị chi phối bởi IMPORT chứ không phải
+bởi "làm việc"** - khoảng một nửa là framework, nửa còn lại là cây import của
+chính app. Nghĩa là phép dò 1 **không bao giờ** là phép dò chính; nó là lưới bắt
+thứ thật sự bất thường, và tài liệu phải nói thẳng điều đó.
+
+⛔ **Một đường đã cân nhắc rồi loại: trừ đi thời gian import.** Bọc `__import__`
+để đo rồi trừ ra thì **trừ đúng thứ cần bắt** - một kết nối mở trong thân
+`config/dependency.py` được tính là *"thời gian import"* theo đúng nghĩa đen của
+phép đo đó. Lời giải làm hỏng chính bài toán.
+
+#### ⭐ Thông báo mang PHÉP NHÂN, không chỉ mang con số
+
+```text
+Module-Level Code Is Heavy
+  Measured: 6.1s from the first Xime import to share_load()
+  Cost    : x5 (parent + 4 worker(s)) = 30.5s spent before serving
+```
+
+*"6,1 giây"* nghe như chuyện nhỏ; *"×5 = 30,5 giây trước khi phục vụ"* mới là thứ
+khiến người ta đi sửa. Hệ số là `N+1` vì **cha cũng chạy lại `main.py`**.
+
+Kèm ba chi tiết cố ý, đừng gỡ:
+
+| | |
+|---|---|
+| Đo ở `share_load()`, **kêu** ở `run()` | Lúc `share_load()` chưa cấu hình logging (cảnh báo rơi vào hư không) và chưa biết `N` (mất phép nhân) |
+| Chỉ nhánh supervisor kêu | Con cũng gánh chi phí đó, nhưng kêu ở mỗi con là nhân bản chính cái cảnh báo, và người đọc log học được cách bỏ qua nó |
+| Không có công tắc tắt, không có khoá cấu hình | Nó là cảnh báo chứ không chặn ai; thêm một knob cho một dòng WARNING là thêm bề mặt API ở bản **alpha cuối** |
+
+#### ⭐ Phép dò 2: BA mã thoát, không phải hai
+
+`0` sạch · `1` có vi phạm · `2` **chưa kết luận được** (không tìm thấy điểm vào,
+hoặc có file không parse được).
+
+⚠ *"Không tìm thấy vi phạm"* và *"không đọc được để mà tìm"* là hai câu trả lời
+khác nhau. Gộp chúng lại là để một lần chạy trong CI báo xanh trên một phép kiểm
+**chưa hề chạy** - đúng lỗi `ShardValueGuard` của `identity` đã vấp, và cùng
+khuôn với việc đếm **TREO** riêng ở giàn đối chứng.
+
+Kết quả cũng in **số file đã quét**, vì đó là thứ duy nhất phân biệt *"sạch"* với
+*"chạy nhầm thư mục"* khi cả hai in ra `CLEAN`.
+
+#### ⚠ Ba chỗ rộng hơn câu chữ của luật, và mỗi chỗ một lý do
+
+| | Luật viết | Đã làm |
+|---|---|---|
+| **Thân class** | *"không phải trong hàm hay class body"* | **CÓ quét** - thân class chạy lúc import y như thân module, và `class M(BaseModel): ts = datetime.now()` là ca thật |
+| **`secrets.token_hex()`** | khai là chỗ mù | **bắt được** - `secrets.*` nằm trong danh sách, đóng nó tốn một dòng |
+| **Decorator, giá trị mặc định của tham số** | không nhắc | **CÓ quét** - `def f(at=time.time())` được tính đúng một lần, lúc định nghĩa |
+
+Và hai chỗ **cố ý KHÔNG kêu**, cả hai cùng module với thứ bị theo dõi:
+`uuid3`/`uuid5` **tất định** theo `(namespace, name)`; `random.seed` thì ngược
+chiều - nó **làm cho** mọi thứ sau đó tất định.
+
+#### ⭐ Đối chứng: 26 bản vá, **3 chỗ ban đầu không đỏ**
+
+Cả ba là lỗ hổng thật, và hai trong ba là **lỗ hổng của chính bản hiện thực**,
+không phải chỉ của bộ test:
+
+| Chỗ hở | Là gì |
+|---|---|
+| Đoán tên trần khi không có import nào | Test cũ dùng `from mylib import uuid4` - vẫn **có** alias, nên nó không đo được nhánh *"không alias"*. Bịt bằng một object của app **trùng tên với module stdlib** (`time = Clock()`), thứ phải KHÔNG bị kêu |
+| ⭐⭐ **`_is_main_guard` trong bước tìm import là MÃ CHẾT** | Hàm chỉ nhìn **tầng ngoài cùng**, mà `if`/`try` là `ast.If`/`ast.Try` chứ không phải `ast.Import` - nên phép kiểm không bao giờ chạy. Hệ quả thật: **`try: import x except ImportError:` ở mức module không được đi theo**, cả một nhánh cây import biến mất khỏi phạm vi quét, và kết quả vẫn in `CLEAN` |
+| Chống trùng lúc lấy khỏi hàng đợi | Không phải chuyện *"treo"* như tưởng: `a` và `b` cùng import `c` thì `c` vào hàng đợi **hai lần trước khi được lấy ra**, bị quét hai lần, và **một vi phạm được đếm hai lần** |
+
+⭐⭐ Chỗ thứ hai đáng nhớ nhất, và nó là **khuôn ngược** của lỗi quen thuộc: mọi
+lần trước, phép kiểm đúng mà **chỗ dùng** nó bị bỏ quên. Lần này **chỗ dùng có
+sẵn** mà phép kiểm nằm ở tầng không bao giờ với tới dữ liệu - nhìn code thì thấy
+một dòng phòng thủ tử tế, chạy thì nó chưa từng chạy. Chỉ đối chứng mới phân biệt
+được hai thứ đó.
+
+📌 Chỗ thứ ba dạy lại bài của giai đoạn 6 theo chiều khác: tôi dựng mutation kỳ
+vọng nó **treo**, và nó **xanh** - vì `seen.add()` vẫn còn nên vòng lặp vẫn kết
+thúc. Cái hỏng thật không phải *hang* mà là *đếm hai lần*, và nếu tin vào kỳ vọng
+ban đầu thì lỗ hổng đó ở lại.
+
+Sau khi bịt: **26/26 đỏ**.
+
+#### Kiểm chứng
+
+| | |
+|---|---|
+| Bộ test | **2250 passed, 14 skipped** (sau GĐ6: 2167) - **+83** test ở `tests_temp/module_level/` |
+| Bốn app thật | `data` 388 · `linh-kien` 295 · `shop` 192 · `crm` 53 |
+| Ba script kiểm chứng | `check_doc_imports` 344 tên / 42 file ALL OK · `check_doc_register` 0 fail · `find_reexport_gap` không thêm chỗ hở nào |
+| `ruff check xime/` | không thêm loại cảnh báo nào |
+| Phép dò 2 chạy trên chính bốn app | `linh-kien` 174 file · `shop` 207 · `crm` 147 · `data` 1, **cả bốn CLEAN** |
+
+⚠ `data` quét được **đúng 1 file** vì `main.py` của nó đặt `use()` trong khối
+`if __name__` và không import module nội bộ nào ở mức module. Kết quả `CLEAN` đó
+**đúng**, nhưng con số 1 mới là thứ đáng đọc - và đó chính là lý do số file quét
+được phải nằm trong output.
+
+#### ⏭ Còn nợ có ý thức
+
+**Hai phép đo LMDB** của mục 6.2 tài liệu kho nhóm 2 (`writemap` trên ổ thật ·
+chi phí `sync` theo nhịp ghi) **chưa làm** - chúng đòi một VPS Linux, và máy này
+là Windows. Không chặn gì: đó là hai phép đo để chỉnh tham số vận hành, không
+phải quyết định thiết kế.
+
+### Giai đoạn 6 - `RunOnce`, thăng cấp primary, watchdog, sức khoẻ (2026-08-20)
+
+Giai đoạn 3 dựng được một cụm; giai đoạn này làm nó **sống sót**. Ba việc mà một
+cụm không có thì chỉ là *"vài tiến trình chạy cạnh nhau"*: một chỗ cho công việc
+chạy **một lần cho cả cụm**, một đường **trao lại vai** khi primary chết, và một
+cách nhìn thấy con **treo** - thứ `waitpid` mù hoàn toàn.
+
+Thiết kế: `.claude/docs/da-tien-trinh-main-va-cau-hinh-2026-08-16.md` mục 2.8,
+2.8b, 2.8c, 2.9 và `.claude/docs/doi-api-adapter-2026-08-19.md` mục 4.3-4.5.
+Tài liệu người dùng: `docs/{vn,en}/multi-process.md` và `core-concepts.md`.
+
+Test: **2167 passed, 14 skipped** (sau giai đoạn 5: 2063) - **104 test mới**.
+Cộng bốn app thật: `data` 388 · `linh-kien` 295 · `shop` 192 · `crm` 53.
+
+**Không phá app nào**: 31 app hiện tại không khai `run_once()` nào, không gọi
+`configure_health()`, và nhánh một tiến trình đi qua đúng những dòng cũ.
+
+#### Added
+
+- **`RunOnce`** (`xime.core.lifecycle`) - Protocol với tên method quy ước
+  `run_once()`, cùng họ `post_construct`/`pre_destroy`. **Không decorator, không
+  khai ở `config/`**. Chỉ primary chạy; framework in ra danh sách nó tìm thấy.
+- **Cha ĐỢI primary báo `run_once()` xong rồi mới sinh những con còn lại.** Đây
+  là chỗ `run_once` khác một job một-lần của scheduler: không phải *chạy một lần
+  vào một thời điểm*, mà **chạy một lần, và mọi thứ khác đợi nó**.
+- **`ProcessLink` nay được nối vào vòng đời ứng dụng** - việc cộng thêm từ giai
+  đoạn 5. Cha cấp kênh trước khi sinh con, con attach, DI giữ nó, và framework
+  **luôn** tạo kênh nội bộ `__xime__`.
+- **`ProcessLink.announce_sync()` / `drain_sync()`** - bề mặt đồng bộ cho tiến
+  trình gốc, thứ `waitpid`, đọc bộ nhớ, ngủ, và **không có event loop**.
+- **`ProcessLink.create(index=...)`** - người cấp chọn ô của chính mình. Cha giữ
+  ô **cuối** (`N`), con giữ `0..N-1` theo thứ tự cấu hình.
+- **Watchdog** (`xime/core/bootstrap/_watchdog.py`) - con vỗ mỗi **1 giây** trên
+  **task của event loop chính**; im quá **10 giây** thì cha **giết**.
+- **`sd_notify`** - cha gửi `READY=1` và `WATCHDOG=1` qua `NOTIFY_SOCKET`. Không
+  có thì **bỏ qua im lặng**.
+- **Thăng cấp primary** - primary chết thì cha trao vai cho một con đang chạy;
+  con đó khởi động adapter hạng đơn nhất và tiếp tục phục vụ. Chống domino
+  **`N=3` / `T=60`**.
+- **`Application.health()`** và **`configure_health()`** - phương án **B+**: dữ
+  liệu luôn có, endpoint **mặc định TẮT**.
+
+#### Quyết định đáng nhớ
+
+- ⛔ **Tín hiệu thăng cấp là `waitpid`, không phải health check.** Đây là chỗ mô
+  hình cha-con miễn nhiễm với ca *"hai primary"*: một primary treo tạm bị health
+  check đọc là chết, cụm bầu người mới, rồi nó tỉnh lại. Xime **giết trước, đợi
+  kernel xác nhận, rồi mới thăng cấp** - nó không thể tỉnh lại.
+- ⭐ **Lỗi `start()` lúc THĂNG CẤP thì từ chối vai, không sập.** Sập là mất một
+  tiến trình đang phục vụ người dùng thật vì một cái cert, và làm thế ba lần
+  liên tiếp chính là domino.
+- ⭐ **Hai công tắc riêng cho chống domino**: *dựng lại con đã chết* **vẫn làm**,
+  chỉ *cấp vai primary* mới dừng. Mất job nền còn hơn mất khả năng phục vụ.
+- **Cha quyết ai là primary, cấu hình chỉ nói ai BẮT ĐẦU với vai đó** - qua
+  `SharedHandle.primary`. Thiếu trường này thì một primary đã chết, được dựng
+  lại, quay về **vẫn tin mình là primary** trong khi cha đã trao vai cho người
+  khác: hai primary cùng chạy job nền, và không gì báo.
+- **`/readyz` của con phụ VẪN XANH khi cụm thiếu primary.** Nó vẫn nhận request
+  được; thứ mất là job nền. Trả lời ngược lại thì LB rút hết con và cụm chết
+  hoàn toàn vì một job nền không chạy.
+- ⛔ **Hai đường dẫn sức khoẻ không xác thực**, cố ý: chúng phải trả lời được khi
+  mọi thứ khác đã hỏng, kể cả khi không lấy nổi khoá verify. Bù lại thân phản hồi
+  không mang gì nhạy cảm.
+- **`run_once()` không có cặp huỷ**, cố ý. Ba ca thật đều không có gì để dọn, và
+  thêm một hook chỉ để cho cân xứng là thêm thứ không ai dùng.
+
+#### ⚠ Ba chỗ THI CÔNG ĐỤNG VÀO THIẾT KẾ
+
+**1. Nhịp vỗ KHÔNG đi bằng `ProcessLink`, dù thiết kế nói nó *"đi chung chuyến"*.**
+
+Ý đó đúng ở tầng khái niệm - cả hai đều là vùng ghi riêng cho từng tiến trình
+trong bộ nhớ chung. Nhưng nhịp vỗ không được là một **dòng tin** của bus, và lý
+do là số học: nhịp 1 giây × 4 tiến trình đổ vào một vòng 256 dòng thì nó vòng lại
+sau **một phút**, và vì không ai đọc nhịp của người khác nên mỗi lần vòng lại
+**cộng vào `missed`** - chỉ số chẩn đoán chính của bus.
+
+> Nhịp vỗ là một **đại lượng bị ghi đè**, không phải một **sự kiện**. Bus chở sự
+> kiện; đại lượng thì ở một ô riêng.
+
+Nên nó là một vùng nhớ chung riêng, `16 + 8×N` byte cho cả cụm.
+
+**2. Thêm `STARTUP_GRACE_SECONDS`, một hằng số thiết kế không chốt.**
+
+Thiết kế nói `NEVER` nghĩa là *"đang khởi động"*, và đúng - nhưng nó không nói
+**khi nào thì đang-khởi-động thôi là một lời bào chữa**. Không có ngưỡng này thì
+một con treo **trước nhịp vỗ đầu tiên** (kẹt trong `post_construct`, chờ một kết
+nối không bao giờ mở) sống mãi mãi và cha không bao giờ biết - đúng cái lỗ mà
+watchdog sinh ra để bịt, chỉ dịch sớm hơn mười giây. Đặt 60 giây, rộng gấp sáu
+ngưỡng im lặng, vì hai giai đoạn không cùng cỡ.
+
+**3. Adapter hạng đơn nhất do ỨNG DỤNG khai từng biến mất khỏi con phụ.**
+
+Phát hiện lúc thi công, và nó làm **thăng cấp vô hiệu** cho mọi adapter ngoài
+scheduler. `prepare_worker` lọc adapter theo khối cấu hình của tiến trình, mà
+`_reject_singleton_in_many_processes` lại **cấm** khai adapter đơn nhất ở khối
+khác khối primary. Hai luật đúng riêng lẻ, gặp nhau thì con phụ không có adapter
+đó để mà nhận vai: cụm mất job nền vĩnh viễn, và không gì báo.
+
+Thiết kế mục 4.5 viết *"con biết adapter nào là singleton (`scaling`)"* - câu đó
+**giả định nó có mặt ở con**, và giai đoạn 3 thì không. Nay adapter đơn nhất được
+giữ ở mọi tiến trình và lấy ô cấu hình của khối primary (theo cấu trúc chỉ có
+đúng một ô như vậy).
+
+📌 Scheduler không dính vì nó do **framework** đăng ký, sau `prepare_worker` - tức
+ca duy nhất chạy được hôm nay là ca đi vòng qua chỗ hỏng.
+
+#### ⭐ Đối chứng: 24 bản vá gỡ ra, **7 chỗ ban đầu không đỏ**
+
+Sáu chỗ xanh và **một chỗ TREO** - ba kết cục chứ không hai, và treo phải được
+đếm riêng vì nó nói một chuyện khác hẳn (*công cụ đo đang lừa mình*), đúng luật 03
+ở tầng công cụ.
+
+| Chỗ hở | Loại | Đã bịt bằng |
+|---|---|---|
+| Cha **không đợi** `run_once()` xong | lỗ hổng | `Migration.run_once` nay **chậm có chủ ý** (1 giây) + so mốc `post_construct` của con khác với mốc `run_once` xong |
+| ⭐⭐ **HAI PRIMARY** - con dựng lại quay về với vai cũ | lỗ hổng | đếm **số lần adapter đơn nhất khởi động**: đúng thì 2, sai thì 3 |
+| Đường dẫn sức khoẻ không còn công khai với JWT | lỗ hổng | test đi qua `_add_jwt_middleware` và soi `public_paths` thật |
+| Đường báo tin ném lỗi ra ngoài | lỗ hổng | bus giả luôn ném, và **năm** lời gọi `report_*` phải im |
+| Con không báo *"đã sẵn sàng"* | lỗ hổng | đếm dòng `is serving` trong log của **cha** |
+| Con không báo adapter bị cô lập | lỗ hổng | thêm `BreakableAdapter` hạng nhân bản: `serve()` ném lỗi theo lệnh |
+| Cha lấy ô 0 của bus | **TREO** | xem ngay dưới |
+
+⭐⭐ **Ca hai primary là chỗ đáng nhớ nhất, và nó hỏng hoàn toàn im lặng.** Cấu
+hình nói `main: primary: true`. Nếu con đọc vai từ **cấu hình** thì `main` chết,
+cha thăng cấp `api-2`, rồi `main` được dựng lại và quay về **vẫn tin mình là
+primary** - hai tiến trình cùng chạy job nền, không lỗi nào phát ra.
+
+> Test cũ hỏi *"có ai đó nhận vai không"* - và bản sai **cũng nhận vai**, chỉ là
+> nhận thừa một người. Câu hỏi đúng là **"có ĐÚNG một người không"**.
+
+⭐ **Ca cha-lấy-ô-0 dạy một chuyện khác: đo bằng cụm thật thì nó TREO, không ĐỎ.**
+Mỗi lần boot cụm với bản vá bị gỡ tốn thêm 60 giây chờ `_await_run_once` hết hạn,
+nên cả file test vượt hạn của giàn đối chứng. Bất biến ấy nay được đo **thẳng ở
+tầng đơn vị** (`test_shared_allocation.py`), còn cụm thật vẫn giữ vai đo *đoạn
+nối*.
+
+📌 Bản thân lỗi đó cũng chỉ lộ khi chạy thật: `ProcessLink.create()` mặc định
+`index=0`, nên cha và con thứ nhất dùng chung **một vùng ghi và một cái chuông**.
+Cha đọc tin của con, con không bao giờ thấy lệnh của cha, và **cả hai đều im
+lặng**.
+
+⚠ Và giàn đối chứng để lại một mutation trong repo khi bị giết giữa chừng - đúng
+cái đã cắn ở giai đoạn 5. Phép kiểm `grep "DOI CHUNG"` sau mỗi lần chạy không
+phải chuyện thừa.
+
+#### Kiểm thử
+
+**Không mock**, đúng `rules/background-tasks.md` mục 4. Chia hai vai có chủ ý:
+
+| | Đo gì |
+|---|---|
+| `tests_temp/watchdog/` | **quyết định** - tất định, mili giây |
+| `tests_temp/processes/test_cluster_lifecycle.py` | **đoạn nối** - tiến trình thật, chậm |
+
+Hai phép đo không thay nhau được: một cái đúng logic mà dây không nối thì cụm vẫn
+hỏng - và ba giai đoạn trước đã dạy đúng bài đó ba lần.
+
+⭐ Test canh đáng nhớ nhất: **chặn event loop thì nhịp vỗ phải ĐỨNG**. Chỗ đặt
+lệnh vỗ là một phần của hợp đồng, không phải chi tiết hiện thực - chuyển nó sang
+một thread thì watchdog xanh mãi mãi và không gì báo.
+
+---
+
+### Giai đoạn 5 - `RefData` (2026-08-20)
+
+**Dữ liệu tham chiếu dùng chung giữa các tiến trình**: khoá verify JWT, danh bạ
+app, cấu hình đã phân giải - thứ **có nguồn bền vững**, đọc rất nhiều, ghi rất
+hiếm, và mỗi lần ghi là **thay trọn gói**. Trước đây bốn tiến trình là bốn lần
+gọi Trust lúc khởi động, bốn bản trong RAM, và bốn thời điểm xoay khoá khác nhau.
+
+Thiết kế: `.claude/docs/kho-nhom-1-snapshot-2026-08-18.md`.
+Tài liệu người dùng: `docs/{vn,en}/refdata.md`.
+
+Test: **2063 passed, 14 skipped** (sau giai đoạn 4: 1985) - **78 test mới**.
+**Không phá app nào** - `core/refdata/` là code mới, và phần nối vào bootstrap
+chỉ THÊM một bước, không đổi hành vi nào đang có.
+
+#### Added
+
+- **`xime.core.refdata`** - `RefData[T]`, `configure_refdata()`, `RefDataArena`,
+  `RefDataStats`, và năm lớp lỗi.
+- **Hai bản đổi con trỏ.** Người ghi dựng trọn bản mới vào ô **không ai đang
+  đọc**, ghi độ dài và số đoạn, đổi con trỏ (1 byte, nguyên tử), rồi mới tăng
+  số đời.
+- **Cache L1 khoá bằng SỐ ĐỜI.** Đường thường lệ - chạy 99,99% số lần - là
+  **một phép so số nguyên**: không đọc bộ nhớ chung, không decode, không copy.
+  `decode()` chạy một lần cho mỗi lần **publish**, không phải mỗi lần **đọc**.
+- **`read()` trả `None` = CHƯA SẴN SÀNG**, tách hẳn khỏi *giá trị rỗng*.
+  `read_or_fail()` là cặp `find()` / `find_or_fail()` của `CrudRepository`.
+- **`wait_ready(timeout)`** - chờ là một lời gọi **riêng**, ở tầng khởi động.
+  `timeout` bắt buộc, không có mặc định vô hạn.
+- **`publish()` chỉ primary**; tiến trình khác gọi thì **nổ**.
+- **Ba lớp chống vượt trần**: cảnh báo ở 80% · `publish()` ném và **giữ nguyên
+  bản cũ** · `stats().stale`.
+- **`stats().served_generation`** - số đời **tiến trình này** đang phục vụ, tách
+  khỏi `generation` (bản mới nhất cả cụm có). Chênh nhau là **tín hiệu duy nhất**
+  cho thấy một tiến trình phục vụ bản cũ.
+- **Mỗi bảng một vùng nhớ RIÊNG** - *"các bảng nên không liên quan gì đến nhau,
+  kể cả bộ nhớ"*. Tổng RAM bằng nhau ở cả hai cách nên không mất gì.
+- **Cấu hình bằng THAM SỐ CLASS** (`name`, `max_bytes`), cùng quy ước `Store`.
+- **`xime/core/bootstrap/_shared.py`** - cha cấp vùng nhớ **trước khi sinh con**
+  và trao `SharedHandle` xuống; con attach. Tiến trình đơn thì tự cấp và tự là
+  primary, nên **31 app hiện tại không phải sửa một dòng**.
+
+#### Quyết định đáng nhớ
+
+- ⭐ **Bất biến của `publish` là MỘT CÂU, không phải sáu bước:** *mọi thứ mô tả
+  bản mới phải hiện ra TRƯỚC khi số đời tăng*. Thiết kế liệt kê bảy bước nhưng
+  không nói `so_doan` đứng ở đâu (trường đó ra đời cùng ngày, sau danh sách
+  bước). Phát biểu lại thành một bất biến thì chỗ trống tự đóng.
+- ⭐ **Hai ô A/B là tối ưu, `read()` chép ra trước khi decode mới là thứ đóng
+  cửa sổ.** Thiết kế mục 4.3 đã nói *"hai bản A/B không tự né được ca này"*; thi
+  công xác nhận: gỡ hai ô ra thì mọi test tính đúng đắn vẫn xanh, chỉ test canh
+  hình dạng đỏ. Đừng đọc hai ô như lớp bảo vệ chính.
+- **Arena vẫn được đăng ký vào DI kể cả khi không khai bảng nào.** Một arena
+  **rỗng** không cấp một byte nào, nhưng nó **biết nói**: app `scan` vào package
+  chứa bảng mà quên `configure_refdata()` sẽ nổ với câu *"bảng X chưa bao giờ
+  được cấp vùng nhớ"* thay vì *"Unregistered Dependency: RefDataArena"*.
+- **`wait_ready` hỏi lại theo nhịp**, không chờ một tín hiệu qua bus. Chi tiết và
+  lý do ở mục dưới.
+- **`SharedHandle` đi bằng ĐỐI SỐ, không bằng biến môi trường.** `XIME_PROCESS_ID`
+  cần có mặt trước mọi lệnh import; mã lần chạy thì chỉ cần lúc **attach**. Đối
+  số chở được thứ không phải chuỗi (semaphore của bus, giai đoạn 6) và **vắng
+  mặt mang đúng một nghĩa**: không có cha.
+- **Chỉ số tiến trình lấy theo thứ tự khai trong cấu hình**, không theo thứ tự
+  sinh - nên một con được dựng lại **giữ nguyên** chỉ số của nó, và `nguoi_ghi`
+  không bao giờ trỏ vào một tiến trình đã chết.
+
+#### ⚠ Một chỗ LỆCH KHỎI THIẾT KẾ, và lý do
+
+Mục 5.4 của thiết kế chốt cơ chế chờ *"nào cái kia ghi xong báo tôi đã xong thì
+đọc lại"* - tức một tín hiệu qua `ProcessLink`. Thi công làm `wait_ready()`
+**hỏi lại theo nhịp 10 ms** thay vào đó, và đây là lý do:
+
+> **Bus chưa được nối vào vòng đời ứng dụng.** Giai đoạn 2 dựng `ProcessLink`
+> chạy được và có 90 test, nhưng nó vẫn là một thư viện đứng riêng: không cha
+> nào cấp kênh, không DI nào giữ nó. Việc nối đó thuộc giai đoạn 6 (thăng cấp
+> primary, F10 báo trạng thái) và **đáng có đối chứng riêng của nó**.
+
+Cái mất là **độ trễ tối đa một nhịp**, trên một lời gọi chỉ chạy ở tầng khởi
+động. Cái được là `wait_ready` **không phụ thuộc thứ tự khởi động của bất cứ
+thành phần nào khác** - một chốt chặn không nên dựa vào một thứ có thể chưa kịp
+chạy. Thêm đường đánh thức qua bus ở giai đoạn 6 là chuyện thuần cộng thêm,
+không đổi API.
+
+📌 Thiết kế cũng đã tự nói *"các lần publish SAU lần đầu thì không cần bus: đọc
+`so_doi` là biết"* - phần bus chỉ phục vụ ca chờ lần đầu.
+
+#### ⭐ Đối chứng: 19 bản vá gỡ ra, 7 chỗ ban đầu KHÔNG có test nào đỏ
+
+Ba chỗ là **lỗ hổng thật** trong bộ test, ba chỗ là **phép đo nhắm sai** - và
+phân biệt được hai loại đó chỉ có một cách: chạy đối chứng.
+
+| Chỗ hở | Đã bịt bằng |
+|---|---|
+| Giá trị **falsy** (danh sách rỗng) bị nhầm thành *chưa sẵn sàng* | Test publish `[]` rồi đòi `read() == []`. Bản cũ chỉ đo `KeySet({})`, mà một dataclass thì **truthy**, nên `if not value: return None` đi qua lọt |
+| Dùng bảng sau khi arena đã đóng | `RefDataClosedError` + test. ⚠ **Lý do ban đầu ghi trong code là SAI** - xem dưới |
+| `configure_refdata()` một mình đưa bảng vào DI | Test dựng `Application` với `BindingConfig()` **rỗng**. Mọi test cũ đều `scan` cả package nên không phân biệt được đường nào đưa bảng vào |
+| Hai ô A/B | Đã có test canh (`test_the_two_slots_alternate`), harness chỉ **chạy sai file** - cùng khuôn *"tìm cái đúng thì không đếm được cái sai"* |
+| Chép trước khi verify | Test tất định: người ghi đè lên ô đang đọc **ngay trong lòng `decode`** |
+| Thứ tự ghi số đời | Test tất định, xem mục ngay dưới |
+| **Cả đoạn nối vào supervisor** | Một test **cụm hai tiến trình thật**: primary publish, tiến trình kia đọc được qua vùng nhớ **cha cấp**. Xem mục ngay dưới |
+
+⭐⭐ **Chỗ đáng nhớ nhất: một cửa sổ vài nanosecond KHÔNG đo được bằng cách chạy
+đua.** Đảo hai lệnh ghi liền nhau (số đời trước con trỏ) thì test hai tiến trình
+chạy **7.674 lượt đọc qua 40 đời** vẫn xanh - cửa sổ quá hẹp để trúng. Phải dựng
+lại **đúng thời điểm đó**: do thám `write_generation`, và soi vùng nhớ ngay
+trước khi nó chạy. Hai phép đo giữ hai vai khác nhau, không thay nhau được:
+
+| | Đo gì |
+|---|---|
+| Test đua (`test_multiprocess.py`) | cửa sổ **rộng**, dưới tải thật |
+| Do thám tất định (`TestPublishOrder`) | cửa sổ **hẹp nhất**, một lệnh ghi |
+
+⚠ **Một lý do viết trong code hoá ra SAI, và chỉ đối chứng mới lộ ra.** Docstring
+của `release()` ghi nó tồn tại để tránh `BufferError` khi `SharedMemory.close()`
+gặp view chưa thả. Gỡ nó ra thì **không test nào đỏ** - đo thật thì `close()`
+chạy êm, vì `self._view` là **buffer của chính `SharedMemory`** chứ không phải
+một **lát cắt**, và chỉ lát cắt mới tính là export. Lý do thật là **thông báo
+lỗi**: không buông thì lời gọi sau khi tắt cho một `ValueError: operation
+forbidden on released memoryview`. Đã sửa docstring và thêm lớp lỗi riêng.
+
+#### ⚠⚠ Lỗ hổng lớn nhất: cả đoạn nối vào supervisor KHÔNG có test nào
+
+Ba bản vá của phần bootstrap - cha cấp vùng nhớ, `SharedHandle` truyền xuống,
+con attach - gỡ ra thì **không test nào đỏ**. Lý do đúng khuôn đã cắn hai lần
+trong 0.8, và nó đáng ghi lại vì nó **sẽ lặp**:
+
+> Bộ test của `RefData` hoặc chạy **một tiến trình**, hoặc **tự dựng arena bằng
+> tay** rồi `attach` bằng tay. Cả hai đều đi vòng qua chính đoạn nối đang cần
+> đo - và cả hai đều trông như đang đo nó.
+
+Đã bịt bằng một test **cụm hai tiến trình thật** (`tests_temp/processes`): app
+mẫu khai một bảng, primary publish qua HTTP, rồi cả hai tiến trình phải đọc ra
+cùng một bản với cùng số đời. Chạy lại đối chứng thì cả ba đều đỏ, cộng một bản
+vá thứ tư (chỉ số tiến trình lấy theo **thứ tự khai trong cấu hình**, không theo
+thứ tự sinh).
+
+#### Kiểm thử
+
+**Không mock**, đúng luật `rules/background-tasks.md` mục 4. Bốn ca bắt buộc của
+thiết kế chạy bằng **tiến trình thật** (`spawn`), và test đi **thành cặp** ở mọi
+chỗ tách một giá trị làm hai (`None` / rỗng · phải nổ / phải chạy · phải cảnh
+báo / phải im). Cộng một module đi **đúng con đường tài liệu hướng dẫn**
+(`configure_refdata` -> `Application` -> DI), vì bài học 0.7.0 và giai đoạn 1
+đều nói cùng một chuyện: lỗi nằm ở **chỗ nối**, và test đi đường tắt không thấy.
+
+---
+
+### Giai đoạn 4 - Đổi API adapter (2026-08-20) - **5/5 phần + 4b**
+
+Mảng này cố ý làm **một lượt**: đổi API rải rác qua nhiều bản là thứ tệ nhất cho
+31 app dùng chung một cây mã editable. Thiết kế:
+`.claude/docs/doi-api-adapter-2026-08-19.md`.
+
+Test: **1985 passed, 14 skipped** (sau giai đoạn 3: 1928).
+
+⚠⚠ **Đây là thay đổi PHÁ TƯƠNG THÍCH với adapter do người ngoài viết.** Chấp
+nhận được vì 0.8 là bản **Alpha cuối** - sau đó 0.9 sang Beta nơi API coi như đã
+chốt.
+
+#### Added
+
+- **`Adapter` là Protocol thật, và `use()` kiểm nó.** ⭐ `@runtime_checkable`
+  viết từ đầu nhưng **chưa từng có tác dụng**: `Adapter` chỉ được import dưới
+  `TYPE_CHECKING`, nên một object rỗng đăng ký được **hai lần** và không ai kêu.
+  Công cụ có sẵn, chỉ là không ai gọi. Nhờ vậy tầng lỏng thứ ba đóng miễn phí
+  cùng lúc: thiếu `start()` trước đây nổ **sau khi DI đã dựng xong toàn bộ
+  singleton**, nay nổ ở đúng dòng `app.use(...)`.
+- **`adapter_id`** thay `_server_id` - một tên ở tầng framework, làm ba việc:
+  chống trùng · tra khối cấu hình · tầng khoá thứ ba trong `processes:`.
+- **`scaling=` bắt buộc, khai bằng tham số class** (PEP 487), cùng khuôn
+  `Store(name=..., ttl=...)`. Ba hạng: `replicated` · `sharded` · `singleton`.
+  Kèm `unique_per_process=` và `disjoint_per_process=`.
+- **`serve()`** trong Protocol - `start()` chiếm tài nguyên rồi **trả về**,
+  `serve()` phục vụ và **chặn**.
+- **`SchedulerAdapter`** - scheduler thành adapter hạng đơn nhất.
+- **`WebServerConfig`** ở `xime.adapters.web` - nhà mới của khối `server:`.
+
+#### Changed
+
+- ⛔ **Ba adapter kết nối RA đổi tên đối số sang `target_id`** (`client_id` ·
+  `device` · `server`). ⚠ Cái sai thật **không phải** *"sáu adapter bốn tên"* mà
+  là **ba adapter cùng một hạng dùng ba tên khác nhau**. Web/grpc/socket giữ
+  `server_id`, **không đổi một chữ** - ép một tên cho cả sáu là dán sai nhãn.
+  ⭐ Lý do mạnh nhất để MQTT nhường chữ `client_id`: nó đã mang **hai nghĩa ngược
+  nhau** trong cùng framework - ở gRPC client SDK (`grpc.clients.<client_id>`)
+  đó là tên **service đích**, ở MQTT là tên **của chính ta**.
+- ⛔ **Bỏ `asyncio.TaskGroup` khỏi vòng chạy adapter.** Ngữ nghĩa của nó là *"một
+  task ném lỗi thì mọi task anh em bị huỷ"* - đúng cho lỗi lúc khởi động, nhưng
+  `serve()` chạy suốt vòng đời nên luật đó áp cả lúc đang chạy: **một lỗi không
+  bắt được ở server gRPC kéo web adapter chết theo và tiến trình thoát**, trong
+  khi nó đang phục vụ người dùng thật. Nay `serve()` hỏng thì **chỉ adapter đó bị
+  cô lập**, log `CRITICAL`, anh em chạy tiếp.
+- ✅ **Adapter cuối cùng chết thì tiến trình VẪN SỐNG.** Còn sống thì `/healthz`
+  còn trả lời được, log còn đọc được, còn gỡ lỗi được. Thoát là mất hết, kể cả
+  khả năng nói cho người khác biết vì sao mình chết.
+- ⚠⚠ **`SchedulerRunner` KHÔNG còn chạy ở mọi tiến trình.** Trước 0.8 nó khởi
+  động vòng lặp lịch trong `post_construct`, tức job nhắc email gửi **bốn lần**
+  trong một cụm bốn tiến trình. Chỗ sai nằm ở **bảng bốn ô**: việc *"chạy mãi,
+  một lần cho cả cụm"* đang ở nhà của việc *"chạy một lần, ở mọi tiến trình"*.
+  Nay nó là adapter `scaling="singleton"`, và framework chỉ `start()` nó ở
+  primary - **không cần cờ nào trong object để mà quên kiểm**.
+- ⛔ **`ServerConfig` và `ServerTlsConfig` RỜI core.** `core/config/runtime.py`
+  từng có `class ServerConfig` với docstring *"Network binding for the HTTP
+  adapter"* - **core biết về một adapter cụ thể**, trong khi năm adapter kia
+  không có một dòng nào ở đó. Cùng khuôn `PEER_APP_ID` đã gỡ 2026-08-17. Nhà mới:
+  `from xime.adapters.web import ServerTlsConfig`.
+  ⚠ **Khoá YAML `server:` giữ nguyên từng chữ** - gỡ ở đây là gỡ **thuộc tính
+  Python trên `RuntimeConfig`**, và đo trước khi quyết cho thấy **đúng một file**
+  trong cả framework lẫn 27 app đọc `runtime.server`: chính adapter sở hữu nó.
+- ⚠ **Một hệ quả đổi hành vi phải đọc:** `runtime.get("server.host")` nay trả
+  `None` khi YAML không khai, thay vì `"0.0.0.0"`. Mặc định trước đây lọt vào
+  `get()` vì `server:` là một model **có kiểu trên `RuntimeConfig`**; nay nó là
+  một khoá thường. Mặc định sống ở `WebServerConfig.from_runtime(runtime)`.
+- **Phép kiểm số 4 lúc khởi động đọc DỮ LIỆU, không đọc docstring.** Hai khối
+  `sharded` trùng `unique_per_process` -> nổ; giao nhau ở `disjoint_per_process`
+  -> nổ. Trước đó lý do chống trùng nằm trong docstring của `MqttAdapter`:
+  framework **đọc được nhưng không dùng được**.
+
+#### Quyết định đáng nhớ
+
+- **`scaling` không có mặc định.** Mặc định `replicated` là **nguy** (một adapter
+  chưa từng nghĩ tới nhân bản bị nhân bản, hỏng **im lặng**); mặc định
+  `singleton` thì app chậm mà không ai biết vì sao. Đúng khuôn `Store` phải khai
+  `name`.
+- ⭐ **Lớp con của một adapter đã khai thì KẾ THỪA** - `class TestWeb(WebAdapter)`
+  không phải nhắc lại `replicated`. Bắt buộc chỉ áp cho adapter **mới**, đúng ca
+  luật sinh ra để chặn; ép khai lại chỉ dạy người ta chép một dòng cho qua.
+- ⭐ **Ba thư viện bên dưới ĐÃ tách sẵn `start`/`serve`** - gRPC có `start()` +
+  `wait_for_termination()`, uvicorn có `startup()` + `main_loop()`, asyncio có
+  `start_unix_server()` + `serve_forever()`. gRPC adapter thậm chí **đã gọi đúng
+  hai bước đó ở hai dòng liền nhau**. Framework chỉ đang **thôi che giấu** cấu
+  trúc vốn có, không ép hình dạng mới.
+- ⚠ `scaling`, `unique_per_process`, `disjoint_per_process` **cố ý không khai ở
+  thân Protocol**. Khai ở đó là đưa chúng vào `__protocol_attrs__`, tức
+  `isinstance` bắt đầu đòi cả ba - và một adapter thiếu `scaling` bị báo là *"sai
+  hình dạng"* thay vì *"quên khai hạng"*. Hai bệnh khác nhau thì phải hai phép
+  kiểm khác nhau.
+- **mqtt / modbus / opcua từ chối `share_load()`** bằng một câu nói rõ lý do -
+  chúng thuộc hạng phân mảnh, thi công ở 0.8.1. Nói ra ở **adapter** chứ không ở
+  core: core không được biết `mqtt` là gì.
+- `ModbusServerAdapter` và `OpcuaServerAdapter` khai **`singleton`** - thiết kế
+  không nhắc tới chúng, nhưng chúng giữ **trạng thái thanh ghi trong tiến trình**,
+  nên hai bản phục vụ chung một cổng là hai bộ giá trị khác nhau trả lời xen kẽ.
+
+#### Đối chứng: 16 bản vá, 2 chỗ ban đầu không có test nào đỏ
+
+Cả hai là hai phép kiểm phân mảnh mới (`unique_per_process` và
+`disjoint_per_process`) - đã bịt bằng bốn test **đi thành cặp** (trùng -> nổ,
+khác -> qua; giao nhau -> nổ, rời nhau -> qua).
+
+⚠ Một test cũng tìm ra một lỗi thật: adapter do framework tự đăng ký **bám vào
+container vừa bị dọn**, nên `start/stop/start` lần hai nổ *"StartupOrchestrator
+has not started"* - và nó nổ ở **lần thứ hai**, đúng khuôn *"test xanh lần đầu,
+đỏ lần thứ hai"*.
+
+#### Phần 2 - một hình dạng cấu hình cho cả một lẫn nhiều tiến trình
+
+> **`process:` là một khối. `processes:` là nhiều khối có tên. Bên trong hai cái
+> giống hệt nhau.**
+
+Chủ dự án chốt 2026-08-20 sau khi phần 2 lộ ra một chỗ **thiết kế chưa nói tới**:
+mục 2.9 bảo bỏ `host`/`port`/`ssl`/`path` khỏi constructor, và mục 2.5 biện minh
+bằng câu *"server phụ nay có ô cấu hình riêng `processes.<p>.web.<id>`"* - câu đó
+**chỉ đúng dưới `share_load()`**. Ngoài nhánh đó thì một app một tiến trình có
+server phụ **không còn chỗ nào khai địa chỉ**.
+
+⭐ Chỗ dễ lẫn đã làm rõ trong lúc bàn: **"server phụ" KHÔNG phải "tiến trình
+phụ"**. `server_id` là điểm phục vụ **bên trong** một tiến trình, nên một tiến
+trình duy nhất vẫn mở được hai cổng HTTP - chuyện đó độc lập hoàn toàn với
+`share_load()`.
+
+```yaml
+# một tiến trình, hai cổng
+process:
+  web:
+    public: { host: 0.0.0.0,   port: 8086 }
+    admin:  { host: 127.0.0.1, port: 8081 }
+
+# nhiều tiến trình - BÊN TRONG y hệt, chỉ thêm một cấp và một cái tên
+processes:
+  main:
+    primary: true
+    web:
+      public: { host: 0.0.0.0,   port: 8086, shared: true }
+      admin:  { host: 127.0.0.1, port: 8081 }
+  api-2:
+    web:
+      public: { host: 0.0.0.0,   port: 8086, shared: true }
+      admin:  { host: 127.0.0.1, port: 8082 }
+```
+
+##### Added
+
+- **Khoá `process:`** - một khối, cho app một tiến trình. Nội dung **byte-identical**
+  với một khối của `processes:`, nên đi từ một sang nhiều là *thêm một cấp và một
+  cái tên*, không phải học hình dạng thứ hai.
+- **Ba khoá vô nghĩa với một tiến trình là LỖI**, không phải bỏ qua: `primary`
+  (tiến trình duy nhất luôn là primary), `count` (không gì sinh con), `shared`
+  (dùng chung một địa chỉ đòi **ít nhất hai** tiến trình). ⚠ Kiểm **sự có mặt
+  của khoá**, không kiểm giá trị - `shared: false` cũng bị từ chối, vì cho nó
+  qua là dạy người đọc rằng khoá đó có ý nghĩa ở đây.
+- **Phép dịch khoá phẳng** `server:` / `grpc.port` -> `process.web.default` /
+  `process.grpc.default`. ⭐ Đo được **58/69** file cấu hình trong workspace dùng
+  `server:`, nên đây là hiện thực đông nhất - và nó là **một phép dịch**, không
+  phải một nhánh xử lý thứ hai: dịch xong thì từ đó trở đi chỉ còn một đường
+  code, và khoá phẳng **không thể trôi lệch** vì nó chỉ diễn tả nổi một điểm
+  phục vụ mỗi loại.
+- **`AdapterSlot.where`** - một chỗ duy nhất sinh chuỗi vị trí cho thông báo lỗi,
+  vì hai nhánh có hai tiền tố khác nhau và một thông báo sai tiền tố dẫn người
+  đọc tới nhầm khoá.
+
+##### Changed
+
+- ⛔ **`host` / `port` / `ssl` / `path` BỎ HẲN khỏi constructor** của web, gRPC và
+  socket. Không cần phép kiểm nào nữa - Python từ chối ở tầng chữ ký, và chốt
+  chặn *"cấm đối số cổng"* dựng ở giai đoạn 3 nay là **mã chết**.
+  ⭐ Đo trước khi làm: **0/27 app** trong workspace dùng server phụ, nên không app
+  nào phải sửa. 74 chỗ nhắc tới nằm gọn trong repo này (28 test, 36 tài liệu, 10
+  code framework).
+- **Mọi adapter LUÔN nhận một ô**, ở cả ba nhánh của `run()`. Nhờ vậy trong
+  adapter không còn nhánh *"có ô thì đọc ô, không thì tự đi tìm khoá"*.
+- **`grpc.servers.<id>` biến mất.** Nó là cái tên thứ ba cho cùng một khái niệm,
+  và nó giữ một khoá `port` **chết**: adapter đọc khối đó xong **ghi đè vô điều
+  kiện** bằng đối số constructor, nên người vận hành sửa `grpc.servers.<id>.port`
+  thì cổng **không đổi**, không một dòng cảnh báo. `tls` của nó về ô.
+- **TLS kế thừa `server.ssl` khi ô không khai** - giữ nguyên tính chất bảo mật
+  cũ. Muốn một điểm phục vụ cố ý chạy HTTP thuần thì khai `ssl: {}`, đúng chỗ
+  `ssl=ServerTlsConfig()` cũ chuyển tới.
+- **Chốt 0.8.1 cho hạng phân mảnh chuyển từ ADAPTER sang FRAMEWORK.** Trước đó
+  mqtt/modbus/opcua tự ném trong `assign_slot()`; từ khi mọi adapter luôn nhận
+  một ô thì cách đó **chặn luôn nhánh một tiến trình**, nơi chúng chạy hoàn toàn
+  bình thường. Thứ phải chặn là *chia tải*, không phải *nhận cấu hình*.
+- **Thứ tự import trong khuôn `main.py`**: `from xime...` trước, `import config`
+  sau. ⭐ Không chỉ là thẩm mỹ - `xime` là thư viện bên thứ ba, `config` là code
+  của app, nên đó đúng là thứ tự isort/ruff chuẩn; khuôn cũ đang ngược quy ước.
+
+##### Ba phép kiểm mới quanh cái bẫy một chữ
+
+`process` và `processes` khác nhau **đúng một ký tự**, nên framework bắt cả hai
+chiều: `processes:` mà không `share_load()` -> lỗi · `process:` mà có
+`share_load()` -> lỗi · khai cả hai -> lỗi. **Không tổ hợp nào chạy êm mà sai.**
+
+##### ⚠ Một lỗi thật, và nó chỉ lộ ra ở tiến trình con
+
+`share_load()` **không chạy ở tiến trình con** (khối `if __name__` không kích
+hoạt ở đó), nên cờ phải đặt lại trong `run_as_worker()`. Thiếu dòng đó thì con
+đọc cấu hình bằng nhánh một-tiến-trình và **từ chối chính khối `processes:` mà
+cha vừa dùng để sinh ra nó** - một tiến trình con nổ vì cấu hình đúng.
+
+##### Đổi hành vi phải đọc
+
+`runtime.get("server.host")` nay trả `None` khi YAML không khai, thay vì
+`"0.0.0.0"`. Mặc định trước đây lọt vào `get()` vì `server:` là một model **có
+kiểu trên `RuntimeConfig`**; nay nó là một khoá thường. Mặc định sống ở
+`WebServerConfig.from_runtime(runtime)`.
+
+#### Phần 4b - fieldbus: một adapter = một LOẠI, N thực thể (khai chữ ký)
+
+Thiết kế 5.7.3 tách **loại** khỏi **thực thể**, và chỗ tách đó đụng thẳng vào API
+công khai:
+
+| | Ai biết | Ở đâu |
+|---|---|---|
+| **Loại** (`bang-tai`) | **Code** - controller viết cho một loại máy | `main.py` |
+| **Thực thể** (`BT-01`) | **Cấu hình** - nhà máy có bao nhiêu máy | `application.yml` |
+
+⏭ **Chủ dự án đã lùi THI CÔNG fieldbus sang 0.8.1**, nên ở đây chỉ khai **chữ ký**.
+Nhưng khai là bắt buộc: 0.8 là bản **Alpha cuối**, và 0.8.x không được đổi một dòng
+API công khai nào.
+
+##### Removed
+
+- ⛔ **`@poll(..., device=...)` và `@on_change(..., device=...)`** - việc chọn máy nào
+  không còn nằm ở decorator. Handler chạy một lần cho **mỗi thực thể** của loại nó.
+- ⛔ **`@on_node_change(..., server=...)`** của OPC UA - cùng lý do.
+- **Trục `device` biến khỏi `PollGroup`.** Trước đây hai handler cùng model, cùng nhịp
+  nhưng khác `device` tách thành hai vòng đọc; nay chúng dùng một vòng.
+
+##### Added
+
+- **Tham số handler `device` (Modbus) / `server` (OPC UA)**, khớp theo **TÊN** đúng
+  quy ước `topic` của `@subscribe`:
+
+  ```python
+  @poll(Conveyor, interval=1.0)
+  async def on_sample(self, conveyor: Conveyor, device: str) -> None: ...
+  ```
+
+  Không khai thì handler giữ nguyên một tham số như cũ. ⚠ Một tham số thứ hai mang
+  **tên khác** là **lỗi khởi động**, không phải một tham số bị bỏ qua im lặng - bỏ qua
+  im lặng thì người viết chờ framework truyền một thứ nó không biết là gì, và handler
+  nổ `TypeError` giữa một chu kỳ đọc, xa chỗ sai thật.
+- **`ModbusClient.devices_of(kind)` / `OpcuaClient.servers_of(kind)`** - danh sách thực
+  thể của một loại mà **tiến trình này** giữ:
+
+  ```python
+  for dev in modbus.devices_of("bang-tai"):
+      trang_thai = await modbus.read(Conveyor, device=dev)
+  ```
+
+  ⭐ Đây là đường **duy nhất** đúng để lấy tên thực thể trong code nghiệp vụ (đường kia
+  là dữ liệu người dùng chọn). Viết cứng `device="BT-01"` là buộc code vào một nhà máy.
+- **Hằng `DEVICE_PARAM` / `SERVER_PARAM`** thay vì chuỗi rải rác - tên tham số là một
+  phần hợp đồng công khai, nên nó phải có đúng một chỗ định nghĩa.
+
+##### ⭐ Vì sao HAI tên chứ không phải một
+
+Phần 1 chốt `adapter_id` là **một tên chung cho mọi adapter**, nên phản xạ tự nhiên là
+ép `devices_of`/`servers_of` về một chữ. **Ngược lại mới đúng**, và ranh giới là:
+
+> `adapter_id` nói về **framework** - một tên chung là đúng.
+> `device`/`server` nói về **thứ thật ngoài kia** - Modbus có thiết bị, OPC UA có
+> server. Ép chung một chữ là dán sai nhãn, đúng thứ phần 1 đã bác khi từ chối gộp
+> `server_id` với `target_id`.
+
+##### Tương thích
+
+- **Rỗng mang đúng một nghĩa.** `devices_of` trả `[]` nghĩa là *tiến trình này không
+  giữ loại đó* - ca thường lệ của mô hình phân mảnh, không phải lỗi. Nó **không** mang
+  nghĩa *"chưa biết"*: câu trả lời có từ lúc `app.use()`, trước cả khi kết nối lên, vì
+  adapter nhận tên ngay trong `__init__`.
+- **Code viết theo vòng lặp `devices_of` chạy đúng ở cả 0.8 và 0.8.1.** Hôm nay một
+  adapter giữ đúng một thực thể trùng tên loại - đúng dạng viết tắt thiết kế đã chốt
+  (*"giá trị dưới tên loại là dict phẳng có `host` thì coi như một thực thể trùng tên
+  loại"*), nên không phải sửa gì khi 0.8.1 tới.
+- **Không app nào phải sửa**: chưa app nào trong workspace dùng Modbus/OPC UA thật.
+
+Đối chứng 6 bản vá của 4b: **6/6 đỏ**.
+
+#### Còn lại - đã lùi sang 0.8.1
+
+| | |
+|---|---|
+| Dựng **N kết nối** cho một loại | Cấu hình bốn tầng `process → modbus → loại → thực thể`; hôm nay một adapter một thực thể |
+| `mqtt.clients.<id>` | `client_id` và `topics` vào `processes.<p>.mqtt.<id>`. ⭐ Không có API nào phải khai ở 0.8: `@subscribe` **mất một vai, giữ nguyên chữ ký** |
+
+### Giai đoạn 3 - Cấu hình, `share_load()`, supervisor (2026-08-20)
+
+**Xương sống của 0.8.** Từ đây một ứng dụng chạy được trên nhiều tiến trình mà
+**không đổi một dòng code nghiệp vụ**: `main.py` khai *ứng dụng này CÓ những cửa
+nào*, khối `processes:` khai *tiến trình nào ĐANG mở cửa nào ở cổng nào*.
+
+Thiết kế: `.claude/docs/da-tien-trinh-main-va-cau-hinh-2026-08-16.md`.
+Tài liệu người dùng: `docs/{vn,en}/multi-process.md`.
+
+Tiêu chí nghiệm thu **đã đạt**: một app thật chạy **hai tiến trình phục vụ HTTP
+trên cùng một cổng**, đo bằng hai pid khác nhau trả lời trên một cổng, và cha
+không nằm trong số đó.
+
+Test: **1928 passed, 14 skipped** (sau giai đoạn 2: 1842) - **86 test mới**, trong
+đó **7 ca chạy tiến trình thật** bằng `subprocess` (cha là `__main__` của chính
+nó nên không mô phỏng được trong pytest).
+
+**Ứng dụng không gọi `share_load()` chạy y hệt hôm nay** - cả giai đoạn này là
+**thêm**, không phải **thay**.
+
+#### Added
+
+- **`Application.add_config(module)`** - chỉ thẳng vào package `config/`. ⭐ Đây
+  là **điều kiện cần**, không phải cải tiến: cơ chế dò cũ tìm package qua
+  `__main__.__spec__.parent`, mà giá trị đó **khác ở tiến trình con** - framework
+  tìm sai chỗ rồi **im lặng** rơi xuống một `BindingConfig()` rỗng. Con khởi động
+  được, DI rỗng, không route nào, và không gì báo.
+- **`Application.share_load()`** - ba nhánh của `run()`, mỗi nhánh do một điều
+  kiện **quan sát được** quyết định: không gọi -> đơn tiến trình · gọi + không có
+  `XIME_PROCESS_ID` -> supervisor · gọi + có -> worker. Nhánh ba cũng là đường
+  gỡ lỗi tay: `XIME_PROCESS_ID=api-2 python -m app.main`.
+- **Khối `processes:`** - ba tầng khoá `tiến trình -> loại adapter -> id`, với
+  `host` / `port` / `path` / `shared` / `primary`, và `count: N` sinh
+  `<tên>-1..N` theo id **xác định**.
+- **Supervisor** - cha bind những địa chỉ dùng chung (nếu có), sinh con bằng
+  `multiprocessing` với `spawn`, trông con, dựng lại con chết, và tắt cả đàn
+  theo `SIGINT` / `SIGTERM` / `SIGBREAK`. **Không bao giờ `accept()`, không dựng
+  DI, không chạy code nghiệp vụ.**
+- **`AdapterSlot`** - framework **đẩy** ô cấu hình đã lọc vào adapter, thay vì
+  adapter tự đi kéo ra. Kèm `adapter_kind` và `share_port_by` khai trên class.
+- **Bốn phép kiểm lúc khởi động** (mục 6 của thiết kế) cộng ba phép kiểm quanh
+  chuyện *bật nhầm nhánh*: `processes:` mà không `share_load()`, `share_load()`
+  mà không `processes:`, và `share_load()` mà không adapter nào.
+
+#### Changed
+
+- ⛔ **Cấm đối số cổng dưới `share_load()`.** `WebAdapter("admin", host, port)`
+  thành lỗi khởi động. Không phải chuyện gọn gàng: cha `bind()` rồi truyền socket
+  xuống, nên **con không có cách nào tự chọn cổng** - đối số ở đó là lời hứa
+  framework không giữ được.
+- ⚠ **Phép kiểm *"server phụ bắt buộc có cổng"* chuyển từ `__init__` xuống
+  `start()`** (web và grpc). Bắt buộc, vì khuôn `main.py` chốt của 0.8 là
+  `app.use(GrpcAdapter("internal"))` **không đối số** - và `share_load()` được
+  gọi SAU `use()`, nên lúc dựng object framework chưa biết cổng sẽ đến từ đâu.
+  App đơn tiến trình không mất gì: thiếu cổng vẫn nổ lúc khởi động, cùng câu
+  chữ, chỉ muộn hơn vài dòng. Ba test trong `test_multi_server.py` đã sửa theo.
+- **`SocketAdapter` không xoá file socket khi nó chỉ mượn socket của cha.** Xoá
+  là cướp chỗ của anh em còn sống, **im lặng**: tiến trình kia vẫn `accept()`
+  trên một inode không còn tên, không ai gọi tới được, không lỗi nào phát ra.
+- **`GrpcAdapter` khai `SO_REUSEPORT` tường minh** ở nhánh `share_load()` (bật
+  khi `shared: true`, **tắt** khi không). Bản vá cho chỗ *"bind thành công"* mang
+  hai nghĩa: gRPC C-core bật cờ này mặc định trên Linux, nên khai nhầm trùng cổng
+  thì Windows báo lỗi ngay còn Linux chạy êm với một nửa request đi nhầm chỗ.
+- `Application` **nhớ lại** `application.yml` cho tới `stop()`, vì `run()` cần
+  cấu hình trước `start()`. Đọc hai lần vô hại về hiệu năng nhưng mở một khe:
+  file đổi giữa hai lần đọc là cha và con nhìn thấy hai cấu hình khác nhau.
+
+#### ⚠⚠ Một dòng THIẾT KẾ SAI, phát hiện bằng phép đo
+
+Bảng ở mục 5.7.1 của thiết kế ghi **Windows ✅** cho web nhờ `WSADuplicateSocket`.
+Handle thì chuyển qua được thật, nhưng `asyncio` mặc định trên Windows là
+**proactor**, và ở đó lần `accept()` đầu tiên gọi `CreateIoCompletionPort`:
+
+```text
+OSError: [WinError 87] The parameter is incorrect
+```
+
+> **Liên kết IOCP thuộc về SOCKET của kernel, không thuộc về HANDLE.** Tiến trình
+> thứ nhất gắn socket vào IOCP của nó xong thì tiến trình thứ hai không gắn được
+> vào IOCP của mình nữa, dù nó cầm một handle hợp lệ.
+
+⭐ Cách hỏng của nó là kiểu tệ nhất: con thứ hai khởi động **thành công**, log
+*"serving"*, rồi **không nhận nổi một kết nối nào**. Cụm mất một nửa năng lực
+trong khi mọi request đều 200 và không có gì đỏ.
+
+⛔ `sock.share(os.getpid())` + `fromshare()` - **đúng cách uvicorn làm** ở chế độ
+nhiều worker - **không cứu được**; đã đo cả hai đường, cùng một lỗi. Thứ cứu được
+là **selector event loop**: nó `accept()` thẳng, không đụng IOCP.
+
+**Bản vá:** tiến trình con nào kế thừa socket dùng chung trên Windows thì chạy
+trên selector loop, kèm một dòng `WARNING`. Cái giá là `select()` giới hạn 512
+socket và loop đó không chạy được subprocess - chấp nhận được vì Windows là máy
+dev, còn prod là Linux. Đổi lại giữ được thứ đắt hơn: **dev chạy giống prod**.
+
+#### Quyết định đáng nhớ
+
+- **Cha không được chết.** Con chết thì không ai dựng lại, `Ctrl+C` không có chỗ
+  điều phối thứ tự tắt. Kèm một lợi ích phụ đáng kể: **cổng bị chiếm thì cha nổ
+  ngay lúc khởi động**, thay vì bốn con lần lượt nổ với bốn stack trace giống hệt.
+- **Con chạy lại chính `main.py`** thay vì một entry point riêng của framework.
+  Hai đường khởi động là hai chỗ để trôi lệch, và loại lệch đó **không có triệu
+  chứng**: ai đó thêm một `configure_middleware()` vào `main.py`, cha có, con
+  không, và ba tiến trình phục vụ thiếu một middleware xác thực mà không gì báo.
+- **`app` phải là biến ở mức module của `__main__`**, và framework **cưỡng chế**
+  điều đó bằng một thông báo kèm khuôn đúng. Đặt `use()` trong `if __name__` thì
+  con có một ứng dụng không adapter nào - cách hỏng đó không có triệu chứng, ở
+  đây nó thành một dòng chữ.
+- **Adapter khai trong `main.py` mà KHÔNG khối nào nhắc tới -> lỗi**, khác hẳn
+  *khối này không có* (đó là cách lọc hợp lệ, và là ma trận thưa mà fieldbus
+  cần). Không ai cố ý khai một cửa rồi không mở nó ở đâu cả.
+- **mqtt / modbus / opcua từ chối `share_load()` bằng một câu nói rõ lý do.**
+  Chúng thuộc hạng **phân mảnh**, thi công ở 0.8.1. Nói ra ở adapter chứ không ở
+  core - core không được biết `mqtt` là gì.
+- **`shared` khai tường minh**, vì *"bind thành công"* mang hai nghĩa.
+- **Ca 5 (một khối) vẫn dựng supervisor đầy đủ.** Tự bỏ supervisor ở con số 1 thì
+  hạ `count` từ 4 xuống 1 lúc gỡ lỗi là app **mất khả năng tự dựng lại khi chết**
+  mà không gì báo. Muốn một tiến trình không có cha thì đã có đường rẻ hơn: đừng
+  gọi `share_load()`.
+
+#### Đối chứng: 24 bản vá, 3 chỗ ban đầu không có test nào đỏ
+
+Đã bịt cả ba. ⭐⭐ Test bịt chỗ hở thứ nhất **tìm ra hai lỗi thật ngay lần chạy
+đầu**, và cả hai thuộc loại *không có triệu chứng*:
+
+1. `_respawn` log **`"- restarting"` rồi không restart** khi đang tắt máy. Một
+   dòng log mang hai nghĩa, nói dối **đúng lúc** người ta đọc log để hiểu vì sao
+   cụm tắt. Ca thật: tín hiệu dừng tới cả nhóm tiến trình nên con chết **trước**
+   khi cha kịp vào bước tắt.
+2. `_shutdown` **không log gì** khi không còn con nào - nên một lần tắt tử tế và
+   một cái chết đột ngột để lại **cùng một** dấu vết.
+
+⚠ Hai chỗ hở kia đáng nhớ vì cách bịt chúng: *"cổng được trả lại"* **không** chứng
+minh cha tắt tử tế (tín hiệu tới thẳng cả nhóm nên con chết kiểu gì cũng chết) -
+phải đo **mã thoát 0** và **dòng log**; và *"dict kết quả có một mục"* **không**
+chứng minh cha bind một lần - dict dùng địa chỉ làm khoá nên nó luôn ra một mục dù
+bind ba lần, phải **đếm số lần `bind`**.
+
+#### Chưa có ở giai đoạn này
+
+Thăng cấp primary · watchdog cho con treo · `RunOnce` · scheduler thành adapter
+đơn nhất · chống domino `N`/`T` · nâng cấp code không downtime. Tất cả thuộc
+giai đoạn 6.
+
+⚠ **Đáng đọc trước khi bật tiến trình thứ hai:** cho tới khi scheduler thành
+adapter đơn nhất, **mọi job nền chạy ở mọi tiến trình**. Job dọn dẹp thì chỉ
+thừa; job gửi email nhắc hoặc tiến con trỏ đồng bộ thì **sai**.
+
+### Giai đoạn 2 - `ProcessLink` (2026-08-20)
+
+**Bus liên tiến trình trên bộ nhớ chung**: chở **tín hiệu, lệnh và câu hỏi** giữa
+các tiến trình của cùng một ứng dụng. Ca dùng gốc: người dùng bấm *"dừng băng tải
+BT-02"* trên web, request rơi vào tiến trình `main`, mà dây Modbus tới BT-02 nằm
+ở tiến trình `line-2` - đó là một **lệnh**, ghi vào database không làm nó dừng.
+
+Thiết kế: `.claude/docs/bus-lien-tien-trinh-2026-08-18.md`.
+Tài liệu người dùng: `docs/{vn,en}/process-link.md`.
+
+Test: **1842 passed, 14 skipped** (sau giai đoạn 1: 1752) - **90 test mới**.
+**Không phá app nào** - `core/link/` là code mới, không sửa một dòng nào của
+phần đã có.
+
+⚠⚠ **KHÔNG phải `EventBus`.** Hai thứ không dùng chung một dòng code nào, và gọi
+nhầm thì **không có triệu chứng**: tin không bao giờ ra khỏi tiến trình, không
+lỗi, không log. Tên cố ý không chung gốc từ - `link.ask()` và
+`event_bus.publish()` không thể gõ nhầm thành nhau.
+
+#### Added
+
+- **`xime.core.link`** - `ProcessLink`, `ChannelSpec`, `configure_link()`,
+  `@on_request` / `@on_announce`, và bốn kết cục `Done` / `NoOwner` / `NoAnswer`
+  / `Failed`.
+- **Mỗi kênh một vùng nhớ chung, chia N VÙNG GHI RIÊNG** - không có tranh chấp
+  ghi, và thứ tự trong một người gửi được giữ nguyên.
+- **Semaphore là CHUÔNG, bitmap "ai chưa đọc" là SỰ THẬT.** Bitmap xếp thành dãy
+  liền nhau nên một tiến trình thức dậy chỉ đọc dãy của riêng nó rồi so với 0 -
+  một phép so, không phải quét cả bảng.
+- **Định tuyến bằng kênh + khoá, lọc ở bên nhận**, và `key` nằm ở header nên bên
+  nhận lọc mà **chưa chạm payload**. Không có tên tiến trình ở bất cứ đâu.
+- **Kênh nội bộ `__xime__`** framework **luôn** tạo, không phụ thuộc ứng dụng
+  khai gì - cha sẽ dùng nó làm kênh điều khiển ở giai đoạn 3.
+- **`stats()` trả về số liệu CỦA CẢ CỤM**, `dump()` tách riêng cho gỡ lỗi.
+- **`sweep_orphans()`** dọn vùng nhớ của những lần chạy trước (Linux).
+
+#### Quyết định đáng nhớ
+
+- **at-most-once: hạ bit TRƯỚC khi làm.** Chết giữa chừng thì tin mất, thay vì
+  được làm lại. Ứng dụng cần chắc thì tự thêm hàng đợi bền vững.
+- **Đầy thì vòng lại và ĐÈ**, kèm **đếm `missed`** cho người chưa đọc. Nhờ vậy
+  một tiến trình treo **tự chịu hậu quả**, không nghẽn ai.
+- **Handler chạy TUẦN TỰ theo kênh.** `create_task` cho từng tin là vứt bỏ thứ
+  tự vừa xây: `bật`/`tắt`/`bật` chạy song song thì trạng thái cuối là *cái nào
+  thắng cuộc đua*. Muốn song song thì **tách kênh**, không tách task.
+- **Một kênh một handler.** Nhiều handler thì phải trả lời *"ai được nhận"*, mà
+  câu đó phụ thuộc thứ chỉ biết lúc chạy.
+- **`Failed` mang tên lỗi, KHÔNG mang traceback** - người hỏi ở tiến trình khác
+  không debug được bằng traceback của tiến trình kia. Traceback đầy đủ log tại
+  nơi lỗi xảy ra.
+- **Payload vượt trần nổ ngay lúc gửi**, không trả về một kết cục: đó là bug của
+  người viết app, và trả về một kết cục là mời người ta `except` rồi bỏ qua.
+
+#### ⚠⚠ Một chỗ THIẾT KẾ ĐÃ ĐỔI lúc thi công (chủ dự án chốt 2026-08-20)
+
+Bản thiết kế 08-18 (mục 4.1) ghi thứ tự ghi là *"bật bit chưa-đọc, rồi đặt
+`da_ghi_xong` **sau cùng**"*, và gọi thứ tự đó là **bắt buộc**. Sau khi đo, chủ
+dự án chốt **đảo lại**: hoàn tất trước, bật bit sau. Tài liệu thiết kế đã sửa,
+bản cũ giữ ở mục 4.1b.
+
+**Bất biến mới, và là thứ đáng nhớ hơn cả thứ tự sáu bước:**
+
+> **Một bit chưa-đọc chỉ được bật khi dòng nó trỏ tới ĐÃ HOÀN TẤT.**
+
+Lý do nằm ở chỗ **người đọc chỉ tìm thấy một dòng qua BIT của nó** - bitmap là
+danh sách việc phải làm, `da_ghi_xong` chỉ là phép kiểm sau đó. Cả hai thứ tự
+đều chặn được *"đọc dòng nửa vời"* (lý do duy nhất bản cũ đưa ra), và ở ca
+thường lệ chúng cho kết quả **giống hệt nhau**. Chỗ khác nhau là thứ để lại khi
+người ghi **chết đúng khoảng giữa**:
+
+```text
+BẢN CŨ  - chết giữa bật-bit và hoàn-tất
+  B quét 5 vòng, bit còn lại: [0]        -> CÒN TREO
+  A vòng lại đè lên dòng đó -> missed của B = 1
+  ⚠ B bị tính là LỠ MỘT TIN, mà tin đó chưa bao giờ hoàn tất
+
+BẢN MỚI - chết giữa hoàn-tất và bật-bit
+  B quét 5 vòng, bit còn lại: []          -> đã sạch
+  A vòng lại đè lên dòng đó -> missed của B = 0
+  -> tin mất (at-most-once, ĐÃ được thiết kế khai nhận)
+```
+
+Bit treo vì vòng đọc làm đúng như mục 4.2 bảo - thấy cờ 0 thì *"bỏ qua vòng này,
+xem lại sau"* - mà bước hạ bit nằm **sau** bước kiểm cờ. Hậu quả nặng nhất không
+phải một bit thừa mà là **`missed` đếm sai vĩnh viễn**: đó là chỉ số chẩn đoán
+chính của bus, thứ trả lời *"có tiến trình nào đang treo không"*.
+
+> Nói gọn: cả hai thứ tự đều có một cửa sổ chết cỡ vài chục nanosecond. Chọn cửa
+> sổ mà hậu quả **đã được thiết kế chấp nhận** (mất tin), thay vì cửa sổ tạo ra
+> một trạng thái **vĩnh viễn và im lặng** mà không ai dọn.
+
+Cùng bản vá đó ở đầu kia vòng đời một dòng: `_claim_row` **hạ bit của người chưa
+đọc trước khi mở dòng ra ghi đè**. Ở ca thường lệ nó thừa (bước sau bật lại
+ngay); nó chỉ có giá trị khi người ghi chết sau khi đã mở dòng.
+
+⛔ **Một đường thứ ba đã cân và loại**: giữ thứ tự cũ nhưng cho vòng đọc hạ bit
+ngay cả khi cờ chưa hoàn tất. Bit hết treo, nhưng nó hạ nhầm bit của một dòng
+**đang được ghi hợp lệ** - biến một ca hiếm thành **mất tin ở ca thường lệ**.
+
+⚠ Cả hai đều có test canh trong `test_write_protocol.py`, soi trạng thái **ngay
+tại thời điểm** `set_bit` và `write_payload` được gọi. Không có chúng thì ai đó
+"dọn cho gọn" sẽ đảo lại và **mọi test chức năng vẫn xanh**.
+
+#### ⭐ Đối chứng: 12 bản vá gỡ ra, 3 chỗ ban đầu KHÔNG có test nào đỏ
+
+Ba chỗ đó đều là bản vá bảo vệ ca *"người ghi chết đúng khoảng giữa"* - thứ
+không mô phỏng được bằng cách giết tiến trình thật, nhưng **đo được bằng cách
+quan sát trạng thái ngay tại thời điểm đó**. Đã thêm `test_write_protocol.py`;
+chạy lại đối chứng thì cả ba đều đỏ.
+
+> Không có chúng thì ai đó "dọn cho gọn" sẽ đảo thứ tự, mọi test vẫn xanh, và
+> một tiến trình chết giữa chừng để lại một bit không bao giờ hạ được.
+
+#### Kiểm thử
+
+**Không mock**, đúng luật `rules/background-tasks.md` mục 4: bus toàn bộ là
+chuyện đua, mock đi thì test xanh mà không chứng minh được gì. Năm ca bắt buộc
+của thiết kế đều chạy bằng **tiến trình thật** (`spawn`), cộng chiều ngược -
+**con hỏi cha** - để chốt rằng cha **không** nằm trên đường đi.
+
+---
+
+### Giai đoạn 1 - `Store` trên LMDB (2026-08-20)
+
+**Kho liên tiến trình cho trạng thái KHÔNG có nguồn bền vững**: hãm nhịp, thử
+thách passkey, chống lặp webhook. Thứ mà nhiều tiến trình của **một máy** phải
+thống nhất, sai nếu giữ trong bộ nhớ một tiến trình, và ứng dụng vẫn chạy đúng
+khi nó rỗng sau lúc máy khởi động lại.
+
+Thiết kế: `.claude/docs/kho-nhom-2-store-2026-08-19.md`.
+Tài liệu người dùng: `docs/{vn,en}/store.md`.
+
+Test: **1752 passed, 11 skipped** (0.7.2: 1624) - **128 test mới**. Kèm bốn app
+thật vẫn xanh: `data-service` **388**, `linh-kien-dien-tu` **295**. **Không phá
+app nào** - toàn bộ là code mới, không sửa một dòng nào của phần đã có.
+
+#### Added
+
+- **Starter `xime.starters.lmdb`**, extra **`xime[lmdb]`**, import lười đúng
+  khuôn `redis`/`s3`/`mail`/`mqtt`.
+- **Ba lớp nền**: `Store` (bytes) · `CounterStore` (int, có `incr` nguyên tử) ·
+  `Store[T]` (kiểu của app, tự viết `encode`/`decode`). Tách theo kiểu chứ không
+  bắt mọi bảng viết `Store[int]` vì **`incr` chỉ có nghĩa với số** - đặt nó lên
+  một `Store` chung là hợp đồng hứa thứ nó không giữ được cho mọi kiểu khác.
+- **Cấu hình đi bằng THAM SỐ CLASS (PEP 487)**:
+  `class HamNhip(CounterStore, name="...", ttl=900, parts=4)`. Cấu hình không
+  bao giờ thành thuộc tính trong thân class nên **không thể va tên** với thứ app
+  viết thêm, và `mypy` kiểm được kwargs.
+- **Vào DI bằng `dependency.scan("xime.starters.lmdb")` + `scan` package của
+  app**, không có `configure_lmdb`. ⚠ Đây là chỗ **không nhất quán có lý do**:
+  `RefData` và `ProcessLink` (giai đoạn 2, 5) **phải** có `configure_*` vì cha
+  cần biết danh sách trước khi con dựng DI để cấp vùng nhớ chung; mở một file
+  LMDB thì không cần cấp phát gì.
+- **Năm phép**: `get` · `set` · `delete` · `set_if_absent` (nguyên tử) ·
+  `incr` (nguyên tử, chỉ `CounterStore`).
+- **`StoreCleanupJob`** - job dọn bản ghi hết hạn, xếp lịch bằng
+  `configure_scheduler` như mọi job khác.
+- **Ba ngoại lệ**: `StoreError` · `StoreUnavailableError` · `StoreFullError`.
+- **Ba khoá cấu hình vận hành**: `lmdb.path` · `lmdb.map_size` · `lmdb.total_max`.
+
+#### Quyết định đáng nhớ
+
+- ⛔ **Phạm vi là MỘT máy, luôn luôn.** Nhiều máy đã giải bằng chia shard.
+- **TTL lưu MỐC TUYỆT ĐỐI**: mọi lần **ghi** đặt lại hạn, **đọc** không đụng tới.
+  Nếu đọc mà gia hạn thì **mọi lần đọc thành một lần GHI** - phá đúng ưu thế đã
+  chọn LMDB vì nó. Cùng lý do đó, kho **không đuổi theo LRU**.
+- **Mặc định 1 giờ, vô hạn phải khai `ttl=NEVER`.** An toàn theo mặc định, thoát
+  ra phải viết rõ. ⚠ `ttl=NEVER` (không hết hạn) **khác** `ttl=None` ở lời gọi
+  (dùng mặc định của bảng) - hai tình huống, hai giá trị.
+- **Chia file theo `crc32(key) % parts`**, KHÔNG BAO GIỜ `hash()`: Python ngẫu
+  nhiên hoá `hash()` theo từng tiến trình (đo được: 4 tiến trình, 4 giá trị khác
+  nhau cho cùng một chuỗi), nên bốn tiến trình sẽ tính ra bốn file khác nhau cho
+  cùng một khoá và **không gì báo**.
+- ⛔ **`parts` cố định suốt đời kho**, không suy từ số tiến trình. Đổi nó thì mọi
+  khoá nằm sai file - framework phát hiện qua file `.parts` rồi **xoá bảng và tạo
+  lại**, kèm log. Mất cache một lần, đổi lấy việc không bao giờ chạy trên một kho
+  lạc chỗ.
+- **Lỗi kho báo bằng NGOẠI LỆ**, không phải kết cục thứ ba trong kiểu trả về: với
+  `incr`/`set_if_absent` thì ngoại lệ là **fail-closed tự nhiên**, còn quên một
+  nhánh của kiểu trả về là **fail-open im lặng** - hãm nhịp hoá ra cho qua tất.
+- **`lmdb.path` KHÔNG có mặc định.** Máy này chạy 31 codebase Xime cạnh nhau, và
+  khác bus (tên vùng nhớ mang mã ngẫu nhiên mỗi lần chạy), kho **cố ý sống qua
+  lần restart** nên tên phải ổn định - một mặc định ổn định vì vậy sẽ là CÙNG MỘT
+  thư mục cho mọi app trên máy.
+- **Sàn `lmdb>=1.7.5`** chọn theo tiêu chí nói ra được: bản đầu tiên có wheel
+  dựng sẵn cho **đủ dải Python của gói** (cp312/313/314). Đã cài **đúng ở sàn**
+  rồi chạy lại 114/114 test, theo bước 1b của hướng dẫn phát hành.
+
+#### ⭐ Một lỗi do phép ĐỐI CHỨNG tìm ra, không do đọc lại code
+
+Vòng lặp theo lô của job dọn ban đầu viết *"chạy tới khi không còn gì hết hạn"*.
+Đó **không phải một lối ra đảm bảo**: `_delete_batch` nuốt một giao dịch ghi hỏng
+rồi trả 0, trong khi lần quét sau vẫn báo đúng những khoá đó là hết hạn - nên một
+kho không ghi được sẽ quay vòng đó **mãi mãi, đốt trọn một nhân, im lặng**.
+
+Nó lộ ra khi gỡ thử một phép kiểm để xem test nào đỏ: bộ test **không đỏ mà
+TREO**, một tiến trình pytest quay 100% CPU trong ba phút. Nay mỗi vòng phải xoá
+được ít nhất một khoá, nếu không thì dừng kèm cảnh báo.
+
+⚠ Và đối chứng còn chỉ ra một chỗ thứ hai: gỡ phép kiểm hết hạn trong lúc quét ra
+thì **không test nào đỏ**, vì lớp thứ hai (kiểm lại trong giao dịch ghi) vẫn giữ
+đúng dữ liệu. Cái hỏng nằm ở **TÍN HIỆU** chứ không ở dữ liệu - job kêu "dừng
+sớm" trên một kho hoàn toàn khoẻ, mỗi mười phút. Đã thêm test canh, vì **phép dò
+kêu oan là phép dò sẽ bị tắt**.
+
+#### ⭐⭐ Và một lỗi thứ hai, do TEST ĐI ĐÚNG ĐƯỜNG TÀI LIỆU tìm ra
+
+128 test đầu tiên đều dựng `LmdbEnvironment(runtime)` rồi `MyTable(env)` **bằng
+tay** - nhanh, gọn, và **không tiến trình thật nào làm vậy**. Người dùng thật gõ
+`dependency.scan("xime.starters.lmdb")` rồi để DI dựng.
+
+Lần đầu viết một test đi qua DI thật, **cả 12 test đỏ ngay**: `LmdbConfig` nằm
+trong `__all__`, mà `__all__` của một package starter **không chỉ là danh sách
+export - nó là danh sách DI scanner đăng ký**. `LmdbConfig` là dataclass có
+trường đầu `path: str`, nên container đi tìm binding cho `str` và **mọi app scan
+starter này sẽ chết lúc khởi động** với `Unregistered Dependency: str`.
+
+Đây **đúng khuôn phát hiện C2 của kiểm toán 0.7.0** (`dependency.register(ModbusClient)`
+chết ngay tại dòng lệnh tài liệu bảo gõ), và cũng đúng bài học rút ra từ nó:
+
+> Với mỗi tính năng, viết ít nhất một test đi **đúng con đường tài liệu hướng
+> dẫn**, không phải con đường tiện nhất cho test.
+
+Đã sửa (`LmdbConfig` và ba lớp ngoại lệ ra khỏi `__all__`, re-export bằng dạng
+alias trùng tên của PEP 484) và thêm test canh **chốt chính xác** tập class mà
+scanner được phép đăng ký, kèm vế đối chứng rằng chúng vẫn import được.
+
+---
+
 ## [0.7.2] - 2026-08-18
 
 **JWT: khóa xoay theo `kid`, và trả nợ trung tính.**

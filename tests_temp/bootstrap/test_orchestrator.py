@@ -16,6 +16,7 @@ import pytest
 from bootstrap_sample.service.tracker import GreeterService, TrackerService
 from xime.core.bootstrap import StartupOrchestrator
 from xime.core.config import BindingConfig, RuntimeConfig
+from xime.adapters.web import WebServerConfig
 
 
 def _binding_with_sample() -> BindingConfig:
@@ -42,7 +43,7 @@ async def test_stop_without_start_is_noop():
 
 
 # ---------------------------------------------------------------------------
-# DI pipeline — singletons được tạo
+# DI pipeline - singletons được tạo
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -82,7 +83,7 @@ async def test_singletons_are_the_same_instance():
 
 
 # ---------------------------------------------------------------------------
-# Lifecycle — PostConstruct
+# Lifecycle - PostConstruct
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -136,7 +137,7 @@ async def test_dependency_post_construct_runs_before_dependent():
 
 
 # ---------------------------------------------------------------------------
-# Lifecycle — PreDestroy
+# Lifecycle - PreDestroy
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -186,7 +187,7 @@ async def test_runtime_config_accessible():
     runtime = RuntimeConfig.from_dict({"env": "testing", "server": {"port": 9999}})
     orch = StartupOrchestrator(BindingConfig(), runtime)
     assert orch.runtime.env == "testing"
-    assert orch.runtime.server.port == 9999
+    assert WebServerConfig.from_runtime(orch.runtime).port == 9999
 
 
 @pytest.mark.asyncio
@@ -230,7 +231,7 @@ async def test_restart_after_stop_works():
     with pytest.raises(RuntimeError):
         orch.get(TrackerService)
 
-    # Lần 2 — start lại được
+    # Lần 2 - start lại được
     await orch.start()
     tracker_2 = orch.get(TrackerService)
     assert tracker_2.started is True

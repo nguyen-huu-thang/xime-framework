@@ -112,6 +112,30 @@ Things worth knowing:
 - **Handlers run in their own tasks.** `asyncua` delivers notifications through a **synchronous** callback; awaiting there would block the library's receive loop and stall every other subscription.
 - **A failing handler does not stop the subscription.**
 
+### Knowing which server you are handling: the `server` parameter (0.8)
+
+The mirror of Modbus's `device` parameter - see
+[modbus.md](modbus.md#knowing-which-machine-you-are-handling-the-device-parameter-08)
+for why **kind** and **instance** are separated. The word here is `server` because
+that is OPC UA's own vocabulary:
+
+```python
+@on_node_change(Tank.level, deadband=0.5)
+async def on_level(self, value: float, server: str) -> None:
+    await self._store.save(server, value)
+```
+
+```python
+for srv in opcua.servers_of("pump-station"):
+    tank = await opcua.read_model(Tank, server=srv)
+```
+
+Matched **by name**; a second parameter under another name is a startup error.
+
+⏭ **0.8 declares the signature only**; several connections per kind land in **0.8.1**.
+⛔ **`@on_node_change(..., server=...)` is gone in 0.8** - a handler runs for every
+instance of its kind.
+
 ---
 
 ## Security: all three levels
@@ -234,7 +258,7 @@ opcua:
     security: None
 ```
 
-A single-server application writes the settings directly under `opcua:`; a multi-server one nests them under `opcua.servers.<name>` and uses `app.use(OpcuaAdapter("plant_b"))`.
+A single-server application writes the settings directly under `opcua:`; a multi-server one nests them under `opcua.servers.<name>` and uses `app.use(OpcuaAdapter("plant_b"))`. ⚠ That argument is named `target_id` since 0.8 (it used to be `server`).
 
 ---
 

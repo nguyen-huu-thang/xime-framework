@@ -2,7 +2,7 @@
 
 [English](../en/architecture.md) | **Tiếng Việt**
 
-[← Testing](testing.md) · **8/9 — Kiến trúc** · [Đóng góp →](contributing.md)
+[← Testing](testing.md) · **8/9 - Kiến trúc** · [Đóng góp →](contributing.md)
 
 ---
 
@@ -100,7 +100,7 @@ Application.start()
   └─ 8. Khởi động adapter      (WebAdapter, GrpcAdapter, ...)
 ```
 
-Bước 6 là điểm khác biệt chính — validation xảy ra **trước** khi tạo bất kỳ singleton nào. Ứng dụng cấu hình sai không bao giờ khởi động thầm lặng.
+Bước 6 là điểm khác biệt chính - validation xảy ra **trước** khi tạo bất kỳ singleton nào. Ứng dụng cấu hình sai không bao giờ khởi động thầm lặng.
 
 ---
 
@@ -152,7 +152,7 @@ Business logic đọc context một cách thụ động:
 user = current_user.get()
 ```
 
-Context được tự động cô lập theo từng request vì `ContextVar` an toàn với async — mỗi asyncio task có bản sao riêng.
+Context được tự động cô lập theo từng request vì `ContextVar` an toàn với async - mỗi asyncio task có bản sao riêng.
 
 ---
 
@@ -160,8 +160,8 @@ Context được tự động cô lập theo từng request vì `ContextVar` an 
 
 Security được chia giữa Core và adapter:
 
-- **Core** — `SecurityContext`, `AuthenticationManager`, `AuthorizationManager`, `SecuritySession`
-- **Adapter** — HTTP middleware thực hiện xác thực và điền vào `SecurityContext`
+- **Core** - `SecurityContext`, `AuthenticationManager`, `AuthorizationManager`, `SecuritySession`
+- **Adapter** - HTTP middleware thực hiện xác thực và điền vào `SecurityContext`
 
 Business logic gọi `AuthorizationManager` để kiểm tra quyền. Nó không bao giờ đụng vào HTTP header hay token trực tiếp.
 
@@ -169,7 +169,7 @@ Business logic gọi `AuthorizationManager` để kiểm tra quyền. Nó không
 
 ## Mô hình Transaction
 
-Transaction là **tường minh** — context manager, không phải AOP proxy ẩn:
+Transaction là **tường minh** - context manager, không phải AOP proxy ẩn:
 
 ```python
 async with self.transaction():
@@ -178,7 +178,7 @@ async with self.transaction():
 
 `TransactionManager` là interface của Core. `SqlAlchemyTransactionManager` (trong SQLAlchemy starter) là implementation cụ thể. Business code chỉ phụ thuộc vào interface.
 
-Usecase **chỉ đọc** dùng `ReadOnlyManager` — một interface riêng, cùng cấp, không phải method của `TransactionManager`:
+Usecase **chỉ đọc** dùng `ReadOnlyManager` - một interface riêng, cùng cấp, không phải method của `TransactionManager`:
 
 ```python
 async with self.read_only():
@@ -193,8 +193,8 @@ Khối chỉ đọc không bao giờ commit. Tách thành interface riêng để
 
 Module `testing/` cung cấp:
 
-- `FakeTransactionManager` / `FakeReadOnlyManager` — transaction và khối chỉ đọc in-memory cho unit test
-- DI override helper — thay thế singleton bằng test double mà không đụng vào production config
+- `FakeTransactionManager` / `FakeReadOnlyManager` - transaction và khối chỉ đọc in-memory cho unit test
+- DI override helper - thay thế singleton bằng test double mà không đụng vào production config
 
 ```python
 dependency.bind({UserRepository: FakeUserRepository})
@@ -213,4 +213,4 @@ XIME điều phối các công cụ này. Nó không thay thế chúng.
 
 ---
 
-[← Testing](testing.md) · **8/9 — Kiến trúc** · [Đóng góp →](contributing.md)
+[← Testing](testing.md) · **8/9 - Kiến trúc** · [Đóng góp →](contributing.md)

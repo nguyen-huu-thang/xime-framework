@@ -7,7 +7,7 @@ class GrpcServiceScanner:
     """Validates that gRPC handler packages are importable.
 
     Unlike the web ControllerScanner which walks packages looking for
-    decorated methods, gRPC handlers have no identifying decorator —
+    decorated methods, gRPC handlers have no identifying decorator -
     the binding dict in configure_grpc_services() already enumerates
     every handler class explicitly.
 

@@ -14,7 +14,7 @@ def _make_handler(bound_method: Any) -> Any:
 
     FastAPI introspects the handler's signature via inspect.signature() to
     determine which parameters are path params, query params, or request body.
-    By the time we call this, 'self' is already bound — the signature only
+    By the time we call this, 'self' is already bound - the signature only
     contains the parameters that FastAPI needs to know about.
 
     We must expose that signature explicitly on the wrapper function because
@@ -45,7 +45,7 @@ class RouteBuilder:
     """Builds an APIRouter from a controller class and its DI-resolved instance.
 
     Reads RouteInfo metadata from each decorated method and calls
-    APIRouter.add_api_route() — one call per decorated method.
+    APIRouter.add_api_route() - one call per decorated method.
 
     The controller's class-level attributes drive the router:
       prefix : URL prefix applied to all routes in this controller (e.g. "/users")
@@ -59,7 +59,7 @@ class RouteBuilder:
         router = APIRouter(prefix=prefix, tags=tags)
 
         # Use vars() + MRO traversal to preserve declaration order.
-        # inspect.getmembers() returns alphabetically — routes would appear
+        # inspect.getmembers() returns alphabetically - routes would appear
         # out-of-order on Swagger UI.
         seen_names: set[str] = set()
         ordered_methods: list[tuple[str, Any]] = []

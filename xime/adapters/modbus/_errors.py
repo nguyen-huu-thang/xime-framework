@@ -2,12 +2,12 @@
 
 Three failure modes worth telling apart, because the right reaction differs:
 
-  ModbusConnectionError — the device is unreachable (cable, switch, firewall,
+  ModbusConnectionError - the device is unreachable (cable, switch, firewall,
       device rebooting). Retrying later usually helps.
-  ModbusDeviceError — the device answered, and the answer was a refusal
+  ModbusDeviceError - the device answered, and the answer was a refusal
       (illegal address, illegal function, gateway timeout). Retrying the SAME
       request will fail again; the request or the model is wrong.
-  ModbusCodecError — the bytes arrived fine but the model cannot make sense of
+  ModbusCodecError - the bytes arrived fine but the model cannot make sense of
       them (or of the value being written). Always a code/model problem.
 
 Ba nhóm lỗi tách riêng vì cách xử lý khác nhau: mất kết nối thì thử lại được;

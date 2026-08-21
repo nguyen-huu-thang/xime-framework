@@ -1,4 +1,4 @@
-"""MQTT Adapter — message-driven (pub/sub + RPC) transport for IoT / embedded.
+"""MQTT Adapter - message-driven (pub/sub + RPC) transport for IoT / embedded.
 
 Lets a Xime service subscribe to MQTT topics with constructor injection and
 controller scanning, publish via an injectable MqttPublisher, and serve

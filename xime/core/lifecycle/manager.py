@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from xime.core.lifecycle.hooks import PostConstruct, PreDestroy
+import logging
+
+from xime.core.lifecycle.hooks import PostConstruct, PreDestroy, RunOnce
+
+_log = logging.getLogger("xime.lifecycle")
 
 
 class LifecycleManager:
@@ -11,14 +15,14 @@ class LifecycleManager:
     Bootstrap builds this list by walking the dependency graph after all singletons
     are created.
 
-    start() — called once after all singletons are created (step 7 of startup):
+    start() - called once after all singletons are created (step 7 of startup):
         Iterates instances in order and calls post_construct() on each eligible one.
-        Fails immediately if any post_construct() raises — startup is aborted.
+        Fails immediately if any post_construct() raises - startup is aborted.
         Only instances that were successfully reached are eligible for pre_destroy().
 
-    stop() — called on application shutdown (step 1 of shutdown):
+    stop() - called on application shutdown (step 1 of shutdown):
         Iterates only the instances that completed start() in reverse order.
-        Does NOT stop on the first error — every pre_destroy() is attempted.
+        Does NOT stop on the first error - every pre_destroy() is attempted.
         If any failed, raises ExceptionGroup with all collected exceptions.
     """
 
@@ -41,6 +45,32 @@ class LifecycleManager:
             if isinstance(instance, PostConstruct):
                 await instance.post_construct()
             self._started.append(instance)
+
+    async def run_once(self) -> None:
+        """Chạy `run_once()` của mọi instance khai nó, theo thứ tự topo.
+
+        **Chỉ primary gọi.** Framework quyết chỗ gọi; class không có cờ nào để
+        tự kiểm, đúng khuôn adapter hạng đơn nhất - *một object không được gọi
+        thì không chạy*, và không có gì để quên.
+
+        In ra danh sách tìm thấy vì đây là thứ **không nhìn thấy được từ chỗ
+        khác**: `run_once` là một tên method, không phải một dòng khai trong
+        `config/`. Người vận hành cần một cách biết cụm đang chạy những gì một
+        lần, mà không phải đi đọc code.
+
+        ⚠ Ném lỗi thì **ném luôn**, đúng như `start()`: đây vẫn là giai đoạn
+        *chưa phục vụ được*.
+        """
+        eligible = [i for i in self._instances if isinstance(i, RunOnce)]
+        if not eligible:
+            return
+        _log.info(
+            "run_once: %d task(s) for the whole cluster: %s",
+            len(eligible),
+            ", ".join(type(i).__name__ for i in eligible),
+        )
+        for instance in eligible:
+            await instance.run_once()
 
     async def stop(self) -> None:
         """

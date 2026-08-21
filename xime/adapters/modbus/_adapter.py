@@ -19,6 +19,7 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from xime.core.bootstrap.adapter import SCALING_SHARDED, Adapter
 from xime.core.context import request_context
 from xime.core.security import clear_security
 
@@ -36,12 +37,32 @@ logger = logging.getLogger("xime.modbus")
 _UNSEEN = object()
 
 
-class ModbusAdapter:
+class ModbusAdapter(
+    Adapter,
+    scaling=SCALING_SHARDED,
+    disjoint_per_process=("devices",),
+):
     """Connects to one device and drives its poll loops."""
+
+    # Khoá tầng hai trong khối `processes:` (`processes.<p>.modbus.<id>`).
+    adapter_kind = "modbus"
+
+    def assign_slot(self, slot: object) -> None:
+        """Nhận ô cấu hình, và **hiện chưa dùng tới nó**.
+
+        Adapter hạng phân mảnh đọc khối YAML của riêng mình như cũ; việc chia
+        tập thiết bị / tập topic theo tiến trình thi công ở **0.8.1**.
+
+        ⚠ Không ném ở đây. Từ 0.8 **mọi** adapter luôn nhận một ô, kể cả ở nhánh
+        một tiến trình - nơi adapter này chạy hoàn toàn bình thường. Thứ phải
+        chặn là *chia tải*, không phải *nhận cấu hình*, nên phép chặn nằm ở
+        framework (`_reject_sharded_under_share_load`).
+        """
+        self._slot = slot
 
     def __init__(
         self,
-        device: str = DEFAULT_DEVICE,
+        target_id: str = DEFAULT_DEVICE,
         *,
         controllers: list[type] | None = None,
     ) -> None:
@@ -52,24 +73,25 @@ class ModbusAdapter:
         application that would rather list them, and for tests.
         `controllers` khai tường minh thay cho việc quét package.
         """
-        self._device = device
+        self._device = target_id
         # Application.use() rejects two adapters of the same type carrying the
-        # same _server_id. Two ModbusAdapters on one device would run two poll
+        # same adapter_id. Two ModbusAdapters on one device would run two poll
         # loops against the same PLC and attach two clients to the one shared
         # ModbusConnection, where the second silently replaces the first.
-        # Application.use() từ chối hai adapter cùng loại cùng _server_id. Hai
+        # Application.use() từ chối hai adapter cùng loại cùng adapter_id. Hai
         # ModbusAdapter trên một thiết bị sẽ chạy hai vòng poll vào cùng một PLC
         # và gắn hai client vào một ModbusConnection dùng chung.
-        self._server_id = device
+        self.adapter_id = target_id
+        self._slot: object | None = None
         self._controllers = controllers
         self._config: ModbusConfig | None = None
-        self._connection = modbus_registry.connection(device)
+        self._connection = modbus_registry.connection(target_id)
         # Claim the name at construction (app.use time) so a ModbusClient bound
         # to it fails fast instead of waiting for a connection that is coming.
         # Nhận tên ngay lúc app.use để client bám vào không chờ vô ích.
         self._connection.mark_served()
         self._groups: list[PollGroup] = []
-        self._client = ModbusClient(device)
+        self._client = ModbusClient(target_id)
         self._stopping = False
         self._tasks: set[asyncio.Task] = set()
         self._sem: asyncio.Semaphore | None = None
@@ -98,18 +120,22 @@ class ModbusAdapter:
             controllers = ModbusControllerScanner().find_controllers(
                 *modbus_registry.get_packages()
             )
-        all_groups = ModbusRouteBuilder(app).build(controllers)
-        # A group with device=None follows whichever adapter runs it; a named
-        # one only runs on its own adapter.
-        self._groups = [
-            group for group in all_groups
-            if group.device is None or group.device == self._device
-        ]
+        # 0.8: một adapter phục vụ MỘT LOẠI thiết bị, nên MỌI nhóm của mọi
+        # controller nó cầm đều chạy - không còn trục `device` để lọc. Việc chọn
+        # controller nào thuộc loại nào là việc của `controllers=` ở `app.use()`.
+        self._groups = ModbusRouteBuilder(app).build(controllers)
         logger.info(
-            "Modbus device '%s' at %s:%s — %d poll group(s)",
+            "Modbus device '%s' at %s:%s - %d poll group(s)",
             self._device, self._config.host, self._config.port, len(self._groups),
         )
 
+
+    async def serve(self) -> None:
+        """Vòng poll chạy suốt vòng đời.
+
+        ⚠ Kết nối tới thiết bị nằm ở đây chứ không ở `start()`: adapter này
+        vốn thiết kế để **chịu được PLC chưa lên** và tự thử lại.
+        """
         await self._run_forever()
 
     async def stop(self) -> None:
@@ -214,7 +240,10 @@ class ModbusAdapter:
             try:
                 instance = await self._client.read(group.model, device=self._device)
                 for poll in group.polls:
-                    await self._dispatch(poll.bound, instance, poll.controller, poll.handler)
+                    await self._dispatch(
+                        poll.bound, instance, poll.controller, poll.handler,
+                        poll.wants_device,
+                    )
                 await self._fire_changes(group, instance, previous)
             except asyncio.CancelledError:
                 raise
@@ -248,11 +277,17 @@ class ModbusAdapter:
                 continue
             if _has_changed(before, current, watch.deadband):
                 await self._dispatch(
-                    watch.bound, current, watch.controller, watch.handler
+                    watch.bound, current, watch.controller, watch.handler,
+                    watch.wants_device,
                 )
 
     async def _dispatch(
-        self, bound: Any, argument: Any, controller: str, handler: str
+        self,
+        bound: Any,
+        argument: Any,
+        controller: str,
+        handler: str,
+        wants_device: bool = False,
     ) -> None:
         """Schedule one handler under the concurrency limit.
 
@@ -262,7 +297,10 @@ class ModbusAdapter:
         """
         assert self._sem is not None
         await self._sem.acquire()
-        task = asyncio.create_task(self._invoke(bound, argument, controller, handler))
+        device = self._device if wants_device else None
+        task = asyncio.create_task(
+            self._invoke(bound, argument, controller, handler, device)
+        )
         self._tasks.add(task)
 
         def _done(finished: asyncio.Task) -> None:
@@ -272,9 +310,18 @@ class ModbusAdapter:
         task.add_done_callback(_done)
 
     @staticmethod
-    async def _invoke(bound: Any, argument: Any, controller: str, handler: str) -> None:
+    async def _invoke(
+        bound: Any,
+        argument: Any,
+        controller: str,
+        handler: str,
+        device: str | None = None,
+    ) -> None:
         try:
-            await bound(argument)
+            if device is None:
+                await bound(argument)
+            else:
+                await bound(argument, device=device)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -287,7 +334,7 @@ def _has_changed(before: Any, current: Any, deadband: float | None) -> bool:
     """Whether a new reading counts as a change worth reporting.
 
     Without a deadband this is plain inequality. With one, numeric readings must
-    move by MORE than the deadband — the point is to ignore the last-digit noise
+    move by MORE than the deadband - the point is to ignore the last-digit noise
     every analogue sensor produces, which would otherwise fire the handler on
     almost every cycle.
     """

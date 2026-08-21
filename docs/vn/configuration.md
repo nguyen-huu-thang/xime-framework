@@ -2,7 +2,7 @@
 
 [English](../en/configuration.md) | **Tiếng Việt**
 
-[← Khái niệm cốt lõi](core-concepts.md) · **3/9 — Cấu hình** · [Routing →](routing.md)
+[← Khái niệm cốt lõi](core-concepts.md) · **3/9 - Cấu hình** · [Routing →](routing.md)
 
 ---
 
@@ -10,7 +10,7 @@ XIME dùng mô hình cấu hình hai tầng được thiết kế cho hai đối
 
 ---
 
-## Tầng 1 — Framework Configuration (Developer)
+## Tầng 1 - Framework Configuration (Developer)
 
 Framework configuration được viết bằng Python. Nó khai báo cách XIME hoạt động: package nào cần scan, interface ánh xạ đến implementation nào, route nào cần expose.
 
@@ -73,7 +73,7 @@ Cấu hình liên quan đến security (xác thực, quy tắc phân quyền). C
 
 ---
 
-## Tầng 2 — Runtime Configuration (Operator)
+## Tầng 2 - Runtime Configuration (Operator)
 
 Runtime configuration là YAML. Nó chứa giá trị theo môi trường: host, port, secret, database URL.
 
@@ -177,7 +177,7 @@ Key lồng nhau dùng dấu chấm.
 
 ---
 
-## Config Discovery — Tường minh, không Magic
+## Config Discovery - Tường minh, không Magic
 
 XIME **không tự scan** file config. Mọi config source phải được:
 
@@ -187,11 +187,11 @@ XIME **không tự scan** file config. Mọi config source phải được:
 Điều này làm bề mặt cấu hình rõ ràng và dễ debug. Nếu config không được áp dụng, bạn có thể trace chính xác nơi nó nên được đăng ký.
 
 ```python
-# SAI — XIME sẽ không tìm thấy cái này
+# SAI - XIME sẽ không tìm thấy cái này
 class WebConfig:
     openapi_title = "My Service"
 
-# ĐÚNG — đăng ký tường minh
+# ĐÚNG - đăng ký tường minh
 from xime.adapters.web.openapi import configure_openapi, OpenApiConfig
 
 configure_openapi(OpenApiConfig(
@@ -232,4 +232,4 @@ app = Application(
 
 ---
 
-[← Khái niệm cốt lõi](core-concepts.md) · **3/9 — Cấu hình** · [Routing →](routing.md)
+[← Khái niệm cốt lõi](core-concepts.md) · **3/9 - Cấu hình** · [Routing →](routing.md)

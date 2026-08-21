@@ -119,15 +119,40 @@ class TestGrpcAdapterBuildInterceptors:
         assert error_interceptor._mappings[_E] == grpc.StatusCode.NOT_FOUND
 
 
+def _with_cell(adapter, *, port: int = 50051, host: str | None = None, tls=None):
+    """Gán ô cấu hình cho adapter, đúng thứ framework làm trước `start()`.
+
+    ⚠ **Bắt buộc từ 0.8.** Adapter không còn tự đi tìm khoá của riêng nó: cổng và
+    TLS đến từ ô (`process.grpc.<id>` hoặc `processes.<p>.grpc.<id>`), và một
+    adapter khởi động mà không có ô là dấu hiệu `start()` bị gọi ngoài `run()`.
+    """
+    from xime.core.bootstrap._processes import EndpointSpec
+    from xime.core.bootstrap._slot import AdapterSlot
+
+    options: dict = {"port": port}
+    if host is not None:
+        options["host"] = host
+    if tls is not None:
+        options["tls"] = tls
+    spec = EndpointSpec(
+        kind="grpc", adapter_id=adapter.adapter_id, host=host, port=port,
+        path=None, shared=False, options=options,
+    )
+    adapter.assign_slot(
+        AdapterSlot(process_id="main", primary=True, spec=spec, single=True)
+    )
+    return adapter
+
+
 # ---------------------------------------------------------------------------
-# start() — insecure
+# start() - insecure
 # ---------------------------------------------------------------------------
 
 class TestGrpcAdapterStartInsecure:
     @pytest.mark.asyncio
     async def test_creates_grpc_server_with_interceptors(self, mock_app, mock_grpc_server):
         with patch("grpc.aio.server", return_value=mock_grpc_server) as mock_server_fn:
-            adapter = GrpcAdapter()
+            adapter = _with_cell(GrpcAdapter())
             await adapter.start(mock_app)
 
             mock_server_fn.assert_called_once()
@@ -138,7 +163,7 @@ class TestGrpcAdapterStartInsecure:
     async def test_adds_insecure_port_when_tls_disabled(self, mock_grpc_server):
         app = _make_app(_make_runtime({"port": 50051}))
         with patch("grpc.aio.server", return_value=mock_grpc_server):
-            adapter = GrpcAdapter()
+            adapter = _with_cell(GrpcAdapter())
             await adapter.start(app)
 
             mock_grpc_server.add_insecure_port.assert_called_once_with("[::]:50051")
@@ -147,23 +172,29 @@ class TestGrpcAdapterStartInsecure:
     @pytest.mark.asyncio
     async def test_calls_server_start(self, mock_app, mock_grpc_server):
         with patch("grpc.aio.server", return_value=mock_grpc_server):
-            adapter = GrpcAdapter()
+            adapter = _with_cell(GrpcAdapter())
             await adapter.start(mock_app)
 
             mock_grpc_server.start.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_uses_port_from_config(self, mock_grpc_server):
-        app = _make_app(_make_runtime({"port": 9090}))
+    async def test_uses_the_port_from_its_cell(self, mock_grpc_server):
+        """⚠ **ĐỔI Ở 0.8**: cổng đến từ **ô**, không từ khoá `grpc.port`.
+
+        Test cũ đặt `grpc.port: 9090` rồi đợi adapter tự đi đọc nó. Nay framework
+        đọc khoá đó (hoặc khối `process:`) và **đẩy** kết quả vào, nên chỗ đáng
+        canh là *adapter dùng đúng ô nó nhận*, không phải *adapter tìm đúng khoá*.
+        """
+        app = _make_app(_make_runtime({}))
         with patch("grpc.aio.server", return_value=mock_grpc_server):
-            adapter = GrpcAdapter()
+            adapter = _with_cell(GrpcAdapter(), port=9090)
             await adapter.start(app)
 
             mock_grpc_server.add_insecure_port.assert_called_once_with("[::]:9090")
 
 
 # ---------------------------------------------------------------------------
-# start() — TLS / mTLS
+# start() - TLS / mTLS
 # ---------------------------------------------------------------------------
 
 class TestGrpcAdapterStartTls:
@@ -174,14 +205,14 @@ class TestGrpcAdapterStartTls:
         cert.write_bytes(b"CERT")
         key.write_bytes(b"KEY")
 
-        runtime = _make_runtime({
-            "port": 50051,
-            "tls": {
-                "enabled": True,
-                "cert_file": str(cert),
-                "key_file": str(key),
-            },
-        })
+        # ⚠ TLS nay nằm trong Ô, không ở khoá `grpc.tls` - nó khác nhau giữa
+        # các điểm phục vụ, nên nó thuộc về ô chứ không thuộc khối của loại.
+        runtime = _make_runtime({})
+        cell_tls = {
+            "enabled": True,
+            "cert_file": str(cert),
+            "key_file": str(key),
+        }
         fake_credentials = MagicMock(spec=grpc.ServerCredentials)
         app = _make_app(runtime)
 
@@ -190,7 +221,7 @@ class TestGrpcAdapterStartTls:
                 "xime.adapters.grpc._adapter.build_server_credentials",
                 return_value=fake_credentials,
             ):
-                adapter = GrpcAdapter()
+                adapter = _with_cell(GrpcAdapter(), tls=cell_tls)
                 await adapter.start(app)
 
                 mock_grpc_server.add_secure_port.assert_called_once_with(
@@ -200,7 +231,7 @@ class TestGrpcAdapterStartTls:
 
 
 # ---------------------------------------------------------------------------
-# start() — servicer registration
+# start() - servicer registration
 # ---------------------------------------------------------------------------
 
 class TestGrpcAdapterStartServicers:
@@ -221,7 +252,7 @@ class TestGrpcAdapterStartServicers:
                 mock_builder_instance = MagicMock()
                 MockBuilder.return_value = mock_builder_instance
 
-                adapter = GrpcAdapter()
+                adapter = _with_cell(GrpcAdapter())
                 await adapter.start(app)
 
                 MockBuilder.assert_called_once_with(app, "default")
@@ -238,7 +269,7 @@ class TestGrpcAdapterStartServicers:
                 mock_scanner_instance = MagicMock()
                 MockScanner.return_value = mock_scanner_instance
 
-                adapter = GrpcAdapter()
+                adapter = _with_cell(GrpcAdapter())
                 await adapter.start(mock_app)
 
                 mock_scanner_instance.validate_packages.assert_called_once_with("api.grpc")
@@ -252,7 +283,7 @@ class TestGrpcAdapterStop:
     @pytest.mark.asyncio
     async def test_calls_server_stop_with_grace(self, mock_app, mock_grpc_server):
         with patch("grpc.aio.server", return_value=mock_grpc_server):
-            adapter = GrpcAdapter()
+            adapter = _with_cell(GrpcAdapter())
             await adapter.start(mock_app)
             await adapter.stop()
 
@@ -261,7 +292,7 @@ class TestGrpcAdapterStop:
     @pytest.mark.asyncio
     async def test_sets_server_to_none_after_stop(self, mock_app, mock_grpc_server):
         with patch("grpc.aio.server", return_value=mock_grpc_server):
-            adapter = GrpcAdapter()
+            adapter = _with_cell(GrpcAdapter())
             await adapter.start(mock_app)
             await adapter.stop()
 
@@ -288,7 +319,7 @@ class TestInsecureModeWarning:
         app = _make_app(_make_runtime({"port": 50051}))
         with patch("grpc.aio.server", return_value=mock_grpc_server), \
              caplog.at_level("WARNING", logger=self._LOGGER):
-            await GrpcAdapter().start(app)
+            await _with_cell(GrpcAdapter()).start(app)
         assert "PLAINTEXT" in caplog.text
 
     def test_tls_without_mutual_warns(self, caplog):
@@ -317,8 +348,12 @@ class TestServerKeepalive:
     async def test_no_keepalive_block_means_no_options(self, mock_grpc_server):
         app = _make_app(_make_runtime({"port": 50051}))
         with patch("grpc.aio.server", return_value=mock_grpc_server) as server_fn:
-            await GrpcAdapter().start(app)
-        assert server_fn.call_args[1]["options"] == []
+            await _with_cell(GrpcAdapter()).start(app)
+        # ⚠ Không còn rỗng: từ 0.8 adapter luôn có ô, và nó khai
+        # `SO_REUSEPORT` **tường minh** - tắt khi ô không nói `shared`. Đây là
+        # bản vá cho chỗ *"bind thành công"* mang hai nghĩa, nên danh sách
+        # rỗng ở đây nay là dấu hiệu bản vá bị gỡ chứ không phải mọi thứ ổn.
+        assert server_fn.call_args[1]["options"] == [("grpc.so_reuseport", 0)]
 
     @pytest.mark.asyncio
     async def test_ping_policy_forwarded(self, mock_grpc_server):
@@ -330,7 +365,7 @@ class TestServerKeepalive:
             )
         )
         with patch("grpc.aio.server", return_value=mock_grpc_server) as server_fn:
-            await GrpcAdapter().start(app)
+            await _with_cell(GrpcAdapter()).start(app)
         assert (
             "grpc.http2.min_ping_interval_without_data_ms", 30000
         ) in server_fn.call_args[1]["options"]

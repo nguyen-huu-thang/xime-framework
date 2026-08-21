@@ -9,7 +9,7 @@ class _RequestContext:
     A key-value store for the current async context (one dict per request).
 
     Unlike SecurityContext fields which have fixed semantics, this context
-    accepts arbitrary data — trace IDs, locale, correlation IDs, feature flags,
+    accepts arbitrary data - trace IDs, locale, correlation IDs, feature flags,
     or anything else middleware and business code needs to share.
 
     The backing dict is created lazily on first set() call.
@@ -74,7 +74,7 @@ class _RequestContext:
         return f"RequestContext({self.all()!r})"
 
 
-# Module-level singleton — import this directly
+# Module-level singleton - import this directly
 #
 #   from xime.core.context import request_context
 #   from xime.core.context.request_context import request_context

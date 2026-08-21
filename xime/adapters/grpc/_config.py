@@ -15,7 +15,7 @@ class GrpcTlsConfig(BaseModel):
             enabled: true
             cert_file: certs/server.crt
             key_file:  certs/server.key
-            ca_file:   certs/ca.crt   # optional — needed for mTLS
+            ca_file:   certs/ca.crt   # optional - needed for mTLS
             mutual:    true            # true = require client certificate
     """
 

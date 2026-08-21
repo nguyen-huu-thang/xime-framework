@@ -1,4 +1,4 @@
-"""Socket Adapter — Unix Domain Socket transport for Local IPC.
+"""Socket Adapter - Unix Domain Socket transport for Local IPC.
 
 Lets a Xime service talk to native engines (C++/Rust/Go) on the same machine
 with constructor injection, controller scanning, and the same @command/@stream

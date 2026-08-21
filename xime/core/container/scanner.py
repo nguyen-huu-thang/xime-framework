@@ -141,14 +141,14 @@ class PackageScanner:
 
         params = get_init_parameters(cls)
         if not params:
-            # No dependencies — singleton with no constructor args, valid.
+            # No dependencies - singleton with no constructor args, valid.
             return True
 
         try:
             hints = resolve_constructor_hints(cls)
         except NameError as exc:
             # A string annotation (forward reference) could not be resolved.
-            # This is a developer mistake — fail fast with a clear message
+            # This is a developer mistake - fail fast with a clear message
             # rather than silently dropping the class from DI.
             raise MissingTypeHintException(cls.__name__, str(exc)) from exc
 

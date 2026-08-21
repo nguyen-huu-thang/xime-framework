@@ -1,5 +1,5 @@
 """
-Test xime package root — kiểm tra toàn bộ public API có thể import được:
+Test xime package root - kiểm tra toàn bộ public API có thể import được:
   - from xime import Application
   - from xime.adapters.web import WebAdapter, WebSocketHandler, route decorators
   - from xime.adapters.web.routing import decorators, configure_controllers
@@ -131,11 +131,11 @@ def test_openapi_symbols_match_implementation():
 
 
 # ---------------------------------------------------------------------------
-# xime.starters.jwt (optional — skip nếu PyJWT chưa cài)
+# xime.starters.jwt (optional - skip nếu PyJWT chưa cài)
 # ---------------------------------------------------------------------------
 
 def test_import_jwt_configure():
-    pytest.importorskip("jwt", reason="PyJWT not installed — skip JWT starter tests")
+    pytest.importorskip("jwt", reason="PyJWT not installed - skip JWT starter tests")
     from xime.starters.jwt import configure_jwt
     assert callable(configure_jwt)
 
@@ -174,7 +174,7 @@ def test_jwt_symbols_match_implementation():
 
 
 # ---------------------------------------------------------------------------
-# xime.starters.sqlalchemy (optional — skip nếu SQLAlchemy chưa cài)
+# xime.starters.sqlalchemy (optional - skip nếu SQLAlchemy chưa cài)
 # ---------------------------------------------------------------------------
 
 def test_import_sqlalchemy_base():
@@ -214,7 +214,7 @@ def test_import_sqlalchemy_read_only():
 
 
 # ---------------------------------------------------------------------------
-# xime.starters.scheduler (optional — skip nếu APScheduler chưa cài)
+# xime.starters.scheduler (optional - skip nếu APScheduler chưa cài)
 # ---------------------------------------------------------------------------
 
 def test_import_scheduler_configure():

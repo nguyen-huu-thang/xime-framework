@@ -241,7 +241,7 @@ class TestCountIsRejectedWhereItDoesNothing:
     """`count` used to be accepted and silently discarded on numeric fields.
 
     A numeric register type already knows its own width, so Holding(0,
-    type='uint16', count=5) read ONE register while the author expected five —
+    type='uint16', count=5) read ONE register while the author expected five -
     with no error at declaration time and no error at read time either.
     """
 

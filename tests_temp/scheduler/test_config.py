@@ -22,7 +22,7 @@ Test CronJob, IntervalJob, SchedulerConfig, scheduler_registry, configure_schedu
   scheduler_registry + configure_scheduler:
     - get() trả về None trước khi configure
     - configure_scheduler() lưu config vào registry
-    - configure_scheduler() không clone — trả về đúng object
+    - configure_scheduler() không clone - trả về đúng object
     - configure_scheduler() gọi lần 2 ghi đè config cũ
     - config được lưu bảo toàn jobs và timezone
 """

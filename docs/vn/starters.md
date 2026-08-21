@@ -2,7 +2,7 @@
 
 [English](../en/starters.md) | **Tiếng Việt**
 
-[← Transaction](transaction.md) · **6/9 — Starters** · [Testing →](testing.md)
+[← Transaction](transaction.md) · **6/9 - Starters** · [Testing →](testing.md)
 
 ---
 
@@ -33,7 +33,7 @@ dependency.bind({
 })
 ```
 
-> `ReadOnlyManager` là tùy chọn — không bind thì mọi thứ chạy như cũ. Chi tiết ở
+> `ReadOnlyManager` là tùy chọn - không bind thì mọi thứ chạy như cũ. Chi tiết ở
 > mục "Khối chỉ đọc" trong [Transaction](transaction.md).
 
 ```yaml
@@ -68,7 +68,7 @@ class UserRepository:
 
 Transaction được quản lý bởi use case layer, không phải repository.
 
-### Repository CRUD sẵn — `CrudRepository[T]`
+### Repository CRUD sẵn - `CrudRepository[T]`
 
 Thay vì mỗi dự án tự viết lại một base repository giống hệt nhau, starter cung cấp
 sẵn `CrudRepository[T]` - tương tự `JpaRepository`/`CrudRepository` của Spring Data.
@@ -332,6 +332,53 @@ configure_scheduler(SchedulerConfig(
 
 ---
 
+## Ba chỗ để đặt trạng thái dùng chung - chọn cái nào
+
+Từ 0.8 framework có ba thứ trông giống nhau. Chúng **không thay thế nhau**:
+
+| | `RefData` | `Store` (LMDB) | `CacheService` (Redis) |
+|---|---|---|---|
+| Phạm vi | **một máy** (bộ nhớ chung) | **một máy** (file cục bộ) | **nhiều máy** |
+| Dữ liệu | có nguồn bền vững, **thay trọn gói** | **không** có nguồn bền vững | bất kỳ |
+| Ai ghi | **chỉ primary** | mọi tiến trình | mọi tiến trình, mọi máy |
+| Ví dụ | khoá JWT, danh bạ app | hãm nhịp, thử thách passkey, chống lặp | thứ hai máy phải cùng thấy |
+
+⭐⭐ **Ranh giới, và nó là chuyện CƠ CHẾ chứ không phải sở thích:** `RefData`,
+`Store` và `ProcessLink` dựng trên **bộ nhớ chung và file cục bộ**, nên chúng dừng ở
+ranh giới một máy - **và một container cũng là một máy**. `CacheService` là chỗ
+framework phục vụ ca **nhiều máy**: k8s, Docker Compose `scale`, nhiều VPS sau một
+bộ cân bằng tải.
+
+> **`RefData` / `Store` là đường nhanh của MỘT máy. `CacheService` là đường chung
+> của NHIỀU máy.** Không cái nào là ngoại lệ của cái nào.
+
+⚠ Đừng đọc `Store` như bản thay thế của Redis. Chạy ba pod thì mỗi pod có **kho
+riêng của nó** - `Store` không hỏng, nó chỉ có phạm vi đúng như thiết kế.
+
+### Ví dụ cụ thể: `Store` đóng đúng một tầng của một lỗ hổng
+
+Hãm nhịp đăng nhập giữ trong RAM tiến trình thì hạn mức bị **nhân theo số tiến
+trình** - bốn tiến trình là kẻ tấn công có bốn lần hạn mức. `Store` sửa đúng chỗ
+đó: cả cụm trên **một máy** dùng chung một bảng.
+
+⚠ Nhưng nếu chạy **hai máy** sau một bộ cân bằng tải thì hạn mức lại **nhân theo
+số máy**. Cùng một cách hỏng, chỉ nhỏ hơn. Và nó **không giải được bằng chia
+shard**: shard cắt theo `org_id`, còn hãm nhịp thì khoá theo IP hoặc tên đăng
+nhập - hai trục khác nhau, và người chưa đăng nhập được thì chưa có `org_id` nào.
+
+> **Ranh giới gọn: mọi thứ framework tự cấp (`RefData`, `Store`, `ProcessLink`)
+> là MỘT MÁY, luôn luôn. Cần nhiều máy cùng thấy thì đó là lựa chọn của ứng
+> dụng, và nó đi qua `CacheService`.**
+
+Ba ca nữa mà `Store` không làm được, để khỏi phải tự dò lại: **khoá phân tán**
+giữa các máy · **pub/sub** (LMDB không có gì tương đương) · dữ liệu lớn hơn trần
+`total_max` của một máy.
+
+⛔ Ngược lại, đừng dùng Redis cho thứ `Store` làm được: một vòng mạng cho mỗi
+lần đọc hãm nhịp là trả giá thật cho một thứ nằm sẵn trong RAM cùng máy.
+
+---
+
 ## Cache Starter
 
 `xime.starters.cache`
@@ -424,7 +471,7 @@ Hai dạng truy cập:
 
 Kèm `delete`, `exists`, `stat` (size/content-type/etag) và `url` (presigned URL nếu backend hỗ trợ). Key là tương đối; **mọi backend** đều từ chối key rỗng/tuyệt đối/`..` (traversal) như nhau.
 
-### Backend filesystem local — `xime.starters.localfs`
+### Backend filesystem local - `xime.starters.localfs`
 
 ```python
 # config/dependency.py
@@ -444,7 +491,7 @@ storage:
 
 Ghi nguyên tử (file tạm `.part` rồi `os.replace`); chặn path traversal; IO file chạy trong worker thread. Không cần thư viện thêm. `url()` ném `UnsupportedOperation` - phục vụ file qua helper web bên dưới.
 
-### Backend S3 / MinIO — `xime.starters.s3`
+### Backend S3 / MinIO - `xime.starters.s3`
 
 Cài bằng `pip install "xime[s3]"`.
 
@@ -471,7 +518,7 @@ storage:
 
 `S3ClientProvider` mở client async ở `PostConstruct`, đóng ở `PreDestroy`. `put_stream` dùng multipart upload (abort khi lỗi), `open_stream` dùng ranged GET, `url()` trả presigned URL. `aioboto3` được import lười.
 
-### Streaming qua HTTP — `xime.adapters.web.files`
+### Streaming qua HTTP - `xime.adapters.web.files`
 
 Hai helper stream object lên/xuống HTTP không buffer, gọi trong controller:
 
@@ -530,4 +577,4 @@ configure_scheduler(SchedulerConfig(jobs=[
 
 ---
 
-[← Transaction](transaction.md) · **6/9 — Starters** · [Testing →](testing.md)
+[← Transaction](transaction.md) · **6/9 - Starters** · [Testing →](testing.md)

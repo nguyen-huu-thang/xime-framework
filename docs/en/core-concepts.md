@@ -2,7 +2,7 @@
 
 **English** | [Tiếng Việt](../vn/core-concepts.md)
 
-[← Getting Started](getting-started.md) · **2/9 — Core Concepts** · [Configuration →](configuration.md)
+[← Getting Started](getting-started.md) · **2/9 - Core Concepts** · [Configuration →](configuration.md)
 
 ---
 
@@ -21,7 +21,7 @@ class UserService:
         self.transaction = transaction
 ```
 
-XIME reads the type hints, resolves each dependency, and creates the object — you never call `UserService(...)` yourself.
+XIME reads the type hints, resolves each dependency, and creates the object - you never call `UserService(...)` yourself.
 
 **Rules:**
 
@@ -67,7 +67,7 @@ Packages that are **excluded** from DI (classes here are never registered):
 
 - `domain`, `dto`, `entity`, `vo`, `constant`, `exception`
 
-These are excluded because they are data objects, not services — injecting them makes no sense.
+These are excluded because they are data objects, not services - injecting them makes no sense.
 
 ---
 
@@ -79,13 +79,13 @@ A class is registered into the DI container only when **all** of these are true:
 2. All `__init__` parameters have type hints
 3. Its package is in the scan list and not in the exclude list
 
-If a class has a parameter without a type hint, it is silently skipped — not an error. This lets third-party classes live in scanned packages without causing problems.
+If a class has a parameter without a type hint, it is silently skipped - not an error. This lets third-party classes live in scanned packages without causing problems.
 
 ---
 
 ## 4. Interface Binding with Protocol
 
-Python's `Protocol` enables structural typing — a class satisfies a Protocol if it has the right methods, without explicit inheritance.
+Python's `Protocol` enables structural typing - a class satisfies a Protocol if it has the right methods, without explicit inheritance.
 
 Define an interface:
 
@@ -97,7 +97,7 @@ class UserRepository(Protocol):
     async def save(self, user: User) -> None: ...
 ```
 
-Write the implementation — **no inheritance required**:
+Write the implementation - **no inheritance required**:
 
 ```python
 class JpaUserRepository:
@@ -127,7 +127,7 @@ Binding Validation Failed
 
 **Why explicit binding?**
 
-`Protocol` uses structural typing — Python cannot tell if a class intentionally implements an interface or just happens to have the same methods. Explicit binding makes the architectural decision visible in code. See [Interface Binding](../en/core-concepts.md) for the full rationale.
+`Protocol` uses structural typing - Python cannot tell if a class intentionally implements an interface or just happens to have the same methods. Explicit binding makes the architectural decision visible in code. See [Interface Binding](../en/core-concepts.md) for the full rationale.
 
 ### 4.1 Dynamic binding (multiple implementations)
 
@@ -236,7 +236,7 @@ Circular dependency detected:
 Missing Type Hint
   Class: UserService
   Parameter: repository
-  Hint: add a type annotation — def __init__(self, repository: UserRepository)
+  Hint: add a type annotation - def __init__(self, repository: UserRepository)
 ```
 
 ---
@@ -306,12 +306,38 @@ async def pre_destroy(self) -> None:
 
 `pop_all()` is the crux: reaching the end of the block hands ownership to `pre_destroy`; failing midway lets `AsyncExitStack` close everything already opened, in reverse order.
 
+### A third hook: `run_once()` - work done ONCE for the whole cluster
+
+`post_construct()` runs in **every process**. With a single process that is the whole story; with four, *"run at startup"* has **two** meanings that pull in opposite directions:
+
+| | Every process | **Once for the cluster** |
+|---|---|---|
+| **Runs once, then done** | `post_construct()` | **`run_once()`** |
+| **Runs forever** | `Adapter.start()` | a `scaling="singleton"` adapter |
+
+```python
+class KeyRefreshJob:
+    async def post_construct(self) -> None:      # EVERY process, and must be LIGHT
+        self._cache = {}
+
+    async def run_once(self) -> None:            # ONCE for the whole cluster
+        await self._refdata.publish(await self._trust.fetch_keys())
+```
+
+Same mechanism as the other two hooks: **name the method correctly**, no decorator, nothing to register. The framework runs it on the primary after every `post_construct()` has finished and **before any adapter serves**.
+
+The right place for: migrations, fetching signing keys the first time, consuming a bootstrap certificate ticket. None of those should run four times in a four-process cluster.
+
+⚠ **`run_once()` must be REPEATABLE**: if the primary dies partway, the promoted process runs it again. And it **deliberately has no undo hook** - none of the cases above leave anything to clean up.
+
+⚠ A **single-process** application still runs `run_once()`: it *is* the whole cluster. There is no branch to forget. Details: [Multi-process](multi-process.md).
+
 ---
 
 ## 9. Event Bus
 
 The internal event bus decouples components that should not directly depend on each other.
-`publish()` is **fire and forget** — it schedules every handler as an independent background
+`publish()` is **fire and forget** - it schedules every handler as an independent background
 task and returns immediately without waiting for them to complete.
 
 ```python
@@ -326,7 +352,7 @@ class NotificationHandler:
         await send_welcome_email(event.user_id)
 ```
 
-Publish from a use case — the caller is not blocked:
+Publish from a use case - the caller is not blocked:
 
 ```python
 class CreateUserUseCase:
@@ -337,7 +363,7 @@ class CreateUserUseCase:
     async def execute(self, command: CreateUserCommand) -> User:
         user = await self._repository.save(User(...))
         await self._bus.publish(UserCreatedEvent(user.id))
-        # returns here — handlers run in the background
+        # returns here - handlers run in the background
         return user
 ```
 
@@ -351,7 +377,7 @@ event_bus.subscribe(UserCreatedEvent, notification_handler)
 event_bus.subscribe(UserCreatedEvent, audit_handler)
 ```
 
-**Testing** — use `drain()` to wait for all in-flight handlers before asserting:
+**Testing** - use `drain()` to wait for all in-flight handlers before asserting:
 
 ```python
 await use_case.execute(command)
@@ -446,7 +472,7 @@ This is fail-soft: a plaintext or server-only-TLS call leaves `current_caller()`
 
 ## 11. Multi-Server Support
 
-A single XIME process can run multiple `WebAdapter` and `GrpcAdapter` instances simultaneously — each on a different port with its own set of controllers or servicers.
+A single XIME process can run multiple `WebAdapter` and `GrpcAdapter` instances simultaneously - each on a different port with its own set of controllers or servicers.
 
 ```python
 # app/main.py
@@ -455,14 +481,30 @@ from xime.adapters.web import WebAdapter
 from xime.adapters.grpc import GrpcAdapter
 
 app = Application()
-app.use(WebAdapter())                               # server_id="default", port from application.yml
-app.use(WebAdapter("admin", "127.0.0.1", 8081))    # server_id="admin", explicit host + port
-app.use(GrpcAdapter())                              # server_id="default", port from application.yml
-app.use(GrpcAdapter("internal", port=50052))        # server_id="internal", explicit port
+app.use(WebAdapter())               # server_id="default"
+app.use(WebAdapter("admin"))        # server_id="admin"
+app.use(GrpcAdapter())
+app.use(GrpcAdapter("internal"))
 app.run()
 ```
 
-**Assigning controllers to a server** — declare a `server_id` class variable:
+Addresses live in `application.yml`, not in code:
+
+```yaml
+process:
+  web:
+    default: { port: 8086 }
+    admin:   { host: 127.0.0.1, port: 8081 }
+  grpc:
+    default:  { port: 50051 }
+    internal: { port: 50052 }
+```
+
+⚠ **A single-port application never writes this block** - the flat `server:` /
+`grpc.port` keys still work. You only need `process:` for a **second** endpoint.
+Details: [Multi-process](multi-process.md).
+
+**Assigning controllers to a server** - declare a `server_id` class variable:
 
 ```python
 class PublicController:
@@ -477,9 +519,9 @@ class AdminController:
 **Rules:**
 
 - `server_id` defaults to `"default"` when omitted on both adapters and controllers/servicers.
-- Non-default adapters **must** provide explicit `host` and `port` in the constructor — no config file reading for them.
+- Non-default adapters **must** provide explicit `host` and `port` in the constructor - no config file reading for them.
 - Two adapters of the same type with the same `server_id` → `ValueError` at `app.use()`.
-- All adapters share the same DI container singletons — no duplication of business objects.
+- All adapters share the same DI container singletons - no duplication of business objects.
 - TLS/mTLS is only supported for the `"default"` gRPC adapter.
 - Per-server OpenAPI config: `configure_openapi(config, server_id="admin")`.
 
@@ -487,7 +529,7 @@ class AdminController:
 
 ## 12. Initialization Order (`dependency.order`)
 
-By default, `post_construct()` hooks run in topological dependency order — classes that are depended on first. When two classes have no constructor dependency on each other but one's `post_construct()` must complete before the other's, use `dependency.order()`:
+By default, `post_construct()` hooks run in topological dependency order - classes that are depended on first. When two classes have no constructor dependency on each other but one's `post_construct()` must complete before the other's, use `dependency.order()`:
 
 ```python
 # app/config/dependency.py
@@ -522,4 +564,4 @@ Initialization Order Conflict
 
 ---
 
-[← Getting Started](getting-started.md) · **2/9 — Core Concepts** · [Configuration →](configuration.md)
+[← Getting Started](getting-started.md) · **2/9 - Core Concepts** · [Configuration →](configuration.md)

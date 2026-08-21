@@ -16,7 +16,7 @@ class TrackerService:
 
 
 class GreeterService:
-    """Depends on TrackerService — used to verify dependency ordering."""
+    """Depends on TrackerService - used to verify dependency ordering."""
 
     def __init__(self, tracker: TrackerService) -> None:
         self.tracker = tracker

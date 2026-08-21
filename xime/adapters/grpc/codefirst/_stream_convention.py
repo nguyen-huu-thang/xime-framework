@@ -24,9 +24,9 @@ Download (SERVER_STREAM):
     rpc Download(DownloadRequest) returns (stream DownloadChunk);
 """
 
-# Field numbers inside the generated wrapper messages — fixed by convention,
+# Field numbers inside the generated wrapper messages - fixed by convention,
 # so they need no lock entry.
-# Số field trong wrapper — cố định theo quy ước, không cần lock.
+# Số field trong wrapper - cố định theo quy ước, không cần lock.
 UPLOAD_METADATA_FIELD = 1
 UPLOAD_CHUNK_FIELD = 2
 DOWNLOAD_CHUNK_FIELD = 1

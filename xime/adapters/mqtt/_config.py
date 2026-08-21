@@ -160,7 +160,7 @@ class MqttConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Registry — controller packages, error mappings, shared connections
+# Registry - controller packages, error mappings, shared connections
 # ---------------------------------------------------------------------------
 
 class _MqttRegistry:

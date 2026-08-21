@@ -11,7 +11,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.7.2"
+version = "0.8.0"
 description = "A Python backend framework that brings a Spring Boot-style developer experience while respecting Python's philosophy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -33,11 +33,11 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-# Core dependencies — luôn được cài khi `pip install xime`
+# Core dependencies - luôn được cài khi `pip install xime`
 #
 # Each floor below was checked by installing it, not guessed. Proven on Python
 # 3.14 (2026-08-18): the exact floor set below installs and passes 1553 passed,
-# 11 skipped. Re-run before every release — a floor is a snapshot, and advisories
+# 11 skipped. Re-run before every release - a floor is a snapshot, and advisories
 # keep moving after it is stamped.
 #
 #   fastapi  0.110.1 used to be the floor (0.110.0 pins starlette 0.36.3, whose
@@ -50,7 +50,7 @@ classifiers = [
 #              0.128.0 -> starlette<0.51.0,>=0.40.0
 #              0.133.0 -> starlette>=0.40.0          <- cap gone
 #   starlette DECLARED DIRECTLY even though xime imports nothing from it (every
-#            symbol it needs is re-exported by fastapi — see 2026-08-17). The
+#            symbol it needs is re-exported by fastapi - see 2026-08-17). The
 #            declaration exists purely to constrain the resolver: pip-audit finds
 #            advisories in starlette that are fixed ONLY in the 1.x line
 #            (1.0.1 / 1.1.0 / 1.3.0 / 1.3.1), with no 0.x backport, so the whole
@@ -198,6 +198,25 @@ grpc = [
 redis = [
     "redis>=5.0",
 ]
+# Kho liên tiến trình (0.8): xime/starters/lmdb - hãm nhịp, thử thách passkey,
+# chống lặp; thứ nhiều tiến trình của MỘT máy phải thống nhất và mất được sau
+# khi máy khởi động lại.
+#
+# Sàn 1.7.5 chọn theo một tiêu chí nói ra được, không phải "bản mới nhất lúc
+# viết": đó là bản ĐẦU TIÊN có wheel dựng sẵn cho ĐỦ dải Python của gói này
+# (`requires-python >= 3.12`), tức cp312 / cp313 / cp314. Các bản trước đó dừng
+# ở cp313, nên người ghim xuống sàn khi chạy 3.14 sẽ phải tự build từ nguồn -
+# một sàn đúng trên giấy mà hỏng lúc cài, đúng loại lỗi bước 1b của hướng dẫn
+# phát hành sinh ra để bắt.
+#
+# ⚠ Đo 2026-08-20: lmdb 1.7.5 và 1.8.1 CÓ wheel `cp314t` (free-threaded), còn
+# nhánh 2.x thì KHÔNG. Ghi lại vì tài liệu thiết kế cache ngày 2026-08-16 ghi
+# "lmdb chưa có wheel free-threaded" - câu đó nay đã cũ. Nó KHÔNG đổi kết luận
+# "đa tiến trình trước, đa luồng để sau": thứ chặn là `grpcio`, xương sống của
+# Xime, chứ không phải lmdb.
+lmdb = [
+    "lmdb>=1.7.5",
+]
 s3 = [
     "aioboto3>=12",
     # Framework imports botocore DIRECTLY (starters/s3/_client.py: botocore.config
@@ -206,7 +225,7 @@ s3 = [
     # every one of its releases (2.25.1 pins botocore<1.40.62,>=1.40.46, measured
     # 2026-08-17). Any floor we write here is either redundant today or a
     # resolver conflict tomorrow, while `botocore.config.Config` has been stable
-    # for years — so the honest statement is "we import this", and aiobotocore
+    # for years - so the honest statement is "we import this", and aiobotocore
     # decides the version.
     # Khai CỐ Ý KHÔNG có phiên bản: aiobotocore ghim botocore vào một dải ~16 bản
     # patch và dải đó dịch theo mỗi lần nó ra bản mới, nên mọi sàn ta viết ở đây
@@ -218,7 +237,7 @@ mqtt = [
     # THIS extra contradicted each other, and `pip install xime[mqtt]` resolved
     # at the declared floors was flatly impossible:
     #     aiomqtt 2.0.0 requires paho-mqtt<2.0.0, we declare paho-mqtt>=2.1
-    # Measured — aiomqtt 2.1.0 is the first release to accept paho-mqtt 2.x:
+    # Measured - aiomqtt 2.1.0 is the first release to accept paho-mqtt 2.x:
     #     2.0.0 / 2.0.1 -> paho-mqtt>=1.6.0,<2.0.0
     #     2.1.0         -> paho-mqtt>=2.0.0,<3.0.0   <- first compatible one
     #
@@ -228,7 +247,7 @@ mqtt = [
     "aiomqtt>=2.1.0",
     # Framework imports paho DIRECTLY (adapters/mqtt/_adapter.py, _dispatcher.py):
     # MQTT v5 needs Properties/PacketTypes for SubscriptionIdentifier and
-    # CorrelationData, and aiomqtt 2.x has no equivalent of its own — it hands
+    # CorrelationData, and aiomqtt 2.x has no equivalent of its own - it hands
     # paho's objects straight through. Declared here instead of relying on it
     # arriving through aiomqtt: a transitive dependency is a promise aiomqtt made
     # to itself, not to us. Floor 2.1 is what aiomqtt>=2.1 already requires
@@ -255,7 +274,7 @@ opcua = [
     "asyncua>=2.0",
 ]
 all = [
-    "xime[web,sqlalchemy,jwt,scheduler,socket,grpc,redis,s3,mqtt,mail,modbus,opcua]",
+    "xime[web,sqlalchemy,jwt,scheduler,socket,grpc,redis,lmdb,s3,mqtt,mail,modbus,opcua]",
 ]
 
 # Dev: chạy test, lint, type-check, ASGI server
@@ -286,6 +305,17 @@ dev = [
     # Sàn = đúng bản đã cài và chạy test ngày 2026-08-17, theo quy ước "mỗi mốc
     # đều đã CÀI THỬ chứ không phỏng đoán" ở đầu file.
     "types-aiobotocore-s3>=3.9",
+    # ⭐ Công cụ của BƯỚC 1b trong hướng dẫn phát hành
+    # (`.claude/scripts/check_dep_advisories.py`). Trước 2026-08-20 nó không
+    # được khai ở đâu cả - hướng dẫn phát hành phụ thuộc vào một chương trình
+    # mà không file nào nói là cần. Nó biến mất khỏi máy này lúc nào không ai
+    # biết, và script thì in "SACH" trong khi chưa hề soi được gì.
+    #
+    # ⚠ Khai ở đây KHÔNG làm script tự chạy được; nó chỉ khiến
+    # `pip install -e ".[dev]"` kéo công cụ về, tức biến một phụ thuộc ngầm
+    # thành một phụ thuộc nói ra được. Phần kêu lên khi thiếu thì nằm ở chính
+    # script (ba kết cục: SACH / CHUA KET LUAN DUOC / CON MUC CHUA XU LY).
+    "pip-audit>=2.7",
 ]
 
 # ---------------------------------------------------------------------------
@@ -310,7 +340,7 @@ packages = ["xime"]
 # up shipped. Whitelisting makes new files default to excluded instead.
 # Patterns are .gitignore-style: a bare name matches at ANY depth, so "docs"
 # also pulled in `.claude/docs/` (27 internal design documents). The leading
-# slash anchors each pattern to the project root — keep it.
+# slash anchors each pattern to the project root - keep it.
 # Mẫu theo kiểu .gitignore: tên trần khớp ở MỌI độ sâu, nên "docs" kéo theo cả
 # `.claude/docs/` (27 tài liệu thiết kế nội bộ). Dấu / đầu neo mẫu vào gốc dự án.
 [tool.hatch.build.targets.sdist]
@@ -350,11 +380,27 @@ select = [
     "UP",  # pyupgrade
 ]
 ignore = [
-    "E501", # line too long — để ruff format xử lý
+    "E501", # line too long - để ruff format xử lý
+    # UP046: "dùng cú pháp type parameter của PEP 695 thay cho Generic[T]".
+    #
+    # ⛔ CỐ Ý KHÔNG SỬA, và đây là một quyết định chứ không phải nợ. Ba lớp bị
+    # nhắc - `CrudRepository` (0.6.1), `Store` và `RefData` (0.8) - đều là
+    # **lớp nền công khai người dùng kế thừa**, và cả ba nhận cấu hình bằng
+    # THAM SỐ CLASS (`class X(Store[Y], name="...", ttl=...)`). Đổi sang
+    # `class Store[T]` là đổi cỗ máy dựng lớp của một API công khai để lấy về
+    # đúng một thứ: cú pháp mới hơn. Không người dùng nào được lợi.
+    #
+    # ⚠ Lý do ghi ra thay vì để nó đỏ mãi: `ruff check xime/` mà **không bao
+    # giờ xanh** là một phép dò không ai còn đọc - ba dòng quen thuộc dạy người
+    # ta lướt qua, và dòng thứ tư sẽ lướt cùng. Cùng nguyên tắc với "phép dò
+    # kêu oan là phép dò sẽ bị tắt".
+    #
+    # Xét lại khi: 0.9 lên Beta và có dịp đụng vào cả ba lớp cùng lúc.
+    "UP046",
 ]
 
 # ---------------------------------------------------------------------------
-# Mypy (type checker) — tùy chọn
+# Mypy (type checker) - tùy chọn
 # ---------------------------------------------------------------------------
 
 [tool.mypy]

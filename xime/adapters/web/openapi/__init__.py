@@ -18,7 +18,7 @@ def configure_openapi(config: OpenApiConfig, server_id: str = "default") -> None
             public_paths=["/auth/login", "/health"],
         ))
 
-        # Nhiều server — mỗi server một config:
+        # Nhiều server - mỗi server một config:
         configure_openapi(OpenApiConfig(title="Public API", version="1.0.0"), server_id="public")
         configure_openapi(OpenApiConfig(title="Admin API", version="1.0.0"), server_id="admin")
     """

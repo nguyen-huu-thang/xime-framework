@@ -10,6 +10,7 @@ Không nằm trong gói phát hành (`.claude/` đã bị loại khỏi sdist).
 | Script | Trả lời câu hỏi | Đã bắt được |
 | --- | --- | --- |
 | `check_doc_imports.py` | Mọi dòng `from xime... import X` trong tài liệu có chạy được không? | **16 dòng hỏng**: cả mục JWT của `starters.md` mô tả API không tồn tại; 4 chỗ trỏ `xime.config`/`xime.lifecycle`/`xime.event`/`xime.context` thay vì `xime.core.*` |
+| **`check_doc_code.py`** | **Mọi khối ```python trong tài liệu có còn phân tích cú pháp được không?** | Chưa bắt được lỗi nào, và nó ra đời đúng lúc **cần một phép đo mà mình tin được**: đợt rà 0.8.0 thay 287 dấu gạch dài trên 29 file, 34 trong số đó nằm **bên trong khối code**. Phép quét đầu tiên tôi dùng để tự trấn an so nhầm cặp dòng (312 dòng cũ ghép với 644 dòng mới) - nó đo một thứ không phải thứ cần đo. `ast.parse` thì không nhầm được |
 | `check_doc_register.py` | Mọi class tài liệu bảo `dependency.register(...)` có dựng được trong DI không? | **2 class chết lúc khởi động** (`ModbusClient`, `OpcuaClient`) - đúng dòng lệnh tài liệu hướng dẫn |
 | `find_reexport_gap.py` | `__init__.py` nào import một tên rồi không đưa vào `__all__`? | 9 file làm `mypy --strict` của người dùng báo lỗi ngay ở những import mà tài liệu bảo viết |
 | **`check_dep_advisories.py`** | **Bộ SÀN ta khai trong `pyproject.toml` có advisory nào không?** | **26 CVE** ở tổ hợp sàn mà chú thích ngay trên nó khai là "đã cài thử". Rồi ở lần chạy đầu sau khi vá, nó bắt tiếp **5 gói nữa** mà F3 không liệt kê (`aiosmtplib`, `msgpack`, `protobuf`, `cryptography`, `pytest`) - và bắt luôn một mốc tôi vừa đặt sai trong cùng buổi (`cryptography 49` trong khi advisory đã đi tới `50`) |
@@ -17,9 +18,16 @@ Không nằm trong gói phát hành (`.claude/` đã bị loại khỏi sdist).
 ```bash
 python .claude/scripts/check_doc_imports.py .      # quét toàn repo, hoặc truyền docs/
 python .claude/scripts/check_doc_register.py
+python .claude/scripts/check_doc_code.py       # hoặc truyền docs/
 python .claude/scripts/find_reexport_gap.py xime
 
-# cần pip-audit; nên cài ở venv riêng để không đụng môi trường chung 31 app
+# ⛔ CẦN pip-audit. Nay nó nằm trong extra `dev` của pyproject, nên
+#    `pip install -e ".[dev]"` kéo về. Trước 2026-08-20 nó KHÔNG được khai ở
+#    đâu cả - và script thì in "SACH" khi pip-audit vắng mặt, vì phanh dò cũ
+#    là `"pip_audit" not in output` mà chính thông báo lỗi lại chứa chuỗi đó.
+#    Nay có BA kết cục: SACH (0) · CHUA KET LUAN DUOC (2) · CON MUC CHUA XU LY (1).
+#    Đọc mã thoát, đừng đọc "không thấy dòng nào".
+# nên cài ở venv riêng để không đụng môi trường chung 31 app
 python .claude/scripts/check_dep_advisories.py --pip-audit path/to/venv/Scripts/python.exe
 ```
 
@@ -69,7 +77,7 @@ khỏi danh sách pin vì không cài nổi trên Python 3.14 (`pydantic`, `grpc
 > **Một sàn là `>=`, nên pip mặc định cài bản MỚI NHẤT. Sàn sai vì vậy vô hình -
 > cho tới ngày có người ghim xuống, và khi đó nó thành vấn đề của họ.**
 
-`check_doc_imports.py` và `check_doc_register.py` in `ALL OK` / `0 fail` khi sạch.
+`check_doc_imports.py`, `check_doc_code.py` và `check_doc_register.py` in `ALL OK` / `0 fail` khi sạch.
 
 `find_reexport_gap.py` thì **không bao giờ về 0**, và như vậy là đúng. Tính tới
 2026-07-30 nó còn báo 11 tên, tất cả đều là **bộ máy nội bộ** dùng trong thân

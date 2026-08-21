@@ -21,9 +21,9 @@ _WARN_EVERY = 1_000
 
 class EventBus:
     """
-    In-process async event bus — fire and forget.
+    In-process async event bus - fire and forget.
 
-    Events are plain Python objects — no base class required. Any class
+    Events are plain Python objects - no base class required. Any class
     instance can be published. The bus dispatches to all handlers subscribed
     for that exact type (no inheritance matching).
 
@@ -32,7 +32,7 @@ class EventBus:
 
     publish() behaviour:
         Each handler is scheduled as an independent asyncio Task. The caller
-        is NOT blocked — publish() returns as soon as all tasks are scheduled.
+        is NOT blocked - publish() returns as soon as all tasks are scheduled.
         Handlers run concurrently in the background.
 
     Ceiling (0.7.2, F15):
@@ -52,11 +52,11 @@ class EventBus:
         finish before asserting results or stopping the application.
 
     Typical usage:
-        # Registration — e.g. in PostConstruct
+        # Registration - e.g. in PostConstruct
         event_bus.subscribe(UserCreatedEvent, self.welcome_email_handler)
         event_bus.subscribe(UserCreatedEvent, self.audit_handler)
 
-        # Publishing — caller returns immediately, handlers run in background
+        # Publishing - caller returns immediately, handlers run in background
         await event_bus.publish(UserCreatedEvent(user_id=user.id))
     """
 
@@ -104,7 +104,7 @@ class EventBus:
         """
         Schedule all handlers for the event type as background tasks.
 
-        Returns immediately after scheduling — does not wait for handlers
+        Returns immediately after scheduling - does not wait for handlers
         to complete. No-op when no handlers are registered for the event type.
 
         Over EventBusConfig.max_pending the event is dropped WHOLE - all of its

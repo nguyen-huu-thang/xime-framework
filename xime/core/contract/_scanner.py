@@ -15,9 +15,9 @@ class ControllerScanner:
     ENDPOINT_ATTR attribute (set by @command / @stream).
     Một class là controller nếu có ít nhất một method mang ENDPOINT_ATTR.
 
-    The scanner never creates instances — it returns types only.
+    The scanner never creates instances - it returns types only.
     Instances are fetched from the DI container by the transport builder.
-    Scanner không tạo instance — chỉ trả type. Instance do builder lấy từ DI.
+    Scanner không tạo instance - chỉ trả type. Instance do builder lấy từ DI.
 
     Mirrors the web ControllerScanner so the two read identically; the only
     difference is which marker attribute identifies a controller.
@@ -73,8 +73,8 @@ class ControllerScanner:
                     continue
                 raise  # a missing dependency inside the module is a real error
             for _name, cls in inspect.getmembers(module, inspect.isclass):
-                # Skip classes imported from elsewhere — only own definitions.
-                # Bỏ qua class import từ nơi khác — chỉ lấy định nghĩa của chính module.
+                # Skip classes imported from elsewhere - only own definitions.
+                # Bỏ qua class import từ nơi khác - chỉ lấy định nghĩa của chính module.
                 if cls.__module__ != module_name:
                     continue
                 if self._is_controller(cls):

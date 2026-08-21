@@ -5,7 +5,7 @@ from xime.core.context import request_context
 # Neutral request_context key under which adapters store the verified peer
 # identity (e.g. the CN of a client certificate over mTLS). Kept transport- and
 # semantics-neutral on purpose: whatever a deployment puts in the CN is what
-# arrives here — business code decides how to interpret it.
+# arrives here - business code decides how to interpret it.
 # Key trung tính lưu danh tính peer đã verify (vd CN client cert qua mTLS). Cố ý
 # không gắn cứng ngữ nghĩa: nơi triển khai đặt gì vào CN thì ở đây nhận đúng thứ
 # đó, code nghiệp vụ tự diễn giải.
@@ -14,7 +14,7 @@ PEER_CN = "peer_cn"
 # Neutral request_context key under which adapters store every Subject
 # Alternative Name of the peer certificate, exactly as the transport reported
 # them. SANs are where deployments carry workload identity (SPIFFE IDs and other
-# URI schemes), alongside plain DNS names and IP addresses — and the transport
+# URI schemes), alongside plain DNS names and IP addresses - and the transport
 # does not tag which entry is which, so this key carries all of them, raw and
 # uninterpreted. The framework does not know or care what any entry means.
 # Key trung tính lưu MỌI SAN của cert peer, đúng như transport thuật lại. SAN là
@@ -34,8 +34,8 @@ def current_caller() -> str | None:
     Trả CN thô lấy từ client cert đã verify (mTLS). None khi request không qua
     mTLS hoặc transport không cấp được danh tính peer.
 
-    The framework only provides the mechanism (who called). Authorization — what
-    that caller is allowed to do — stays in the application.
+    The framework only provides the mechanism (who called). Authorization - what
+    that caller is allowed to do - stays in the application.
     Framework chỉ cấp cơ chế (ai gọi). Authorization vẫn nằm ở ứng dụng.
 
     Currently populated by the gRPC RequestContextInterceptor. Other transports
@@ -79,7 +79,7 @@ def current_peer_sans() -> tuple[str, ...] | None:
 
     Returns None when the certificate supplied no SANs, when the request did not
     arrive over mTLS, or when the transport cannot report them. An absent value
-    means "nothing was reported", never "reported as empty" — and whether the
+    means "nothing was reported", never "reported as empty" - and whether the
     call arrived over mTLS at all is answered by current_caller().
     Trả None khi cert không cấp SAN nào, khi request không qua mTLS, hoặc khi
     transport không thuật lại được. Vắng giá trị nghĩa là "không có gì được

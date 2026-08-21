@@ -42,7 +42,7 @@ class MessageType(enum.IntEnum):
     Payload interpretation depends on the type:
       COMMAND_REQUEST / STREAM_START : MessagePack envelope {endpoint, data}
       COMMAND_RESPONSE / STREAM_RESPONSE : MessagePack of response.model_dump()
-      STREAM_CHUNK   : raw bytes (no msgpack — avoids copy/overhead)
+      STREAM_CHUNK   : raw bytes (no msgpack - avoids copy/overhead)
       ERROR          : MessagePack {code, message}
       STREAM_END / CANCEL : empty payload
     """
@@ -78,8 +78,8 @@ async def read_frame(reader: asyncio.StreamReader) -> Frame:
     """Read exactly one frame from the stream.
 
     Raises asyncio.IncompleteReadError when the peer closes the connection
-    (EOF mid-header) — callers treat that as "connection closed".
-    Ném IncompleteReadError khi peer đóng connection — coi như đóng kết nối.
+    (EOF mid-header) - callers treat that as "connection closed".
+    Ném IncompleteReadError khi peer đóng connection - coi như đóng kết nối.
 
     Raises ProtocolError on a malformed header (bad magic / version).
     """

@@ -1,8 +1,8 @@
 """Poll groups, @on_change semantics and the running adapter (0.7).
 
 The builder tests are pure (a fake Application hands back instances), while the
-adapter tests drive a real server so the whole chain — connect, plan, read,
-decode, dispatch — is exercised end to end.
+adapter tests drive a real server so the whole chain - connect, plan, read,
+decode, dispatch - is exercised end to end.
 """
 import asyncio
 
@@ -86,16 +86,24 @@ class TestGrouping:
 
         assert len(build(A(), B())) == 1
 
-    def test_named_device_is_kept_separate(self):
+    def test_one_adapter_one_kind_means_ONE_loop(self):
+        """0.8 bỏ trục `device` khỏi `@poll`: hai handler cùng model, cùng
+        nhịp thì dùng **một** vòng, không tách ra được nữa.
+
+        Trước 0.8 `device="other"` tách chúng thành hai vòng - lúc đó một
+        adapter nối tới **một thiết bị**. Nay một adapter phục vụ một **loại**
+        và giữ N thực thể, nên việc chọn máy nào không còn nằm ở decorator.
+        """
         class Monitor:
             @poll(Tank, interval=1.0)
             async def here(self, tank): ...
 
-            @poll(Tank, interval=1.0, device="other")
+            @poll(Tank, interval=1.0)
             async def there(self, tank): ...
 
         groups = build(Monitor())
-        assert {g.device for g in groups} == {None, "other"}
+        assert len(groups) == 1
+        assert len(groups[0].polls) == 2
 
 
 class TestChangeWatchAttachment:
@@ -160,7 +168,7 @@ class TestBuilderValidation:
             @poll(Tank, interval=1.0)
             async def handler(self, tank, extra): ...
 
-        with pytest.raises(StartupException, match="exactly one parameter"):
+        with pytest.raises(StartupException, match="optional parameter named"):
             build(Monitor())
 
     def test_mismatched_annotation_is_refused(self):
@@ -225,7 +233,7 @@ class TestHasChanged:
         assert _has_changed(20.0, 20.6, 0.5)
 
     def test_deadband_is_exclusive_at_the_boundary(self):
-        # "moved by MORE than the deadband" — exactly the deadband is noise.
+        # "moved by MORE than the deadband" - exactly the deadband is noise.
         assert not _has_changed(20.0, 20.5, 0.5)
 
     def test_deadband_does_not_apply_to_booleans(self):
@@ -286,7 +294,8 @@ class RunningAdapter:
         self._task = None
 
     async def __aenter__(self):
-        self._task = asyncio.create_task(self._adapter.start(self._app))
+        await self._adapter.start(self._app)
+        self._task = asyncio.create_task(self._adapter.serve())
         # Give the adapter a moment to connect and run its first cycle.
         await asyncio.sleep(0.15)
         return self._adapter
@@ -353,7 +362,7 @@ class TestAdapterPolling:
     async def test_client_reads_work_while_the_adapter_holds_the_connection(
         self, modbus_server
     ):
-        # An application with no @poll handlers still gets a live connection —
+        # An application with no @poll handlers still gets a live connection -
         # this is the on-demand-only case.
         from xime.adapters.modbus._client import ModbusClient
 

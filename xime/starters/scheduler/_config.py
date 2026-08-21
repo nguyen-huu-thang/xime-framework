@@ -28,7 +28,7 @@ class IntervalJob:
     """
     Schedule a job class to run at a fixed time interval.
 
-    At least one of hours / minutes / seconds must be greater than zero —
+    At least one of hours / minutes / seconds must be greater than zero -
     a zero interval is rejected at startup (fail-fast).
 
     Args:
@@ -91,7 +91,7 @@ class _SchedulerRegistry:
         self._config = None
 
 
-# Module-level singleton — read by StartupOrchestrator after DI is built.
+# Module-level singleton - read by StartupOrchestrator after DI is built.
 scheduler_registry = _SchedulerRegistry()
 
 

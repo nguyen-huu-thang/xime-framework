@@ -38,7 +38,7 @@ class ModbusClient:
     """Read and write device models over the shared connection(s)."""
 
     # `device` has a default, so the container treats it as optional and leaves
-    # it alone — nothing supplies `str`, so `dependency.register(ModbusClient)`
+    # it alone - nothing supplies `str`, so `dependency.register(ModbusClient)`
     # just works. (Before that rule existed, this annotation made start-up fail
     # with "Unregistered Dependency: str"; see XimeContainer's
     # _drop_unsatisfiable_optional_deps.)
@@ -81,7 +81,7 @@ class ModbusClient:
     async def read_field(
         self, field: ModbusField, *, device: str | None = None, unit: int | None = None
     ) -> Any:
-        """Read one field on its own — one command, no wasted registers."""
+        """Read one field on its own - one command, no wasted registers."""
         info = self._info_of(field)
         config = self._config(device)
         values = await self._connection(device).read(
@@ -92,6 +92,45 @@ class ModbusClient:
             timeout=config.timeout,
         )
         return decode_field(field, info, values)
+
+    # ------------------------------------------------------------------
+    # Entities of a kind
+    # ------------------------------------------------------------------
+
+    def devices_of(self, kind: str | None = None) -> list[str]:
+        """Every entity of `kind` this process holds, in configuration order.
+
+            for dev in modbus.devices_of("bang-tai"):
+                state = await modbus.read(Conveyor, device=dev)
+
+        ⭐ Hai khái niệm tách hẳn nhau từ 0.8 (thiết kế 5.7.3):
+
+        | | Ai biết | Ở đâu |
+        |---|---|---|
+        | **Loại** (`bang-tai`) | **Code** - controller viết cho một loại máy | `main.py` |
+        | **Thực thể** (`BT-01`) | **Cấu hình** - nhà máy có bao nhiêu máy | `application.yml` |
+
+        Trước khi tách, một tên gánh hai nghĩa: hai tiến trình cùng dùng tên
+        `bang-tai` sinh hai bản ghi trông giống hệt nhau trong DB, và báo cáo
+        tổng hợp không phân biệt được máy nào. Luật 03 ở tầng dữ liệu.
+
+        ⚠ **Đây là đường DUY NHẤT đúng để lấy tên thực thể trong code nghiệp
+        vụ** (đường kia là dữ liệu người dùng chọn). Viết cứng
+        `device="BT-01"` là buộc code vào một nhà máy cụ thể.
+
+        ⏭ **0.8 mới khai chữ ký; phần dựng N kết nối làm ở 0.8.1.** Hôm nay một
+        adapter giữ đúng một thực thể trùng tên loại - đúng dạng viết tắt mà
+        thiết kế đã chốt (*"giá trị dưới tên loại là dict phẳng có `host` thì
+        coi như một thực thể trùng tên loại"*), nên code viết theo vòng lặp này
+        **chạy đúng ở cả hai bản** và không phải sửa gì khi 0.8.1 tới.
+        """
+        name = kind or self._default_device
+        # Adapter nhận tên lúc `__init__` (mark_served) nên chỗ này trả lời được
+        # trước cả khi kết nối lên. Không có ai nhận tên -> danh sách rỗng, và
+        # rỗng ở đây đúng nghĩa *"tiến trình này không giữ loại đó"* chứ không
+        # phải *"chưa biết"*: vòng lặp bỏ qua, đúng thứ thiết kế 5.7.3 muốn.
+        connection = modbus_registry.connection(name)
+        return [name] if connection.is_served else []
 
     # ------------------------------------------------------------------
     # Writing
@@ -127,7 +166,7 @@ class ModbusClient:
         """Write every writable field of a model instance that holds a value.
 
         Fields left as None are skipped, so a partially filled instance updates
-        only what it names. Read-only areas are skipped rather than refused —
+        only what it names. Read-only areas are skipped rather than refused -
         the caller asked to write "the device", not that specific field, and a
         model normally mixes readable sensors with writable setpoints.
         Field None bị bỏ qua; vùng chỉ đọc cũng bỏ qua (không ném) vì model

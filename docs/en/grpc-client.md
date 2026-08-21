@@ -2,7 +2,7 @@
 
 **English** | [Tiếng Việt](../vn/grpc-client.md)
 
-[← Code-First gRPC](grpc-codefirst.md) · **Companion — gRPC Client SDK** · [Starters →](starters.md)
+[← Code-First gRPC](grpc-codefirst.md) · **Companion - gRPC Client SDK** · [Starters →](starters.md)
 
 ---
 
@@ -18,7 +18,7 @@ target service (.proto + contract.json)
 clients/<service>/   ← self-contained Python SDK (Pydantic + client class)
         │  configure_grpc_clients(...) + application.yml
         ▼
-inject straight into a constructor — XimeGrpcChannel handles deadline,
+inject straight into a constructor - XimeGrpcChannel handles deadline,
 typed errors, dynamic mTLS
 ```
 
@@ -53,7 +53,7 @@ message classes are built in a private `DescriptorPool` from
 A client class mirrors the server controller:
 
 ```python
-# clients/trust/_clients.py — generated, do not edit
+# clients/trust/_clients.py - generated, do not edit
 class KeyClient:
     def __init__(self, channel: grpc.aio.Channel) -> None: ...
 
@@ -146,12 +146,12 @@ except RemoteCallError as exc:
 
 `RemoteCallError` carries:
 
-- `status` — the gRPC StatusCode name (`"NOT_FOUND"`, `"INTERNAL"`...).
-- `code` — the server-side exception class name, read from the `xime-error`
+- `status` - the gRPC StatusCode name (`"NOT_FOUND"`, `"INTERNAL"`...).
+- `code` - the server-side exception class name, read from the `xime-error`
   trailing metadata set by the server's `ErrorMappingInterceptor`. Empty for
   non-XIME targets (still typed).
-- `path` — the failed method (`/xime.internal.KeyController/GetKeys`).
-- `error_message` — the message from the server.
+- `path` - the failed method (`/xime.internal.KeyController/GetKeys`).
+- `error_message` - the message from the server.
 
 > This is the mirror of `configure_grpc_error_mappings` on the server: the
 > server maps exception → StatusCode, the client maps StatusCode → exception
@@ -204,7 +204,7 @@ grpc:
 ```
 
 ```python
-# config/grpc.py — one provider for both server and client
+# config/grpc.py - one provider for both server and client
 configure_grpc_tls(provider=MyCertificateProvider)
 configure_grpc_clients("trust", KeyClient)
 ```
@@ -419,4 +419,4 @@ private PyPI required. Versions are managed with git tags.
 
 ---
 
-[← Code-First gRPC](grpc-codefirst.md) · **Companion — gRPC Client SDK** · [Starters →](starters.md)
+[← Code-First gRPC](grpc-codefirst.md) · **Companion - gRPC Client SDK** · [Starters →](starters.md)

@@ -70,7 +70,7 @@ def test_passes_when_server_id_matches(monkeypatch):
     codefirst_registry.register(CodeFirstConfig(packages=["api.grpc"]))
     _patch_controllers(monkeypatch, [_VaultController])
 
-    app = _app(GrpcAdapter("vault", host="[::]", port=50051))
+    app = _app(GrpcAdapter("vault"))
     app._validate_grpc_codefirst_targets()  # không raise
 
 
@@ -116,5 +116,5 @@ def test_multi_adapter_each_controller_served(monkeypatch):
     codefirst_registry.register(CodeFirstConfig(packages=["api.grpc"]))
     _patch_controllers(monkeypatch, [_VaultController, _DefaultController])
 
-    app = _app(GrpcAdapter(), GrpcAdapter("vault", host="[::]", port=50051))
+    app = _app(GrpcAdapter(), GrpcAdapter("vault"))
     app._validate_grpc_codefirst_targets()  # không raise

@@ -127,7 +127,7 @@ class GraphValidator:
         all_classes, pre-built instances, or factory-provided types.
 
         Catches the case where a class depends on a concrete type that was
-        never scanned — the registry would silently skip it, causing a
+        never scanned - the registry would silently skip it, causing a
         TypeError at runtime when the instance is created.
         """
         registered = set(all_classes) | set(instances or {}) | set(factory_provided or {})
@@ -149,7 +149,7 @@ class GraphValidator:
 
         A binding value may be a single implementation class or a tuple of
         classes (dynamic binding). For a tuple, every implementation must satisfy
-        the Protocol — one bad impl fails startup.
+        the Protocol - one bad impl fails startup.
         Value có thể là một class hoặc tuple class (dynamic binding). Với tuple,
         MỌI impl phải thỏa Protocol - sai một cái là startup fail.
         """

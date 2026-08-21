@@ -37,7 +37,7 @@ BINARY = b"\x00\xff\xfe\x01PNG\x89"   # cố tình không phải utf-8 hợp l�
 
 
 # ---------------------------------------------------------------------------
-# Unit — _sanitize
+# Unit - _sanitize
 # ---------------------------------------------------------------------------
 
 class Color(enum.IntEnum):
@@ -76,7 +76,7 @@ class TestSanitize:
 
 
 # ---------------------------------------------------------------------------
-# E2E — binary roundtrip qua wire thật
+# E2E - binary roundtrip qua wire thật
 # ---------------------------------------------------------------------------
 
 class Attachment(BaseModel):

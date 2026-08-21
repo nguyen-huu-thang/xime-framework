@@ -1,7 +1,7 @@
 """
 Test từng security field riêng lẻ:
   identity / credentials / credential_type / permissions
-  — set, get, clear, reset, giá trị mặc định, kiểu dữ liệu tùy ý
+ - set, get, clear, reset, giá trị mặc định, kiểu dữ liệu tùy ý
 """
 from enum import Enum
 

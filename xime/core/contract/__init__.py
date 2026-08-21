@@ -4,7 +4,7 @@ Decorators and scanning logic used by every Xime transport that maps a
 controller method to a remote endpoint (Socket Adapter, Code-First gRPC, ...).
 Keeping these here means a single Controller can serve multiple transports
 without re-declaring its contract.
-Lớp contract dùng chung cho mọi transport — một Controller phục vụ nhiều transport
+Lớp contract dùng chung cho mọi transport - một Controller phục vụ nhiều transport
 mà không khai báo lại contract.
 """
 

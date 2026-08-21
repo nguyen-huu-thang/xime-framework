@@ -1,4 +1,4 @@
-"""`dependency.register(OpcuaClient)` — the registration the docs prescribe.
+"""`dependency.register(OpcuaClient)` - the registration the docs prescribe.
 
 Kept in its own module because test_client.py applies `pytest.mark.asyncio` to
 everything in it, and these are plain synchronous container checks.
@@ -8,7 +8,7 @@ container like a dependency on `str`, which nothing provides, so every app
 following docs/{vn,en}/opcua.md died at start-up with
 "Unregistered Dependency: str". A type hint is this framework's opt-in signal
 for injection, so that parameter must stay unannotated. The symptom appears
-only through the container — a direct OpcuaClient() call always worked, which
+only through the container - a direct OpcuaClient() call always worked, which
 is why 1427 tests missed it.
 """
 from xime.adapters.opcua._client import OpcuaClient

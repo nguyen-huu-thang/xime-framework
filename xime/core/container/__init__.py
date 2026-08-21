@@ -73,7 +73,7 @@ class XimeContainer:
         Enable or disable runtime switching for tuple-valued bindings.
 
         When disabled (default), a tuple binding behaves exactly like binding its
-        first element alone — the other impls are never built. When enabled, every
+        first element alone - the other impls are never built. When enabled, every
         impl in the tuple becomes an eager singleton, consumers receive a
         transparent proxy, and a Switcher can repoint the interface app-wide.
 
@@ -89,7 +89,7 @@ class XimeContainer:
         """
         Register a pre-built object as a singleton available for injection.
 
-        Unlike scan(), no package path is needed — the object is registered
+        Unlike scan(), no package path is needed - the object is registered
         directly. Useful for framework-provided singletons (e.g. RuntimeConfig)
         that must be injectable but are created before the DI pipeline runs.
         """
@@ -104,7 +104,7 @@ class XimeContainer:
 
         Use this for classes in excluded packages (e.g. domain factories,
         domain services) that still need to be managed as singletons.
-        The framework applies normal constructor injection — every __init__
+        The framework applies normal constructor injection - every __init__
         parameter must have a type hint.
         """
         self._guard_not_built("register")
@@ -227,7 +227,7 @@ class XimeContainer:
         order (dependencies before dependents).
 
         Pre-built instances registered via register_instance() are included
-        first — they are leaf dependencies that other singletons rely on,
+        first - they are leaf dependencies that other singletons rely on,
         so their PostConstruct runs before dependents and their PreDestroy
         runs last (LifecycleManager reverses the list on stop).
         """
@@ -244,7 +244,7 @@ class XimeContainer:
     def _guard_not_built(self, method: str) -> None:
         if self._registry is not None:
             raise RuntimeError(
-                f"XimeContainer is already built — {method}() has no effect. "
+                f"XimeContainer is already built - {method}() has no effect. "
                 "Create a new XimeContainer to reconfigure."
             )
 
@@ -417,7 +417,7 @@ class XimeContainer:
             self._register_managed_impls(managed)
         else:
             # Flag off: a tuple is identical to binding its first element. No
-            # impl is auto-registered — the app scans/registers it as usual.
+            # impl is auto-registered - the app scans/registers it as usual.
             # Cờ tắt: tuple y hệt bind phần tử đầu. Không auto-register impl nào -
             # app tự scan/register như mọi binding.
             for interface, impls in tuples.items():

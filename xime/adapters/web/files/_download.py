@@ -79,11 +79,11 @@ def _parse_range(header: str, total: int) -> _Range | None:
     """
     header = header.strip()
     if not header.startswith("bytes=") or "," in header:
-        return None  # not a byte range, or multi-range — serve full
+        return None  # not a byte range, or multi-range - serve full
     spec = header[len("bytes="):].strip()
     start_s, sep, end_s = spec.partition("-")
     if sep == "":
-        return None  # no '-' separator — malformed, ignore
+        return None  # no '-' separator - malformed, ignore
 
     if start_s == "":
         # suffix form: bytes=-N  -> last N bytes
@@ -92,7 +92,7 @@ def _parse_range(header: str, total: int) -> _Range | None:
         try:
             suffix = int(end_s)
         except ValueError:
-            return None  # non-numeric — malformed, ignore (serve full 200)
+            return None  # non-numeric - malformed, ignore (serve full 200)
         if suffix <= 0:
             raise ValueError("unsatisfiable")
         length = min(suffix, total)
@@ -101,7 +101,7 @@ def _parse_range(header: str, total: int) -> _Range | None:
     try:
         start = int(start_s)
     except ValueError:
-        return None  # non-numeric — malformed, ignore
+        return None  # non-numeric - malformed, ignore
     if start >= total:
         raise ValueError("unsatisfiable")
     if end_s == "":
@@ -110,7 +110,7 @@ def _parse_range(header: str, total: int) -> _Range | None:
     try:
         end = int(end_s)
     except ValueError:
-        return None  # non-numeric end — malformed, ignore
+        return None  # non-numeric end - malformed, ignore
     if end < start:
         return None
     end = min(end, total - 1)  # clamp to the last byte
@@ -175,7 +175,7 @@ async def stream_object(
         try:
             rng = _parse_range(range_header, total)
         except ValueError:
-            # Unsatisfiable range — RFC 7233 requires 416 + Content-Range */total.
+            # Unsatisfiable range - RFC 7233 requires 416 + Content-Range */total.
             # Range không thoả mãn -> 416 kèm Content-Range */total.
             raise HTTPException(
                 status_code=416,

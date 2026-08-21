@@ -1,10 +1,10 @@
 """
-Markers cho option của middleware — cho phép `configure_middleware()` /
+Markers cho option của middleware - cho phép `configure_middleware()` /
 `configure_cors()` khai báo những giá trị chỉ biết được lúc runtime (sau khi DI
 container đã dựng xong), thay vì buộc ứng dụng subclass WebAdapter để tự gọi
 `xime_app.get(...)`.
 
-Marker for middleware options — lets configure_middleware()/configure_cors()
+Marker for middleware options - lets configure_middleware()/configure_cors()
 declare values only known at runtime (DI service instances, runtime config),
 resolved at build_app() time instead of forcing apps to subclass WebAdapter.
 
@@ -50,7 +50,7 @@ class Inject:
 class FromConfig:
     """Marker: resolve this option from RuntimeConfig (dot-notation) at build time.
 
-    A missing key resolves to `default` (None when not given) — there is no
+    A missing key resolves to `default` (None when not given) - there is no
     "required key" mode; validate required config in the middleware itself.
     Marker: phân giải option này từ RuntimeConfig (dot-notation) lúc build_app.
     Thiếu key thì trả `default` (None nếu không truyền) - không có chế độ "bắt
@@ -74,7 +74,7 @@ def resolve_options(
     """Trả về bản sao của options với mọi marker Inject/FromConfig đã được phân giải.
 
     Chỉ phân giải giá trị ở tầng trên cùng của dict (không đệ quy vào list/dict
-    lồng nhau) — đủ cho mọi tham số middleware hiện có và giữ hành vi dễ đoán.
+    lồng nhau) - đủ cho mọi tham số middleware hiện có và giữ hành vi dễ đoán.
     Giá trị không phải marker được giữ nguyên.
     """
     from xime.core.config.runtime import RuntimeConfig
@@ -88,7 +88,7 @@ def resolve_options(
             except KeyError:
                 type_name = getattr(value.type, "__name__", value.type)
                 raise RuntimeError(
-                    f"configure_middleware: cannot inject option '{name}' — "
+                    f"configure_middleware: cannot inject option '{name}' - "
                     f"{type_name} is not registered in the DI container. "
                     f"Add its package to dependency.scan() / register() in "
                     f"config/dependency.py."

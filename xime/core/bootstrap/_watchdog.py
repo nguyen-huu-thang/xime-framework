@@ -1,0 +1,256 @@
+"""Watchdog kiểu phần cứng: con tự chứng minh, cha chỉ đọc.
+
+```text
+CON:  mỗi 1 giây, ghi time.time() vào ô của mình   (task trên EVENT LOOP CHÍNH)
+CHA:  mỗi vòng giám sát, đọc ô của từng con
+      im quá 10 giây  ->  GIẾT
+                      ->  waitpid xác nhận đã exit
+                      ->  BÂY GIỜ mới thăng cấp con khác
+```
+
+### Vì sao watchdog chứ không phải health check
+
+| | Health check | **Watchdog** |
+|---|---|---|
+| Chiều | Cha **hỏi**, con **trả lời** | Con **tự chứng minh**, cha chỉ đọc |
+| Cha phải dựng gì | Client, timeout, retry | **Không gì** - đọc 8 byte |
+| Con bận | Không trả lời được **dù vẫn khoẻ** | Vẫn vỗ được nếu loop còn quay |
+
+### ⭐⭐ Vỗ ở đâu quyết định nó ĐO CÁI GÌ
+
+Đây là cái bẫy kinh điển của watchdog phần cứng, và nó dịch sang đây gần như
+nguyên văn. Trong firmware, lỗi hay gặp nhất là đặt lệnh vỗ **trong ngắt timer**:
+timer vẫn chạy khi vòng lặp chính đã treo, nên watchdog được vỗ đều đặn trong khi
+thiết bị chết cứng. Watchdog hoạt động hoàn hảo - nó chỉ **đang canh sai thứ**.
+
+| Vỗ ở đâu | Đo được gì |
+|---|---|
+| Thread riêng | ⛔ chỉ đo *"tiến trình còn tồn tại"* - `waitpid` đã trả lời rồi |
+| **Task trên event loop chính** | ✅ đo *"**event loop chưa bị chặn**"* |
+
+Vế thứ hai mới đáng canh, vì nó bắt đúng cách hỏng mà hai cơ chế kia mù: một
+coroutine gọi I/O đồng bộ hoặc chạy vòng lặp CPU dài sẽ **chặn cả event loop**.
+Tiến trình vẫn sống theo kernel (`waitpid` im), còn hỏi qua HTTP thì *chậm* không
+phân biệt được với *mạng chậm*. Watchdog trên loop thì **im bặt ngay**.
+
+⚠ **Chỗ đặt lệnh vỗ là một phần của HỢP ĐỒNG, không phải chi tiết hiện thực.** Ai
+đó "dọn dẹp" bằng cách chuyển nó sang thread riêng thì watchdog xanh mãi mãi và
+không gì báo. Có test canh: chặn loop thì nhịp phải **đứng**.
+
+### ⛔ Watchdog là tín hiệu GIẾT, không phải tín hiệu THĂNG CẤP
+
+Thăng cấp chỉ tin `waitpid` - sự thật của kernel. Nhờ vậy ca *"hai primary"* đóng
+chặt: A treo, cha **giết** A, kernel xác nhận A chết, cha mới thăng cấp B. A không
+thể tỉnh lại vì nó đã chết thật chứ không phải *bị coi là* chết.
+
+### ⚠ Vì sao nhịp vỗ KHÔNG đi bằng `ProcessLink`
+
+Thiết kế nói watchdog *"đi chung chuyến"* với bus, và ý đó đúng ở tầng khái niệm:
+cả hai đều là **vùng ghi riêng cho từng tiến trình trong bộ nhớ chung**. Nhưng nhịp
+vỗ **không được là một dòng tin của bus**, và lý do là số học:
+
+| | |
+|---|---|
+| Nhịp 1 giây, cụm 4 tiến trình | 4 dòng/giây đổ vào một vòng 256 dòng - vòng lại sau **một phút** |
+| Không ai đọc nhịp của người khác | Bit chưa-đọc của họ không bao giờ hạ, nên mỗi lần vòng lại **cộng vào `missed`** |
+
+`missed` là **chỉ số chẩn đoán chính** của bus (*"tiến trình kia đọc không kịp"*).
+Cho nhịp vỗ chảy qua đó là làm hỏng đúng thứ đồng hồ mình dựng lên để đo sức khoẻ.
+
+> Nhịp vỗ là một **đại lượng bị ghi đè**, không phải một **sự kiện**. Bus chở sự
+> kiện; đại lượng thì ở một ô riêng.
+
+Nên đây là một vùng nhớ chung **riêng, rất nhỏ** (`16 + 8×N` byte cho cả cụm), và
+nó độc lập với việc ứng dụng có khai kênh nào không.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import struct
+import time
+from multiprocessing.shared_memory import SharedMemory
+from typing import Final
+
+_log = logging.getLogger("xime.bootstrap")
+
+MAGIC: Final[bytes] = b"XBET"
+VERSION: Final[int] = 1
+
+# magic 4B · version 2B · so_o 2B  ->  căn 8 cho phần mốc phía sau
+_HEADER = struct.Struct("<4sHH")
+HEADER_BYTES: Final[int] = 8
+_BEAT = struct.Struct("<d")
+BEAT_BYTES: Final[int] = _BEAT.size
+
+#: Con vỗ mỗi ngần này giây.
+PAT_SECONDS: Final[float] = 1.0
+
+#: Im quá ngần này giây thì cha giết.
+#:
+#: Chọn theo nguyên tắc phần cứng: **rộng hơn tác vụ dài nhất còn hợp lệ** (GC
+#: pause tệ nhất cộng biên). Giết oan thì cha dựng lại, mất vài trăm mili giây;
+#: không giết thì treo mãi. Hai hậu quả không cùng cỡ nên nghiêng về giết, nhưng
+#: ngưỡng vẫn rộng rãi.
+SILENCE_SECONDS: Final[float] = 10.0
+
+#: Con chưa vỗ lần nào thì cha chờ ngần này giây rồi mới coi là treo.
+#:
+#: ⚠ **Thiết kế không chốt con số này, nó được thêm lúc thi công.** Thiết kế nói
+#: `NEVER` nghĩa là *"đang khởi động"*, và đúng - nhưng nó không nói **khi nào thì
+#: đang-khởi-động thôi là một lời bào chữa**. Không có ngưỡng này thì một con treo
+#: **trước nhịp vỗ đầu tiên** (kẹt trong `post_construct`, chờ một kết nối không
+#: bao giờ mở) sống mãi mãi và cha không bao giờ biết - đúng cái lỗ mà watchdog
+#: sinh ra để bịt, chỉ dịch sớm hơn mười giây.
+#:
+#: Rộng gấp sáu ngưỡng im lặng vì hai giai đoạn không cùng cỡ: một tiến trình
+#: **đang phục vụ** không có lý do gì chặn loop mười giây, còn một tiến trình
+#: **đang khởi động** thì dựng DI, mở pool, lấy cert - hàng chục giây là bình
+#: thường trên một máy lạnh.
+STARTUP_GRACE_SECONDS: Final[float] = 60.0
+
+#: Ô chưa bao giờ được vỗ. Tách hẳn khỏi *"vỗ rất lâu rồi"* - một tiến trình đang
+#: khởi động chưa kịp vỗ lần nào **không phải** một tiến trình treo, và đối xử với
+#: nó như treo là giết mọi con ngay lúc chúng vừa sinh ra.
+NEVER: Final[float] = 0.0
+
+
+def block_name(run_id: str) -> str:
+    return f"xime-beat-{run_id}"
+
+
+def total_bytes(slots: int) -> int:
+    return HEADER_BYTES + BEAT_BYTES * slots
+
+
+class Heartbeats:
+    """Bảng nhịp vỗ dùng chung: một ô 8 byte cho mỗi tiến trình.
+
+    Không khoá, không nguyên tử: một `double` 8 byte căn 8 thì đọc và ghi không
+    xé nhau trên mọi kiến trúc Xime chạy, và **kể cả có xé thì hậu quả cũng chỉ
+    là một lần đọc lệch** - vòng sau đọc lại. Đây là chỗ chi phí của một khoá
+    lớn hơn thứ nó bảo vệ.
+    """
+
+    __slots__ = ("_block", "_view", "_slots", "_owner", "_closed")
+
+    def __init__(self, block: SharedMemory, slots: int, *, owner: bool) -> None:
+        self._block = block
+        self._view = block.buf
+        self._slots = slots
+        self._owner = owner
+        self._closed = False
+
+    # -- dựng và gỡ --------------------------------------------------------
+
+    @classmethod
+    def create(cls, run_id: str, slots: int) -> Heartbeats:
+        block = SharedMemory(
+            name=block_name(run_id), create=True, size=total_bytes(slots)
+        )
+        _HEADER.pack_into(block.buf, 0, MAGIC, VERSION, slots)
+        for index in range(slots):
+            _BEAT.pack_into(block.buf, HEADER_BYTES + BEAT_BYTES * index, NEVER)
+        return cls(block, slots, owner=True)
+
+    @classmethod
+    def attach(cls, run_id: str, slots: int) -> Heartbeats:
+        block = SharedMemory(name=block_name(run_id))
+        magic, version, found = _HEADER.unpack_from(block.buf, 0)
+        if magic != MAGIC or version != VERSION or found != slots:
+            block.close()
+            raise ValueError(
+                f"heartbeat table {block_name(run_id)!r} carries "
+                f"(magic={magic!r}, version={version}, slots={found}) but this "
+                f"process expects (magic={MAGIC!r}, version={VERSION}, "
+                f"slots={slots})."
+            )
+        return cls(block, slots, owner=False)
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self._view.release()
+        try:
+            self._block.close()
+            if self._owner:
+                self._block.unlink()
+        except Exception:  # noqa: BLE001 - dọn dẹp phải best-effort
+            _log.warning("watchdog: could not release the beat table", exc_info=True)
+
+    # -- đọc và ghi --------------------------------------------------------
+
+    def pat(self, index: int) -> None:
+        _BEAT.pack_into(self._view, HEADER_BYTES + BEAT_BYTES * index, time.time())
+
+    def read(self, index: int) -> float:
+        return float(
+            _BEAT.unpack_from(self._view, HEADER_BYTES + BEAT_BYTES * index)[0]
+        )
+
+    def reset(self, index: int) -> None:
+        """Xoá ô về *chưa bao giờ vỗ*. Cha gọi khi sinh lại một con.
+
+        Thiếu bước này thì con mới thừa hưởng mốc của con vừa chết, và nếu mốc đó
+        đã cũ hơn ngưỡng thì cha **giết con mới ngay khi nó vừa sinh ra** - một
+        vòng lặp sinh-giết không lý do, và triệu chứng duy nhất là log.
+        """
+        _BEAT.pack_into(self._view, HEADER_BYTES + BEAT_BYTES * index, NEVER)
+
+    def silent_for(self, index: int, *, now: float | None = None) -> float | None:
+        """Số giây kể từ nhịp cuối, hoặc `None` khi **chưa bao giờ vỗ**.
+
+        Hai giá trị chứ không một, đúng [luật 03](../../../.claude/rules/03-mot-gia-tri-mot-nghia.md):
+        *chưa vỗ lần nào* là **đang khởi động** (chờ tiếp), *vỗ lâu rồi* là
+        **đang treo** (giết). Gộp chúng thành một con số lớn là giết mọi con
+        trong mười giây đầu đời của cụm.
+        """
+        beat = self.read(index)
+        if beat == NEVER:
+            return None
+        return (now if now is not None else time.time()) - beat
+
+
+class Watchdog:
+    """Task định kỳ **trên event loop chính** của tiến trình con.
+
+    ⚠ `asyncio.sleep` chứ không phải `threading.Timer`, và đó là toàn bộ điểm:
+    task này chỉ chạy được khi loop còn quay. Chuyển nó sang một thread là biến
+    watchdog thành thứ luôn xanh - xem docstring module.
+    """
+
+    def __init__(
+        self, beats: Heartbeats, index: int, *, interval: float = PAT_SECONDS
+    ) -> None:
+        self._beats = beats
+        self._index = index
+        self._interval = interval
+        self._task: asyncio.Task[None] | None = None
+
+    async def start(self) -> None:
+        if self._task is not None:
+            return
+        # Vỗ một nhịp NGAY, đừng đợi hết chu kỳ đầu: ô đang mang `NEVER`, và một
+        # ô `NEVER` là "đang khởi động" - trạng thái đó nên kết thúc ngay khi loop
+        # thật sự bắt đầu quay, không phải một giây sau.
+        self._beats.pat(self._index)
+        self._task = asyncio.get_running_loop().create_task(
+            self._loop(), name="xime-watchdog"
+        )
+
+    async def stop(self) -> None:
+        task, self._task = self._task, None
+        if task is None:
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    async def _loop(self) -> None:
+        while True:
+            await asyncio.sleep(self._interval)
+            self._beats.pat(self._index)

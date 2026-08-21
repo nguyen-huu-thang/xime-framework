@@ -28,13 +28,13 @@ def test_post_construct_missing_method_rejected():
 
 def test_runtime_checkable_only_checks_attribute_presence():
     # @runtime_checkable chỉ kiểm tra attribute có TỒN TẠI không,
-    # không kiểm tra callability hay signature — đây là giới hạn của Python.
+    # không kiểm tra callability hay signature - đây là giới hạn của Python.
     # LifecycleManager gọi trực tiếp method nên nếu không callable
     # sẽ raise TypeError tại runtime, không phải bị lọc bởi isinstance.
     class NotCallable:
         post_construct = "not_callable"
 
-    assert isinstance(NotCallable(), PostConstruct)  # True — đây là hành vi Python
+    assert isinstance(NotCallable(), PostConstruct)  # True - đây là hành vi Python
 
 
 # ---------------------------------------------------------------------------

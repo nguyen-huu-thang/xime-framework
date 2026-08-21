@@ -27,7 +27,7 @@ class DependencyGraph:
         # iteration below. `set` iteration order for types depends on their id(),
         # which differs from process to process, so seeding Kahn's algorithm from
         # the set made the construction order of MUTUALLY INDEPENDENT singletons
-        # vary between runs — and with it the order their post_construct() hooks
+        # vary between runs - and with it the order their post_construct() hooks
         # fired. Every order was valid, but a bug that depends on one of them
         # would reproduce only sometimes. Iterating the declared order instead
         # costs one list and makes startup repeatable.
@@ -107,7 +107,7 @@ class DependencyGraph:
                             (neighbor, iter(self._edges.get(neighbor, set())))
                         )
                 except StopIteration:
-                    # All neighbors processed — finish this node
+                    # All neighbors processed - finish this node
                     call_stack.pop()
                     path.pop()
                     color[node] = BLACK
@@ -119,7 +119,7 @@ class DependencyGraph:
         Return nodes ordered so every dependency appears before the class
         that needs it (Kahn's algorithm).
 
-        If there are cycles, the cyclic nodes are omitted from the result —
+        If there are cycles, the cyclic nodes are omitted from the result -
         call detect_cycles() first and fail before reaching this method.
         """
         dep_count = {n: len(self._edges[n]) for n in self._order}
@@ -148,7 +148,7 @@ class DependencyGraph:
         B starts, B completes before C starts.
 
         In graph terms, rule (A before B) adds edge B→A, meaning B "depends
-        on" A for ordering purposes — the same convention as constructor deps.
+        on" A for ordering purposes - the same convention as constructor deps.
 
         Raises InvalidOrderRuleException if any class in the rules is not
         registered in the DI container.

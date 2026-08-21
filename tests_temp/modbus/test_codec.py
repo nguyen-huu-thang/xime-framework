@@ -1,6 +1,6 @@
 """Register <-> value conversion: word/byte order, scale, strings, bits (0.7).
 
-These tests need no network and no server — pymodbus' converters are
+These tests need no network and no server - pymodbus' converters are
 classmethods, so the codec is exercised directly on register lists.
 """
 import pytest

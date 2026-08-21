@@ -9,7 +9,7 @@ class _GrpcServiceRegistry:
 
     Read by GrpcAdapter during startup to register servicers with the gRPC server.
 
-    'packages' is advisory metadata — the developer still must add the same
+    'packages' is advisory metadata - the developer still must add the same
     packages to dependency.scan() so the DI container creates handler instances.
     'bindings' maps each handler class to the generated add_XxxServicer_to_server
     function from the proto-generated stub module.
@@ -26,7 +26,7 @@ class _GrpcServiceRegistry:
     ) -> None:
         """Merge packages and bindings into the registry.
 
-        Safe to call multiple times — entries accumulate across calls.
+        Safe to call multiple times - entries accumulate across calls.
         Later bindings for the same class overwrite earlier ones.
         """
         self._packages.extend(packages)

@@ -304,6 +304,11 @@ Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 | [Modbus Adapter](docs/vn/modbus.md) | Device model khai báo, lập kế hoạch đọc, polling và chế độ slave cho PLC |
 | [OPC UA Adapter](docs/vn/opcua.md) | Node model, subscription, chế độ server và đủ ba mức bảo mật |
 | [File Storage](docs/vn/file-storage.md) | `StorageService` (local / S3 / MinIO) + download HTTP Range & upload theo chunk |
+| [Store liên tiến trình](docs/vn/store.md) | Kho khoá-giá trị trên LMDB cho trạng thái không có nguồn bền vững: hãm nhịp, thử thách passkey, chống lặp |
+| [Dữ liệu tham chiếu dùng chung](docs/vn/refdata.md) | `RefData` - một bản trong bộ nhớ chung cho khoá JWT, danh bạ app: primary publish, mọi tiến trình đọc |
+| [Bus liên tiến trình](docs/vn/process-link.md) | `ProcessLink` - lệnh và câu hỏi giữa các tiến trình, bốn kết cục của `ask`, thứ tự theo kênh |
+| [Công cụ dòng lệnh](docs/vn/cli.md) | `xime init` dựng dự án · `xime config --print` in mọi khoá kèm mặc định · `xime check config` bắt khoá gõ sai |
+| [Chạy nhiều tiến trình](docs/vn/multi-process.md) | `share_load()` - khối `processes:`, cổng dùng chung, supervisor, `run_once()`, thăng cấp primary, watchdog, `/healthz`, và hai phép dò cho code mức module |
 | [Starters](docs/vn/starters.md) | SQLAlchemy, JWT, Scheduler, Cache, Redis, Storage (local / S3 + streaming HTTP) |
 | [Testing](docs/vn/testing.md) | DI override, fake, test utilities |
 | [Đóng góp](docs/vn/contributing.md) | Cách đóng góp, roadmap |

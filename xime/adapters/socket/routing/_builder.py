@@ -27,7 +27,7 @@ def _unresolved_hint(cls: type) -> str:
 
     The common cause is a controller (or its request/response models) defined
     inside a function: with ``from __future__ import annotations`` every hint is
-    a string resolved later against the module globals only — the enclosing
+    a string resolved later against the module globals only - the enclosing
     function's locals are gone, so the name cannot be found. There is no way to
     recover that scope, so we tell the developer to lift it to module level.
     Nguyên nhân thường gặp: controller định nghĩa trong local scope của hàm.
@@ -36,7 +36,7 @@ def _unresolved_hint(cls: type) -> str:
         return (
             f"controller '{cls.__qualname__}' is defined inside a function. "
             f"Define the controller and its request/response models at module "
-            f"level — annotations referencing names from a function's local "
+            f"level - annotations referencing names from a function's local "
             f"scope cannot be resolved at startup."
         )
     return (
@@ -141,11 +141,11 @@ class SocketEndpointBuilder:
         bound: Any,
     ) -> ResolvedEndpoint:
         # The adapter invokes every handler with `await bound(...)`, so it must
-        # be an `async def` coroutine function. A plain `def` — or an
-        # `async def` with `yield` (async generator) — passes startup but crashes
+        # be an `async def` coroutine function. A plain `def` - or an
+        # `async def` with `yield` (async generator) - passes startup but crashes
         # at the first call. Fail fast, mirroring the code-first gRPC builder.
         # Adapter gọi handler bằng `await bound(...)` nên phải là async def. Viết
-        # `def` (hoặc async generator) sẽ qua startup nhưng hỏng ở call đầu —
+        # `def` (hoặc async generator) sẽ qua startup nhưng hỏng ở call đầu -
         # chặn sớm, giống builder gRPC code-first.
         if not inspect.iscoroutinefunction(bound):
             raise StartupException(

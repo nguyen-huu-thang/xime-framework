@@ -1,4 +1,4 @@
-"""Test Code-First gRPC — generation pipeline (no grpc runtime needed).
+"""Test Code-First gRPC - generation pipeline (no grpc runtime needed).
 
   - Type mapping: scalars, list, dict, Optional, datetime, Annotated int, nested
   - Lock file: field-number stability across add / remove / re-add
@@ -94,7 +94,7 @@ def test_map_type_unsupported_raises():
 
 
 # ===========================================================================
-# Lock file — field-number stability (THE critical concern)
+# Lock file - field-number stability (THE critical concern)
 # ===========================================================================
 
 def test_lock_keeps_numbers_and_appends_new():
@@ -292,7 +292,7 @@ def test_builder_rejects_sync_command():
 
 
 def test_builder_rejects_async_generator_command():
-    # An `async def` with `yield` is an async generator, not a coroutine —
+    # An `async def` with `yield` is an async generator, not a coroutine -
     # awaiting it raises TypeError. @stream may be one (typed server stream),
     # @command never can: it owes exactly one response.
     class Bad:
@@ -324,7 +324,7 @@ def test_builder_rejects_enum_without_zero_member():
 
 
 # ===========================================================================
-# Generator — generate + check (drift detection)
+# Generator - generate + check (drift detection)
 # ===========================================================================
 
 @pytest.fixture
@@ -392,7 +392,7 @@ def test_check_ok_then_detects_drift(cf_package, tmp_path):
 
 
 # ===========================================================================
-# CLI — xime grpc generate / check (config loading + exit codes)
+# CLI - xime grpc generate / check (config loading + exit codes)
 # ===========================================================================
 
 @pytest.fixture

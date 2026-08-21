@@ -1,5 +1,5 @@
 """
-Test XimeContainer full pipeline — happy path:
+Test XimeContainer full pipeline - happy path:
   - scan → resolve → graph → validate → register → get
   - singleton guarantee
   - class không có dependency cũng được đăng ký

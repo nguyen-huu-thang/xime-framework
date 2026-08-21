@@ -2,7 +2,7 @@
 
 [English](../en/contributing.md) | **Tiếng Việt**
 
-[← Kiến trúc](architecture.md) · **9/9 — Đóng góp**
+[← Kiến trúc](architecture.md) · **9/9 - Đóng góp**
 
 ---
 
@@ -49,9 +49,9 @@ Mở issue mô tả:
 
 ## Code Style
 
-- Theo code style hiện có (chưa có linter config — dùng common sense)
+- Theo code style hiện có (chưa có linter config - dùng common sense)
 - Tất cả tham số constructor phải có type hint
-- Không `@inject`, `@service`, hay annotation-based DI — dùng constructor injection
+- Không `@inject`, `@service`, hay annotation-based DI - dùng constructor injection
 - Fail fast: validate lúc startup, không phải lúc runtime
 - Viết test cho behavior mới
 
@@ -68,7 +68,7 @@ Các mảng cần làm, theo thứ tự ưu tiên:
 | **gRPC Adapter** | Class-based gRPC service handler, tương tự pattern controller | Trung bình |
 | ~~**WebSocket support**~~ | ✅ Đã có ở 0.7.2 - xem [WebSocket](websocket.md) | - |
 | **Exception → HTTP mapping** | Map domain exception đến HTTP status code tự động | Thấp |
-| **CLI scaffolding** | `xime new my-service` để tạo cấu trúc project | Trung bình |
+| ~~**CLI scaffolding**~~ | ✅ Đã có ở 0.8.0 - `xime init` dựng cây thư mục, `xime config` in cấu hình, xem [Công cụ dòng lệnh](cli.md) | - |
 
 ### Ưu tiên trung bình
 
@@ -95,7 +95,7 @@ Các mảng cần làm, theo thứ tự ưu tiên:
 ## Cấu trúc dự án
 
 ```text
-core/           ← Không phụ thuộc thư viện DI ngoài — registry tự viết (dict + RLock)
+core/           ← Không phụ thuộc thư viện DI ngoài - registry tự viết (dict + RLock)
 adapters/       ← Tích hợp theo giao thức (FastAPI, gRPC, ...)
 starters/       ← Tích hợp tùy chọn (SQLAlchemy, JWT, ...)
 testing/        ← Test utility
@@ -105,23 +105,23 @@ tests_temp/     ← Test suite hiện tại (sẽ được tổ chức lại)
 
 ---
 
-## Quy tắc thiết kế — Vui lòng đọc kỹ
+## Quy tắc thiết kế - Vui lòng đọc kỹ
 
 Các quy tắc này không thể thương lượng cho đóng góp chạm vào Core hoặc adapter:
 
-1. **Không annotation cho vai trò component** — `@service`, `@repository`, `@component`, `@inject` không tồn tại trong XIME
-2. **Chỉ constructor injection** — tất cả dependency qua tham số `__init__`
-3. **Explicit hơn implicit** — nếu được cấu hình, nó phải được khai báo tường minh ở đâu đó; không có gì tự động phát hiện bằng magic
-4. **Fail fast** — nếu cấu hình startup sai, app phải thất bại lúc startup với lỗi rõ ràng
-5. **Core không phụ thuộc adapter** — `core/` không được import từ `adapters/` hay bất kỳ thư viện giao thức nào (FastAPI, grpc, v.v.)
-6. **Protocol cho interface** — dùng `typing.Protocol`, không phải `ABC`
+1. **Không annotation cho vai trò component** - `@service`, `@repository`, `@component`, `@inject` không tồn tại trong XIME
+2. **Chỉ constructor injection** - tất cả dependency qua tham số `__init__`
+3. **Explicit hơn implicit** - nếu được cấu hình, nó phải được khai báo tường minh ở đâu đó; không có gì tự động phát hiện bằng magic
+4. **Fail fast** - nếu cấu hình startup sai, app phải thất bại lúc startup với lỗi rõ ràng
+5. **Core không phụ thuộc adapter** - `core/` không được import từ `adapters/` hay bất kỳ thư viện giao thức nào (FastAPI, grpc, v.v.)
+6. **Protocol cho interface** - dùng `typing.Protocol`, không phải `ABC`
 
 ---
 
 ## Câu hỏi?
 
-Mở issue với nhãn `question`. Không có câu hỏi nào là ngớ ngẩn — thiết kế này cố tình khác phần lớn Python framework và xứng đáng được thảo luận.
+Mở issue với nhãn `question`. Không có câu hỏi nào là ngớ ngẩn - thiết kế này cố tình khác phần lớn Python framework và xứng đáng được thảo luận.
 
 ---
 
-[← Kiến trúc](architecture.md) · **9/9 — Đóng góp**
+[← Kiến trúc](architecture.md) · **9/9 - Đóng góp**

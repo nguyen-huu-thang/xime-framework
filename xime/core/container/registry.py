@@ -67,7 +67,7 @@ class DependencyRegistry:
     ) -> None:
         """
         Record the build plan for every resolved class. Nothing is instantiated
-        here — construction is lazy and happens on the first get().
+        here - construction is lazy and happens on the first get().
 
         Pre-built instances (passed via `instances`) seed the cache directly so
         they are available when scanned classes are wired up, and so a scanned
@@ -91,10 +91,10 @@ class DependencyRegistry:
         }
 
         for cls, deps in resolved.items():
-            # A pre-built instance already backs this type — never shadow it
+            # A pre-built instance already backs this type - never shadow it
             # with a scanned Singleton, otherwise the override would be silently
             # ignored for concrete classes that also live in a scanned package.
-            # Instance dựng sẵn đã cấp cho kiểu này — không che bằng Singleton từ
+            # Instance dựng sẵn đã cấp cho kiểu này - không che bằng Singleton từ
             # scan, nếu không override sẽ bị bỏ qua âm thầm với class cụ thể nằm
             # trong package được scan.
             if cls in self._instances:
@@ -140,10 +140,10 @@ class DependencyRegistry:
             )
         self._building.add(cls)
         try:
-            # Deps outside the plan/cache are skipped — the validator already
+            # Deps outside the plan/cache are skipped - the validator already
             # ensured every required dep is registered (mirrors the old
             # _build_kwargs filter).
-            # Dep không nằm trong plan/cache thì bỏ qua — validator đã đảm bảo
+            # Dep không nằm trong plan/cache thì bỏ qua - validator đã đảm bảo
             # mọi dep cần thiết đều được đăng ký (giống filter _build_kwargs cũ).
             kwargs = {
                 param: self._instantiate(dep_type)

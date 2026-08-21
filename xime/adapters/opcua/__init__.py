@@ -1,4 +1,4 @@
-"""OPC UA adapter — the modern industrial protocol, both directions.
+"""OPC UA adapter - the modern industrial protocol, both directions.
 
 Where Modbus gives you raw 16-bit words, OPC UA carries types, names and real
 subscriptions. So the model here is thinner (nothing to decode) and the adapter
@@ -13,7 +13,7 @@ Public API (0.7):
     )
 
 Usage:
-    # domain/nodes/tank.py — a plain data class, NOT scanned into DI
+    # domain/nodes/tank.py - a plain data class, NOT scanned into DI
     from xime.adapters.opcua import node_model, Node
 
     @node_model

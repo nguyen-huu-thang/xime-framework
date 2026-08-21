@@ -1,7 +1,7 @@
 """Decorators marking controller methods as device-driven handlers.
 
 Modbus is the third interaction model in Xime: web/gRPC/socket are
-request/response, MQTT is pub/sub, and here the FRAMEWORK drives — it reads the
+request/response, MQTT is pub/sub, and here the FRAMEWORK drives - it reads the
 device on a timer and calls your code with the result. Hence dedicated
 decorators rather than reusing @subscribe.
 Ở đây FRAMEWORK là bên chủ động: nó đọc thiết bị theo nhịp rồi gọi code của bạn.
@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-# Attribute name marking Modbus handler methods — internal to the framework.
+# Attribute name marking Modbus handler methods - internal to the framework.
 # Mirrors MQTT_ATTR (mqtt) / ROUTE_ATTR (web).
 MODBUS_ATTR = "_xime_modbus_info"
 
@@ -49,10 +49,9 @@ class ModbusHandlerInfo:
     field: Any = None                 # ModbusField, kept loose to avoid a cycle
     interval: float | None = None
     deadband: float | None = None
-    device: str | None = None         # None -> whichever adapter runs it
 
 
-def poll(model: type, *, interval: float = 1.0, device: str | None = None) -> Callable:
+def poll(model: type, *, interval: float = 1.0) -> Callable:
     """Read `model` every `interval` seconds and hand the instance to the method.
 
         @poll(Inverter, interval=0.5)
@@ -64,28 +63,33 @@ def poll(model: type, *, interval: float = 1.0, device: str | None = None) -> Ca
     Một model có thể poll ở nhiều nhịp; adapter chạy một vòng cho mỗi cặp
     (model, interval) nên hai handler cùng nhịp không gây hai lần đọc.
 
-    `device` targets a specific named device; leave it out to use the one the
-    adapter serves.
+    ⭐ **0.8 bỏ `device=`.** Một adapter phục vụ một **LOẠI** thiết bị và giữ
+    **nhiều thực thể** của loại đó, nên handler không còn chọn thiết bị nữa -
+    nó chạy một lần cho **mỗi thực thể**. Muốn biết mình đang xử lý máy nào thì
+    khai thêm một tham số **tên `device`**, khớp theo TÊN đúng như `topic` của
+    `@subscribe`:
+
+        @poll(Conveyor, interval=1.0)
+        async def on_sample(self, conveyor: Conveyor, device: str) -> None: ...
+
+    Không khai thì handler giữ nguyên một tham số như cũ.
+
+    ⚠ Tên thực thể **không bao giờ là hằng trong code nghiệp vụ** - viết cứng
+    `device="BT-01"` là buộc code vào một nhà máy cụ thể. Tên đến từ tham số
+    này, từ `ModbusClient.devices_of(...)`, hoặc từ dữ liệu người dùng chọn.
     """
     def decorator(func: Callable) -> Callable:
         setattr(
             func,
             MODBUS_ATTR,
-            ModbusHandlerInfo(
-                ModbusKind.POLL, model=model, interval=interval, device=device
-            ),
+            ModbusHandlerInfo(ModbusKind.POLL, model=model, interval=interval),
         )
         return func
 
     return decorator
 
 
-def on_change(
-    field: Any,
-    *,
-    deadband: float | None = None,
-    device: str | None = None,
-) -> Callable:
+def on_change(field: Any, *, deadband: float | None = None) -> Callable:
     """Call the method only when `field`'s value changed between two reads.
 
         @on_change(Inverter.fault_code)
@@ -94,7 +98,7 @@ def on_change(
         @on_change(Tank.level, deadband=0.5)      # ignore drift under 0.5
         async def on_level(self, value: float) -> None: ...
 
-    The field's model must also be polled somewhere — @on_change observes the
+    The field's model must also be polled somewhere - @on_change observes the
     value the poll loop already read rather than issuing its own request. If the
     model is polled at several intervals, the FASTEST one drives the comparison,
     since that is the earliest a change could be noticed.
@@ -105,13 +109,19 @@ def on_change(
     reported only once the value moved by more than `deadband`.
     Không có deadband thì nhiễu đo ở chữ số cuối làm handler bắn gần như mỗi
     chu kỳ.
+
+    ⭐ **0.8 bỏ `device=`**, cùng lý do như `@poll`. Handler khai thêm tham số
+    tên `device` thì nhận tên thực thể vừa đổi giá trị:
+
+        @on_change(Conveyor.fault_code)
+        async def on_fault(self, value: int, device: str) -> None: ...
     """
     def decorator(func: Callable) -> Callable:
         setattr(
             func,
             MODBUS_ATTR,
             ModbusHandlerInfo(
-                ModbusKind.ON_CHANGE, field=field, deadband=deadband, device=device
+                ModbusKind.ON_CHANGE, field=field, deadband=deadband
             ),
         )
         return func

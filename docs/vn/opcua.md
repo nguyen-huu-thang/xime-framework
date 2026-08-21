@@ -112,6 +112,30 @@ Những điều cần biết:
 - **Handler chạy trong task riêng.** `asyncua` giao thông báo qua callback **đồng bộ**; await thẳng trong đó sẽ chặn vòng nhận của thư viện và làm đứng mọi subscription khác.
 - **Một handler hỏng không làm dừng subscription.**
 
+### Biết mình đang xử lý server nào: tham số `server` (0.8)
+
+Bản đối xứng của tham số `device` bên Modbus - đọc
+[modbus.md](modbus.md#biết-mình-đang-xử-lý-máy-nào-tham-số-device-08) để hiểu vì sao
+tách **loại** khỏi **thực thể**. Ở đây từ vựng là `server` vì đó là chữ của miền OPC
+UA:
+
+```python
+@on_node_change(Tank.level, deadband=0.5)
+async def on_level(self, value: float, server: str) -> None:
+    await self._store.save(server, value)
+```
+
+```python
+for srv in opcua.servers_of("tram-bom"):
+    tank = await opcua.read_model(Tank, server=srv)
+```
+
+Khớp theo **tên**; tham số thứ hai mang tên khác là **lỗi khởi động**.
+
+⏭ **0.8 mới khai chữ ký**, phần dựng nhiều kết nối làm ở **0.8.1**.
+⛔ **`@on_node_change(..., server=...)` đã bị bỏ ở 0.8** - handler chạy cho mọi thực
+thể của loại nó.
+
 ---
 
 ## Bảo mật: đủ ba mức
@@ -234,7 +258,7 @@ opcua:
     security: None
 ```
 
-App một server viết thẳng dưới `opcua:`; nhiều server thì lồng trong `opcua.servers.<tên>` rồi `app.use(OpcuaAdapter("plant_b"))`.
+App một server viết thẳng dưới `opcua:`; nhiều server thì lồng trong `opcua.servers.<tên>` rồi `app.use(OpcuaAdapter("plant_b"))`. ⚠ Đối số đó tên `target_id` từ 0.8 (trước là `server`).
 
 ---
 

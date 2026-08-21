@@ -2,7 +2,7 @@
 
 [English](../en/testing.md) | **Tiếng Việt**
 
-[← Starters](starters.md) · **7/9 — Testing** · [Kiến trúc →](architecture.md)
+[← Starters](starters.md) · **7/9 - Testing** · [Kiến trúc →](architecture.md)
 
 ---
 
@@ -11,7 +11,7 @@
 DI của XIME dựa trên constructor, nghĩa là testing rất đơn giản: tạo object thực với dependency giả, không cần mocking framework cho trường hợp cơ bản.
 
 ```python
-# Unit test thuần — không cần XIME machinery
+# Unit test thuần - không cần XIME machinery
 def test_create_user():
     repository = FakeUserRepository()
     use_case = CreateUserUseCase(repository=repository)
@@ -59,7 +59,7 @@ async def test_create_user_with_transaction():
     assert user.name == "Bob"
 ```
 
-Usecase chỉ đọc dùng `FakeReadOnlyManager` — bản no-op đối xứng cho khối
+Usecase chỉ đọc dùng `FakeReadOnlyManager` - bản no-op đối xứng cho khối
 `async with self.read_only():`:
 
 ```python
@@ -117,7 +117,7 @@ Mỗi test fixture tạo `Application` mới. Vì singleton sống bên trong `A
 async def app():
     async with Application(binding=test_binding) as app:
         yield app
-    # Application.stop() được gọi ở đây — tất cả singleton được dispose
+    # Application.stop() được gọi ở đây - tất cả singleton được dispose
 ```
 
 ---
@@ -184,4 +184,4 @@ Thêm testing utility sẽ được bổ sung khi framework trưởng thành.
 
 ---
 
-[← Starters](starters.md) · **7/9 — Testing** · [Kiến trúc →](architecture.md)
+[← Starters](starters.md) · **7/9 - Testing** · [Kiến trúc →](architecture.md)

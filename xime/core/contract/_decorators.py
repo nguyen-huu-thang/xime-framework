@@ -4,8 +4,8 @@ import enum
 from collections.abc import Callable
 from dataclasses import dataclass
 
-# Attribute name used to mark endpoint methods — internal to the framework.
-# Tên attribute đánh dấu method là endpoint — nội bộ framework.
+# Attribute name used to mark endpoint methods - internal to the framework.
+# Tên attribute đánh dấu method là endpoint - nội bộ framework.
 #
 # Shared by every transport that speaks the Xime contract (Socket, Code-First
 # gRPC, ...). A single decorator set means one Controller can serve multiple

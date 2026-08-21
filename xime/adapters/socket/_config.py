@@ -25,11 +25,11 @@ class SocketServerConfig(BaseModel):
         socket:
           dir: /run/xime          # base dir cho *.sock auto-generate
           permission: "0600"      # chmod sau khi bind
-          owner: xime-storage     # optional — chown user (theo tên)
-          group: xime-storage     # optional — chown group (theo tên)
-          allowed_uids: [1001]    # optional — whitelist SO_PEERCRED ([] = mọi UID)
-          session_timeout: 30     # giây — session idle quá ngưỡng bị huỷ
-          max_chunk_size: 1048576 # 1 MiB — chunk vượt ngưỡng bị từ chối
+          owner: xime-storage     # optional - chown user (theo tên)
+          group: xime-storage     # optional - chown group (theo tên)
+          allowed_uids: [1001]    # optional - whitelist SO_PEERCRED ([] = mọi UID)
+          session_timeout: 30     # giây - session idle quá ngưỡng bị huỷ
+          max_chunk_size: 1048576 # 1 MiB - chunk vượt ngưỡng bị từ chối
           recv_queue_size: 16     # số chunk buffer/session trước khi backpressure
     """
 
@@ -83,9 +83,9 @@ class SocketServerConfig(BaseModel):
 
     @staticmethod
     def _auto_path(configured_dir: str | None, server_id: str) -> str:
-        # Socket paths are POSIX paths (Linux-only transport) — always use
+        # Socket paths are POSIX paths (Linux-only transport) - always use
         # forward slashes regardless of the host OS running the tooling.
-        # Path socket là POSIX (transport chỉ Linux) — luôn dùng dấu '/'.
+        # Path socket là POSIX (transport chỉ Linux) - luôn dùng dấu '/'.
         if configured_dir:
             return posixpath.join(configured_dir, f"{server_id}.sock")
         # Pick the first base dir whose parent exists / is creatable.
@@ -108,7 +108,7 @@ class SocketServerConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Registry — controller packages + error mappings
+# Registry - controller packages + error mappings
 # ---------------------------------------------------------------------------
 
 class _SocketRegistry:

@@ -12,7 +12,7 @@ import sys
 
 DOC_ROOT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "docs")
 
-# `from xime.x.y import A, B` — including parenthesised multi-line forms.
+# `from xime.x.y import A, B` - including parenthesised multi-line forms.
 PATTERN = re.compile(
     r"^from\s+(xime[\w.]*)\s+import\s+(\([^)]*\)|[^\n(]+)$",
     re.MULTILINE,

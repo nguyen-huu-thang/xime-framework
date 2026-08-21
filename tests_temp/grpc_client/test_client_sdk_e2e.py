@@ -129,7 +129,7 @@ async def test_generated_sdk_calls_codefirst_server(tmp_path):
             async with grpc.aio.insecure_channel(f"127.0.0.1:{port}") as channel:
                 client = sdk.SdkBillingClient(channel)
 
-                # unary — Decimal/UUID fidelity hai chiều
+                # unary - Decimal/UUID fidelity hai chiều
                 order_id = uuid.uuid4()
                 reply = await client.get_price(sdk.PriceQuery(order_id=order_id))
                 assert isinstance(reply.amount, Decimal)

@@ -33,7 +33,7 @@ def _make_ws() -> MagicMock:
 @pytest.mark.asyncio
 async def test_on_disconnect_called_on_websocket_disconnect():
     """Real Starlette behaviour: receive() RETURNS a disconnect message dict
-    (it does not raise) — the handler must report the real close code."""
+    (it does not raise) - the handler must report the real close code."""
     log: list[str] = []
 
     class TestHandler(WebSocketHandler):
@@ -78,7 +78,7 @@ async def test_messages_then_disconnect():
 @pytest.mark.asyncio
 async def test_on_disconnect_called_when_receive_raises_disconnect():
     """Defensive path: a handler using receive_text/json surfaces disconnect as
-    a raised WebSocketDisconnect — on_disconnect must still run."""
+    a raised WebSocketDisconnect - on_disconnect must still run."""
     log: list[str] = []
 
     class TestHandler(WebSocketHandler):
@@ -131,7 +131,7 @@ async def test_server_error_is_reraised_after_on_disconnect():
 
 
 # ---------------------------------------------------------------------------
-# Case 3: on_connect raise — on_disconnect KHÔNG được gọi
+# Case 3: on_connect raise - on_disconnect KHÔNG được gọi
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio

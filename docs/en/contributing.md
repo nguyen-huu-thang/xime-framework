@@ -2,7 +2,7 @@
 
 **English** | [Tiếng Việt](../vn/contributing.md)
 
-[← Architecture](architecture.md) · **9/9 — Contributing**
+[← Architecture](architecture.md) · **9/9 - Contributing**
 
 ---
 
@@ -49,9 +49,9 @@ Open an issue describing:
 
 ## Code Style
 
-- Follow the existing code style (no linter config yet — use common sense)
+- Follow the existing code style (no linter config yet - use common sense)
 - All constructor parameters must have type hints
-- No `@inject`, `@service`, or annotation-based DI — use constructor injection
+- No `@inject`, `@service`, or annotation-based DI - use constructor injection
 - Fail fast: validate at startup, not at runtime
 - Write tests for new behavior
 
@@ -68,7 +68,7 @@ Areas that need work, roughly in priority order:
 | **gRPC Adapter** | Class-based gRPC service handlers, similar to controller pattern | Medium |
 | ~~**WebSocket support**~~ | ✅ Landed in 0.7.2 - see [WebSocket](websocket.md) | - |
 | **Exception → HTTP mapping** | Map domain exceptions to HTTP status codes automatically | Low |
-| **CLI scaffolding** | `xime new my-service` to generate project structure | Medium |
+| ~~**CLI scaffolding**~~ | ✅ Landed in 0.8.0 - `xime init` scaffolds the tree, `xime config` prints the surface, see [Command-line tools](cli.md) | - |
 
 ### Medium Priority
 
@@ -95,7 +95,7 @@ Areas that need work, roughly in priority order:
 ## Project Structure
 
 ```text
-core/           ← No external DI dependency — registry is hand-rolled (dict + RLock)
+core/           ← No external DI dependency - registry is hand-rolled (dict + RLock)
 adapters/       ← Protocol-specific integration (FastAPI, gRPC, ...)
 starters/       ← Optional integrations (SQLAlchemy, JWT, ...)
 testing/        ← Test utilities
@@ -105,23 +105,23 @@ tests_temp/     ← Current test suite (will be reorganized)
 
 ---
 
-## Design Rules — Please Read
+## Design Rules - Please Read
 
 These rules are non-negotiable for contributions that touch Core or adapters:
 
-1. **No annotations for component roles** — `@service`, `@repository`, `@component`, `@inject` do not exist in XIME
-2. **Constructor injection only** — all dependencies via `__init__` parameters
-3. **Explicit over implicit** — if it's configured, it must be explicitly declared somewhere; nothing is auto-discovered by magic
-4. **Fail fast** — if startup configuration is wrong, the app must fail at startup with a clear error
-5. **Core has no adapter dependencies** — `core/` must not import from `adapters/` or any protocol library (FastAPI, grpc, etc.)
-6. **Protocol for interfaces** — use `typing.Protocol`, not `ABC`
+1. **No annotations for component roles** - `@service`, `@repository`, `@component`, `@inject` do not exist in XIME
+2. **Constructor injection only** - all dependencies via `__init__` parameters
+3. **Explicit over implicit** - if it's configured, it must be explicitly declared somewhere; nothing is auto-discovered by magic
+4. **Fail fast** - if startup configuration is wrong, the app must fail at startup with a clear error
+5. **Core has no adapter dependencies** - `core/` must not import from `adapters/` or any protocol library (FastAPI, grpc, etc.)
+6. **Protocol for interfaces** - use `typing.Protocol`, not `ABC`
 
 ---
 
 ## Questions?
 
-Open an issue labeled `question`. There are no stupid questions — the design is intentionally different from most Python frameworks and deserves discussion.
+Open an issue labeled `question`. There are no stupid questions - the design is intentionally different from most Python frameworks and deserves discussion.
 
 ---
 
-[← Architecture](architecture.md) · **9/9 — Contributing**
+[← Architecture](architecture.md) · **9/9 - Contributing**

@@ -4,7 +4,7 @@ import json
 import os
 from dataclasses import dataclass, field
 
-# Lock-file schema version — bump if the on-disk format changes.
+# Lock-file schema version - bump if the on-disk format changes.
 _LOCK_VERSION = 1
 
 

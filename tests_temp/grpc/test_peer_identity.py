@@ -115,7 +115,7 @@ class TestReadPeerCn:
 
 
 # ---------------------------------------------------------------------------
-# RequestContextInterceptor — peer CN behaviour
+# RequestContextInterceptor - peer CN behaviour
 # ---------------------------------------------------------------------------
 
 class TestRequestContextInterceptorPeerCn:
@@ -305,7 +305,7 @@ class TestReadPeerSans:
 
 
 # ---------------------------------------------------------------------------
-# RequestContextInterceptor — peer SANs
+# RequestContextInterceptor - peer SANs
 # ---------------------------------------------------------------------------
 
 def _intercepted(handler):

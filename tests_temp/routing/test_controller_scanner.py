@@ -10,7 +10,7 @@ Test ControllerScanner:
   - find_controllers: raise ImportError rõ ràng khi package không tồn tại
 
 Dùng 'ctrl_sample' (không phải 'sample') để tránh trùng tên với tests_temp/DI/sample/
-khi chạy toàn bộ test suite — cả hai conftest.py đều add thư mục của chúng vào sys.path.
+khi chạy toàn bộ test suite - cả hai conftest.py đều add thư mục của chúng vào sys.path.
 """
 import pytest
 
@@ -19,7 +19,7 @@ from xime.adapters.web.routing._scanner import ControllerScanner
 
 
 # ---------------------------------------------------------------------------
-# _is_controller (unit — không cần file system)
+# _is_controller (unit - không cần file system)
 # ---------------------------------------------------------------------------
 
 class TestIsController:
@@ -93,7 +93,7 @@ class TestIsController:
 
 
 # ---------------------------------------------------------------------------
-# find_controllers (tích hợp — dùng sample package)
+# find_controllers (tích hợp - dùng sample package)
 # ---------------------------------------------------------------------------
 
 class TestFindControllers:

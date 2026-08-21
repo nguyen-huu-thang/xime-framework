@@ -25,9 +25,9 @@ def read_peer_cred(writer: asyncio.StreamWriter) -> tuple[int, int, int] | None:
     """Return (pid, uid, gid) of the connecting process, or None if unavailable.
 
     Uses SO_PEERCRED, a Linux feature of Unix domain sockets that lets the
-    server learn the peer's credentials straight from the kernel — no token,
+    server learn the peer's credentials straight from the kernel - no token,
     no TLS needed.
-    Dùng SO_PEERCRED — đặc tính UDS của Linux để biết danh tính peer từ kernel.
+    Dùng SO_PEERCRED - đặc tính UDS của Linux để biết danh tính peer từ kernel.
 
     Returns None on platforms / sockets that do not support SO_PEERCRED
     (e.g. non-Linux), so callers can degrade gracefully.
@@ -53,7 +53,7 @@ def authorize_peer(
     Side effect: stores peer pid/uid in request_context for audit/logging.
     Tác dụng phụ: lưu pid/uid của peer vào request_context để audit/logging.
 
-    An empty whitelist means "accept any UID" — access is then governed solely
+    An empty whitelist means "accept any UID" - access is then governed solely
     by the socket file permissions (chmod/chown).
     Whitelist rỗng = chấp nhận mọi UID; lúc đó dựa hoàn toàn vào file permission.
     """
@@ -94,9 +94,9 @@ def secure_socket_file(path: str, permission: int, owner: str | None, group: str
     if owner is None and group is None:
         return
 
-    # Resolve names to numeric ids. pwd/grp are POSIX-only — import lazily so the
+    # Resolve names to numeric ids. pwd/grp are POSIX-only - import lazily so the
     # module still imports on non-Linux (where chown by name is not used).
-    # Phân giải tên → id. pwd/grp chỉ có trên POSIX — import lười.
+    # Phân giải tên → id. pwd/grp chỉ có trên POSIX - import lười.
     import grp
     import pwd
 

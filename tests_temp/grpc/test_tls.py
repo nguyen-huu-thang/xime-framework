@@ -21,7 +21,7 @@ from xime.adapters.grpc.tls._credentials import build_server_credentials
 
 
 # ---------------------------------------------------------------------------
-# Fixtures — tạo file cert/key giả trong tmp_path
+# Fixtures - tạo file cert/key giả trong tmp_path
 # ---------------------------------------------------------------------------
 
 @pytest.fixture()
@@ -39,7 +39,7 @@ def tls_files(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
-# Happy path — trả về ServerCredentials
+# Happy path - trả về ServerCredentials
 # ---------------------------------------------------------------------------
 
 class TestBuildServerCredentials:
@@ -133,7 +133,7 @@ class TestBuildServerCredentials:
 
 
 # ---------------------------------------------------------------------------
-# Error path — file không tồn tại
+# Error path - file không tồn tại
 # ---------------------------------------------------------------------------
 
 class TestBuildServerCredentialsErrors:
@@ -190,7 +190,7 @@ class TestBuildServerCredentialsErrors:
 
 
 # ---------------------------------------------------------------------------
-# Dynamic credentials — provider + fetcher (cert rotation không restart)
+# Dynamic credentials - provider + fetcher (cert rotation không restart)
 # ---------------------------------------------------------------------------
 
 from xime.adapters.grpc.tls._config import _GrpcTlsRegistry, configure_grpc_tls, grpc_tls_registry
@@ -302,7 +302,7 @@ class TestBuildDynamicServerCredentials:
 
 
 # ---------------------------------------------------------------------------
-# TLS registry — configure_grpc_tls + fallback per-server
+# TLS registry - configure_grpc_tls + fallback per-server
 # ---------------------------------------------------------------------------
 
 class TestGrpcTlsRegistry:

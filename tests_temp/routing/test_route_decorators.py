@@ -1,5 +1,5 @@
 """
-Test route decorators — @get, @post, @put, @patch, @delete:
+Test route decorators - @get, @post, @put, @patch, @delete:
   - Gắn RouteInfo metadata vào method, không tạo wrapper
   - HTTP method được set đúng theo từng decorator
   - Path được lưu đúng
@@ -39,7 +39,7 @@ def test_route_attr_is_route_info_instance():
 
 
 def test_decorator_returns_original_function_not_wrapper():
-    """Decorator chỉ thêm attribute, không bọc function — trả về chính function gốc."""
+    """Decorator chỉ thêm attribute, không bọc function - trả về chính function gốc."""
     async def original(): ...
 
     decorated = get("/users")(original)

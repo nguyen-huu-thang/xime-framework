@@ -2,7 +2,7 @@ from __future__ import annotations
 
 # Guard: translate a missing grpcio into a message that names the extra. Raises
 # ImportError (not the RuntimeError used by mqtt/modbus/opcua) because this fires
-# at IMPORT time, where ImportError is the correct type — and because the
+# at IMPORT time, where ImportError is the correct type - and because the
 # framework itself relies on `except ImportError` around this package to mean
 # "the grpc extra is absent, skip the check" (core/bootstrap/application.py,
 # core/bootstrap/orchestrator.py). Switching to RuntimeError would turn those

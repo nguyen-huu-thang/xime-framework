@@ -25,7 +25,7 @@ class AuthenticationManager(Protocol):
         Verify credentials and return the authenticated identity.
 
         Args:
-            credentials: Raw credential material — token string, dict with
+            credentials: Raw credential material - token string, dict with
                          username/password, API key, certificate, etc.
 
         Returns:

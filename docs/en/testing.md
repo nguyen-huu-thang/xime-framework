@@ -2,7 +2,7 @@
 
 **English** | [Tiếng Việt](../vn/testing.md)
 
-[← Starters](starters.md) · **7/9 — Testing** · [Architecture →](architecture.md)
+[← Starters](starters.md) · **7/9 - Testing** · [Architecture →](architecture.md)
 
 ---
 
@@ -11,7 +11,7 @@
 XIME's DI is constructor-based, which means testing is straightforward: create real objects with fake dependencies, no mocking framework needed for the basic case.
 
 ```python
-# Pure unit test — no XIME machinery involved
+# Pure unit test - no XIME machinery involved
 def test_create_user():
     repository = FakeUserRepository()
     use_case = CreateUserUseCase(repository=repository)
@@ -117,7 +117,7 @@ Each test fixture creates a fresh `Application`. Because singletons live inside 
 async def app():
     async with Application(binding=test_binding) as app:
         yield app
-    # Application.stop() is called here — all singletons are disposed
+    # Application.stop() is called here - all singletons are disposed
 ```
 
 ---
@@ -184,4 +184,4 @@ More testing utilities will be added as the framework matures.
 
 ---
 
-[← Starters](starters.md) · **7/9 — Testing** · [Architecture →](architecture.md)
+[← Starters](starters.md) · **7/9 - Testing** · [Architecture →](architecture.md)

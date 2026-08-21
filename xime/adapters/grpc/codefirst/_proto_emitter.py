@@ -66,7 +66,7 @@ class ProtoEmitter:
             elif stems:
                 placement[name] = next(iter(stems))
             else:
-                placement[name] = _COMMON  # unreferenced — park in common
+                placement[name] = _COMMON  # unreferenced - park in common
         return placement
 
     # ------------------------------------------------------------------

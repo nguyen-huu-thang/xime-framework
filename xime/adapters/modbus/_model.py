@@ -1,4 +1,4 @@
-"""Declarative device model — the heart of the Modbus adapter.
+"""Declarative device model - the heart of the Modbus adapter.
 
 Modbus itself carries no type information: every read returns a list of raw
 16-bit words (or bits). Turning 40001-40002 into `voltage = 220.5` means
@@ -20,7 +20,7 @@ This mirrors what `core/contract/` does for socket and gRPC.
         run_state:  bool  = Coil(0)
         fault_code: int   = Input(9, type="uint16")
 
-This module is pure Python — it does NOT import pymodbus, so a device model can
+This module is pure Python - it does NOT import pymodbus, so a device model can
 be imported (and unit-tested) without the `xime[modbus]` extra installed.
 Module này KHÔNG import pymodbus nên model import/test được mà không cần extra.
 """
@@ -30,7 +30,7 @@ from __future__ import annotations
 import enum
 from typing import Any, Literal
 
-# Attribute holding the DeviceInfo built by @device — internal to the framework.
+# Attribute holding the DeviceInfo built by @device - internal to the framework.
 # Mirrors MQTT_ATTR (mqtt) / ROUTE_ATTR (web).
 DEVICE_ATTR = "_xime_modbus_device"
 
@@ -197,7 +197,7 @@ class ModbusField:
         if self.area.is_bit:
             return self.count or 1
         if self.type is DataType.STRING:
-            # count is the register count for strings — validated in _validate.
+            # count is the register count for strings - validated in _validate.
             return self.count or 1
         return self.type.words
 
@@ -213,7 +213,7 @@ class ModbusField:
         )
 
     # ------------------------------------------------------------------
-    # Validation — every check fails at class-definition time
+    # Validation - every check fails at class-definition time
     # ------------------------------------------------------------------
 
     def _validate(self) -> None:
@@ -232,7 +232,7 @@ class ModbusField:
 
         if self.type is DataType.STRING and not self.count:
             raise ValueError(
-                "string fields need count=<number of registers> — Modbus gives "
+                "string fields need count=<number of registers> - Modbus gives "
                 "no length prefix, so the framework cannot know where the text "
                 "ends. Two ASCII characters fit in one register."
             )
@@ -276,7 +276,7 @@ def _resolve_address(
     Datasheets almost always use Modicon numbering (40001+) while the wire
     protocol uses 0-based offsets. Silently accepting both in one parameter
     would make `Holding(40001)` read a completely different register on a device
-    that really does have 40002 registers — a wrong value with no error. So the
+    that really does have 40002 registers - a wrong value with no error. So the
     two forms are separate keywords and mixing them fails.
     Datasheet ghi 40001+, trên dây là offset 0-based. Nhận nhập nhèm cả hai
     trong một tham số sẽ đọc nhầm thanh ghi mà không báo lỗi -> tách hai đường.
@@ -301,7 +301,7 @@ def _resolve_address(
                 f"{low}-{high}. Modicon numbering encodes the area in the "
                 f"leading digit, so it must agree with the field type you "
                 f"chose. Extended six-digit numbering (e.g. {low * 10 + 1} for "
-                f"the first {area.label}) is not accepted here — pass the "
+                f"the first {area.label}) is not accepted here - pass the "
                 f"0-based protocol address instead, e.g. "
                 f"{area.label.capitalize()}(0)."
             )
@@ -326,7 +326,7 @@ def _check_order(value: Any, label: str) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# Field constructors — one per Modbus area
+# Field constructors - one per Modbus area
 # ---------------------------------------------------------------------------
 
 def Holding(  # noqa: N802 - reads as a type in model declarations

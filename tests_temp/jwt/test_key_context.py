@@ -66,7 +66,7 @@ class TestKeyContextAsymmetric:
         assert ctx.algorithm == "ES256"
 
     def test_verify_only_context_has_no_private_key(self):
-        """Middleware chỉ cần public key để verify — không cần private key."""
+        """Middleware chỉ cần public key để verify - không cần private key."""
         ctx = KeyContext(
             algorithm="RS256",
             public_key_pem="-----BEGIN PUBLIC KEY-----",
@@ -75,7 +75,7 @@ class TestKeyContextAsymmetric:
         assert ctx.public_key_pem is not None
 
     def test_sign_only_context_has_no_public_key(self):
-        """Token service chỉ cần private key để ký — không cần public key."""
+        """Token service chỉ cần private key để ký - không cần public key."""
         ctx = KeyContext(
             algorithm="ES256",
             private_key_pem="-----BEGIN EC PRIVATE KEY-----",

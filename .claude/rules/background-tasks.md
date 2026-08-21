@@ -1,7 +1,7 @@
 # Vòng lặp nền và tắt máy - luật nội bộ Xime Framework
 
 > Lập **2026-08-04** sau lỗi đua khi tắt scheduler (`RuntimeError: The scheduler has not been
-> initialized yet`). Chẩn đoán đầy đủ: [`../docs/loi-dua-scheduler-2026-08-04.md`](../docs/loi-dua-scheduler-2026-08-04.md).
+> initialized yet`). Chẩn đoán đầy đủ: [`../docs/ghi-chep/loi-dua-scheduler.md`](../docs/ghi-chep/loi-dua-scheduler.md).
 >
 > Đây là quy tắc **nội bộ repo này**, không phải luật cắt ngang workspace. Framework là nơi
 > **quyết định các repo khác vi phạm dễ đến đâu**, nên chỗ này chặt hơn code ứng dụng thông thường.

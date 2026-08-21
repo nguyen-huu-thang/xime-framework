@@ -53,7 +53,7 @@ class TestOptionalParametersUseTheirDefault:
         assert service.values == ("x", 502, 1.5, True)
 
     def test_a_registered_type_is_still_injected_even_with_a_default(self):
-        # The rule must not become "defaults are never injected" — when the
+        # The rule must not become "defaults are never injected" - when the
         # container CAN supply the type, injection wins over the default.
         sentinel = Helper()
 

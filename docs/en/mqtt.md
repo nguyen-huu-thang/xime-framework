@@ -78,12 +78,12 @@ from xime import Application
 from xime.adapters.mqtt import MqttAdapter
 
 app = Application()
-app.use(MqttAdapter())     # client_id "default"; reads the mqtt: block from application.yml
+app.use(MqttAdapter())     # target_id "default"; reads the mqtt: block from application.yml
 app.run()
 ```
 
 ```python
-# config/dependency.py — only if business code publishes
+# config/dependency.py - only if business code publishes
 from xime.adapters.mqtt import MqttPublisher
 
 dependency.register(MqttPublisher)
@@ -93,7 +93,7 @@ dependency.register(MqttPublisher)
 
 ## Handler Types
 
-### `@subscribe` — fire-and-forget (pub/sub)
+### `@subscribe` - fire-and-forget (pub/sub)
 
 The handler receives the **raw** message; the framework does NOT deserialize the payload (consistent with `StorageService` / `CacheService`: mechanism, not policy). Declare only the parameters you need - matched **by name**, all optional:
 
@@ -109,7 +109,7 @@ async def on_alert(self, payload: bytes, topic: str) -> None:
     ...
 ```
 
-### `@rpc` — request/reply over MQTT v5
+### `@rpc` - request/reply over MQTT v5
 
 The handler takes a Pydantic **request** model and returns a Pydantic **response** model. The adapter decodes the request payload as JSON, calls the handler, and publishes the JSON-encoded response to the request's `ResponseTopic` with the same `CorrelationData`. An optional `topic: str` parameter is also injected if declared.
 
@@ -171,11 +171,17 @@ class AlertService:
 
 The publisher holds no connection of its own - it delegates to the live client the `MqttAdapter` owns. Publishing before the adapter has connected **waits** until it connects (or the optional `timeout`). The framework imposes no payload format: pass raw `bytes` (or `str`); encode JSON/protobuf yourself.
 
-> **The publisher binds to the `"default"` client_id.** If you run the adapter under a different id (`MqttAdapter("sensors")`) and inject a plain `MqttPublisher`, publishing raises a clear `RuntimeError` instead of hanging forever. Run the adapter with the default id for the publisher to work.
+> ⚠ **The first argument of `MqttAdapter` was renamed to `target_id` in 0.8** (it
+> used to be `client_id`). Positional calls are unaffected; keyword calls need
+> updating. The reason: `client_id` already carried **two opposite meanings** in
+> the same framework - in the gRPC client SDK it names the **target service**, here
+> it names **ourselves** on the broker.
+
+> **The publisher binds to the `"default"` id.** If you run the adapter under a different id (`MqttAdapter("sensors")`) and inject a plain `MqttPublisher`, publishing raises a clear `RuntimeError` instead of hanging forever. Run the adapter with the default id for the publisher to work.
 
 ---
 
-## Configuration — `application.yml`
+## Configuration - `application.yml`
 
 ```yaml
 mqtt:

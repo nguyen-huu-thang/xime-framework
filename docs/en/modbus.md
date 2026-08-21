@@ -89,7 +89,7 @@ dependency.register(ModbusClient)
 ```python
 # main.py
 app = Application()
-app.use(WebAdapter()).use(ModbusAdapter("inverter_1"))
+app.use(WebAdapter()).use(ModbusAdapter("inverter_1"))   # the argument is `target_id` since 0.8
 app.run()
 ```
 
@@ -204,6 +204,46 @@ Things worth knowing:
 - **The cadence does not drift**: the adapter subtracts the cycle time from the next sleep, so `interval=1.0` stays once per second however slow the device is.
 - **Failures do not stop the loop**: a failed cycle is logged and polling continues. Devices on a plant floor drop off the network routinely; one bad reading must not kill the monitoring for the rest of the shift.
 - **Bounded concurrency**: handlers run in tasks limited by `max_concurrency` (default 16), applying backpressure to the poll loop when saturated.
+
+### Knowing which machine you are handling: the `device` parameter (0.8)
+
+One adapter serves one **kind** of device (`conveyor`) and holds **several
+instances** of that kind (`CV-01`, `CV-02`), so a handler runs once **per
+instance**. To learn which one a call is about, declare a second parameter named
+`device`:
+
+```python
+@poll(Conveyor, interval=1.0)
+async def on_sample(self, conveyor: Conveyor, device: str) -> None:
+    await self._store.save(device, conveyor.speed)
+
+@on_change(Conveyor.fault_code)
+async def on_fault(self, value: int, device: str) -> None:
+    await self._alerts.raise_fault(device, value)
+```
+
+It is matched **by name**, the same convention `@subscribe` uses for `topic`.
+Leave it out and the handler keeps its single parameter; a second parameter under
+**another** name is a startup error rather than an argument silently dropped.
+
+List the instances with `devices_of`:
+
+```python
+for dev in modbus.devices_of("conveyor"):
+    state = await modbus.read(Conveyor, device=dev)
+```
+
+⚠ **An instance name is never a constant in business code.** Hard-coding
+`device="CV-01"` ties the code to one plant; the name comes from the handler
+parameter, from `devices_of(...)`, or from data the user picked.
+
+⏭ **0.8 declares the signature only**; wiring several connections per kind lands
+in **0.8.1**. Today one adapter holds exactly one instance named after its kind,
+so code written as the loop above works on both releases unchanged.
+
+⛔ **`@poll(..., device=...)` and `@on_change(..., device=...)` are gone in 0.8.**
+Picking a machine is no longer the decorator's job - a handler runs for every
+instance of its kind.
 
 ---
 

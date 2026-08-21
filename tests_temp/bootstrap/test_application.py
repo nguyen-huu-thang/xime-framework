@@ -13,6 +13,7 @@ import pytest
 from bootstrap_sample.service.tracker import TrackerService
 from xime.core.bootstrap import Application
 from xime.core.config import BindingConfig, RuntimeConfig
+from xime.adapters.web import WebServerConfig
 
 
 def _sample_binding() -> BindingConfig:
@@ -91,7 +92,7 @@ async def test_auto_discovery_missing_module_falls_back_to_empty_config():
         resources_dir="nonexistent",
     )
     await app.start()
-    await app.stop()   # không raise — empty config, không có gì để scan
+    await app.stop()   # không raise - empty config, không có gì để scan
 
 
 @pytest.mark.asyncio
@@ -120,7 +121,7 @@ async def test_runtime_config_defaults_when_no_yaml(tmp_path):
     await app.start()
     runtime = app._orchestrator.runtime
     assert runtime.env == "development"
-    assert runtime.server.port == 8080
+    assert WebServerConfig.from_runtime(runtime).port == 8080
     await app.stop()
 
 
@@ -131,7 +132,7 @@ async def test_runtime_config_loaded_from_yaml(tmp_path):
     await app.start()
     runtime = app._orchestrator.runtime
     assert runtime.env == "production"
-    assert runtime.server.port == 9000
+    assert WebServerConfig.from_runtime(runtime).port == 9000
     await app.stop()
 
 
@@ -169,7 +170,7 @@ async def test_restart_after_stop_works():
     with pytest.raises(RuntimeError):
         app.get(TrackerService)
 
-    # Lần 2 — start lại được
+    # Lần 2 - start lại được
     await app.start()
     tracker_2 = app.get(TrackerService)
     assert tracker_2.started is True

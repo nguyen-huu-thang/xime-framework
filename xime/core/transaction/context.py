@@ -11,7 +11,7 @@ class TransactionContext(Protocol):
     Entering begins a transaction; exiting commits on success or rolls back
     on any exception. Implementations live in starters (e.g. starters/sqlalchemy/).
 
-    Usage — obtained by calling TransactionManager:
+    Usage - obtained by calling TransactionManager:
         async with self.transaction():
             await self.repository.save_user()
             await self.repository.save_profile()

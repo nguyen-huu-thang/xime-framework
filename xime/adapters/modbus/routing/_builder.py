@@ -20,6 +20,11 @@ if TYPE_CHECKING:
 # Nhịp mặc định khi model chỉ có @on_change mà không ai nói đọc bao lâu một lần.
 DEFAULT_POLL_INTERVAL = 1.0
 
+# Tên tham số handler khai để nhận tên THỰC THỂ đang được xử lý. Khớp theo tên,
+# đúng quy ước `topic` của `@subscribe` - một hằng chứ không phải chuỗi rải rác,
+# vì nó là một phần hợp đồng công khai.
+DEVICE_PARAM = "device"
+
 
 @dataclass
 class ResolvedPoll:
@@ -28,6 +33,7 @@ class ResolvedPoll:
     bound: Any
     controller: str
     handler: str
+    wants_device: bool = False
 
 
 @dataclass
@@ -39,6 +45,7 @@ class ResolvedChangeWatch:
     controller: str
     handler: str
     deadband: float | None = None
+    wants_device: bool = False
 
 
 @dataclass
@@ -53,19 +60,17 @@ class PollGroup:
     model: type
     device_info: DeviceInfo
     interval: float
-    device: str | None
     polls: list[ResolvedPoll] = dataclass_field(default_factory=list)
     watches: list[ResolvedChangeWatch] = dataclass_field(default_factory=list)
 
     @property
-    def key(self) -> tuple[Any, float, str | None]:
-        return (self.model, self.interval, self.device)
+    def key(self) -> tuple[Any, float]:
+        return (self.model, self.interval)
 
     def __repr__(self) -> str:
         return (
             f"PollGroup({self.model.__name__}, every {self.interval}s, "
-            f"device={self.device}, {len(self.polls)} poll(s), "
-            f"{len(self.watches)} watch(es))"
+            f"{len(self.polls)} poll(s), {len(self.watches)} watch(es))"
         )
 
 
@@ -81,8 +86,8 @@ class ModbusRouteBuilder:
         self._app = app
 
     def build(self, controllers: list[type]) -> list[PollGroup]:
-        groups: dict[tuple[Any, float, str | None], PollGroup] = {}
-        pending_watches: list[tuple[type, ModbusHandlerInfo, ResolvedChangeWatch]] = []
+        groups: dict[tuple[Any, float], PollGroup] = {}
+        pending_watches: list[tuple[type, ResolvedChangeWatch]] = []
 
         for cls in controllers:
             instance = self._instance_of(cls)
@@ -94,7 +99,7 @@ class ModbusRouteBuilder:
                     self._add_poll(groups, cls, attr_name, info, bound)
                 elif info.kind is ModbusKind.ON_CHANGE:
                     watch = self._resolve_watch(cls, attr_name, info, bound)
-                    pending_watches.append((cls, info, watch))
+                    pending_watches.append((cls, watch))
                 # SERVE / ON_WRITE belong to slave mode; the server builder
                 # picks those up from the same metadata.
 
@@ -102,8 +107,8 @@ class ModbusRouteBuilder:
         # the FASTEST existing loop for its model instead of forcing an extra
         # read at a cadence nobody asked for.
         # Gắn watch sau khi biết hết @poll để chọn vòng NHANH NHẤT của model.
-        for cls, info, watch in pending_watches:
-            self._attach_watch(groups, cls, info, watch)
+        for cls, watch in pending_watches:
+            self._attach_watch(groups, cls, watch)
 
         return list(groups.values())
 
@@ -126,14 +131,16 @@ class ModbusRouteBuilder:
             raise StartupException(
                 self._err(cls, attr_name, f"interval must be > 0 (got {interval})")
             )
-        self._check_signature(cls, attr_name, bound, expected=model)
+        wants_device = self._check_signature(cls, attr_name, bound, expected=model)
 
-        key = (model, interval, info.device)
+        key = (model, interval)
         group = groups.get(key)
         if group is None:
-            group = PollGroup(model, device_info, interval, info.device)  # type: ignore[arg-type]
+            group = PollGroup(model, device_info, interval)  # type: ignore[arg-type]
             groups[key] = group
-        group.polls.append(ResolvedPoll(bound, cls.__name__, attr_name))
+        group.polls.append(
+            ResolvedPoll(bound, cls.__name__, attr_name, wants_device)
+        )
 
     def _resolve_watch(
         self, cls: type, attr_name: str, info: ModbusHandlerInfo, bound: Any
@@ -151,13 +158,13 @@ class ModbusRouteBuilder:
             raise StartupException(
                 self._err(cls, attr_name, f"deadband must be >= 0 (got {info.deadband})")
             )
-        self._check_signature(cls, attr_name, bound, expected=None)
+        wants_device = self._check_signature(cls, attr_name, bound, expected=None)
         return ResolvedChangeWatch(
-            field, bound, cls.__name__, attr_name, info.deadband
+            field, bound, cls.__name__, attr_name, info.deadband, wants_device
         )
 
     def _attach_watch(
-        self, groups: dict, cls: type, info: ModbusHandlerInfo, watch: ResolvedChangeWatch
+        self, groups: dict, cls: type, watch: ResolvedChangeWatch
     ) -> None:
         owner = watch.field._owner_info
         if owner is None:
@@ -169,19 +176,16 @@ class ModbusRouteBuilder:
             )
 
         candidates = [
-            group for group in groups.values()
-            if group.model is owner.cls and group.device == info.device
+            group for group in groups.values() if group.model is owner.cls
         ]
         if candidates:
             target = min(candidates, key=lambda g: g.interval)
         else:
             # Nobody polls this model, so the watch becomes its own loop.
-            key = (owner.cls, DEFAULT_POLL_INTERVAL, info.device)
+            key = (owner.cls, DEFAULT_POLL_INTERVAL)
             target = groups.get(key)
             if target is None:
-                target = PollGroup(
-                    owner.cls, owner, DEFAULT_POLL_INTERVAL, info.device
-                )
+                target = PollGroup(owner.cls, owner, DEFAULT_POLL_INTERVAL)
                 groups[key] = target
         target.watches.append(watch)
 
@@ -235,33 +239,48 @@ class ModbusRouteBuilder:
 
     def _check_signature(
         self, cls: type, attr_name: str, bound: Any, *, expected: type | None
-    ) -> None:
-        """A handler takes exactly one argument: the model, or the new value."""
+    ) -> bool:
+        """Check the handler signature; say whether it asked for `device`.
+
+        A handler takes the model (or the new value), and MAY take a second
+        parameter named exactly `device` to learn which entity of its kind this
+        call is about - matched BY NAME, the same convention `@subscribe` uses
+        for `topic`.
+        Handler nhận model (hoặc giá trị mới), và **được phép** nhận thêm một
+        tham số tên đúng `device` để biết lời gọi này thuộc thực thể nào - khớp
+        theo TÊN, đúng quy ước `topic` của `@subscribe`.
+
+        ⚠ Tên phải khớp chính xác. Một tham số thứ hai mang tên khác là **lỗi
+        khởi động**, không phải một tham số bị bỏ qua im lặng: người viết đang
+        chờ framework truyền một thứ mà framework không biết là gì.
+        """
         params = [
             p for p in inspect.signature(bound).parameters.values()
             if p.kind
             in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
         ]
-        if len(params) != 1:
+        wants_device = len(params) == 2 and params[1].name == DEVICE_PARAM
+        if len(params) != 1 and not wants_device:
             what = "the polled model" if expected else "the new value"
             raise StartupException(
                 self._err(
                     cls, attr_name,
-                    f"handler must take exactly one parameter ({what}); "
-                    f"got {[p.name for p in params]}",
+                    f"handler takes {what}, plus an optional parameter named "
+                    f"'{DEVICE_PARAM}'; got {[p.name for p in params]}",
                 )
             )
         if expected is None:
-            return
+            return wants_device
 
-        # If the parameter is annotated, it has to be the model being polled —
+        # If the parameter is annotated, it has to be the model being polled -
         # a mismatch here means the handler will get an object it does not
         # expect, and that is much cheaper to catch now than at 3 a.m.
         # Annotation lệch model = handler nhận nhầm object, bắt ngay lúc startup.
         try:
             hints = typing.get_type_hints(bound)
         except Exception:
-            return  # unresolvable annotation: not worth failing startup over
+            # unresolvable annotation: not worth failing startup over
+            return wants_device
         annotation = hints.get(params[0].name)
         if annotation is not None and annotation is not expected:
             raise StartupException(
@@ -272,6 +291,7 @@ class ModbusRouteBuilder:
                     f"handler polls {expected.__name__}",
                 )
             )
+        return wants_device
 
     @staticmethod
     def _err(cls: type, attr_name: str, detail: str) -> str:

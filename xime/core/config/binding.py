@@ -35,7 +35,7 @@ class BindingConfig:
         Later calls overwrite earlier bindings for the same key.
 
         A value may be a single implementation class (the classic 1-to-1
-        binding) OR a tuple of classes for dynamic binding — the first tuple
+        binding) OR a tuple of classes for dynamic binding - the first tuple
         element is the default. Tuple bindings only switch at runtime when
         'xime.di.dynamic-binding' is enabled; otherwise they behave exactly like
         binding the first element alone.
@@ -54,7 +54,7 @@ class BindingConfig:
 
         Use this for classes in excluded packages (e.g. domain factories,
         domain services) that still need to be singletons.  The framework
-        applies normal constructor injection — every __init__ parameter must
+        applies normal constructor injection - every __init__ parameter must
         have a type hint.
         """
         self._explicit_classes.extend(classes)
@@ -67,7 +67,7 @@ class BindingConfig:
         Equivalent to @DependsOn in Spring Boot, but declared centrally in
         the config file instead of as an annotation on individual classes.
 
-        Each list is an ordered chain — [A, B, C] means:
+        Each list is an ordered chain - [A, B, C] means:
             A.post_construct() completes before B starts,
             B.post_construct() completes before C starts.
 

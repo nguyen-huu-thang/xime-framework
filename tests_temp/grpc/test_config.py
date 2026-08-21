@@ -22,7 +22,7 @@ from xime.core.config.runtime import RuntimeConfig
 
 
 # ---------------------------------------------------------------------------
-# GrpcTlsConfig — giá trị mặc định
+# GrpcTlsConfig - giá trị mặc định
 # ---------------------------------------------------------------------------
 
 class TestGrpcTlsConfigDefaults:
@@ -48,7 +48,7 @@ class TestGrpcTlsConfigDefaults:
 
 
 # ---------------------------------------------------------------------------
-# GrpcTlsConfig — parse từ dict
+# GrpcTlsConfig - parse từ dict
 # ---------------------------------------------------------------------------
 
 class TestGrpcTlsConfigParsing:
@@ -88,7 +88,7 @@ class TestGrpcTlsConfigParsing:
 
 
 # ---------------------------------------------------------------------------
-# GrpcServerConfig — giá trị mặc định
+# GrpcServerConfig - giá trị mặc định
 # ---------------------------------------------------------------------------
 
 class TestGrpcServerConfigDefaults:
@@ -197,7 +197,7 @@ class TestGrpcServerConfigFromRuntime:
         assert cfg.tls.ca_file is None
 
     def test_mtls_requires_ca_file(self):
-        """mTLS: mutual=True thường đi kèm ca_file — kiểm tra parse đúng."""
+        """mTLS: mutual=True thường đi kèm ca_file - kiểm tra parse đúng."""
         runtime = self._runtime({
             "grpc": {
                 "tls": {
@@ -223,7 +223,7 @@ class TestGrpcServerConfigFromRuntime:
 
 
 # ---------------------------------------------------------------------------
-# GrpcServerConfig.for_server() — block grpc.servers.<server_id>
+# GrpcServerConfig.for_server() - block grpc.servers.<server_id>
 # ---------------------------------------------------------------------------
 
 class TestGrpcServerConfigForServer:

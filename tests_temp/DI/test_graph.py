@@ -4,7 +4,7 @@ Test DependencyGraph:
     - graph không có cycle → []
     - cycle đơn giản A→B→A
     - self-dependency A→A
-    - graph lớn (>1000 nodes) không gặp RecursionError — iterative DFS
+    - graph lớn (>1000 nodes) không gặp RecursionError - iterative DFS
     - cycle ở cuối chain dài được phát hiện đúng
 
   topological_order():
@@ -43,7 +43,7 @@ def make_chain(n: int) -> tuple[list[type], ResolvedMap]:
 
 
 # ---------------------------------------------------------------------------
-# detect_cycles — correctness
+# detect_cycles - correctness
 # ---------------------------------------------------------------------------
 
 def test_detect_cycles_acyclic_returns_empty():
@@ -88,7 +88,7 @@ def test_detect_cycles_three_node_cycle():
 
 
 # ---------------------------------------------------------------------------
-# detect_cycles — large graph (iterative DFS, Issue #8)
+# detect_cycles - large graph (iterative DFS, Issue #8)
 # ---------------------------------------------------------------------------
 
 def test_detect_cycles_large_acyclic_graph_no_recursion_error():
@@ -115,7 +115,7 @@ def test_detect_cycles_large_graph_with_cycle_at_end():
 
 
 # ---------------------------------------------------------------------------
-# topological_order — correctness
+# topological_order - correctness
 # ---------------------------------------------------------------------------
 
 def test_topological_order_dependencies_before_dependents():

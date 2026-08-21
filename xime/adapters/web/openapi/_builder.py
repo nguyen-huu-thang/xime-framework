@@ -11,7 +11,7 @@ from ._config import ApiKey, JwtBearer, OpenApiConfig
 def build_custom_openapi(app: FastAPI, config: OpenApiConfig) -> Callable[[], dict]:
     """Tạo hàm custom_openapi từ OpenApiConfig và gắn vào FastAPI app.
 
-    Trả về closure — gắn vào app.openapi để FastAPI dùng khi sinh schema.
+    Trả về closure - gắn vào app.openapi để FastAPI dùng khi sinh schema.
     """
 
     def custom_openapi() -> dict:

@@ -1,7 +1,7 @@
 # Script kiểm chứng bảo mật (đợt 2026-08-01)
 
 Bốn script này là **bằng chứng chạy được** của báo cáo
-[`../../docs/kiem-toan-bao-mat-0.7.md`](../../docs/kiem-toan-bao-mat-0.7.md). Chúng không sửa gì
+[`../../docs/kiem-toan/0.7-bao-mat.md`](../../docs/kiem-toan/0.7-bao-mat.md). Chúng không sửa gì
 trong repo, không cần service nào đang chạy, và tự chèn `d:/code/xime/xime framework` vào
 `sys.path` nên chạy được ngay bằng Python hệ thống.
 

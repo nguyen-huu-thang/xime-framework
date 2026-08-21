@@ -2,14 +2,14 @@
 
 [English](../en/grpc-codefirst.md) | **Tiếng Việt**
 
-[← Routing](routing.md) · **7/9 — Code-First gRPC** · [Starters →](starters.md)
+[← Routing](routing.md) · **7/9 - Code-First gRPC** · [Starters →](starters.md)
 
 ---
 
 XIME hỗ trợ hai chế độ phát triển gRPC:
 
-- **Proto-First** (có sẵn) — bạn viết file `.proto`, XIME phục vụ servicer của bạn.
-- **Code-First** (trang này) — bạn viết Python controller và DTO, XIME sinh file `.proto` cho bạn.
+- **Proto-First** (có sẵn) - bạn viết file `.proto`, XIME phục vụ servicer của bạn.
+- **Code-First** (trang này) - bạn viết Python controller và DTO, XIME sinh file `.proto` cho bạn.
 
 Với Code-First, Python code là **nguồn chân lý duy nhất**. Bạn không bao giờ phải viết
 hay duy trì file `.proto` thủ công.
@@ -28,12 +28,12 @@ Controller + DTO  →  xime grpc generate  →  .proto + Python stubs
 
 Hai vấn đề của proto-first ở quy mô lớn:
 
-1. **Drift** — bạn cập nhật Pydantic DTO nhưng quên cập nhật `.proto`. Hai file lệch
+1. **Drift** - bạn cập nhật Pydantic DTO nhưng quên cập nhật `.proto`. Hai file lệch
    nhau mà không ai hay.
-2. **Trùng lặp** — mỗi field phải định nghĩa hai lần: một lần trong Python, một lần
+2. **Trùng lặp** - mỗi field phải định nghĩa hai lần: một lần trong Python, một lần
    trong protobuf.
 
-Code-First loại bỏ cả hai. Proto được sinh từ type Python — không thể drift, và không
+Code-First loại bỏ cả hai. Proto được sinh từ type Python - không thể drift, và không
 có gì để trùng lặp.
 
 ---
@@ -131,10 +131,10 @@ app.run()
 
 ## Các loại Endpoint
 
-Cùng hai decorator với Socket Adapter — một controller có thể phục vụ cả gRPC lẫn UDS
+Cùng hai decorator với Socket Adapter - một controller có thể phục vụ cả gRPC lẫn UDS
 nếu bạn đăng ký cho cả hai.
 
-### `@command` — RPC đơn
+### `@command` - RPC đơn
 
 ```python
 @command("hash")
@@ -147,7 +147,7 @@ Proto sinh ra:
 rpc Hash(HashRequest) returns (HashResponse);
 ```
 
-### `@stream` + `UploadStream` — client streaming
+### `@stream` + `UploadStream` - client streaming
 
 ```python
 @stream("encrypt")
@@ -158,7 +158,7 @@ async def encrypt(self, request: EncryptRequest, upload: UploadStream) -> Encryp
     return EncryptResponse(total=total)
 ```
 
-Proto sinh ra dùng wrapper `oneof` — message đầu chứa metadata, các message sau chứa raw
+Proto sinh ra dùng wrapper `oneof` - message đầu chứa metadata, các message sau chứa raw
 bytes:
 
 ```protobuf
@@ -174,7 +174,7 @@ rpc Encrypt(stream EncryptChunk) returns (EncryptResponse);
 
 Business code không bao giờ thấy `EncryptChunk`. XIME xử lý marshalling.
 
-### `@stream` + `DownloadStream` — server streaming
+### `@stream` + `DownloadStream` - server streaming
 
 ```python
 @stream("download")
@@ -194,7 +194,7 @@ rpc Download(DownloadRequest) returns (stream DownloadChunk);
 Dạng này dành cho **byte**: tải file, xuất dữ liệu thô. Muốn stream **bản ghi có kiểu** thì
 dùng dạng ngay dưới.
 
-### `@stream` + `yield` — server streaming CÓ KIỂU (0.7.1)
+### `@stream` + `yield` - server streaming CÓ KIỂU (0.7.1)
 
 Handler là một **async generator**, mỗi `yield` là một message:
 
@@ -209,7 +209,7 @@ async def watch_changed_accounts(
         yield AccountChanged(sequence=event.sequence, account_id=event.account_id)
 ```
 
-Proto sinh ra **không có wrapper** — response chính là DTO của bạn:
+Proto sinh ra **không có wrapper** - response chính là DTO của bạn:
 
 ```protobuf
 rpc WatchChangedAccounts(WatchRequest) returns (stream AccountChanged);
@@ -226,7 +226,7 @@ Ba ràng buộc, đều báo lỗi lúc **khởi động** chứ không phải l
 | Thiếu annotation `-> AsyncIterator[<BaseModel>]` | Model yield ra chính là message của stream, không suy ra được nếu không khai |
 
 **Dọn dẹp khi client bỏ đi:** framework gọi `aclose()` trên generator của bạn ngay khi
-client huỷ, nên khối `finally:` (đóng session DB, nhả khoá) chạy đúng lúc đó — không chờ
+client huỷ, nên khối `finally:` (đóng session DB, nhả khoá) chạy đúng lúc đó - không chờ
 tới lượt thu gom rác. Cứ viết `try/finally` như bình thường.
 
 ---
@@ -236,7 +236,7 @@ tới lượt thu gom rác. Cứ viết `try/finally` như bình thường.
 > Đây là điều quan trọng nhất về Code-First gRPC.
 
 Protobuf xác định field bằng **số**, không phải tên. Nếu generator gán lại số khi
-generate lại, client cũ đọc nhầm response — một lỗi corruption khó debug.
+generate lại, client cũ đọc nhầm response - một lỗi corruption khó debug.
 
 XIME giải quyết bằng `proto.lock.json`:
 
@@ -256,7 +256,7 @@ XIME giải quyết bằng `proto.lock.json`:
 
 - Field đã có trong lock giữ số cũ mãi mãi.
 - Field mới nhận số kế tiếp, bỏ qua số đã reserved.
-- Field bị xoá trở thành `reserved` — số đó không bao giờ được tái dùng.
+- Field bị xoá trở thành `reserved` - số đó không bao giờ được tái dùng.
 
 **Commit `proto.lock.json` vào git.** Nó là một phần nguồn chân lý của bạn.
 
@@ -357,13 +357,13 @@ class PublicCryptoController:
     ...
 
 class InternalCryptoController:
-    server_id = "internal"    # phục vụ bởi GrpcAdapter("internal", port=50052)
+    server_id = "internal"    # phục vụ bởi GrpcAdapter("internal")
     ...
 ```
 
 ```python
 app.use(GrpcAdapter())                         # phục vụ server_id="default"
-app.use(GrpcAdapter("internal", port=50052))   # phục vụ server_id="internal"
+app.use(GrpcAdapter("internal"))   # cổng từ process.grpc.internal trong application.yml
 ```
 
 > **`server_id` phải khớp một adapter đã đăng ký.** `GrpcAdapter()` mặc định mang
@@ -382,11 +382,11 @@ Code-First và proto-first servicer có thể cùng tồn tại trong một `Grp
 hình độc lập:
 
 ```python
-# config/grpc.py — proto-first
+# config/grpc.py - proto-first
 from xime.adapters.grpc import configure_grpc_services
 configure_grpc_services("api.grpc.proto_first")
 
-# config/grpc_codefirst.py — code-first
+# config/grpc_codefirst.py - code-first
 from xime.adapters.grpc.codefirst import configure_grpc_codefirst
 configure_grpc_codefirst(packages=["api.grpc.codefirst"])
 ```
@@ -451,4 +451,4 @@ pip install "xime[grpc]"   # thêm grpcio, grpcio-tools, protobuf
 
 ---
 
-[← Routing](routing.md) · **7/9 — Code-First gRPC** · [Starters →](starters.md) · [gRPC Client SDK →](grpc-client.md)
+[← Routing](routing.md) · **7/9 - Code-First gRPC** · [Starters →](starters.md) · [gRPC Client SDK →](grpc-client.md)

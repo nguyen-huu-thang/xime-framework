@@ -89,7 +89,7 @@ dependency.register(ModbusClient)
 ```python
 # main.py
 app = Application()
-app.use(WebAdapter()).use(ModbusAdapter("inverter_1"))
+app.use(WebAdapter()).use(ModbusAdapter("inverter_1"))   # đối số tên `target_id` từ 0.8
 app.run()
 ```
 
@@ -204,6 +204,44 @@ Những điều cần biết:
 - **Nhịp không trôi**: adapter trừ thời gian chu kỳ khỏi lần sleep kế tiếp, nên `interval=1.0` vẫn là mỗi giây dù thiết bị trả lời chậm.
 - **Lỗi không làm dừng vòng**: một chu kỳ đọc hỏng được log rồi chạy tiếp. Thiết bị nhà máy rớt mạng là chuyện thường; một lần đọc hỏng không được giết luôn việc giám sát của cả ca.
 - **Giới hạn đồng thời**: handler chạy trong task có `max_concurrency` (mặc định 16), áp backpressure lên vòng poll khi đầy.
+
+### Biết mình đang xử lý máy nào: tham số `device` (0.8)
+
+Một adapter phục vụ một **loại** thiết bị (`bang-tai`) và giữ **nhiều thực thể** của
+loại đó (`BT-01`, `BT-02`), nên handler chạy một lần cho **mỗi thực thể**. Muốn biết
+lời gọi này thuộc máy nào thì khai thêm một tham số **tên `device`**:
+
+```python
+@poll(Conveyor, interval=1.0)
+async def on_sample(self, conveyor: Conveyor, device: str) -> None:
+    await self._store.save(device, conveyor.speed)
+
+@on_change(Conveyor.fault_code)
+async def on_fault(self, value: int, device: str) -> None:
+    await self._alerts.raise_fault(device, value)
+```
+
+Khớp theo **tên**, đúng quy ước `topic` của `@subscribe`. Không khai thì handler giữ
+nguyên một tham số như cũ; khai một tham số thứ hai mang **tên khác** là **lỗi khởi
+động**, không phải một tham số bị bỏ qua im lặng.
+
+Lấy danh sách thực thể bằng `devices_of`:
+
+```python
+for dev in modbus.devices_of("bang-tai"):
+    trang_thai = await modbus.read(Conveyor, device=dev)
+```
+
+⚠ **Tên thực thể không bao giờ là hằng trong code nghiệp vụ.** Viết cứng
+`device="BT-01"` là buộc code vào một nhà máy cụ thể; tên đến từ tham số handler, từ
+`devices_of(...)`, hoặc từ dữ liệu người dùng chọn.
+
+⏭ **0.8 mới khai chữ ký**; phần dựng nhiều kết nối cho một loại làm ở **0.8.1**. Hôm
+nay một adapter giữ đúng một thực thể trùng tên loại, nên code viết theo vòng lặp trên
+chạy đúng ở cả hai bản và không phải sửa gì.
+
+⛔ **`@poll(..., device=...)` và `@on_change(..., device=...)` đã bị bỏ ở 0.8.** Việc
+chọn máy nào không còn nằm ở decorator - handler chạy cho mọi thực thể của loại nó.
 
 ---
 

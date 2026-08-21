@@ -63,7 +63,7 @@ class ProtoSInt64(_ProtoIntMarker):
 _SCALARS: dict[Any, str] = {
     str: "string",
     bytes: "bytes",
-    bool: "bool",      # NOTE: check bool before int — bool is a subclass of int
+    bool: "bool",      # NOTE: check bool before int - bool is a subclass of int
     int: "int64",
     float: "double",
     uuid.UUID: "string",
@@ -84,7 +84,7 @@ def map_type(py_type: Any, registry: Any) -> tuple[str, bool]:
     the field uses proto3 explicit presence (the `optional` keyword).
     Trả chuỗi proto type và cờ optional (proto3 explicit presence).
     """
-    # 1) Annotated[...] — pull out integer-width override / underlying type.
+    # 1) Annotated[...] - pull out integer-width override / underlying type.
     if hasattr(py_type, "__metadata__"):
         base = py_type.__origin__
         for meta in py_type.__metadata__:
@@ -178,8 +178,8 @@ def python_hint(py_type: Any) -> str | None:
 # ---------------------------------------------------------------------------
 
 def _lookup_scalar(py_type: Any) -> str | None:
-    # bool is a subclass of int — match exact types, and check bool first.
-    # bool là subclass của int — khớp đúng type, kiểm tra bool trước.
+    # bool is a subclass of int - match exact types, and check bool first.
+    # bool là subclass của int - khớp đúng type, kiểm tra bool trước.
     if py_type is bool:
         return "bool"
     return _SCALARS.get(py_type)

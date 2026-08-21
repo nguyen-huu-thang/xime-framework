@@ -6,7 +6,7 @@ linear scale the datasheet specifies.
 
 The heavy lifting (struct packing per data type) is delegated to pymodbus'
 `convert_from_registers` / `convert_to_registers`, which are classmethods and
-need no live client — so this whole module is unit-testable without a network
+need no live client - so this whole module is unit-testable without a network
 or even a server. On top of that the codec adds two things pymodbus does not
 offer: byte-order swapping inside each register, and scale/offset.
 Phần đóng gói theo kiểu để pymodbus lo; codec thêm hai thứ pymodbus không có:
@@ -219,7 +219,7 @@ def _encode_bits(field: ModbusField, value: Any) -> list[bool]:
 def _unapply_scale(field: ModbusField, value: Any) -> Any:
     """Invert _apply_scale: raw = (value - offset) / scale.
 
-    Integer fields are rounded rather than truncated — truncation would make a
+    Integer fields are rounded rather than truncated - truncation would make a
     round-trip of 220.5 through scale=0.1 come back as 220.4.
     Field số nguyên được LÀM TRÒN, không cắt cụt.
     """

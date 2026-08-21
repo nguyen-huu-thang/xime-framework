@@ -2,11 +2,11 @@
 
 [English](../en/socket-adapter.md) | **Tiếng Việt**
 
-[← Starters](starters.md) · **8/9 — Socket Adapter** · [Đóng góp →](contributing.md)
+[← Starters](starters.md) · **8/9 - Socket Adapter** · [Đóng góp →](contributing.md)
 
 ---
 
-Socket Adapter thêm hỗ trợ **Unix Domain Socket (UDS)** cho XIME — một transport IPC
+Socket Adapter thêm hỗ trợ **Unix Domain Socket (UDS)** cho XIME - một transport IPC
 ít overhead cho việc gọi **Native Engine** (C++, Rust, Go) chạy cùng máy Linux.
 
 Đây không phải thay thế cho HTTP hay gRPC adapter. Nó giải quyết một bài toán cụ thể:
@@ -107,10 +107,10 @@ app.run()
 
 ## Các loại Endpoint
 
-Cả ba loại dùng cùng hai decorator — builder xác định upload hay download từ type hint
+Cả ba loại dùng cùng hai decorator - builder xác định upload hay download từ type hint
 của tham số stream:
 
-### `@command` — request/response đơn
+### `@command` - request/response đơn
 
 ```python
 @command("hash")
@@ -120,7 +120,7 @@ async def hash(self, request: HashRequest) -> HashResponse:
 
 Client gửi request dict, server trả response dict.
 
-### `@stream` + `UploadStream` — client gửi stream lên server
+### `@stream` + `UploadStream` - client gửi stream lên server
 
 ```python
 @stream("encrypt")
@@ -136,7 +136,7 @@ async def encrypt(
 Client gửi metadata trước, sau đó stream raw bytes. `UploadStream` là async iterator;
 có thể dùng `await upload.read()` để đọc từng chunk thủ công.
 
-### `@stream` + `DownloadStream` — server gửi stream về client
+### `@stream` + `DownloadStream` - server gửi stream về client
 
 ```python
 @stream("download")
@@ -170,8 +170,9 @@ socket:
 
 ### Xác định đường dẫn socket
 
-- Truyền `path` tường minh: `SocketAdapter("crypto", path="/var/run/x.sock")` → `/var/run/x.sock`
-- Không truyền `path`: suy từ `server_id` — `SocketAdapter("crypto")` → `/run/xime/crypto.sock`
+- Khai `path` trong cấu hình: `process.socket.crypto.path: /var/run/x.sock` → `/var/run/x.sock`.
+  ⚠ **Đối số `path` đã bỏ khỏi constructor ở 0.8** - đường dẫn thuộc về cặp `(tiến trình, adapter)`
+- Không truyền `path`: suy từ `server_id` - `SocketAdapter("crypto")` → `/run/xime/crypto.sock`
 
 ### Nhiều socket server
 
@@ -199,7 +200,7 @@ configure_socket_error_mappings({
 })
 ```
 
-Exception không được ánh xạ → `INTERNAL`. Handler không crash — chỉ session gây lỗi
+Exception không được ánh xạ → `INTERNAL`. Handler không crash - chỉ session gây lỗi
 đó bị kết thúc.
 
 ---
@@ -209,7 +210,7 @@ Exception không được ánh xạ → `INTERNAL`. Handler không crash — ch�
 Socket Adapter dùng **bảo mật kernel** thay vì TLS hoặc token. Hai lớp:
 
 **File permission:** Sau khi bind, socket file được `chmod` và tuỳ chọn `chown`. Process
-chạy sai user không thể kết nối — kernel chặn ngay tại `connect()`.
+chạy sai user không thể kết nối - kernel chặn ngay tại `connect()`.
 
 **SO_PEERCRED:** Khi client kết nối, server đọc UID client từ kernel. Nếu `allowed_uids`
 được cấu hình, kết nối từ UID không có trong danh sách bị từ chối ngay trước khi đọc bất
@@ -251,7 +252,7 @@ async with client.stream("encrypt", EncryptRequest(name="doc")) as up:
 await client.close()
 ```
 
-Client xử lý session multiplexing — có thể gọi nhiều `command()` đồng thời trên một
+Client xử lý session multiplexing - có thể gọi nhiều `command()` đồng thời trên một
 connection mà chúng không can thiệp lẫn nhau.
 
 ---
@@ -277,11 +278,11 @@ Protocol dùng **header cố định 16 byte + payload**:
 
 - **Envelope** (request/stream start): MessagePack `{"endpoint": "hash", "data": {...}}`
 - **Response**: MessagePack `response.model_dump()`
-- **Chunk**: raw bytes — không wrapper, overhead tối thiểu
+- **Chunk**: raw bytes - không wrapper, overhead tối thiểu
 - **Error**: MessagePack `{"code": "NOT_FOUND", "message": "..."}`
 
 Session ID cho phép nhiều stream đồng thời trên một connection.
 
 ---
 
-[← Starters](starters.md) · **8/9 — Socket Adapter** · [Đóng góp →](contributing.md)
+[← Starters](starters.md) · **8/9 - Socket Adapter** · [Đóng góp →](contributing.md)

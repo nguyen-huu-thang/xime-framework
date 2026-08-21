@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-# Attribute name used to mark MQTT handler methods — internal to the framework.
+# Attribute name used to mark MQTT handler methods - internal to the framework.
 # Mirrors ROUTE_ATTR (web) / ENDPOINT_ATTR (contract).
 MQTT_ATTR = "_xime_mqtt_info"
 

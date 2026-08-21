@@ -1,4 +1,4 @@
-"""Code-First gRPC — generate .proto from Python controllers + DTOs.
+"""Code-First gRPC - generate .proto from Python controllers + DTOs.
 
 Public API:
     from xime.adapters.grpc.codefirst import (
@@ -8,7 +8,7 @@ Public API:
     )
 
 The serving glue (CodeFirstGrpcBuilder) and marshalling import grpc/protobuf, so
-they are imported lazily where used (GrpcAdapter) — keeping plain generation
+they are imported lazily where used (GrpcAdapter) - keeping plain generation
 usable even where the grpc runtime is absent.
 Glue serving import grpc/protobuf nên được import lười tại nơi dùng (GrpcAdapter).
 """

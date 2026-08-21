@@ -1,5 +1,5 @@
 """
-configure_cors() — helper hạng nhất để bật CORS cho web adapter mà không phải tự
+configure_cors() - helper hạng nhất để bật CORS cho web adapter mà không phải tự
 wire Starlette CORSMiddleware hay subclass WebAdapter.
 
 Theo pattern configure_* (config-discovery): gọi một lần trong config/web.py.
@@ -35,7 +35,7 @@ from xime.core.exception.framework import StartupException
 from ._markers import FromConfig
 from ._registry import registry
 
-# Mặc định của Starlette CORSMiddleware — dùng khi không truyền tường minh và
+# Mặc định của Starlette CORSMiddleware - dùng khi không truyền tường minh và
 # YAML cũng không có khóa tương ứng. Giữ nguyên để hành vi dễ đoán, an toàn.
 _CORS_DEFAULTS: dict[str, Any] = {
     "allow_origins": (),
@@ -63,7 +63,7 @@ def configure_cors(
 
     Tham số nào để None sẽ được đọc từ RuntimeConfig (`cors.<tên>`) lúc build_app,
     thiếu nốt thì dùng mặc định Starlette. CORS được đăng ký như một user
-    middleware nên nằm ngoài JwtAuthMiddleware — preflight OPTIONS được xử lý
+    middleware nên nằm ngoài JwtAuthMiddleware - preflight OPTIONS được xử lý
     trước khi xác thực.
     """
     try:

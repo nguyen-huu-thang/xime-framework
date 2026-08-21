@@ -47,7 +47,7 @@ Two access shapes by design:
 
 ---
 
-## Local Filesystem Backend — `xime.starters.localfs`
+## Local Filesystem Backend - `xime.starters.localfs`
 
 ```python
 # config/dependency.py
@@ -78,7 +78,7 @@ storage:
 
 ---
 
-## S3 / MinIO Backend — `xime.starters.s3`
+## S3 / MinIO Backend - `xime.starters.s3`
 
 Install with `pip install "xime[s3]"` (adds `aioboto3`).
 
@@ -111,7 +111,7 @@ storage:
 
 ---
 
-## Streaming over HTTP — `xime.adapters.web.files`
+## Streaming over HTTP - `xime.adapters.web.files`
 
 Two helper functions, called from inside a controller (they are NOT DI components):
 

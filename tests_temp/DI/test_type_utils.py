@@ -68,7 +68,7 @@ class TestResolveConstructorHints:
 
     def test_returns_empty_for_builtin_init(self):
         """
-        get_type_hints(int.__init__) raises TypeError — phải được bắt
+        get_type_hints(int.__init__) raises TypeError - phải được bắt
         và trả về {} thay vì propagate.
         """
         result = resolve_constructor_hints(int)
@@ -170,7 +170,7 @@ class TestIsProtocol:
     def test_false_for_structural_implementation(self):
         """
         Class implement Protocol theo structural typing (không kế thừa Protocol)
-        vẫn phải là False — chỉ Protocol class mới là True.
+        vẫn phải là False - chỉ Protocol class mới là True.
         """
         class IService(Protocol):
             def serve(self) -> None: ...

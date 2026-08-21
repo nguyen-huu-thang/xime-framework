@@ -148,9 +148,9 @@ def _run_protoc(output_dir: str, files: dict[str, str]) -> list[str]:
             f"--python_out={abs_dir}",
             f"--grpc_python_out={abs_dir}",
             # Emit a FileDescriptorSet the server loads via a private
-            # DescriptorPool — no pb2 module imports, so no cross-server_id
+            # DescriptorPool - no pb2 module imports, so no cross-server_id
             # module name collisions.
-            # Phát FileDescriptorSet để server nạp qua DescriptorPool riêng —
+            # Phát FileDescriptorSet để server nạp qua DescriptorPool riêng -
             # không import module pb2, nên không đụng tên giữa các server_id.
             f"--descriptor_set_out={descriptor_out}",
             "--include_imports",

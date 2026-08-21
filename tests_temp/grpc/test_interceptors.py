@@ -72,7 +72,7 @@ class _SubNotFoundException(_NotFoundException):
 
 
 # ---------------------------------------------------------------------------
-# _GrpcInterceptorRegistry — trạng thái ban đầu
+# _GrpcInterceptorRegistry - trạng thái ban đầu
 # ---------------------------------------------------------------------------
 
 class TestGrpcInterceptorRegistryInitial:
@@ -86,7 +86,7 @@ class TestGrpcInterceptorRegistryInitial:
 
 
 # ---------------------------------------------------------------------------
-# _GrpcInterceptorRegistry — add_interceptors
+# _GrpcInterceptorRegistry - add_interceptors
 # ---------------------------------------------------------------------------
 
 class TestGrpcInterceptorRegistryAddInterceptors:
@@ -116,7 +116,7 @@ class TestGrpcInterceptorRegistryAddInterceptors:
 
 
 # ---------------------------------------------------------------------------
-# _GrpcInterceptorRegistry — set_error_mappings
+# _GrpcInterceptorRegistry - set_error_mappings
 # ---------------------------------------------------------------------------
 
 class TestGrpcInterceptorRegistryErrorMappings:
@@ -178,7 +178,7 @@ class TestRequestContextInterceptor:
     """
     Behaviour: context được set/clear quanh việc gọi handler thật, không phải
     quanh continuation().  intercept_service() trả về một RpcMethodHandler mới
-    (wrapped) — handler gốc được gọi bên trong wrapper.
+    (wrapped) - handler gốc được gọi bên trong wrapper.
     """
 
     @pytest.mark.asyncio
@@ -245,7 +245,7 @@ class TestRequestContextInterceptor:
 
     @pytest.mark.asyncio
     async def test_server_streaming_handler_yields_items(self):
-        """Regression: unary_stream handler is an async generator — the wrapper
+        """Regression: unary_stream handler is an async generator - the wrapper
         must `async for ... yield`, not `await` it (awaiting raises TypeError
         'async_generator object can't be awaited' and breaks every server-stream RPC)."""
         captured_id = None
@@ -275,7 +275,7 @@ class TestRequestContextInterceptor:
 
     @pytest.mark.asyncio
     async def test_bidi_streaming_handler_yields_items(self):
-        """stream_stream handler is also an async generator — same wrapping rule."""
+        """stream_stream handler is also an async generator - same wrapping rule."""
         async def handler_fn(request_iter, context):
             yield "x"
 
@@ -365,7 +365,7 @@ class TestErrorMappingInterceptorResolve:
 
 
 # ---------------------------------------------------------------------------
-# ErrorMappingInterceptor.intercept_service — handler wrapping
+# ErrorMappingInterceptor.intercept_service - handler wrapping
 # ---------------------------------------------------------------------------
 
 class TestErrorMappingInterceptorIntercept:

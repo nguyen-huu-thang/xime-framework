@@ -14,7 +14,7 @@ class MqttControllerScanner:
 
     A class is an MQTT controller if at least one of its methods carries the
     MQTT_ATTR attribute (set by @subscribe / @rpc). Mirrors the web
-    ControllerScanner; returns types only — instances come from the DI container.
+    ControllerScanner; returns types only - instances come from the DI container.
     Tìm controller có method gắn @subscribe/@rpc; chỉ trả type, instance lấy từ DI.
     """
 

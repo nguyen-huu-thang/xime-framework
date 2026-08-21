@@ -2,7 +2,7 @@
 
 **English** | [Tiếng Việt](../vn/transaction.md)
 
-[← Routing](routing.md) · **5/9 — Transaction** · [Starters →](starters.md)
+[← Routing](routing.md) · **5/9 - Transaction** · [Starters →](starters.md)
 
 ---
 
@@ -54,7 +54,7 @@ class TransactionManager:
         ...
 ```
 
-It is callable — `self.transaction()` returns a `TransactionContext` (the async context manager).
+It is callable - `self.transaction()` returns a `TransactionContext` (the async context manager).
 
 ---
 
@@ -89,13 +89,13 @@ dependency.bind({
 })
 ```
 
-Business code depends only on the `TransactionManager` interface — it knows nothing about SQLAlchemy.
+Business code depends only on the `TransactionManager` interface - it knows nothing about SQLAlchemy.
 
 ---
 
 ## Read-only Blocks: `read_only()` (0.6.3)
 
-Use cases that only read use `ReadOnlyManager` — a **separate, sibling** manager
+Use cases that only read use `ReadOnlyManager` - a **separate, sibling** manager
 to `TransactionManager`, not a method on it:
 
 ```python
@@ -142,7 +142,7 @@ dependency.bind({
 | Block reads nothing | still issues `BEGIN` | checks out no connection at all |
 
 Because it never commits, an accidental entity change inside a read-only block
-**cannot reach the database**. It is also **not reported** — see the warning below.
+**cannot reach the database**. It is also **not reported** - see the warning below.
 
 Nesting is deliberate: a read-only service composes into a writing use case
 without opening a second connection, and without closing the enclosing
@@ -150,15 +150,15 @@ transaction's session.
 
 ### Why a separate manager, not `transaction.read_only()`
 
-Being its own binding means it can be pointed at a different backend later — a
-**read replica**, a different isolation level, or a caching decorator — just by
+Being its own binding means it can be pointed at a different backend later - a
+**read replica**, a different isolation level, or a caching decorator - just by
 binding `ReadOnlyManager` to another implementation, with **no change to business
 code**. As a method it would stay welded to whatever engine the write path uses.
 
 ### Warning: do not modify what you read outside a transaction
 
 The framework does **not** prevent changes to entities read in a read-only block.
-Such changes are dropped silently — no error, no log.
+Such changes are dropped silently - no error, no log.
 
 > **Rule:** entities read in `read_only()` are for **returning or rendering only**.
 > To modify one, open `transaction()` and **load it again** in there.
@@ -178,18 +178,18 @@ Detaching first keeps **already-loaded** attributes readable after the block:
 async with self.read_only():
     product = await self.products.find_or_fail(product_id)
 
-return product.name        # OK — the loaded value is intact
+return product.name        # OK - the loaded value is intact
 return product.category    # FAILS unless eager-loaded (use selectinload)
 ```
 
-Unloaded relationships still fail, exactly as in plain async SQLAlchemy — keep
+Unloaded relationships still fail, exactly as in plain async SQLAlchemy - keep
 using `selectinload` explicitly as you already do.
 
 ---
 
 ## Nested Transactions
 
-The current design uses a single session per transaction scope. Nested `async with self.transaction():` blocks are possible but share the same underlying session — true nested transactions (savepoints) are not yet supported.
+The current design uses a single session per transaction scope. Nested `async with self.transaction():` blocks are possible but share the same underlying session - true nested transactions (savepoints) are not yet supported.
 
 ---
 
@@ -208,7 +208,7 @@ async with self.transaction(isolation="SERIALIZABLE"):
 
 ## Why Not `@transactional`?
 
-Spring's `@transactional` works via AOP bytecode proxies — a mechanism that does not exist in Python. Python equivalents typically use metaclasses or decorators that wrap methods in proxy objects, which:
+Spring's `@transactional` works via AOP bytecode proxies - a mechanism that does not exist in Python. Python equivalents typically use metaclasses or decorators that wrap methods in proxy objects, which:
 
 - Hide the transaction boundary from the reader
 - Complicate stack traces (proxy frames appear)
@@ -219,4 +219,4 @@ The `async with self.transaction():` approach makes the boundary obvious, the st
 
 ---
 
-[← Routing](routing.md) · **5/9 — Transaction** · [Starters →](starters.md)
+[← Routing](routing.md) · **5/9 - Transaction** · [Starters →](starters.md)

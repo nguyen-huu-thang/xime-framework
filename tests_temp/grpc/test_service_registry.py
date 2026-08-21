@@ -42,7 +42,7 @@ def _add_fn_c(servicer, server): pass
 
 
 # ---------------------------------------------------------------------------
-# _GrpcServiceRegistry — trạng thái ban đầu
+# _GrpcServiceRegistry - trạng thái ban đầu
 # ---------------------------------------------------------------------------
 
 class TestGrpcServiceRegistryInitial:
@@ -56,7 +56,7 @@ class TestGrpcServiceRegistryInitial:
 
 
 # ---------------------------------------------------------------------------
-# _GrpcServiceRegistry — register() một lần
+# _GrpcServiceRegistry - register() một lần
 # ---------------------------------------------------------------------------
 
 class TestGrpcServiceRegistryRegisterOnce:
@@ -85,7 +85,7 @@ class TestGrpcServiceRegistryRegisterOnce:
 
 
 # ---------------------------------------------------------------------------
-# _GrpcServiceRegistry — register() nhiều lần (accumulate)
+# _GrpcServiceRegistry - register() nhiều lần (accumulate)
 # ---------------------------------------------------------------------------
 
 class TestGrpcServiceRegistryRegisterMultipleTimes:
@@ -114,7 +114,7 @@ class TestGrpcServiceRegistryRegisterMultipleTimes:
 
 
 # ---------------------------------------------------------------------------
-# _GrpcServiceRegistry — get_packages / get_bindings trả về bản sao
+# _GrpcServiceRegistry - get_packages / get_bindings trả về bản sao
 # ---------------------------------------------------------------------------
 
 class TestGrpcServiceRegistryReturnsCopies:
@@ -134,7 +134,7 @@ class TestGrpcServiceRegistryReturnsCopies:
 
 
 # ---------------------------------------------------------------------------
-# configure_grpc_services() — sử dụng module-level singleton
+# configure_grpc_services() - sử dụng module-level singleton
 # ---------------------------------------------------------------------------
 
 class TestConfigureGrpcServices:

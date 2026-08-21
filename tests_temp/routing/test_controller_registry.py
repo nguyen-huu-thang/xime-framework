@@ -2,7 +2,7 @@
 Test _ControllerRegistry và configure_controllers():
   - Registry mới tạo bắt đầu rỗng
   - add() thêm package vào danh sách, giữ thứ tự
-  - get_packages() trả về copy — mutation bên ngoài không ảnh hưởng registry
+  - get_packages() trả về copy - mutation bên ngoài không ảnh hưởng registry
   - configure_controllers() ghi vào controller_registry
   - Gọi configure_controllers() nhiều lần → cộng dồn, không ghi đè
 """

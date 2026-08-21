@@ -1,5 +1,5 @@
 """
-Test EventBus (fire-and-forget — handler chạy nền bằng asyncio Task):
+Test EventBus (fire-and-forget - handler chạy nền bằng asyncio Task):
 
   - subscribe + publish + drain: handler được gọi với đúng event
   - publish KHÔNG block: trả về ngay cả khi handler chậm
@@ -7,7 +7,7 @@ Test EventBus (fire-and-forget — handler chạy nền bằng asyncio Task):
   - đăng ký cùng một handler hai lần: được gọi hai lần
   - event type khác nhau: độc lập nhau; khớp exact type, không theo kế thừa
   - publish event không có handler: không lỗi
-  - handler lỗi: KHÔNG propagate về publisher — chỉ log; handler khác vẫn chạy
+  - handler lỗi: KHÔNG propagate về publisher - chỉ log; handler khác vẫn chạy
   - drain(): chờ toàn bộ handler đang bay xong; không có task thì no-op
 """
 import asyncio
@@ -127,7 +127,7 @@ async def test_multiple_handlers_all_called():
     await bus.publish(event)
     await bus.drain()
 
-    # Handler chạy concurrent — cam kết "tất cả được gọi", không cam kết thứ tự.
+    # Handler chạy concurrent - cam kết "tất cả được gọi", không cam kết thứ tự.
     assert h1.received == [event]
     assert h2.received == [event]
     assert h3.received == [event]
@@ -169,7 +169,7 @@ async def test_different_event_types_are_independent():
 
 @pytest.mark.asyncio
 async def test_subclass_event_does_not_dispatch_to_parent_handler():
-    """Bus khớp exact type, không dùng isinstance — không dispatch theo kế thừa."""
+    """Bus khớp exact type, không dùng isinstance - không dispatch theo kế thừa."""
     class SpecialUserCreatedEvent(UserCreatedEvent):
         pass
 
@@ -207,7 +207,7 @@ async def test_publish_unregistered_event_type_is_noop():
 
 
 # ---------------------------------------------------------------------------
-# Xử lý lỗi trong handler — lỗi KHÔNG propagate, chỉ log
+# Xử lý lỗi trong handler - lỗi KHÔNG propagate, chỉ log
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio

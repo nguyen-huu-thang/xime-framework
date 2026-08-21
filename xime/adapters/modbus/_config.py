@@ -169,7 +169,7 @@ class ModbusServerConfig(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Registry — controller packages and shared connections
+# Registry - controller packages and shared connections
 # ---------------------------------------------------------------------------
 
 class _ModbusRegistry:

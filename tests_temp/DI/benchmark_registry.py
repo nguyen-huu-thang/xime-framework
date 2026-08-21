@@ -21,7 +21,7 @@ try:
     from dependency_injector import containers, providers
     _HAS_DI = True
 except ImportError:
-    # Thư viện đã được gỡ khỏi dependency (0.6) — chỉ đo backend mới.
+    # Thư viện đã được gỡ khỏi dependency (0.6) - chỉ đo backend mới.
     _HAS_DI = False
 
 from xime.core.container.graph import DependencyGraph
@@ -51,7 +51,7 @@ def build_classes(n):
 
 
 # --------------------------------------------------------------------------
-# Backend cũ — tái hiện đúng logic registry trước đây (dependency-injector)
+# Backend cũ - tái hiện đúng logic registry trước đây (dependency-injector)
 # --------------------------------------------------------------------------
 
 class OldRegistry:
@@ -130,7 +130,7 @@ def main():
     print(f"{'new':10} {new_build * 1e3:14.3f} {new_warm * 1e3:18.3f} {new_warm / gets * 1e6:20.4f}")
 
     if not _HAS_DI:
-        print("\n(dependency-injector đã gỡ — bỏ qua đối chiếu backend cũ)")
+        print("\n(dependency-injector đã gỡ - bỏ qua đối chiếu backend cũ)")
         return
 
     bench_old(*build_classes(N))

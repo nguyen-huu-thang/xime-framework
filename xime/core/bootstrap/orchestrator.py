@@ -9,6 +9,8 @@ from xime.core.container import XimeContainer
 from xime.core.event._config import event_bus_registry
 from xime.core.event.bus import EventBus
 from xime.core.lifecycle.manager import LifecycleManager
+from xime.core.link import BoundHandler, ProcessLink, collect, link_registry
+from xime.core.refdata import RefDataArena, refdata_registry
 
 
 class StartupOrchestrator:
@@ -20,18 +22,27 @@ class StartupOrchestrator:
       2. Force-instantiate all singletons in topological order
       3. Collect framework-managed lifecycle components (e.g. SchedulerRunner)
       4. Create LifecycleManager with all instances (user singletons + framework components)
-      5. Call lifecycle.start() — invokes PostConstruct on each eligible instance
+      5. Call lifecycle.start() - invokes PostConstruct on each eligible instance
 
     Shutdown sequence:
-      1. Call lifecycle.stop() — invokes PreDestroy in reverse order
+      1. Call lifecycle.stop() - invokes PreDestroy in reverse order
          (framework components shut down before user singletons)
 
     get(cls) is available after start() and delegates to the DI container.
     """
 
-    def __init__(self, binding: BindingConfig, runtime: RuntimeConfig) -> None:
+    def __init__(
+        self,
+        binding: BindingConfig,
+        runtime: RuntimeConfig,
+        *,
+        refdata: RefDataArena | None = None,
+        link: ProcessLink | None = None,
+    ) -> None:
         self._binding = binding
         self._runtime = runtime
+        self._refdata = refdata
+        self._link = link
         self._container: XimeContainer | None = None
         self._lifecycle: LifecycleManager | None = None
 
@@ -43,7 +54,7 @@ class StartupOrchestrator:
     async def start(self) -> None:
         """
         Execute the full startup pipeline.
-        Raises RuntimeError if called while already running — call stop() first.
+        Raises RuntimeError if called while already running - call stop() first.
         Raises StartupException (or subclass) on DI validation errors.
         Raises on the first PostConstruct failure (fail-fast).
         """
@@ -63,6 +74,26 @@ class StartupOrchestrator:
             .bind(self._binding.bindings)
             .register(*self._binding.explicit_classes)
         )
+        # Kho tham chiếu: arena là singleton dựng sẵn (nó mở vùng nhớ chung
+        # trước khi container tồn tại), còn từng bảng là class thường - DI
+        # dựng chúng và inject arena vào, đúng khuôn `Store(env)`.
+        #
+        # ⚠ `register()` chứ không phải `scan()`: bảng của ứng dụng nằm ở
+        # package của ứng dụng, và framework chỉ biết chúng qua danh sách
+        # `configure_refdata()` đã khai - cùng danh sách mà tiến trình gốc dùng
+        # để cấp vùng nhớ. Hai chỗ đọc **một** danh sách, nên không có cửa cho
+        # một bảng vào DI mà không có vùng nhớ.
+        if self._refdata is not None:
+            container.register_instance(RefDataArena, self._refdata)
+            container.register(*refdata_registry.classes())
+        # Bus: cùng khuôn - object đã dựng sẵn (nó mở vùng nhớ chung trước khi
+        # container tồn tại), còn class chứa handler là class thường nên DI
+        # inject cho chúng bình thường.
+        if self._link is not None:
+            container.register_instance(ProcessLink, self._link)
+            container.register(*link_registry.handlers())
+        # Đăng ký hai lần (một lần ở đây, một lần do `scan` gặp cùng class) là
+        # vô hại - container gộp lại thành một singleton. Có test canh.
         # Framework-contributed instances (e.g. generated gRPC clients) are
         # pre-registered before build so user classes can depend on their types.
         # Instance do framework đóng góp (vd gRPC client sinh ra) được
@@ -97,6 +128,21 @@ class StartupOrchestrator:
 
         self._lifecycle = LifecycleManager(instances)
         await self._lifecycle.start()
+
+    async def run_once(self) -> None:
+        """Chạy `run_once()` của mọi singleton khai nó. **Chỉ primary gọi.**"""
+        if self._lifecycle is None:
+            raise RuntimeError(
+                "StartupOrchestrator has not started. Call start() first."
+            )
+        await self._lifecycle.run_once()
+
+    def link_handlers(self) -> dict[str, BoundHandler]:
+        """Gom handler bus từ các instance DI. Rỗng khi app không khai kênh nào."""
+        classes = link_registry.handlers()
+        if not classes or self._container is None:
+            return {}
+        return collect([self._container.get(cls) for cls in classes])
 
     async def stop(self) -> None:
         """
@@ -165,7 +211,7 @@ class StartupOrchestrator:
                 grpc_clients_registry,
             )
         except ImportError:
-            return None  # grpc extra not installed — skip silently
+            return None  # grpc extra not installed - skip silently
 
         if not grpc_clients_registry.items():
             return None
@@ -193,7 +239,7 @@ class StartupOrchestrator:
                 wire_dynamic_certificates,
             )
         except ImportError:
-            return  # grpc extra not installed — skip silently
+            return  # grpc extra not installed - skip silently
 
         if not grpc_clients_registry.items():
             return
@@ -213,18 +259,25 @@ class StartupOrchestrator:
         Each starter has its own _try_build_* method below.  To integrate a new
         starter: add a private static method _try_build_<name> and call it here.
         """
-        builders = [
-            StartupOrchestrator._try_build_scheduler,
-        ]
+        # ⚠ `SchedulerRunner` ĐÃ RỜI danh sách này ở 0.8. Nó vào đây thì
+        # `LifecycleManager` gọi `post_construct` của nó ở **mọi tiến trình**, và
+        # vòng lặp lịch chạy bốn lần trong một cụm bốn tiến trình. Nay nó là
+        # **adapter hạng đơn nhất** (`starters/scheduler/_adapter.py`), do
+        # `Application` đăng ký và chỉ `start()` ở primary.
+        builders: list[Callable[[Callable[[type], Any]], object | None]] = []
         return [c for b in builders if (c := b(resolver)) is not None]
 
     @staticmethod
-    def _try_build_scheduler(resolver: Callable[[type], Any]) -> object | None:
-        """Return a SchedulerRunner if the scheduler starter is configured, else None."""
+    def build_scheduler_runner(resolver: Callable[[type], Any]) -> object | None:
+        """Return a SchedulerRunner if the scheduler starter is configured, else None.
+
+        Gọi từ `Application`, không phải từ `_build_framework_components` - xem
+        ghi chú ở đó.
+        """
         try:
             from xime.starters.scheduler._config import scheduler_registry
         except ImportError:
-            return None  # starter not installed — skip silently
+            return None  # starter not installed - skip silently
 
         config = scheduler_registry.get()
         if config is None:

@@ -4,7 +4,7 @@ from xime.starters.storage._exceptions import UnsupportedOperation as Unsupporte
 from xime.starters.storage._service import StorageService as StorageService
 from xime.starters.storage._service import StorageStat as StorageStat
 
-# The `X as X` form is PEP 484's explicit re-export marker — see the note in
+# The `X as X` form is PEP 484's explicit re-export marker - see the note in
 # xime/starters/jwt/__init__.py for why __all__ cannot serve that role here.
 #
 # __all__ controls which classes the DI scanner registers when a service calls

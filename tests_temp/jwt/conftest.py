@@ -50,7 +50,7 @@ def hs256_expired_token() -> str:
 
 
 # ---------------------------------------------------------------------------
-# RSA fixtures — bỏ qua nếu package 'cryptography' chưa cài
+# RSA fixtures - bỏ qua nếu package 'cryptography' chưa cài
 # ---------------------------------------------------------------------------
 
 @pytest.fixture

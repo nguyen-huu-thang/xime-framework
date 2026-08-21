@@ -75,12 +75,12 @@ class PyJwtTokenVerifier:
     """JWT token verifier using PyJWT.
 
     Supports all algorithms PyJWT provides:
-        Symmetric  — HS256, HS384, HS512
-        RSA        — RS256, RS384, RS512, PS256, PS384, PS512
-        EC         — ES256, ES256K, ES384, ES512
-        OKP        — EdDSA
+        Symmetric - HS256, HS384, HS512
+        RSA - RS256, RS384, RS512, PS256, PS384, PS512
+        EC - ES256, ES256K, ES384, ES512
+        OKP - EdDSA
 
-    No constructor dependencies — DI registers this as a singleton automatically
+    No constructor dependencies - DI registers this as a singleton automatically
     when the developer calls dependency.scan("xime.starters.jwt").
 
     Also used internally by JwtAuthMiddleware for HTTP Bearer token verification.

@@ -2,7 +2,7 @@
 
 **English** | [Tiếng Việt](../vn/starters.md)
 
-[← Transaction](transaction.md) · **6/9 — Starters** · [Testing →](testing.md)
+[← Transaction](transaction.md) · **6/9 - Starters** · [Testing →](testing.md)
 
 ---
 
@@ -33,7 +33,7 @@ dependency.bind({
 })
 ```
 
-> `ReadOnlyManager` is optional — skip the binding and everything behaves as
+> `ReadOnlyManager` is optional - skip the binding and everything behaves as
 > before. See the "Read-only Blocks" section in [Transaction](transaction.md).
 
 ```yaml
@@ -68,10 +68,10 @@ class UserRepository:
 
 Transaction is managed by the use case layer, not the repository.
 
-### Built-in CRUD — `CrudRepository[T]`
+### Built-in CRUD - `CrudRepository[T]`
 
 Instead of every project re-writing the same base repository, the starter ships
-`CrudRepository[T]` — similar to Spring Data's `JpaRepository`/`CrudRepository`.
+`CrudRepository[T]` - similar to Spring Data's `JpaRepository`/`CrudRepository`.
 A concrete repository only declares its `model` and adds any custom queries:
 
 ```python
@@ -124,7 +124,7 @@ class CategoryService:
 ```
 
 > `CrudRepository` declares `model` as an abstract property, so **the base class
-> itself is abstract** — the DI scanner skips it; only concrete subclasses (with
+> itself is abstract** - the DI scanner skips it; only concrete subclasses (with
 > `model` set) become singletons. No spurious singletons, no extra registration.
 
 ---
@@ -172,7 +172,7 @@ configure_jwt(JwtMiddlewareConfig(
 
 **`public_paths` is matched exactly**, not by prefix. Listing `/docs` does not open `/docs/oauth2-redirect`; only a trailing slash is ignored.
 
-### Keys that rotate — `JwtKeyProvider`
+### Keys that rotate - `JwtKeyProvider`
 
 A single static key cannot survive rotation: while an issuer switches keys, tokens signed by the old one are still valid and tokens signed by the new one are already arriving. `kid` (RFC 7515 §4.1.4) says which key signed a token, and a provider turns that into candidate keys.
 
@@ -332,6 +332,57 @@ configure_scheduler(SchedulerConfig(
 
 ---
 
+## Three places to keep shared state - which one
+
+Since 0.8 the framework offers three things that look alike. They **do not
+replace each other**:
+
+| | `RefData` | `Store` (LMDB) | `CacheService` (Redis) |
+|---|---|---|---|
+| Scope | **one machine** (shared memory) | **one machine** (local file) | **several machines** |
+| Data | has a durable source, **replaced wholesale** | has **no** durable source | anything |
+| Who writes | **primary only** | every process | every process, every machine |
+| Examples | JWT keys, app directory | rate limits, passkey challenges, replay protection | anything two machines must both see |
+
+⭐⭐ **The line, and it is about MECHANISM rather than taste:** `RefData`,
+`Store` and `ProcessLink` are built on shared memory and local files, so they stop
+at a machine boundary - **and a container is a machine**. `CacheService` is where
+the framework serves the **several machines** case: k8s, `docker compose scale`,
+several VPS behind a load balancer.
+
+> **`RefData` / `Store` are the fast path within ONE machine. `CacheService` is the
+> shared path across MANY.** Neither is an exception to the other.
+
+⚠ Do not read `Store` as a replacement for Redis. Run three pods and each pod has
+**its own store** - `Store` is not broken there, its scope is exactly what it says.
+
+### A concrete example: `Store` closes one layer of a hole
+
+A login rate limit kept in process memory has its threshold **multiplied by the
+number of processes** - four processes give an attacker four times the budget.
+`Store` fixes precisely that: the whole cluster on **one machine** shares one
+table.
+
+⚠ But run **two machines** behind a load balancer and the threshold is again
+**multiplied by the number of machines**. The same failure, just smaller. And
+sharding does not fix it: shards are cut by `org_id`, while a rate limit is keyed
+by IP or username - a different axis, and someone who cannot log in yet has no
+`org_id` at all.
+
+> **The line: everything the framework provides itself (`RefData`, `Store`,
+> `ProcessLink`) is ONE MACHINE, always. Something several machines must see is
+> the application's own choice, and it goes through `CacheService`.**
+
+Three more things `Store` cannot do, so you do not have to rediscover them: a
+**distributed lock** across machines, **pub/sub** (LMDB has no equivalent), and
+data larger than one machine's `total_max`.
+
+⛔ The other way round, do not reach for Redis where `Store` would do: a network
+round trip per rate-limit read is a real price for something already sitting in
+RAM on the same machine.
+
+---
+
 ## Cache Starter
 
 `xime.starters.cache`
@@ -424,7 +475,7 @@ It offers two access shapes:
 
 Plus `delete`, `exists`, `stat` (size/content-type/etag) and `url` (presigned URL where supported). Keys are backend-relative; **every backend** rejects empty, absolute, and `..` (traversal) keys identically.
 
-### Local filesystem backend — `xime.starters.localfs`
+### Local filesystem backend - `xime.starters.localfs`
 
 ```python
 # config/dependency.py
@@ -444,7 +495,7 @@ storage:
 
 Writes are atomic (staged to a `.part` file then `os.replace`); path traversal is rejected; file IO runs in worker threads. No extra dependency. `url()` raises `UnsupportedOperation` - serve files via the web helper below.
 
-### S3 / MinIO backend — `xime.starters.s3`
+### S3 / MinIO backend - `xime.starters.s3`
 
 Install with `pip install "xime[s3]"`.
 
@@ -471,7 +522,7 @@ storage:
 
 `S3ClientProvider` opens the async client in `PostConstruct` and closes it in `PreDestroy`. `put_stream` uses multipart upload (aborted on error), `open_stream` issues a ranged GET, and `url()` returns a presigned URL. `aioboto3` is imported lazily.
 
-### Streaming over HTTP — `xime.adapters.web.files`
+### Streaming over HTTP - `xime.adapters.web.files`
 
 Two helpers stream stored objects to/from HTTP without buffering, called from inside a controller:
 
@@ -531,4 +582,4 @@ configure_scheduler(SchedulerConfig(jobs=[
 
 ---
 
-[← Transaction](transaction.md) · **6/9 — Starters** · [Testing →](testing.md)
+[← Transaction](transaction.md) · **6/9 - Starters** · [Testing →](testing.md)

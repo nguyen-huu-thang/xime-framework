@@ -184,7 +184,7 @@ def test_binding_with_complete_impl_passes():
 
 
 # ---------------------------------------------------------------------------
-# MissingBindingException — chi tiết attributes và hint
+# MissingBindingException - chi tiết attributes và hint
 # ---------------------------------------------------------------------------
 
 def test_missing_binding_exception_attributes():
@@ -305,7 +305,7 @@ def test_unregistered_dependency_not_raised_when_registered():
     class Service:
         def __init__(self, repo: Repo): ...
 
-    # Không raise — Repo được scan
+    # Không raise - Repo được scan
     _validate(
         resolved={Service: {"repo": Repo}, Repo: {}},
         all_classes=[Service, Repo],

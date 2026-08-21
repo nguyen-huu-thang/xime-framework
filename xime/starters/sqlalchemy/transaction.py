@@ -16,7 +16,7 @@ class SqlAlchemyTransactionContext:
     On exit  : commits on success, rolls back on any exception, closes the session,
                and restores the ContextVar to its previous state.
 
-    Created by SqlAlchemyTransactionManager.__call__() — not used directly.
+    Created by SqlAlchemyTransactionManager.__call__() - not used directly.
     """
 
     def __init__(self, session: AsyncSession) -> None:
@@ -28,7 +28,7 @@ class SqlAlchemyTransactionContext:
         try:
             await self._session.begin()
         except BaseException:
-            # begin() raised before the transaction opened — __aexit__ will NOT
+            # begin() raised before the transaction opened - __aexit__ will NOT
             # be called, so we must restore the ContextVar manually here.
             _current_session.reset(self._token)
             self._token = None

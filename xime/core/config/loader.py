@@ -15,13 +15,13 @@ class YamlConfigLoader:
     Loads runtime configuration from YAML files and merges env-specific overrides.
 
     Load order:
-      1. resources/application.yml       — base config (committed to repo)
-      2. resources/application-{env}.yml — env override (may be gitignored)
+      1. resources/application.yml - base config (committed to repo)
+      2. resources/application-{env}.yml - env override (may be gitignored)
 
     Keys in the override file take precedence; nested dicts are merged deeply
     rather than replaced wholesale.
 
-    Missing files are ignored — returning an empty dict — so the framework
+    Missing files are ignored - returning an empty dict - so the framework
     starts with defaults even when no YAML is present. A missing *override* is
     ignored but WARNED about: silently falling back to application.yml is how a
     production service ends up running on development values.

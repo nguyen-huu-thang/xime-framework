@@ -2,7 +2,7 @@
 
 [English](../en/transaction.md) | **Tiếng Việt**
 
-[← Routing](routing.md) · **5/9 — Transaction** · [Starters →](starters.md)
+[← Routing](routing.md) · **5/9 - Transaction** · [Starters →](starters.md)
 
 ---
 
@@ -54,7 +54,7 @@ class TransactionManager:
         ...
 ```
 
-Nó có thể gọi được — `self.transaction()` trả về `TransactionContext` (async context manager).
+Nó có thể gọi được - `self.transaction()` trả về `TransactionContext` (async context manager).
 
 ---
 
@@ -89,13 +89,13 @@ dependency.bind({
 })
 ```
 
-Business code chỉ phụ thuộc vào interface `TransactionManager` — nó không biết gì về SQLAlchemy.
+Business code chỉ phụ thuộc vào interface `TransactionManager` - nó không biết gì về SQLAlchemy.
 
 ---
 
 ## Khối chỉ đọc: `read_only()` (0.6.3)
 
-Usecase chỉ đọc dùng `ReadOnlyManager` — một manager **riêng, cùng cấp** với
+Usecase chỉ đọc dùng `ReadOnlyManager` - một manager **riêng, cùng cấp** với
 `TransactionManager`, không phải method của nó:
 
 ```python
@@ -142,7 +142,7 @@ dependency.bind({
 | Khối không đọc gì | vẫn `BEGIN` | không lấy connection nào khỏi pool |
 
 Vì không bao giờ commit, lỡ sửa entity trong khối chỉ đọc thì thay đổi **không
-xuống được database**. Nhưng nó cũng **không báo lỗi** — xem cảnh báo bên dưới.
+xuống được database**. Nhưng nó cũng **không báo lỗi** - xem cảnh báo bên dưới.
 
 Việc lồng nhau là có chủ đích: một service chỉ đọc ghép được vào usecase có ghi
 mà không mở thêm connection thứ hai, và không tự đóng session của transaction bao
@@ -150,21 +150,21 @@ ngoài.
 
 ### Vì sao là manager riêng, không phải `transaction.read_only()`
 
-Là binding riêng nên về sau trỏ được sang backend khác — **read replica**, mức
-isolation khác, hay một decorator cache — chỉ bằng cách bind
+Là binding riêng nên về sau trỏ được sang backend khác - **read replica**, mức
+isolation khác, hay một decorator cache - chỉ bằng cách bind
 `ReadOnlyManager` sang implementation khác, **không sửa dòng code nghiệp vụ nào**.
 Nếu nó là method của `TransactionManager` thì nó dính chặt vào engine của đường ghi.
 
 ### Cảnh báo: đọc ngoài transaction thì đừng sửa
 
 Framework **không chặn** việc sửa entity đọc được từ khối chỉ đọc. Thay đổi sẽ bị
-bỏ đi im lặng — không lỗi, không log.
+bỏ đi im lặng - không lỗi, không log.
 
 > **Quy tắc:** entity đọc trong `read_only()` chỉ để **trả về hoặc render**.
 > Muốn sửa thì mở `transaction()` và **load lại** trong đó.
 
 Đây là lựa chọn có chủ đích: chặn được ca này thì phải hook vào SQLAlchemy event
-và trả phí runtime cho mọi lời đọc — trái nguyên tắc minimal magic của Xime.
+và trả phí runtime cho mọi lời đọc - trái nguyên tắc minimal magic của Xime.
 
 ### Entity vẫn dùng được sau khi ra khỏi khối
 
@@ -177,18 +177,18 @@ các thuộc tính **đã nạp** vẫn đọc bình thường sau khi ra khỏi
 async with self.read_only():
     product = await self.products.find_or_fail(product_id)
 
-return product.name        # OK — giá trị đã nạp còn nguyên
+return product.name        # OK - giá trị đã nạp còn nguyên
 return product.category    # LỖI nếu chưa eager-load (dùng selectinload)
 ```
 
-Quan hệ chưa nạp thì vẫn lỗi, giống hệt async SQLAlchemy thông thường — cứ
+Quan hệ chưa nạp thì vẫn lỗi, giống hệt async SQLAlchemy thông thường - cứ
 `selectinload` tường minh như vẫn làm.
 
 ---
 
 ## Nested Transaction
 
-Thiết kế hiện tại dùng một session cho mỗi transaction scope. Các khối `async with self.transaction():` lồng nhau có thể dùng nhưng share cùng underlying session — nested transaction thực sự (savepoint) chưa được hỗ trợ.
+Thiết kế hiện tại dùng một session cho mỗi transaction scope. Các khối `async with self.transaction():` lồng nhau có thể dùng nhưng share cùng underlying session - nested transaction thực sự (savepoint) chưa được hỗ trợ.
 
 ---
 
@@ -207,7 +207,7 @@ async with self.transaction(isolation="SERIALIZABLE"):
 
 ## Tại sao không dùng `@transactional`?
 
-`@transactional` của Spring hoạt động qua AOP bytecode proxy — cơ chế này không tồn tại trong Python. Các giải pháp Python tương đương thường dùng metaclass hoặc decorator bọc method trong proxy object, gây ra:
+`@transactional` của Spring hoạt động qua AOP bytecode proxy - cơ chế này không tồn tại trong Python. Các giải pháp Python tương đương thường dùng metaclass hoặc decorator bọc method trong proxy object, gây ra:
 
 - Boundary transaction bị ẩn khỏi người đọc code
 - Stack trace phức tạp (xuất hiện proxy frame)
@@ -218,4 +218,4 @@ Cách tiếp cận `async with self.transaction():` làm boundary rõ ràng, sta
 
 ---
 
-[← Routing](routing.md) · **5/9 — Transaction** · [Starters →](starters.md)
+[← Routing](routing.md) · **5/9 - Transaction** · [Starters →](starters.md)

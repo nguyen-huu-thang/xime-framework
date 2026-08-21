@@ -7,7 +7,7 @@ from typing import Any
 class _SecurityField:
     """
     A single typed slot in the security context, backed by its own ContextVar.
-    Each field is independent — set/get/clear without touching the others.
+    Each field is independent - set/get/clear without touching the others.
     """
 
     def __init__(self, var_name: str) -> None:
@@ -34,7 +34,7 @@ class _SecurityField:
 
 
 # ---------------------------------------------------------------------------
-# Module-level singletons — import these directly
+# Module-level singletons - import these directly
 #
 #   from xime.core.security.context import identity, permissions
 #   from xime.core.security import identity, permissions

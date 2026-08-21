@@ -15,7 +15,7 @@ class _FakeTransactionContext:
         exc: BaseException | None,
         tb: Any,
     ) -> None:
-        pass  # no commit, no rollback — nothing to do
+        pass  # no commit, no rollback - nothing to do
 
 
 class FakeTransactionManager:
@@ -24,7 +24,7 @@ class FakeTransactionManager:
 
     Replaces any TransactionManager implementation without requiring a real
     database connection. The ``async with self.transaction()`` boundary in
-    business code still works exactly as written — entering and exiting raise
+    business code still works exactly as written - entering and exiting raise
     no errors, but no actual database work occurs.
 
     Usage with TestApplication::
@@ -63,7 +63,7 @@ class _FakeReadOnlyContext:
         exc: BaseException | None,
         tb: Any,
     ) -> None:
-        pass  # nothing was opened — nothing to discard
+        pass  # nothing was opened - nothing to discard
 
 
 class FakeReadOnlyManager:

@@ -19,7 +19,7 @@ class JwtTokenSigner(Protocol):
     Bind in config/dependency.py if using a custom implementation:
         dependency.bind({JwtTokenSigner: MyCustomSigner})
 
-    Or use PyJwtTokenSigner directly (no binding needed — it implements the protocol):
+    Or use PyJwtTokenSigner directly (no binding needed - it implements the protocol):
         dependency.scan("xime.starters.jwt")
     """
 
@@ -32,7 +32,7 @@ class JwtTokenSigner(Protocol):
     ) -> str:
         """Sign a payload and return the serialized JWT string.
 
-        Developer is fully responsible for building the payload — standard claims
+        Developer is fully responsible for building the payload - standard claims
         (sub, iss, aud, iat, exp, jti, ...) and any custom claims.
 
         Args:
@@ -59,12 +59,12 @@ class PyJwtTokenSigner:
     """JWT token signer using PyJWT.
 
     Supports all algorithms PyJWT provides:
-        Symmetric  — HS256, HS384, HS512
-        RSA        — RS256, RS384, RS512, PS256, PS384, PS512
-        EC         — ES256, ES256K, ES384, ES512
-        OKP        — EdDSA
+        Symmetric - HS256, HS384, HS512
+        RSA - RS256, RS384, RS512, PS256, PS384, PS512
+        EC - ES256, ES256K, ES384, ES512
+        OKP - EdDSA
 
-    No constructor dependencies — DI registers this as a singleton automatically
+    No constructor dependencies - DI registers this as a singleton automatically
     when the developer calls dependency.scan("xime.starters.jwt").
 
     Three header names are refused instead of merged, each for its own reason:

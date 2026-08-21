@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field, PrivateAttr, TypeAdapter, ValidationError
 
@@ -26,60 +26,11 @@ _SENSITIVE_KEY_FRAGMENTS = ("secret", "password", "passwd", "token", "key", "cre
 _MASK = "***"
 
 
-class ServerTlsConfig(BaseModel):
-    """TLS (HTTPS) for the HTTP adapter, off unless certfile/keyfile are set.
-
-    The platform deliberately runs without a gateway or reverse proxy, so each
-    service terminates TLS itself. Paths point at PEM files on disk, which is
-    what a public CA client such as certbot produces; certificates issued by the
-    internal Trust CA are meant for service-to-service mTLS and are NOT trusted
-    by browsers, so they do not belong here.
-    Platform cố ý không có gateway/reverse proxy nên mỗi service tự kết thúc TLS.
-    Đường dẫn trỏ tới file PEM trên đĩa - đúng thứ certbot sinh ra; cert do CA nội
-    bộ Trust cấp là để service nhận diện nhau qua mTLS, trình duyệt KHÔNG tin, nên
-    không dùng ở đây.
-
-    Leaving everything unset keeps the plain-HTTP behaviour unchanged.
-    Để trống toàn bộ thì giữ nguyên hành vi HTTP thuần như cũ.
-    """
-
-    certfile: str | None = None
-    keyfile: str | None = None
-    keyfile_password: str | None = None
-
-    # Client-certificate verification (mTLS over REST). ca_certs is the CA bundle
-    # used to verify client certificates; cert_reqs says whether one is demanded.
-    # Xác thực client cert (mTLS trên REST). ca_certs là bundle CA để verify cert
-    # của client; cert_reqs quyết định có bắt buộc client xuất trình hay không.
-    ca_certs: str | None = None
-
-    # Spelled out rather than taking ssl.CERT_* integers: an operator reading
-    # `cert_reqs: required` in YAML understands it, `cert_reqs: 2` they do not.
-    # Dùng chữ thay vì số ssl.CERT_*: operator đọc `cert_reqs: required` là hiểu,
-    # `cert_reqs: 2` thì không.
-    cert_reqs: Literal["none", "optional", "required"] | None = None
-
-    ciphers: str | None = None
-
-    @property
-    def enabled(self) -> bool:
-        """True when TLS is configured at all (mirrors uvicorn's own is_ssl)."""
-        return bool(self.certfile or self.keyfile)
-
-
-class ServerConfig(BaseModel):
-    """Network binding for the HTTP adapter."""
-
-    host: str = "0.0.0.0"
-    port: int = 8080
-    ssl: ServerTlsConfig = Field(default_factory=ServerTlsConfig)
-
-
 class LoggingConfig(BaseModel):
     """Default root logging applied at bootstrap.
 
     Without this, Python's root logger defaults to WARNING with no handler, so
-    every INFO log the framework and app emit is swallowed — the app appears to
+    every INFO log the framework and app emit is swallowed - the app appears to
     start silently and is easily mistaken for hung. The framework configures
     root logging only when `enabled` is true AND no handler is already installed
     (so an app that calls logging.basicConfig/dictConfig itself always wins).
@@ -113,7 +64,6 @@ class RuntimeConfig(BaseModel):
     model_config = {"extra": "allow"}
 
     env: str = "development"
-    server: ServerConfig = Field(default_factory=ServerConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
 
     # Cached flat dict built once in model_post_init.
@@ -195,7 +145,7 @@ class RuntimeConfig(BaseModel):
         thầm BẬT dù operator viết TẮT. Hàm này chấp nhận đúng những gì Pydantic
         chấp nhận cho field `bool` và từ chối phần còn lại một cách ồn ào.
 
-        Raises StartupException on a value that is not a recognisable boolean —
+        Raises StartupException on a value that is not a recognisable boolean -
         a misconfigured flag must fail at startup, not behave arbitrarily later.
         Ném StartupException khi giá trị không phải boolean nhận dạng được - cờ
         cấu hình sai phải nổ lúc startup, không được hành xử tuỳ tiện về sau.

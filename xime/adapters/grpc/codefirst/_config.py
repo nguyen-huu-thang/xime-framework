@@ -18,7 +18,7 @@ class _CodeFirstRegistry:
 
     Holds the packages that contain code-first controllers plus where to write
     generated artifacts. Follows the explicit-call pattern of the other
-    configure_* helpers — no auto-scan magic.
+    configure_* helpers - no auto-scan magic.
     Singleton module-level: gói chứa controller code-first + nơi ghi artifact.
     """
 
@@ -39,7 +39,7 @@ class _CodeFirstRegistry:
 
     # The output dir / lock file are global for the project; use the first unit
     # that sets them, defaulting otherwise.
-    # output dir / lock file mang tính toàn dự án — lấy unit đầu tiên đặt.
+    # output dir / lock file mang tính toàn dự án - lấy unit đầu tiên đặt.
     def output_dir(self) -> str:
         return self._units[0].output_dir if self._units else "generated"
 

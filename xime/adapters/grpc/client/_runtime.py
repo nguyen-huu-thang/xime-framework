@@ -23,10 +23,10 @@ trong cùng process không bao giờ đụng tên module và không đụng sys.
 Byte streaming follows the xime chunk-wrapper convention (see
 _stream_convention.py): upload sends wrapper(metadata=...) first then
 wrapper(chunk=...); download yields wrapper.chunk per message. A typed server
-stream has no wrapper — each message is the response DTO itself.
+stream has no wrapper - each message is the response DTO itself.
 Streaming byte theo quy ước chunk-wrapper của xime: upload gửi
 wrapper(metadata=...) trước rồi wrapper(chunk=...); download yield
-wrapper.chunk mỗi message. Stream CÓ KIỂU không dùng wrapper — mỗi message
+wrapper.chunk mỗi message. Stream CÓ KIỂU không dùng wrapper - mỗi message
 chính là DTO response.
 """
 
@@ -47,7 +47,7 @@ class SdkRuntime:
             ) from None
 
     # ------------------------------------------------------------------
-    # Call helpers — one per StreamKind
+    # Call helpers - one per StreamKind
     # ------------------------------------------------------------------
 
     async def unary(
@@ -131,7 +131,7 @@ class SdkRuntime:
         response_model: type[BaseModel],
         response_message: str,
     ) -> AsyncIterator[BaseModel]:
-        """Server stream of DTOs — same marshalling as `unary`, one per message.
+        """Server stream of DTOs - same marshalling as `unary`, one per message.
 
         Separate from server_stream() on purpose: that one carries raw bytes
         through a chunk wrapper (file download) and must keep doing so.

@@ -2,11 +2,11 @@
 
 **English** | [Tiếng Việt](../vn/socket-adapter.md)
 
-[← Starters](starters.md) · **8/9 — Socket Adapter** · [Contributing →](contributing.md)
+[← Starters](starters.md) · **8/9 - Socket Adapter** · [Contributing →](contributing.md)
 
 ---
 
-The Socket Adapter adds **Unix Domain Socket (UDS)** support to XIME — a low-overhead IPC transport for calling a **Native Engine** (C++, Rust, Go) running on the same Linux machine.
+The Socket Adapter adds **Unix Domain Socket (UDS)** support to XIME - a low-overhead IPC transport for calling a **Native Engine** (C++, Rust, Go) running on the same Linux machine.
 
 This is not a replacement for the HTTP or gRPC adapters. It solves a specific problem: calling a compute-intensive local worker (encryption, compression, video transcoding, hashing) without the network stack overhead of TCP.
 
@@ -102,9 +102,9 @@ app.run()
 
 ## Endpoint Types
 
-All three types use the same two decorators — the builder determines upload vs. download from the type hint of the stream parameter:
+All three types use the same two decorators - the builder determines upload vs. download from the type hint of the stream parameter:
 
-### `@command` — unary request/response
+### `@command` - unary request/response
 
 ```python
 @command("hash")
@@ -114,7 +114,7 @@ async def hash(self, request: HashRequest) -> HashResponse:
 
 Client sends a request dict, server returns a response dict.
 
-### `@stream` + `UploadStream` — client-to-server streaming
+### `@stream` + `UploadStream` - client-to-server streaming
 
 ```python
 @stream("encrypt")
@@ -129,7 +129,7 @@ async def encrypt(
 
 The client sends a metadata message first, then streams raw bytes. `UploadStream` is an async iterator; you can also call `await upload.read()` for manual chunk-by-chunk reading.
 
-### `@stream` + `DownloadStream` — server-to-client streaming
+### `@stream` + `DownloadStream` - server-to-client streaming
 
 ```python
 @stream("download")
@@ -163,8 +163,9 @@ socket:
 
 ### Socket path resolution
 
-- With explicit `path`: `SocketAdapter("crypto", path="/var/run/x.sock")` → `/var/run/x.sock`
-- Without `path`: the path is derived from `server_id` — `SocketAdapter("crypto")` → `/run/xime/crypto.sock`
+- With `path` in configuration: `process.socket.crypto.path: /var/run/x.sock` → `/var/run/x.sock`.
+  ⚠ **The `path` argument was dropped in 0.8** - a path belongs to the pair `(process, adapter)`
+- Without `path`: the path is derived from `server_id` - `SocketAdapter("crypto")` → `/run/xime/crypto.sock`
 
 ### Multiple socket servers
 
@@ -192,7 +193,7 @@ configure_socket_error_mappings({
 })
 ```
 
-Unmapped exceptions become `INTERNAL`. The handler does not crash — only the session that raised the exception is terminated.
+Unmapped exceptions become `INTERNAL`. The handler does not crash - only the session that raised the exception is terminated.
 
 ---
 
@@ -200,7 +201,7 @@ Unmapped exceptions become `INTERNAL`. The handler does not crash — only the s
 
 Socket Adapter uses **kernel-level security** instead of TLS or tokens. Two layers:
 
-**File permission:** After binding, the socket file is `chmod`'ed and optionally `chown`'ed. Processes running as the wrong user cannot connect — the kernel blocks them at `connect()`.
+**File permission:** After binding, the socket file is `chmod`'ed and optionally `chown`'ed. Processes running as the wrong user cannot connect - the kernel blocks them at `connect()`.
 
 **SO_PEERCRED:** When a client connects, the server reads the client's UID from the kernel. If `allowed_uids` is configured, connections from unlisted UIDs are dropped immediately before any data is read.
 
@@ -238,7 +239,7 @@ async with client.stream("encrypt", EncryptRequest(name="doc")) as up:
 await client.close()
 ```
 
-The client handles session multiplexing — you can fire multiple `command()` calls concurrently on a single connection and they will not interfere with each other.
+The client handles session multiplexing - you can fire multiple `command()` calls concurrently on a single connection and they will not interfere with each other.
 
 ---
 
@@ -263,11 +264,11 @@ The protocol uses a **16-byte fixed header + payload**:
 
 - **Envelope** (request/stream start): MessagePack `{"endpoint": "hash", "data": {...}}`
 - **Response**: MessagePack `response.model_dump()`
-- **Chunk**: raw bytes — no wrapping, minimal overhead
+- **Chunk**: raw bytes - no wrapping, minimal overhead
 - **Error**: MessagePack `{"code": "NOT_FOUND", "message": "..."}`
 
 Session IDs allow multiple concurrent streams over one connection.
 
 ---
 
-[← Starters](starters.md) · **8/9 — Socket Adapter** · [Contributing →](contributing.md)
+[← Starters](starters.md) · **8/9 - Socket Adapter** · [Contributing →](contributing.md)

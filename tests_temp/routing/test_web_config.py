@@ -93,7 +93,7 @@ class TestWebRegistryExceptionHandlers:
 
 
 # ---------------------------------------------------------------------------
-# build_app — handlers/middleware thực sự được gắn vào FastAPI app
+# build_app - handlers/middleware thực sự được gắn vào FastAPI app
 # ---------------------------------------------------------------------------
 
 class TestBuildAppApplies:

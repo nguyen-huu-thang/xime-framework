@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-# Attribute name used to mark route methods — internal to the framework.
+# Attribute name used to mark route methods - internal to the framework.
 ROUTE_ATTR = "_xime_route_info"
 
 
@@ -28,7 +28,7 @@ class RouteInfo:
 def _route(method: str, path: str, **kwargs: Any) -> Callable:
     """Factory that creates an HTTP-method-specific decorator.
 
-    The decorator attaches a RouteInfo instance to the method — nothing else.
+    The decorator attaches a RouteInfo instance to the method - nothing else.
     Actual route registration happens later in WebAdapter startup.
     """
     def decorator(func: Callable) -> Callable:

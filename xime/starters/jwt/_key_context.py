@@ -7,7 +7,7 @@ from dataclasses import dataclass
 class KeyContext:
     """Key material and algorithm for JWT signing/verification.
 
-    Developer sets algorithm explicitly — no auto-resolution from key type.
+    Developer sets algorithm explicitly - no auto-resolution from key type.
 
     HMAC (symmetric):
         KeyContext(algorithm="HS256", secret="your-secret")

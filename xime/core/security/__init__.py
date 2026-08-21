@@ -25,7 +25,7 @@ __all__ = [
     "PEER_SANS",
     # Enums
     "CredentialType",
-    # Protocols — implement to plug custom logic
+    # Protocols - implement to plug custom logic
     "AuthenticationManager",
     "AuthorizationManager",
 ]

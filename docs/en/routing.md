@@ -2,7 +2,7 @@
 
 **English** | [Tiếng Việt](../vn/routing.md)
 
-[← Configuration](configuration.md) · **4/9 — Routing** · [Transaction →](transaction.md)
+[← Configuration](configuration.md) · **4/9 - Routing** · [Transaction →](transaction.md)
 
 ---
 
@@ -204,7 +204,7 @@ class OrderController:
 Routes are registered in the **order they are declared** in the class (Python 3.7+ dict insertion order). This matters for FastAPI when paths overlap:
 
 ```python
-@get("/me")          # registered first — matched before /{user_id}
+@get("/me")          # registered first - matched before /{user_id}
 async def get_me(self) -> UserResponse: ...
 
 @get("/{user_id}")   # registered second
@@ -220,7 +220,7 @@ when the JWT starter is used) automatically. To add your own middleware or map
 exceptions to responses, declare them in the config layer following the
 `configure_*` pattern - no `WebAdapter` subclassing.
 
-**Custom middleware** — `configure_middleware(cls, **options)`:
+**Custom middleware** - `configure_middleware(cls, **options)`:
 
 ```python
 # config/web.py
@@ -234,7 +234,7 @@ Your middleware sits between `RequestContextMiddleware` (outermost) and
 `JwtAuthMiddleware` (innermost), so e.g. CORS preflight is handled before auth.
 Among your middleware, the one declared first runs first.
 
-**Middleware needing DI services / runtime config** (since 0.6.1) — `configure_middleware`
+**Middleware needing DI services / runtime config** (since 0.6.1) - `configure_middleware`
 only takes *static* options. When your own middleware needs a singleton from the
 DI container or a value from runtime config (only known after the container is
 built), use the `Inject` / `FromConfig` markers as option values instead of
@@ -259,7 +259,7 @@ configure_middleware(
 - `FromConfig("a.b", default)` reads `RuntimeConfig` via dot-notation, falling back to `default`.
 - Non-marker values pass through unchanged (fully backward compatible).
 
-**CORS** (since 0.6.1) — `configure_cors(...)` is a first-class helper. Any
+**CORS** (since 0.6.1) - `configure_cors(...)` is a first-class helper. Any
 argument you leave unset is read from `application.yml` under `cors.<name>`,
 falling back to Starlette's defaults, so operators tune CORS via YAML without
 touching code. Declare it before other middleware so it stays outermost.
@@ -272,7 +272,7 @@ configure_cors(allow_origins=["http://localhost:3000"], allow_credentials=True)
 # or configure_cors()  → read everything from the cors.* block in application.yml
 ```
 
-**Global exception handlers** — `configure_exception_handlers({Exc: handler})`:
+**Global exception handlers** - `configure_exception_handlers({Exc: handler})`:
 
 ```python
 # config/web.py
@@ -298,10 +298,10 @@ multi-server setups.
 
 ## Known Limitations
 
-- **Two-package declaration** — must list in both `dependency.scan()` and `configure_controllers()`
-- **`__all__` not respected by controller scanner** — all controller classes in the package are found regardless of `__all__`
-- **gRPC routing** — not yet in scope for class-based controllers (WebSocket landed in 0.7.2, see [WebSocket](websocket.md))
+- **Two-package declaration** - must list in both `dependency.scan()` and `configure_controllers()`
+- **`__all__` not respected by controller scanner** - all controller classes in the package are found regardless of `__all__`
+- **gRPC routing** - not yet in scope for class-based controllers (WebSocket landed in 0.7.2, see [WebSocket](websocket.md))
 
 ---
 
-[← Configuration](configuration.md) · **4/9 — Routing** · [Transaction →](transaction.md)
+[← Configuration](configuration.md) · **4/9 - Routing** · [Transaction →](transaction.md)

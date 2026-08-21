@@ -1,4 +1,4 @@
-"""Modbus TCP adapter — talk to PLCs and field devices directly.
+"""Modbus TCP adapter - talk to PLCs and field devices directly.
 
 Where web/gRPC/socket are request/response and MQTT is pub/sub, Modbus is a
 third model: Xime acts as the MASTER and actively reads the device. The adapter
@@ -12,7 +12,7 @@ Public API (0.7):
     )
 
 Usage:
-    # domain/devices/inverter.py — a plain data class, NOT scanned into DI
+    # domain/devices/inverter.py - a plain data class, NOT scanned into DI
     from xime.adapters.modbus import device, Holding, Coil, Input
 
     @device(unit=1)

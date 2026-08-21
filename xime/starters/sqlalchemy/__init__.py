@@ -1,4 +1,4 @@
-# The `X as X` form is PEP 484's explicit re-export marker — see the note in
+# The `X as X` form is PEP 484's explicit re-export marker - see the note in
 # xime/starters/jwt/__init__.py for why __all__ cannot serve that role here.
 #
 # The guard translates a missing dependency into a message that names the extra.
@@ -50,7 +50,7 @@ except ImportError as exc:  # pragma: no cover - needs an install without the ex
 #     scanned packages) become DI singletons
 #   - EntityNotFoundError    : runtime exception type, not a service
 #   - SqlAlchemyTransactionContext / SqlAlchemyReadOnlyContext : per-block objects
-#     created by __call__(), not singletons — their session dep is never in the
+#     created by __call__(), not singletons - their session dep is never in the
 #     DI container
 #
 # All classes are still importable directly:

@@ -32,10 +32,27 @@ T = TypeVar("T")
 class OpcuaClient:
     """Read and write nodes over the shared connection(s)."""
 
-    # `server` has a default, so the container treats it as optional — see the
+    # `server` has a default, so the container treats it as optional - see the
     # same note on ModbusClient.__init__.
     def __init__(self, server: str = DEFAULT_SERVER) -> None:
         self._default_server = server
+
+    def servers_of(self, kind: str | None = None) -> list[str]:
+        """Every entity of `kind` this process holds, in configuration order.
+
+            for srv in opcua.servers_of("tram-bom"):
+                tank = await opcua.read_model(Tank, server=srv)
+
+        Đối xứng với `ModbusClient.devices_of` - đọc phần giải thích *loại* và
+        *thực thể* ở đó (thiết kế 5.7.3). Khác đúng một chỗ: **từ vựng**. OPC UA
+        nói *server*, Modbus nói *device*, và mỗi adapter giữ chữ của miền nó vì
+        cái tên ở đây nói về **thứ thật ngoài kia**, không nói về framework.
+
+        ⏭ **0.8 mới khai chữ ký; phần dựng N kết nối làm ở 0.8.1.**
+        """
+        name = kind or self._default_server
+        connection = opcua_registry.connection(name)
+        return [name] if connection.is_served else []
 
     async def read(self, node_id: str, *, server: str | None = None) -> Any:
         """Read a single node by its raw NodeId string."""

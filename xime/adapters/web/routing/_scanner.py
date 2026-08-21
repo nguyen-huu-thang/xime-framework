@@ -16,7 +16,7 @@ class ControllerScanner:
     A class is a controller if at least one of its own methods carries the
     ROUTE_ATTR attribute (set by @get, @post, @put, @patch, @delete).
 
-    The scanner never creates instances — it returns types only.
+    The scanner never creates instances - it returns types only.
     Instances are fetched from the DI container by RouteBuilder.
     """
 

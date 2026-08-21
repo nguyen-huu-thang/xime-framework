@@ -40,7 +40,7 @@ class ConnectionWriter:
     """Serializes frame writes on a single connection.
 
     Multiple concurrent sessions share one underlying StreamWriter, so writes
-    must be serialized — otherwise frames from different sessions could interleave.
+    must be serialized - otherwise frames from different sessions could interleave.
     Nhiều session dùng chung một writer → phải tuần tự hoá để frame không chèn lẫn.
 
     drain() inside send() gives natural backpressure to whoever is writing
@@ -151,9 +151,9 @@ class SessionManager:
 
     The connection's read loop demultiplexes incoming frames by session_id into
     each session's queue; handler coroutines await that queue. This is the core
-    multiplexing mechanism — analogous to HTTP/2 stream_id, but far simpler
+    multiplexing mechanism - analogous to HTTP/2 stream_id, but far simpler
     because everything is same-machine and trusted.
-    Read loop demux frame theo session_id vào queue từng session — cơ chế multiplex
+    Read loop demux frame theo session_id vào queue từng session - cơ chế multiplex
     cốt lõi, giống stream_id của HTTP/2 nhưng đơn giản hơn nhiều (cùng máy, tin cậy).
     """
 

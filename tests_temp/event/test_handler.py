@@ -24,9 +24,9 @@ def test_missing_handle_rejected():
 
 
 def test_runtime_checkable_checks_presence_not_callability():
-    # @runtime_checkable chỉ kiểm tra attribute có tồn tại không —
+    # @runtime_checkable chỉ kiểm tra attribute có tồn tại không -
     # giới hạn Python, nhất quán với PostConstruct / PreDestroy.
     class NotCallable:
         handle = "not_a_function"
 
-    assert isinstance(NotCallable(), EventHandler)  # True — hành vi Python
+    assert isinstance(NotCallable(), EventHandler)  # True - hành vi Python

@@ -6,7 +6,7 @@ import abc
 
 A controller method declares `upload: UploadStream` / `download: DownloadStream`
 to opt into streaming. Each transport (Socket, Code-First gRPC) supplies its own
-concrete implementation, but controllers depend only on these abstract types —
+concrete implementation, but controllers depend only on these abstract types -
 so the same controller serves multiple transports unchanged.
 Controller chỉ phụ thuộc abstract type; mỗi transport cấp implementation riêng,
 nhờ đó cùng một controller phục vụ nhiều transport.

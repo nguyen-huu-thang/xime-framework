@@ -305,7 +305,7 @@ def wire_dynamic_certificates(resolver) -> None:
     try:
         holder = resolver(GrpcClientChannels)
     except KeyError:
-        return  # no clients built — nothing to wire
+        return  # no clients built - nothing to wire
 
     dynamic_channels = [
         ch for ch in holder.channels

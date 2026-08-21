@@ -13,7 +13,7 @@ from xime.core.lifecycle import LifecycleManager
 
 
 # ---------------------------------------------------------------------------
-# Helpers — ghi lại thứ tự gọi
+# Helpers - ghi lại thứ tự gọi
 # ---------------------------------------------------------------------------
 
 class CallTracker:
@@ -49,7 +49,7 @@ class ServiceC:
 
 
 # ---------------------------------------------------------------------------
-# start() — thứ tự và bỏ qua
+# start() - thứ tự và bỏ qua
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -84,7 +84,7 @@ async def test_start_empty_list_is_noop():
 
 
 # ---------------------------------------------------------------------------
-# stop() — thứ tự ngược và bỏ qua
+# stop() - thứ tự ngược và bỏ qua
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -120,7 +120,7 @@ async def test_stop_empty_list_is_noop():
 
 
 # ---------------------------------------------------------------------------
-# start() — fail fast
+# start() - fail fast
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -144,7 +144,7 @@ async def test_start_fails_fast_on_post_construct_error():
 
 
 # ---------------------------------------------------------------------------
-# stop() — thu thập lỗi
+# stop() - thu thập lỗi
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
@@ -186,7 +186,7 @@ async def test_stop_continues_after_one_failure():
             tracker.log.append("failing.stop")
             raise RuntimeError("cleanup failed")
 
-    # Thứ tự: good, failing — stop sẽ gọi ngược: failing trước, good sau
+    # Thứ tự: good, failing - stop sẽ gọi ngược: failing trước, good sau
     manager = LifecycleManager([GoodService(), FailingService()])
 
     with pytest.raises(ExceptionGroup):

@@ -69,7 +69,8 @@ class RunningServer:
     async def __aenter__(self):
         from pymodbus.client import AsyncModbusTcpClient
 
-        self._task = asyncio.create_task(self.adapter.start(self._app))
+        await self.adapter.start(self._app)
+        self._task = asyncio.create_task(self.adapter.serve())
         await asyncio.sleep(0.15)  # listener up + first refresh done
         self.master = AsyncModbusTcpClient("127.0.0.1", port=self.port, timeout=2)
         await self.master.connect()

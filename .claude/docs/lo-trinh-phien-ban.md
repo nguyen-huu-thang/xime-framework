@@ -1,8 +1,11 @@
 # Lộ trình phiên bản Xime Framework
 
 > Chỉ mục tổng các mốc phiên bản đã chốt, để tra nhanh "việc X làm ở bản nào".
-> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật **2026-08-18**.
-> Hiện tại: **0.7.2 ĐÃ PHÁT HÀNH trên PyPI** (đo 2026-08-18: 13 bản, `0.1.0` ->
+> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật **2026-08-20**.
+> ⭐ **0.8.0 ĐÃ THI CÔNG XONG 2026-08-20** (2376 test) nhưng **CHƯA phát hành** -
+> chưa commit, chưa tag, chưa lên PyPI. Vì cài **editable** nên nó **đã có hiệu
+> lực với cả 31 app trên máy này**, kể cả khi PyPI vẫn dừng ở 0.7.2.
+> Hiện tại trên PyPI: **0.7.2** (đo 2026-08-18: 13 bản, `0.1.0` ->
 > `0.7.2`). ⚠ Dòng cũ ghi *"0.7.1 đã phát hành, đang làm dở 0.7.2"* là **SAI, đừng
 > tin lại** - **lần thứ ba** cùng khuôn ở repo này. **Kiểm bằng lệnh, không bằng trí
 > nhớ.** Vì `xime` cài **editable** nên mọi thay đổi ở repo phát triển có hiệu lực
@@ -16,12 +19,12 @@
 | 0.6 | Thay `dependency-injector` + dynamic interface binding | Đã phát hành (2026-06-23) |
 | 0.6.1 | Web adapter: middleware lấy DI/config qua marker + `configure_cors`; SQLAlchemy starter: `CrudRepository` | Đã phát hành (2026-06-29) |
 | 0.6.2 | Starter `mail` (SMTP) + hardening sau kiểm toán toàn diện | Đã phát hành (2026-06-30) |
-| 0.6.3 | Gỡ chặn app chạy thật: ~~`PEER_APP_ID`~~ + **TLS/HTTPS cho web adapter** + **khối chỉ đọc `read_only()`**; kèm `get_bool` ép kiểu cờ + metadata gói | Đã phát hành (2026-07-29). ⛔ **`PEER_APP_ID` đã bị GỠ ở 0.7.1** vì mang khái niệm của nền tảng vào framework - thay bằng `PEER_SANS`, xem [`go-phu-thuoc-khai-niem-2026-08-17.md`](go-phu-thuoc-khai-niem-2026-08-17.md) |
-| 0.7.0 | Fieldbus công nghiệp (Modbus TCP + OPC UA) | **Đã phát hành PyPI** (2026-08-01) - 1463 test. Kiểm toán trước khi đẩy: `kiem-toan-0.7.md` |
-| 0.7.1 | Server-stream có kiểu (`@stream`) + đợt 2 vá bảo mật (F2/F4/F5/F6/F7/F8/F11/F12/F13/F16) + lỗi đua khi tắt scheduler + ⛔ **GỠ PHỤ THUỘC KHÁI NIỆM (BREAKING)** + khai 3 phụ thuộc bắc cầu | **Đã phát hành PyPI** (commit `975e10c` / `a3fcad8`) - **1516 passed / 11 skipped**. Xem `ket-qua-0.7.1-2026-08-03.md`, [`go-phu-thuoc-khai-niem-2026-08-17.md`](go-phu-thuoc-khai-niem-2026-08-17.md), [`phu-thuoc-bac-cau-chua-khai-2026-08-17.md`](phu-thuoc-bac-cau-chua-khai-2026-08-17.md) |
-| 0.7.2 | ⭐ **JWT: khoá xoay theo `kid`** (`JwtKeyProvider`) + ba knob PyJWT từng bị giấu (`algorithms`/`leeway`/`require`) + `sign(headers=)` + ⛔ **`configure_jwt()` thiếu nguồn khoá NỔ lúc khởi động** | ✅ **ĐÃ PHÁT HÀNH** - PyPI có `0.7.2`, commit `3cfc3f3 v0.7.2`. Cuối bản: **1624 passed / 11 skipped** (F1+F3+F14+F15+F17 vào cùng ngày). ⚠ **Thiếu tag `v0.7.2`** và **repo phát hành `upload` chưa theo kịp** (còn ở `a3fcad8 v0.7.1`). Xem [`jwt-keyset-va-trung-tinh-2026-08-18.md`](jwt-keyset-va-trung-tinh-2026-08-18.md) |
-| 0.7.x | **Vá, không chạm API**: ~~A1 keyset JWT~~ · ~~F3 nâng sàn deps~~ · ~~F14~~ · ~~F15~~ · ~~F17~~ · ~~F1 WebSocket~~ | ✅ **A1 xong 2026-08-18 phía framework** ([`jwt-keyset-va-trung-tinh-2026-08-18.md`](jwt-keyset-va-trung-tinh-2026-08-18.md)) - ⚠ **19 app vẫn fail-open**, framework chỉ xoá lý do tồn tại của lỗ. ✅✅ **F1 + F3 + F14 + F15 + F17 xong cùng ngày 2026-08-18 - HẾT MỤC 0.7.x.** ⚠ F1 thêm API công khai (`@ws`) và đổi hành vi mặc định, tức **vượt luật "0.7.x không chạm API"** - chủ dự án chốt ngoại lệ có ý thức vì chưa app nào dùng WebSocket. Bảng đầy đủ ở [`../CLAUDE.md`](../CLAUDE.md). ⚠ **F10 đã chuyển sang 0.8** · ⛔ **F9 đã bị XOÁ** (không còn chuỗi nào để neo sau khi gỡ phụ thuộc khái niệm) |
-| 0.8 | **Đa tiến trình + đổi API adapter một lượt** | ⚠ **Thiết kế đổi hẳn 2026-08-16** - bản 2026-06-27 (Bus Manager, DI scope `global`) phần lớn không còn dùng. ✅ **Phần bus đóng nốt 2026-08-18** ([`bus-lien-tien-trinh-2026-08-18.md`](bus-lien-tien-trinh-2026-08-18.md), tên chốt `ProcessLink`). Chưa code |
+| 0.6.3 | Gỡ chặn app chạy thật: ~~`PEER_APP_ID`~~ + **TLS/HTTPS cho web adapter** + **khối chỉ đọc `read_only()`**; kèm `get_bool` ép kiểu cờ + metadata gói | Đã phát hành (2026-07-29). ⛔ **`PEER_APP_ID` đã bị GỠ ở 0.7.1** vì mang khái niệm của nền tảng vào framework - thay bằng `PEER_SANS`, xem [`ghi-chep/go-phu-thuoc-khai-niem.md`](ghi-chep/go-phu-thuoc-khai-niem.md) |
+| 0.7.0 | Fieldbus công nghiệp (Modbus TCP + OPC UA) | **Đã phát hành PyPI** (2026-08-01) - 1463 test. Kiểm toán trước khi đẩy: `kiem-toan/0.7-truoc-phat-hanh.md` |
+| 0.7.1 | Server-stream có kiểu (`@stream`) + đợt 2 vá bảo mật (F2/F4/F5/F6/F7/F8/F11/F12/F13/F16) + lỗi đua khi tắt scheduler + ⛔ **GỠ PHỤ THUỘC KHÁI NIỆM (BREAKING)** + khai 3 phụ thuộc bắc cầu | **Đã phát hành PyPI** (commit `975e10c` / `a3fcad8`) - **1516 passed / 11 skipped**. Xem `phien-ban/0.7.1-ket-qua.md`, [`ghi-chep/go-phu-thuoc-khai-niem.md`](ghi-chep/go-phu-thuoc-khai-niem.md), [`ghi-chep/phu-thuoc-bac-cau.md`](ghi-chep/phu-thuoc-bac-cau.md) |
+| 0.7.2 | ⭐ **JWT: khoá xoay theo `kid`** (`JwtKeyProvider`) + ba knob PyJWT từng bị giấu (`algorithms`/`leeway`/`require`) + `sign(headers=)` + ⛔ **`configure_jwt()` thiếu nguồn khoá NỔ lúc khởi động** | ✅ **ĐÃ PHÁT HÀNH** - PyPI có `0.7.2`, commit `3cfc3f3 v0.7.2`. Cuối bản: **1624 passed / 11 skipped** (F1+F3+F14+F15+F17 vào cùng ngày). ⚠ **Thiếu tag `v0.7.2`** và **repo phát hành `upload` chưa theo kịp** (còn ở `a3fcad8 v0.7.1`). Xem [`ghi-chep/jwt-keyset-va-trung-tinh.md`](ghi-chep/jwt-keyset-va-trung-tinh.md) |
+| 0.7.x | **Vá, không chạm API**: ~~A1 keyset JWT~~ · ~~F3 nâng sàn deps~~ · ~~F14~~ · ~~F15~~ · ~~F17~~ · ~~F1 WebSocket~~ | ✅ **A1 xong 2026-08-18 phía framework** ([`ghi-chep/jwt-keyset-va-trung-tinh.md`](ghi-chep/jwt-keyset-va-trung-tinh.md)) - ⚠ **19 app vẫn fail-open**, framework chỉ xoá lý do tồn tại của lỗ. ✅✅ **F1 + F3 + F14 + F15 + F17 xong cùng ngày 2026-08-18 - HẾT MỤC 0.7.x.** ⚠ F1 thêm API công khai (`@ws`) và đổi hành vi mặc định, tức **vượt luật "0.7.x không chạm API"** - chủ dự án chốt ngoại lệ có ý thức vì chưa app nào dùng WebSocket. Bảng đầy đủ ở [`../CLAUDE.md`](../CLAUDE.md). ⚠ **F10 đã chuyển sang 0.8** · ⛔ **F9 đã bị XOÁ** (không còn chuỗi nào để neo sau khi gỡ phụ thuộc khái niệm) |
+| 0.8 | **Đa tiến trình + đổi API adapter một lượt** | ⚠ **Thiết kế đổi hẳn 2026-08-16** - bản 2026-06-27 (Bus Manager, DI scope `global`) phần lớn không còn dùng. ✅ **Phần bus đóng nốt 2026-08-18** ([`thiet-ke/11-bus-lien-tien-trinh.md`](thiet-ke/11-bus-lien-tien-trinh.md), tên chốt `ProcessLink`). ✅ **THI CÔNG XONG 2026-08-20** - bảy giai đoạn kế hoạch cộng một **giai đoạn 8 phát sinh** (trình tạo cấu hình: `xime init` · `xime config --print` · `xime check config`). **2376 passed, 14 skipped**; bốn app thật xanh (388 · 295 · 192 · 53). ⚠ **Chưa commit, chưa tag, chưa đẩy PyPI** - việc của chủ dự án. Bảng tiến độ + các chỗ thi công đụng vào thiết kế: [`../CLAUDE.md`](../CLAUDE.md); chi tiết từng giai đoạn: `CHANGELOG.md` |
 | 0.9 | Beta - config nốt + bug fix + phản hồi người dùng | Mở |
 
 ---
@@ -72,7 +75,7 @@ nốt config + chờ feedback, 1.0 stable.
 
 ## 0.3 - Hardening & hoàn tất gRPC
 
-Chi tiết đầy đủ: `ke-hoach-0.3.md`.
+Chi tiết đầy đủ: `phien-ban/0.3-ke-hoach.md`.
 
 - Nhóm 1 vá bug: warn `def` vs `async def` (#9), interceptor abort hai lần (#2),
   default `str(exc)` lộ nội bộ (#1a), `asyncio.Lock` cert rotate (#7), bỏ
@@ -82,7 +85,7 @@ Chi tiết đầy đủ: `ke-hoach-0.3.md`.
 
 ## 0.4 - Cross-cutting + starters
 
-Chi tiết kế hoạch: `ke-hoach-0.4.md`. Nguồn ý tưởng: `wishlist-tinh-nang.md`
+Chi tiết kế hoạch: `phien-ban/0.4-ke-hoach.md`. Nguồn ý tưởng: `sap-toi/wishlist-tinh-nang.md`
 (mục "Security / Cross-cutting" và "Starters").
 
 - Trích xuất danh tính peer mTLS (CN client cert) -> `request_context`, key
@@ -95,13 +98,13 @@ Chi tiết kế hoạch: `ke-hoach-0.4.md`. Nguồn ý tưởng: `wishlist-tinh-
 ## 0.5 - Kiểm toán toàn diện + Messaging/IoT + File
 
 > **ĐÃ PHÁT HÀNH 2026-06-22.** Cả ba nhóm hoàn tất: audit toàn diện (báo cáo
-> `kiem-toan-0.5.md`, mọi phát hiện đã xử lý), adapter MQTT (pub/sub + RPC over
+> `kiem-toan/0.5.md`, mọi phát hiện đã xử lý), adapter MQTT (pub/sub + RPC over
 > MQTT v5), storage starter (local + s3/MinIO) + streaming web. Test: 1051 passed,
-> 4 skipped. Chi tiết thực thi: `ke-hoach-trien-khai-0.5.md`.
+> 4 skipped. Chi tiết thực thi: `phien-ban/0.5-ke-hoach-thi-cong.md`.
 
-Chi tiết đầy đủ: `ke-hoach-0.5.md`. Kế hoạch THỰC THI chi tiết (thứ tự code,
+Chi tiết đầy đủ: `phien-ban/0.5-ke-hoach.md`. Kế hoạch THỰC THI chi tiết (thứ tự code,
 file nào, pattern nào) + các quyết định đã chốt 2026-06-22:
-`ke-hoach-trien-khai-0.5.md`.
+`phien-ban/0.5-ke-hoach-thi-cong.md`.
 
 > **Đổi phạm vi 2026-06-21:** bản gốc (chốt 2026-06-19) là bản KHÔNG thêm tính
 > năng, chỉ kiểm toán. Chủ dự án quyết định gộp thêm hai mảng feature: **adapter
@@ -109,7 +112,7 @@ file nào, pattern nào) + các quyết định đã chốt 2026-06-22:
 > Audit vẫn là trục chính, làm trước; feature làm sau trên nền đã sạch.
 
 - **Nhóm A - Kiểm toán toàn diện** (trục chính): đọc kỹ TỪNG FILE core/adapters/
-  starters, ghi `docs/kiem-toan-0.5.md`, phân loại theo mức nghiêm trọng rồi mới
+  starters, ghi `docs/kiem-toan/0.5.md`, phân loại theo mức nghiêm trọng rồi mới
   vá. Gồm fix issue context-bleeding khi test ASGI in-process (dental-clinic #001):
   chuyển `RequestContextMiddleware` từ `BaseHTTPMiddleware` sang pure ASGI middleware.
 - **Nhóm B - Adapter MQTT**: pub/sub message-driven (`@subscribe`) và RPC over
@@ -150,17 +153,17 @@ Các trục cần soi xuyên suốt:
 7. **Khoảng trống test** - `tests_temp/` (tên cho thấy có thể là thư mục tạm,
    cân nhắc chuẩn hóa thành `tests/`). Tìm nhánh code chưa có test, nhất là
    đường lỗi và teardown.
-8. **Dọn backlog tồn đọng** - đối chiếu `backlog-sua-loi.md`, các mục `[ ]` còn
-   mở ở `grpc-client-mtls-plan.md` (dọn dẹp data-service phía service), TODO
+8. **Dọn backlog tồn đọng** - đối chiếu `kiem-toan/backlog-sua-loi.md`, các mục `[ ]` còn
+   mở ở `thiet-ke/08-grpc-client-mtls.md` (dọn dẹp data-service phía service), TODO
    rải trong code.
 
 Cách làm đề xuất khi tới 0.5: đi theo từng package, mỗi file ghi phát hiện vào
-một báo cáo kiểm toán (`docs/kiem-toan-0.5.md`), phân loại theo mức nghiêm trọng,
+một báo cáo kiểm toán (`docs/kiem-toan/0.5.md`), phân loại theo mức nghiêm trọng,
 rồi mới vá. KHÔNG vừa đọc vừa sửa lung tung để tránh bỏ sót.
 
 ## 0.6 - Thay `dependency-injector` + dynamic interface binding
 
-Kế hoạch chi tiết: `ke-hoach-0.6.md`. **Cả hai việc ĐÃ CODE XONG 2026-06-23**;
+Kế hoạch chi tiết: `phien-ban/0.6-ke-hoach.md`. **Cả hai việc ĐÃ CODE XONG 2026-06-23**;
 full suite **1084 passed / 4 skipped**.
 
 - **Việc 1** - thay `dependency-injector` bằng registry singleton tự viết:
@@ -174,7 +177,7 @@ full suite **1084 passed / 4 skipped**.
   nên consumer giữ nguyên code. KHÔNG thêm `bind_many`/`Switchable`. Chuẩn hóa
   binding làm trong `_prepare_dynamic_binding()` (không sửa resolver); `Switcher`
   luôn đăng ký (disabled khi tắt cờ); cờ tắt không auto-register impl. Chi tiết +
-  ghi chú thực thi: `ke-hoach-0.6.md` mục 2.5/2.7.
+  ghi chú thực thi: `phien-ban/0.6-ke-hoach.md` mục 2.5/2.7.
 
 Đã phát hành: version `pyproject.toml` + CHANGELOG đồng bộ 0.6.0 (commit `v 0.6.0`).
 
@@ -205,7 +208,7 @@ tế hai app (`shop`, `dental-clinic` ở `D:\code\Monolithic`) phải subclass
 
 Phát hành 2026-06-30. Thêm starter `mail` theo đúng khuôn starter sẵn có
 (Protocol `MailService` + backend `SmtpMailService` qua aiosmtplib, extra
-`xime[mail]`), kèm hardening từ **kiểm toán toàn diện** (`kiem-toan-0.6.md`:
+`xime[mail]`), kèm hardening từ **kiểm toán toàn diện** (`kiem-toan/0.6.md`:
 không có lỗi CAO). Full suite **1125 passed / 4 skipped**. Chi tiết: CHANGELOG
 mục `[0.6.2]`.
 
@@ -224,7 +227,7 @@ thứ ba đến từ phản hồi khi viết app.
   `current_app_id()`. `PEER_CN` = tiến trình gọi, `PEER_APP_ID` = app sở hữu tiến
   trình đó. SAN là property **nhiều giá trị** nên duyệt hết entry; fail-soft
   tuyệt đối; framework không giải mã, không kiểm quyền. Bối cảnh + kiểm chứng:
-  `peer-app-id-tu-san-cert.md`.
+  `da-phu-dinh/peer-app-id-tu-san-cert.md`.
 - **TLS/HTTPS cho web adapter** (mục A1 của khảo sát). Khối `server.ssl` trong
   `application.yml` -> `ServerTlsConfig`; để trống = HTTP thuần như cũ.
   `cert_reqs` dùng chữ (`none`/`optional`/`required`) thay vì số `ssl.CERT_*`.
@@ -235,7 +238,7 @@ thứ ba đến từ phản hồi khi viết app.
   được việc key chạm đĩa nên không giải quyết được vấn đề nó sinh ra để giải
   quyết; thay bằng ghi chú "mức 1.5" (nạp đè `load_cert_chain` lên context đang
   phục vụ, đã kiểm chứng bằng handshake thật) cho lúc cần gia hạn không restart.
-  Chi tiết + quyết định: `tls-cho-web-adapter.md`.
+  Chi tiết + quyết định: `thiet-ke/07-tls-web-adapter.md`.
 - **Khối chỉ đọc `read_only()`** - trước đó mọi truy cập DB, kể cả một câu
   `SELECT`, đều phải bọc `async with self.transaction():`, nên service chỉ đọc vẫn
   phải nhận `TransactionManager` và khối transaction xuất hiện dày tới mức không
@@ -256,7 +259,7 @@ thứ ba đến từ phản hồi khi viết app.
 
 ## 0.7 - Fieldbus công nghiệp (Modbus TCP + OPC UA)
 
-Chi tiết đầy đủ + thiết kế đã chốt: `ke-hoach-0.7.md`. Dời từ 0.5 (quyết 2026-06-21).
+Chi tiết đầy đủ + thiết kế đã chốt: `phien-ban/0.7-ke-hoach.md`. Dời từ 0.5 (quyết 2026-06-21).
 **Thiết kế chốt 2026-06-23** (chủ dự án trả lời hết câu hỏi mở); **bốn điểm chờ
 quyết cuối cùng chốt 2026-07-29** - không còn gì chặn việc bắt tay code.
 
@@ -285,16 +288,16 @@ quyết cuối cùng chốt 2026-07-29** - không còn gì chặn việc bắt t
 > ⚠⚠ **THIẾT KẾ ĐỔI HẲN NGÀY 2026-08-16.** Mục này trước đây mô tả bản thiết kế
 > 2026-06-27 (Bus Manager, shared queue, DI scope `global`/`worker`, mặc định TẮT).
 > **Phần lớn bản đó không còn cần** - đọc hai tài liệu mới, đừng đọc
-> [`ke-hoach-0.8.md`](ke-hoach-0.8.md) như hiện trạng:
+> [`da-phu-dinh/ke-hoach-0.8-ban-dau.md`](da-phu-dinh/ke-hoach-0.8-ban-dau.md) như hiện trạng:
 >
-> - [`da-tien-trinh-main-va-cau-hinh-2026-08-16.md`](da-tien-trinh-main-va-cau-hinh-2026-08-16.md)
+> - [`thiet-ke/10-da-tien-trinh.md`](thiet-ke/10-da-tien-trinh.md)
 >   - mô hình chạy, `main.py`, cấu hình, adapter
-> - [`cache-lien-tien-trinh-2026-08-16.md`](cache-lien-tien-trinh-2026-08-16.md) -
+> - [`thiet-ke/09-kho-lien-tien-trinh-boi-canh.md`](thiet-ke/09-kho-lien-tien-trinh-boi-canh.md) -
 >   kho liên tiến trình (LMDB + shared memory), lý do hoãn đa luồng
-> - **[`bus-lien-tien-trinh-2026-08-18.md`](bus-lien-tien-trinh-2026-08-18.md)** -
+> - **[`thiet-ke/11-bus-lien-tien-trinh.md`](thiet-ke/11-bus-lien-tien-trinh.md)** -
 >   **bus (`ProcessLink`), thiết kế đóng 2026-08-18**
 >
-> `ke-hoach-0.8.md` **nên được viết lại chứ không bổ sung**.
+> `da-phu-dinh/ke-hoach-0.8-ban-dau.md` **nên được viết lại chứ không bổ sung**.
 
 Trạng thái: **thiết kế phần lớn đã chốt 2026-08-16, phần bus đóng nốt 2026-08-18**,
 chưa code.
@@ -312,8 +315,8 @@ chưa code.
 | **Đổi API adapter một lượt** | Tên định danh thống nhất · tách `client_id` khỏi `server_id` · cổng đến từ cấu hình chứ không từ constructor · hạng nhân bản là dữ liệu · **vòng đời + tín hiệu ready (F10, chuyển từ đợt 3 của kế hoạch bảo mật)** |
 | **Fieldbus** | Tách **loại** khỏi **thực thể** · `@poll` chạy per-instance · log khi bỏ qua adapter · lỗi rõ khi gọi thiết bị không thuộc tiến trình mình |
 | **MQTT** | Ba việc ở 5.7.4 của tài liệu đa tiến trình - đều **chỉ có nghĩa khi có nhiều tiến trình** |
-| **Kho liên tiến trình** | **Nhóm 1 `RefData`: ✅ THIẾT KẾ XONG 2026-08-18** ([`kho-nhom-1-snapshot-2026-08-18.md`](kho-nhom-1-snapshot-2026-08-18.md)) - shared memory hai-bản-đổi-con-trỏ, `read()` trả object, chỉ primary ghi, chia đoạn khi lớn. **Nhóm 2 `Store` trên LMDB: ✅ THIẾT KẾ XONG 2026-08-19** ([`kho-nhom-2-store-2026-08-19.md`](kho-nhom-2-store-2026-08-19.md)) - ba lớp nền, cấu hình bằng tham số class, chia file theo `crc32(key) % parts`, lỗi báo bằng ngoại lệ |
-| **Bus** (`ProcessLink`) | ✅ **THIẾT KẾ ĐÓNG 2026-08-18** - [`bus-lien-tien-trinh-2026-08-18.md`](bus-lien-tien-trinh-2026-08-18.md). Bộ nhớ chung, **mỗi tiến trình một vùng ghi riêng**, semaphore làm chuông và bitmap làm sự thật, **cha KHÔNG nằm trên đường đi**. Bốn kết cục cho `ask`, at-most-once, đầy thì vòng lại đè. Ca dùng đầu tiên: **lệnh điều khiển fieldbus** |
+| **Kho liên tiến trình** | **Nhóm 1 `RefData`: ✅ THIẾT KẾ XONG 2026-08-18** ([`thiet-ke/12-kho-refdata.md`](thiet-ke/12-kho-refdata.md)) - shared memory hai-bản-đổi-con-trỏ, `read()` trả object, chỉ primary ghi, chia đoạn khi lớn. **Nhóm 2 `Store` trên LMDB: ✅ THIẾT KẾ XONG 2026-08-19** ([`thiet-ke/13-kho-store-lmdb.md`](thiet-ke/13-kho-store-lmdb.md)) - ba lớp nền, cấu hình bằng tham số class, chia file theo `crc32(key) % parts`, lỗi báo bằng ngoại lệ |
+| **Bus** (`ProcessLink`) | ✅ **THIẾT KẾ ĐÓNG 2026-08-18** - [`thiet-ke/11-bus-lien-tien-trinh.md`](thiet-ke/11-bus-lien-tien-trinh.md). Bộ nhớ chung, **mỗi tiến trình một vùng ghi riêng**, semaphore làm chuông và bitmap làm sự thật, **cha KHÔNG nằm trên đường đi**. Bốn kết cục cho `ask`, at-most-once, đầy thì vòng lại đè. Ca dùng đầu tiên: **lệnh điều khiển fieldbus** |
 | ✅ ~~**Còn treo, chặn phần thăng cấp**~~ | **ĐÓNG 2026-08-18**: thêm Protocol **`RunOnce`** (`run_once()`), cạnh `post_construct`/`pre_destroy`. Bài toán là **hai trục bốn ô**; ba ô đã có nhà, ô *một lần cho cả cụm* nay có nhà. ⚠ Còn lại là thi công: **`SchedulerRunner` chưa phải Adapter** |
 
 **Ba thứ của bản 2026-06-27 KHÔNG còn dùng:** Bus Manager + shared queue + transport
@@ -337,6 +340,6 @@ Trạng thái: **Mở**.
 
 ## Chưa gắn mốc (wishlist thuần)
 
-Xem `wishlist-tinh-nang.md`: bidi streaming, `@proto_field`, sinh SDK từ
+Xem `sap-toi/wishlist-tinh-nang.md`: bidi streaming, `@proto_field`, sinh SDK từ
 ContractModel, SDK đa ngôn ngữ, socket Transport -> TCP/Named Pipe, idempotency
 helper, gRPC reflection/health (nếu 0.4 không lấy).

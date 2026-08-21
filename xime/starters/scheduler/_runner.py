@@ -19,7 +19,7 @@ class SchedulerRunner:
 
     Lifecycle-aware: implements post_construct / pre_destroy so that
     StartupOrchestrator can add it to LifecycleManager alongside user
-    singletons — no web-adapter involvement needed.
+    singletons - no web-adapter involvement needed.
 
     Startup order guaranteed by StartupOrchestrator:
         all user singletons → SchedulerRunner.post_construct()
@@ -32,7 +32,7 @@ class SchedulerRunner:
     That ordering matters: AsyncScheduler.stop() is a no-op while the state is
     still "stopped", so a runner that returned before the loop began would let
     a fast shutdown dismantle the data store under a task that had not yet run
-    — surfacing as "The scheduler has not been initialized yet". Any Application
+ - surfacing as "The scheduler has not been initialized yet". Any Application
     that starts and stops quickly hits it; long-running processes hide it.
 
     Vòng lặp chạy trong task group của chính APScheduler qua start_in_background(),
@@ -83,7 +83,7 @@ class SchedulerRunner:
                 if not isinstance(instance, ScheduledJob):
                     raise RuntimeError(
                         f"{job_def.job_class.__name__} does not implement ScheduledJob"
-                        " — add 'async def run(self) -> None' to the class."
+                        " - add 'async def run(self) -> None' to the class."
                     )
 
                 trigger = self._build_trigger(job_def)
@@ -94,7 +94,7 @@ class SchedulerRunner:
             # and WAIT until it reports started. Do NOT replace this with
             # asyncio.create_task(run_until_stopped()): that returns before the
             # loop has run, and a fast shutdown then tears the services down
-            # underneath a task that never started — stop() is a silent no-op
+            # underneath a task that never started - stop() is a silent no-op
             # while the state is still "stopped". See the class docstring.
             # Giao vòng lặp cho task group của chính APScheduler và ĐỢI tới khi
             # nó báo đã chạy. Đừng thay bằng asyncio.create_task(): hàm đó trả
@@ -137,7 +137,7 @@ class SchedulerRunner:
         if isinstance(job_def, CronJob):
             return CronTrigger.from_crontab(job_def.cron, timezone=self._config.timezone)
 
-        # IntervalJob — APScheduler v4 IntervalTrigger accepts keyword args directly
+        # IntervalJob - APScheduler v4 IntervalTrigger accepts keyword args directly
         return IntervalTrigger(
             hours=job_def.hours,
             minutes=job_def.minutes,

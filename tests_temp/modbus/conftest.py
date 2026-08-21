@@ -1,7 +1,7 @@
 """Shared fixtures: a real pymodbus server running in-process.
 
 Reading a device is the kind of thing that only proves out against a real
-protocol implementation — a mock would happily agree with whatever the codec
+protocol implementation - a mock would happily agree with whatever the codec
 believes. So these tests start an actual Modbus TCP server in the same event
 loop and talk to it over a real socket on localhost.
 Mock sẽ đồng ý với bất cứ điều gì codec tin, nên test dựng server Modbus thật
@@ -83,7 +83,7 @@ async def modbus_server():
     port = free_port()
     server = ModbusTcpServer(device, address=("127.0.0.1", port))
     # background=True returns as soon as the listener is accepting. Without it,
-    # serve_forever() awaits `self.serving`, which only resolves at SHUTDOWN —
+    # serve_forever() awaits `self.serving`, which only resolves at SHUTDOWN -
     # awaiting it here hangs the test run forever.
     # Thiếu background=True thì serve_forever() chờ tới lúc server DỪNG -> treo.
     await server.serve_forever(background=True)

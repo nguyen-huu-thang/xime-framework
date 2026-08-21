@@ -19,7 +19,7 @@ class EventHandler(Protocol):
             async def handle(self, event: UserCreatedEvent) -> None:
                 await self.mailer.send_welcome(event.email)
 
-    Note: @runtime_checkable checks only for the presence of `handle` —
+    Note: @runtime_checkable checks only for the presence of `handle` -
     not its signature. LifecycleManager.subscribe() accepts any object
     that has a callable `handle` attribute.
     """
