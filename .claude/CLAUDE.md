@@ -6,34 +6,121 @@
 
 ## Trạng thái
 
-**0.8.0 ĐÃ PHÁT HÀNH ngày 2026-08-21.** Kiểm toán sáu đợt, vá 28 mục, lên PyPI.
+**`0.8.1` ĐÃ SẴN SÀNG PHÁT HÀNH, chờ chủ dự án.** Mã xong, đo trên Linux xong,
+`CHANGELOG` xong, `pyproject` đã lên `0.8.1`. **Chưa commit, chưa tag, chưa lên PyPI** -
+ba việc đó là của chủ dự án.
 
 | | |
 |---|---|
-| PyPI | `0.8.0` (bản thứ **14**) |
-| Repo phát triển | `a982cae v0.8.0` · tag `v0.8.0`, và **`v0.7.2` đã trả nợ** |
-| Repo phát hành | `8a1e376 v0.8.0` · tag `v0.8.0` · hết lệch hai bản |
-| Đối chứng | **SHA256 gói trên PyPI khớp từng bit** với gói dựng ở máy này |
+| PyPI | `0.8.0` (bản thứ **14**) - `0.8.1` **chưa lên** |
+| `pyproject` tại chỗ | **`0.8.1`** |
+| Repo phát triển | `a982cae v0.8.0` + phần `0.8.1` **chưa commit** |
+| Repo phát hành | mã **đã đồng bộ**, README **đã sinh lại**, `dist/` có gói `0.8.1` đã `twine check` PASSED. HEAD vẫn `8a1e376 v0.8.0` - **chưa commit** |
+
+**0.8.0 đã phát hành 2026-08-21**: kiểm toán sáu đợt, vá 28 mục, và **SHA256 gói trên
+PyPI khớp từng bit** với gói dựng ở máy này.
 
 Vì `xime` cài **editable** nên mã ở đây có hiệu lực ngay với **31 app** trên máy này.
-⚠ Nghĩa là **sửa một dòng ở đây là 31 app nhận ngay**, dù PyPI vẫn đứng ở `0.8.0` - đừng
-đọc *"đã phát hành"* thành *"thư mục này đứng yên"*.
+⚠ Nghĩa là **31 app đang chạy `0.8.1` rồi**, dù PyPI còn đứng ở `0.8.0` - đừng đọc
+*"chưa phát hành"* thành *"chưa ai dùng"*.
 
-✅ **Đợt vá trên Linux ĐÃ đưa về `D:\code\xime` ngày 2026-08-21**: 80 file (61 sửa,
-19 mới, **0 xoá**), đối chứng **629/629 file khớp từng byte**. Sổ tay của phiên nhận:
-[`docs/ban-giao-cho-phien-windows.md`](docs/ban-giao-cho-phien-windows.md).
+✅ **Hai chuyến Linux đã nhận về, cả hai đối chứng từng byte:**
+
+| Chuyến | Kết quả |
+|---|---|
+| Vá `0.8.0` (2026-08-21) | 80 file · **629/629 khớp**. [`docs/ban-giao-cho-phien-windows.md`](docs/nhap/ban-giao-cho-phien-windows.md) |
+| Đo uvloop `0.8.1` (2026-08-22) | 25 file mới + 5 sửa · **660/660 khớp**. [`docs/ban-giao-cho-phien-windows-0.8.1.md`](docs/nhap/ban-giao-cho-phien-windows-0.8.1.md) và [`docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md) |
+
 
 ### Kỳ vọng bộ test - HAI con số, theo hệ điều hành
 
 | Nền tảng | `passed` | `skipped` | `failed` | **Tổng** |
 |---|---|---|---|---|
-| **Linux** | **2528** | 6 | 0 | **2534** |
-| **Windows** | **2510** | 24 | 0 | **2534** |
+| **Linux** | **2552** ✅ đo 2026-08-22 | 6 | 0 | **2558** |
+| **Windows** | **2534** ✅ đo 2026-08-22 | 24 | 0 | **2558** |
+
+⭐ **Cộng 24 kể từ 0.8.0** (tổng `2534` -> `2558`): **16** của
+`tests_temp/bootstrap/test_event_loop.py` (uvloop) và **8** của
+`tests_temp/ws/test_ws_availability.py` (cảnh báo thiếu thư viện WebSocket).
+
+> ## ✅⭐ ĐỢT ĐO uvloop 0.8.1 TRÊN LINUX: XONG 2026-08-22
+>
+> Kết quả đầy đủ: **[`docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md)**.
+> Con số Linux `2552` không còn là suy ra nữa - **đã đo, khớp đúng dự kiến**, và
+> bộ test cũng xanh **khi chạy dưới uvloop thật** (2552/6/0).
+>
+> | | |
+> |---|---|
+> | Đo 1 TLS · Đo 2 `SO_PEERCRED` · Đo 3 `share_load` socket kế thừa | **ĐẠT** cả ba |
+> | Sửa code | **đúng một test lỗi thời**, không đụng mã sản phẩm |
+> | mypy | **41 lỗi = đúng mốc 0.8.0**, không thêm cái nào |
+>
+> ⛔⭐ **Đo 4 lật một giả định của chính bản 0.8.1: uvloop KHÔNG tăng tốc REST
+> của Xime, nó làm CHẬM khoảng 10%** (0.91x, dao động dưới 2%, 5/6 ô của ma trận
+> sáu hình dạng tải cùng chiều).
+>
+> ⭐⭐ **Nhưng ranh giới thật KHÔNG phải "REST hay WebSocket" - đã đo trên cùng
+> một app Xime:**
+>
+> | Loại việc | uvloop |
+> |---|---|
+> | Xử lý request kiểu HTTP (REST 0.91x · **bắt tay WebSocket 0.93x**) | **lỗ ~8-9%** |
+> | Truyền trên kết nối đã mở (**tin nhắn WebSocket 1.11x** · loop trần 1.38x) | **lãi 11-38%** |
+>
+> Bắt tay WebSocket là request HTTP-upgrade nên nó rơi **cùng phía với REST**,
+> khác phía với chính những tin nhắn chạy sau nó trên cùng socket đó.
+> **Vẫn khuyến nghị GIỮ** - năm adapter còn lại đều sống trên kết nối đã mở.
+>
+> ⭐ **Ca thứ BA của "lỗi máy phát triển không thể thấy"** (sau C4/C5 của 0.8.0):
+> `test_linux_never_switches` khẳng định `worker_loop_factory(...) is None` trên
+> Linux. Nó **xanh trên Windows** chỉ vì ở đó `uvloop_factory()` luôn trả `None`,
+> nên dù `sys.platform` bị monkeypatch thành `"linux"` thì hàm vẫn trả `None` -
+> **phép đo đó không đo nền tảng được monkeypatch, nó đo nền tảng thật**.
+>
+> ⚠ **Cách chạy bộ test dưới uvloop trong file bàn giao KHÔNG hoạt động và nó
+> xanh giả** - `pytest-asyncio` 1.4 không nhận fixture `event_loop_policy` khai
+> trong plugin nạp bằng `-p`. Bắt được bằng đối chứng hai chiều; cách chạy được
+> ghi ở mục 5.3 của báo cáo.
+>
+> ## ⭐ BENCHMARK: framework nay CÓ bộ đo hiệu năng
+>
+> Chủ dự án yêu cầu 2026-08-22, dựng từ phép đo 4 ở trên. Trước đây framework
+> **không có benchmark nào**.
+>
+> | | |
+> |---|---|
+> | Bộ đo | [`scripts/benchmark/`](scripts/benchmark/README.md) - `python .claude/scripts/benchmark/run_all.py` |
+> | Kết quả + cách đọc | [`docs/ghi-chep/benchmark-hieu-nang.md`](docs/ghi-chep/benchmark-hieu-nang.md) |
+>
+> Năm tầng chồng lên nhau, nên **hiệu số giữa hai dòng là giá của đúng lớp nằm
+> giữa chúng**: loop trần -> HTTP (asgi/fastapi/xime) -> lõi (DI, Store, RefData)
+> -> cụm nhiều tiến trình -> WebSocket. Ba con số đáng nhớ:
+>
+> | | |
+> |---|---|
+> | **Xime = 41% thông lượng của ASGI trần** | FastAPI ở giữa (66%). Giá của DI + controller + middleware |
+> | **Cụm mở rộng gần tuyến tính** | 2.00x với 2 tiến trình, **3.88x với 4**, và **N/N tiến trình thật sự nhận việc** |
+> | `RefData.read()` nhanh hơn `Store.get()` **~60 lần** | Ranh giới *có nguồn bền vững hay không* trùng với ranh giới hiệu năng |
+>
+> ⛔ **Luật của bộ đo, và là phần không lỗi thời theo máy: mỗi phép đo phải tự
+> khai nó đo được cái gì.** Hai lần trong buổi dựng, một con số trông hợp lý hoá
+> ra đang đo **dụng cụ đo** - và hai ca đó cho ra **cùng một hình dạng kết quả**
+> trong khi chỉ một cái có giá trị. Nên kết quả có **bốn** nhãn, và
+> `CHUA_KET_LUAN_DUOC` **không được gộp vào** `SERVER_BOUND`.
+
+⚠⚠ **Hai con số `2534` trong bảng này KHÔNG cùng nghĩa, và đây đúng là kiểu nhầm repo
+này hay dính:** `2534` cũ là **TỔNG của 0.8.0**; `2534` mới là **`passed` của Windows ở
+0.8.1**. Trùng số, khác trục. Nghiệm thu thì so **tổng 2558**, đừng so `passed`.
+
+⛔ Con số **2528 / 2510 / tổng 2534** là của **0.8.0**, đừng dùng để nghiệm thu nữa.
+
+✅ Con số Linux **trước đây là suy ra, nay ĐÃ ĐO** (2026-08-22) và **khớp đúng dự
+kiến**. Đó là một suy luận đúng, nhưng nó chỉ thành phép đo sau khi có người chạy.
 
 ⚠⚠ **Đừng dùng MỘT con số `passed` làm tiêu chí đạt.** Nó phụ thuộc hệ điều hành, nên
-nhãn *"kỳ vọng 2528"* mang hai giá trị - đúng
+một nhãn kiểu *"kỳ vọng 2534"* mang hai giá trị - đúng
 [luật 03](../../.claude/rules/03-mot-gia-tri-mot-nghia.md) ở tầng con số nghiệm thu.
-**Thứ bất biến giữa hai bên là TỔNG `2534`.**
+**Thứ bất biến giữa hai bên là TỔNG `2558`, cộng `0 failed`.**
 
 Chênh 18 là **test bị chặn bởi nền tảng**, đã đếm từng cái - Windows bỏ qua, Linux chạy:
 
@@ -50,7 +137,7 @@ Chênh 18 là **test bị chặn bởi nền tảng**, đã đếm từng cái -
 📌 **Sáu lượt bỏ qua của Linux KHÔNG phải chuyện nền tảng** - chúng bỏ qua ở **cả hai**
 bên vì thiếu dịch vụ ngoài: `storage/test_s3_integration.py` (4, không có S3 ở
 `127.0.0.1:9000`) và `mqtt/test_integration.py` (2, không có broker ở `127.0.0.1:1883`).
-Bật hai dịch vụ đó lên thì Linux ra `2534/0`, Windows ra `2516/18`.
+Bật hai dịch vụ đó lên thì Linux ra `2558/0`, Windows ra `2540/18`.
 
 ⛔ Con số **2518** ở bản trước **SAI** - nó ghi giữa chừng commit `1821106`, trước khi
 file test cuối của chính commit đó xong. HEAD sạch đo lại là **2520**; cộng 8 test canh
@@ -184,22 +271,82 @@ HỎI CHỦ DỰ ÁN TRƯỚC**.
 
 # Việc đang chờ
 
-## 1. Sau khi phát hành 0.8.0 - còn đúng một việc
+## 1. Phát hành `0.8.1` - ba việc, cả ba của CHỦ DỰ ÁN
+
+Phiên trợ lý đã chuẩn bị **tới sát mép rồi dừng**. Còn lại:
+
+> ⛔⛔ **`pypi_token.py --guide` LỖI THỜI ở bước 2, và làm theo là hỏng trang PyPI.**
+> Nó bảo `Copy-Item "$src\README.md" "$dst\README.md"`, nhưng README của repo phát hành
+> là bản **được SINH RA** (huy hiệu `pypi/v` + mọi liên kết tương đối đổi thành URL
+> GitHub tuyệt đối). Chép đè là mất cả hai, và `](LICENSE)` trên PyPI trỏ vào hư không.
+>
+> ```bash
+> python .claude/scripts/sinh_readme_phat_hanh.py          # ghi
+> python .claude/scripts/sinh_readme_phat_hanh.py --kiem   # chỉ so
+> ```
+>
+> `--guide` cũng bảo chép `README-vn.md` - file đó **không còn** trong danh sách trắng
+> sdist, bỏ qua. Trình sinh README ra đời ở 0.8.0, sau khi `--guide` được viết.
+
+| # | Việc | |
+|---|---|---|
+| 1 | `git add` + commit phần `0.8.1`, tag **`v0.8.1`** | ⛔ chủ dự án |
+| 2 | Commit + tag **`v0.8.1`** ở repo phát hành. ✅ **Đồng bộ mã, sinh README, build, `twine check` ĐÃ LÀM XONG** - xem 1b | ⛔ chủ dự án |
+| 3 | `python pypi_token.py --upload "D:/code/xime framework/upload/dist"` | ⛔ chủ dự án |
+
+**Đã xong, không phải làm lại:** nhận bản đo từ Linux (660/660 khớp) · bộ test Windows
+2534/24/0 · `ruff` sạch · `pyproject` và `xime/__init__.py` lên `0.8.1` ·
+`CHANGELOG.md` · `pip install -e .` · **tài liệu người dùng** (`docs/{vn,en}/event-loop.md`
+mới + mục "cần cài gì" của `websocket.md`, hai bảng mục lục README) · dọn `.claude/docs/`
+(ba file bàn giao vào `nhap/`, gỡ file hướng dẫn phát hành theo yêu cầu chủ dự án).
+
+### 1b. Repo phát hành đã chuẩn bị xong những gì
+
+Làm ngày 2026-08-22 theo yêu cầu chủ dự án. Còn lại đúng `git add` + commit + tag.
+
+| Việc | Kết quả |
+|---|---|
+| Xoá `dist/` cũ | gói `0.8.0` đã gỡ, `dist/` nay chỉ có `0.8.1` |
+| Chép mã: `xime/`, `docs/`, `CHANGELOG.md`, `LICENSE`, `pyproject.toml` | **291 file khớp từng byte** với repo phát triển |
+| README | **SINH bằng script, không chép** - xem cảnh báo ở mục 1 |
+| `python -m build` | `xime-0.8.1.tar.gz` + `xime-0.8.1-py3-none-any.whl` |
+| `twine check` | **PASSED** cả hai |
+| Soi ruột gói | sdist 294 mục · wheel 247 mục · **0 rò rỉ** `.claude/`, `tests_temp/`, `pypi_token.py` |
+| So với `0.8.0` trên PyPI | **thêm đúng 4 file**, bỏ 0: `docs/{vn,en}/event-loop.md` + `xime/core/bootstrap/_loop.py` + `xime/adapters/web/ws/_availability.py` |
+| Cài thử venv trắng | wheel **và** sdist đều cài được, `__version__ = 0.8.1` |
+
+⚠ `.gitignore` nằm trong sdist là **bình thường** - hatchling luôn đưa nó vào, và bản
+`0.8.0` trên PyPI cũng có. Nội dung nó chính là thứ chặn `pypi_token.py`.
+
+⭐ Đối chứng phụ thu được lúc cài thử: venv chỉ có `xime` trần (không `[web]`) cho
+`websocket_library_missing()` trả **`True`** - đúng ca mà cảnh báo mới của `0.8.1` sinh
+ra để bắt, và đúng thứ mục *"cần cài gì"* của `docs/{vn,en}/websocket.md` vừa mô tả.
+
+⚠ **Trước khi dựng lại (nếu có lý do dựng lại), sinh README bằng script, đừng sửa tay** -
+bản `0.7.2` đã trôi vì sửa tay:
+
+```bash
+python .claude/scripts/sinh_readme_phat_hanh.py --kiem   # chỉ so
+python .claude/scripts/sinh_readme_phat_hanh.py          # ghi
+```
+
+### 1c. Nợ cũ, không thuộc `0.8.1`
 
 | # | Việc |
 |---|---|
-| 1 | **Một stash từ 2026-06-03** (`stash@{0}`, WIP trên `ba64bd5`, 145 file) vẫn nằm trong repo. Không phải của đợt nào gần đây - dọn hay giữ là quyết định của chủ dự án |
-
-Mọi việc khác của đợt phát hành **đã xong**: `pip install -e .`, commit, tag `v0.8.0`,
-tag bù `v0.7.2`, đẩy PyPI, và repo phát hành đã bắt kịp.
+| 1 | **Một stash từ 2026-06-03** (`stash@{0}`, WIP trên `ba64bd5`, 145 file). Không phải của đợt nào gần đây - dọn hay giữ là quyết định của chủ dự án |
+| 2 | **197 lỗi `ruff` trong `tests_temp/`**, có từ trước `0.8.1` (Linux đo HEAD của chính nó: 199 trước và sau khi chép). **113 cái tự sửa được**. Nên là **một commit riêng** vì nó đụng ~150 file test |
+| 3 | `.gitattributes` **rỗng**, nên `git status` phồng lên vì lật line-ending. Không phải việc của `0.8.1` |
 
 ⚠ **Đừng tin bảng trên, kiểm bằng lệnh** - lý do ở mục [Trạng thái](#trạng-thái).
 
 ```bash
 python -c "import urllib.request,json; print(sorted(json.load(urllib.request.urlopen('https://pypi.org/pypi/xime/json'))['releases']))"
+grep '^version' pyproject.toml
 git tag -l | sort -V | tail -3
 git stash list
 ```
+
 
 ### Lịch sử đợt kiểm toán 0.8 - KHÔNG ở file này
 
@@ -210,7 +357,7 @@ File này trả lời *"hôm nay đứng ở đâu"*. Chuyện đã xảy ra n�
 | 28 phát hiện, phép đo, bản vá, đối chứng | [`docs/kiem-toan/0.8-kiem-toan-toan-dien.md`](docs/kiem-toan/0.8-kiem-toan-toan-dien.md) |
 | 12 mục chỉ đo được trên Linux, kèm kết quả | [`docs/kiem-toan/0.8-cho-do-tren-linux.md`](docs/kiem-toan/0.8-cho-do-tren-linux.md) |
 | Chín commit của đợt Linux, nguyên văn lý do | [`docs/kiem-toan/0.8-nhat-ky-va-tren-linux.md`](docs/kiem-toan/0.8-nhat-ky-va-tren-linux.md) |
-| Trình tự nhận bản vá và phát hành | [`docs/ban-giao-cho-phien-windows.md`](docs/ban-giao-cho-phien-windows.md) |
+| Trình tự nhận bản vá và phát hành | [`docs/ban-giao-cho-phien-windows.md`](docs/nhap/ban-giao-cho-phien-windows.md) |
 | Rà đóng gói trước phát hành | [`docs/kiem-toan/0.8-truoc-phat-hanh.md`](docs/kiem-toan/0.8-truoc-phat-hanh.md) |
 
 ### Sinh lại README của repo phát hành
@@ -250,36 +397,99 @@ giữ nguyên `TrustKeyProvider` + `JwtKeySet`.
 lại **thử tất cả**"*. Framework nay không suy diễn khi `kid` vắng - nó gọi `keys(None)` và
 tin câu trả lời. *"Thử tất cả"* biến `kid` từ phép định tuyến thành thứ trang trí.
 
-## 3. 0.8.1 - hiện thực
+## 3. 0.8.1 - **uvloop trên Linux, và CHỈ có nó**
 
-> ⭐⭐ **0.8 là bản ALPHA CUỐI CÙNG.** 0.9 đổi sang `4 - Beta` nơi API coi như đã chốt.
->
-> ⛔ **Đính chính 2026-08-21:** mục này trước ghi *"`0.8.1` chỉ được hiện thực, không
-> đổi API"* - câu đó **mâu thuẫn với `docs/lo-trinh-phien-ban.md` dòng 58**, nơi chính
-> câu ấy đã bị gạch bỏ kèm lời chủ dự án nới ngày 2026-08-19: *"0.8 đang có nhiều phiên
-> bản con nữa mà, vẫn nhiều cơ hội để đổi"*. Luật *"0.7.x không đổi API"* **không suy
-> sang 0.8.x**: 0.7.x là dòng đã phát hành có 31 app chạy trên nó, 0.8.x là dòng đang
-> xây. Leader phát hiện mâu thuẫn này ngày 2026-08-21; nay đã sửa.
->
-> Dù vậy tên và chữ ký của fieldbus/MQTT **đã khai xong ở 0.8** như dự định, nên 0.8.1
-> trên thực tế chỉ còn phần hiện thực.
+> ✅ **Chủ dự án chốt 2026-08-22: tách 0.8.1 và 0.8.2.** Nguyên văn: *"tôi giờ chỉ cần
+> tăng tốc uvloop, mấy cái fieldbus + MQTT + drain() tôi cũng chưa cần bây giờ."*
 
-| Việc | Ghi chú |
+Thiết kế **đã đủ để code, không cần thêm vòng thiết kế nào**:
+[`docs/sap-toi/tang-toc-uvicorn-uvloop.md`](docs/sap-toi/tang-toc-uvicorn-uvloop.md).
+
+**Vấn đề:** `pip install xime[web]` kéo `uvicorn[standard]`, nên uvloop **đã nằm sẵn
+trên đĩa ở mọi cài đặt Linux** - và **chưa bao giờ chạy**. Xime gọi `Server.serve()`,
+còn `loop_factory` chỉ được đọc trong `Server.run()`. Nhìn `pip list` thấy đủ bốn gói
+tăng tốc rồi kết luận *"đã bật"* là sai, và **không gì báo**.
+
+| # | Việc | |
+|---|---|---|
+| 1 | `xime/core/bootstrap/_loop.py` + `uvloop_factory()` | ✅ **XONG 2026-08-22** |
+| 2 | Ghép vào `worker_loop_factory`, tách **ba nhánh thật**. ⛔ nhánh Windows selector (`WinError 87`) giữ nguyên từng chữ | ✅ **XONG** |
+| 4 | Log **loop đang chạy thật** trong `_run_async()` | ✅ **XONG** |
+| 5 | Test canh - `tests_temp/bootstrap/test_event_loop.py`, **16 test** | ✅ **XONG** |
+| 6 | **Bốn phép đo trên Linux** | ✅ **XONG 2026-08-22** - ba ĐẠT, phép thứ tư lật một giả định. [`docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md) |
+| 7 | WARNING khi có route `@ws` mà thiếu thư viện WS (việc phụ, không thuộc uvloop) | ✅ **XONG 2026-08-22** - `ws/_availability.py`, 8 test, 3 đối chứng |
+| 8 | `CHANGELOG.md` + `pyproject` lên `0.8.1` | ✅ **XONG 2026-08-22** |
+
+**Nghiệm thu Windows** (đo lại 2026-08-22 sau khi nhận bản vá Linux): **2534 passed /
+24 skipped / 0 failed = tổng 2558** · `ruff check xime/` và `.claude/scripts/benchmark/`
+**sạch** · chạy thật một tiến trình in `event loop: asyncio.windows_events.ProactorEventLoop`.
+
+**Nghiệm thu Linux:** **2552 / 6 / 0 = tổng 2558**, và **cũng 2552/6/0 khi chạy dưới
+uvloop thật** · `mypy xime/` **41 lỗi = đúng mốc 0.8.0**, bản vá không thêm cái nào.
+
+⚠ `ruff check tests_temp/` ra **197 lỗi** và **luôn như vậy từ trước** (Linux đo HEAD
+của chính nó: 199, trước và sau khi chép đều thế). **Không phải nợ của 0.8.1** - câu
+*"ruff sạch"* ở repo này đúng cho `xime/`, không đúng cho `tests_temp/`. Dọn hay không
+là quyết định của chủ dự án, và nên là **một commit riêng** vì nó đụng ~150 file test.
+
+⭐ **Bốn đối chứng, và cái thứ tư tìm ra lỗ hổng thật:** gỡ đường uvloop -> 3 đỏ · quay
+về điều kiện gộp của 0.8.0 -> 3 đỏ · bỏ `loop_factory=` -> 2 đỏ · **xoá lời gọi log ->
+0 đỏ**. Bản test đầu canh **hàm** chứ không canh **việc hàm được gọi**; đã vá bằng một
+test chạy vòng đời thật. Chi tiết: mục 12 của
+[`docs/sap-toi/tang-toc-uvicorn-uvloop.md`](docs/sap-toi/tang-toc-uvicorn-uvloop.md).
+
+⛔ **Việc số 3 của tài liệu (sửa đường vào thứ hai) KHÔNG còn tồn tại** - 0.8.0 đã hợp
+nhất cả ba nhánh `run()` về `Application._run_worker()`, nơi có đúng một `asyncio.run`.
+Rủi ro *"vá một nửa"* nay không tồn tại **về mặt cấu trúc**.
+
+⚠⚠ **Linux là để CHẠY THỬ LẦN ĐẦU, không phải nghiệm thu** - và chuyến 2026-08-22 đã
+chứng minh câu đó bằng một ca thật. uvloop không có wheel Windows, nên ở đây
+`uvloop_factory()` **luôn trả `None`** và nhánh mới **không chạy một lần nào**; bộ test
+Windows chỉ chứng minh được **không hồi quy**.
+
+⭐⭐ **Ca thứ BA của "lỗi máy phát triển không thể thấy"** (sau C4/C5 của 0.8.0):
+`test_linux_never_switches` khoá `worker_loop_factory(...) is None` trên Linux và
+**xanh trên Windows** kể cả sau bản vá - vì ở đây `uvloop_factory()` trả `None` nên dù
+`sys.platform` bị monkeypatch thành `"linux"` thì hàm vẫn trả `None`. **Phép đo đó không
+đo nền tảng được monkeypatch, nó đo nền tảng thật.** Nó còn **mâu thuẫn trực tiếp** với
+`tests_temp/bootstrap/test_event_loop.py`, mà không ai thấy vì hai file **không bao giờ
+cùng đỏ trên một máy**.
+
+> **Đề nghị cho mọi bản sau: một lượt chạy bộ test trên Linux là điều kiện phát hành.**
+> Nay có ba ca thật, ba cơ chế khác nhau, cùng một hình dạng.
+
+⛔ **Không làm công tắc**, không khai `uvloop` thành phụ thuộc riêng, không mong nó giúp
+gRPC (`grpcio` chạy trên core C riêng).
+
+## 3b. 0.8.2 - fieldbus + MQTT + `drain()`
+
+| Việc | Còn thiếu gì |
 |---|---|
-| **Fieldbus chia tải** | Tách **loại** (`bang-tai`, code biết) khỏi **thực thể** (`BT-01`, cấu hình biết); `@poll`/`@on_change` chạy một lần **mỗi thực thể**. Chữ ký đã khai ở 0.8 (phần 4b) |
-| **MQTT chia tải** | Chia **theo topic**, không dùng shared subscription; `client_id` + `topics` vào `processes.<p>.mqtt.<id>` |
-| ~~**Nợ luật 03 của `EventBus`**~~ | ✅ **ĐÃ TRẢ ở 0.8** (2026-08-21): `publish()` trả `PublishOutcome` với ba giá trị `SCHEDULED` / `NO_HANDLERS` / `DROPPED`. Chủ dự án chốt trả ở bản này vì 0.8 là chuyến cuối trước khi API đóng |
-| **`drain()` lúc tắt máy** | Framework không bao giờ tự gọi, nên handler đang chạy bị cắt ngang. Tài liệu nay bảo người dùng tự gọi trong `PreDestroy`; sửa tử tế thì chạm vòng đời adapter |
+| **Fieldbus chia tải** | Cấu hình bốn tầng `process -> modbus -> loại -> thực thể` · `@poll`/`@on_change` chạy một lần **mỗi thực thể** · log khi bỏ qua adapter · chiều ghi qua `ProcessLink`. **Chữ ký đã khai xong ở 0.8** |
+| **MQTT chia tải** | Topic filter phải **đến từ cấu hình**, `@subscribe` còn là bảng định tuyến · cảnh báo route không ai nghe. **Metadata `unique_per_process`/`disjoint_per_process` đã có** |
+| **`drain()` lúc tắt máy** | Framework không bao giờ tự gọi. Sửa tử tế thì chạm vòng đời adapter |
+| ~~**Nợ luật 03 của `EventBus`**~~ | ✅ **ĐÃ TRẢ ở 0.8**: `publish()` trả `PublishOutcome` ba giá trị |
 
-⏭ **Hoãn có ý thức, đã ghi lý do:** *cha không có mồm* (mục 2.8c tài liệu đa tiến trình -
-cha không dựng DI nên không có đường báo ra ngoài) · *supervisor trông tiến trình ngoài* ·
-*tắt êm*.
+⚠ **Hạn chót thật: phải nằm trong dòng 0.8.x.** Cả ba đổi khoá cấu hình, tức đổi API
+công khai, mà **0.9 sang Beta nơi API coi như đã chốt**.
+
+⭐ Vì sao tách khỏi 0.8.1: **tách rủi ro** (có sự cố trên Linux thì biết ngay thủ phạm),
+cộng hai điều kiện thật - uvloop **có lãi ngay cho 31 app**, còn ba mảng này **chưa app
+nào dùng Modbus/OPC UA/MQTT thật**; và chuyến Linux của chúng nặng hơn hẳn vì cả ba đều
+là mảng **đa tiến trình**.
+
+⏭ **Hoãn có ý thức, chủ dự án xác nhận lại 2026-08-22** (*"mấy thứ bạn gợi ý hoãn tôi
+cũng thực sự muốn hoãn"*): *cha không có mồm* (mục 2.8c - cha không dựng DI nên không có
+đường báo ra ngoài) · *supervisor trông tiến trình ngoài* · *tắt êm*. Cả ba **không phải
+API** nên thêm ở 0.8.3 hay 1.1 đều được.
 
 ## 4. Cần máy khác mới làm được
 
 | Việc | Cần gì |
 |---|---|
 | **Hai phép đo LMDB** (mục 6.2 [`docs/thiet-ke/13-kho-store-lmdb.md`](docs/thiet-ke/13-kho-store-lmdb.md)) | **VPS Linux** - máy này là Windows. Không chặn gì: chúng để chỉnh tham số vận hành, không phải quyết định thiết kế |
+| ~~**Bốn phép đo uvloop của 0.8.1**~~ | ✅ **XONG 2026-08-22** trên máy Linux của chính chủ dự án (Debian 13, Python 3.13.5), không cần VPS. [`docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md) |
+| ⏳ **Phần đo còn thiếu của benchmark** | **Máy Linux.** gRPC streaming · socket adapter dưới tải · MQTT · phản hồi lớn nhiều KB · app có I/O database thật. **Không chặn gì** - kết luận uvloop cho 0.8.1 đã đủ cơ sở; đây là để mở rộng phạm vi kết luận |
 
 ## 5. Ngoài framework
 

@@ -318,6 +318,7 @@ See the [CHANGELOG](CHANGELOG.md) for release history.
 | [Inter-process Bus](docs/en/process-link.md) | `ProcessLink` - commands and questions between processes, four `ask` outcomes, per-channel ordering |
 | [Command-line tools](docs/en/cli.md) | `xime init` scaffolds a project · `xime config --print` prints every key with its default · `xime check config` catches typos |
 | [Multi-process](docs/en/multi-process.md) | `share_load()` - the `processes:` block, shared ports, supervisor, `run_once()`, primary promotion, watchdog, `/healthz`, and two probes for module-level code |
+| [Event loop](docs/en/event-loop.md) | Which loop is running, uvloop on Linux, and why it makes REST ~10% slower while making open-connection work 11-38% faster |
 | [Starters](docs/en/starters.md) | SQLAlchemy, JWT, Scheduler, Cache, Redis, Storage (local / S3 + HTTP streaming) |
 | [Testing](docs/en/testing.md) | DI overrides, fakes, test utilities |
 | [Contributing](docs/en/contributing.md) | How to contribute, roadmap |

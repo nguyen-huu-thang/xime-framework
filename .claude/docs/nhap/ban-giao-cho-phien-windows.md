@@ -32,7 +32,7 @@ bị chặn bởi nền tảng (`POSIX permission bits`, `/dev/shm`, `unix socke
 qua của Linux thì bỏ qua ở **cả hai** bên vì thiếu S3 và MQTT broker.
 
 📌 Một nhãn mang hai giá trị tuỳ hệ điều hành là đúng
-[luật 03](../../../.claude/rules/03-mot-gia-tri-mot-nghia.md) ở tầng con số nghiệm thu -
+[luật 03](../../../../.claude/rules/03-mot-gia-tri-mot-nghia.md) ở tầng con số nghiệm thu -
 cùng khuôn với con số `2518` mà chính tài liệu này đã bắt được một lần.
 
 ---
@@ -221,9 +221,9 @@ INFO | socket default: process main serving on /run/x.sock (0600, any uid)
 dòng web dài thêm một cụm `(HTTP)`. Cố ý, và đã ghi vào `CHANGELOG.md`.
 
 Chi tiết đầy đủ, phép đo, test canh:
-[`kiem-toan/0.8-kiem-toan-toan-dien.md`](kiem-toan/0.8-kiem-toan-toan-dien.md)
+[`kiem-toan/0.8-kiem-toan-toan-dien.md`](../kiem-toan/0.8-kiem-toan-toan-dien.md)
 mục **ĐỢT 6** · báo cáo gốc:
-[`bao-cao-van-de-tu-repo-ngoai/`](bao-cao-van-de-tu-repo-ngoai/README.md).
+[`bao-cao-van-de-tu-repo-ngoai/`](../bao-cao-van-de-tu-repo-ngoai/README.md).
 
 ---
 
@@ -231,7 +231,7 @@ mục **ĐỢT 6** · báo cáo gốc:
 
 `.git` cố ý không nằm trong bản chép, nên **thông điệp commit của đợt Linux sẽ
 biến mất**. Chúng đã được xuất nguyên văn ra
-[`kiem-toan/0.8-nhat-ky-va-tren-linux.md`](kiem-toan/0.8-nhat-ky-va-tren-linux.md)
+[`kiem-toan/0.8-nhat-ky-va-tren-linux.md`](../kiem-toan/0.8-nhat-ky-va-tren-linux.md)
 (415 dòng) - đó là nơi giữ **lý do** của từng bản vá.
 
 Mốc gốc bên Linux là `dd0192c` (*"0.8.0 như nhận từ Windows, chưa vá gì"*), rồi

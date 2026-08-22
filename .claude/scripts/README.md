@@ -7,6 +7,16 @@ dùng đã cài.
 
 Không nằm trong gói phát hành (`.claude/` đã bị loại khỏi sdist).
 
+## Thư mục con
+
+| | |
+| --- | --- |
+| [`benchmark/`](benchmark/README.md) | ⭐ **Bộ benchmark của framework** (mới 2026-08-22): bốn tầng - loop trần, HTTP (asgi/fastapi/xime), lõi (DI, Store, RefData), cụm nhiều tiến trình. Chạy: `python .claude/scripts/benchmark/run_all.py`. Kết quả và cách đọc: [`../docs/ghi-chep/benchmark-hieu-nang.md`](../docs/ghi-chep/benchmark-hieu-nang.md) |
+| `bao-mat/` | 12 PoC của đợt kiểm toán bảo mật 0.7 |
+
+⚠ Khác với bốn script dưới đây, benchmark **không phải cổng chặn phát hành**: nó
+báo cáo trạng thái chứ không phán đạt/trượt, và mã thoát luôn là 0.
+
 | Script | Trả lời câu hỏi | Đã bắt được |
 | --- | --- | --- |
 | `check_doc_imports.py` | Mọi dòng `from xime... import X` trong tài liệu có chạy được không? | **16 dòng hỏng**: cả mục JWT của `starters.md` mô tả API không tồn tại; 4 chỗ trỏ `xime.config`/`xime.lifecycle`/`xime.event`/`xime.context` thay vì `xime.core.*` |

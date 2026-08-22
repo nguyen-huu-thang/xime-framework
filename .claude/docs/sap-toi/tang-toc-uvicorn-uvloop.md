@@ -1,13 +1,30 @@
 # Tăng tốc uvicorn: bật uvloop trên Linux (nhắm 0.8.1+)
 
-> **Trạng thái: ĐÃ ĐO, CHƯA CODE. Nhắm 0.8.1, KHÔNG phải 0.8.0.**
+> **Trạng thái: ✅ ĐÃ CODE, ĐÃ ĐO TRÊN LINUX, SẴN SÀNG PHÁT HÀNH (2026-08-22).**
+> Đây là nội dung duy nhất của `0.8.1`.
 >
-> ⛔⛔ **File này cố ý KHÔNG được trỏ tới từ `CLAUDE.md`, `../phien-ban/0.8-ke-hoach-thi-cong.md`,
-> `../phien-ban/0.8-ban-giao-thiet-ke.md` hay `lo-trinh-phien-ban.md`.** Thiết kế 0.8.0 đã đóng và đang thi
-> công theo bảy giai đoạn; chèn một mảng mới vào lúc này là đúng thứ mà chính bản bàn giao đó
-> cảnh báo. Phiên đang làm 0.8.0 **không cần đọc file này và không nên đọc**.
+> ⛔⭐ **Phép đo thứ tư ở mục 5 đã chạy, và nó LẬT MỘT GIẢ ĐỊNH CỦA CHÍNH FILE NÀY:
+> uvloop KHÔNG tăng tốc chồng web của Xime, nó làm REST chậm ~10%.** Lãi thật nằm ở
+> **kết nối đã mở** (tin nhắn WebSocket 1.11x, loop trần 1.38x), không ở việc xử lý một
+> request. **Vẫn giữ uvloop** - lý do và số liệu đầy đủ ở
+> [`../kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](../kiem-toan/0.8.1-ket-qua-do-tren-linux.md)
+> và [`../ghi-chep/benchmark-hieu-nang.md`](../ghi-chep/benchmark-hieu-nang.md).
 >
-> Ngày 0.8.0 phát hành xong thì mới thêm con trỏ, và lúc đó cập nhật `lo-trinh-phien-ban.md`.
+> 📌 **File này vẫn nằm ở `sap-toi/` dù việc đã xong** - dời nó là quyết định về cấu
+> trúc thư mục, thuộc chủ dự án. Đọc nó như **thiết kế đã thi hành**, và đọc mục 5 kèm
+> kết quả ở mục 5b.
+>
+> Fieldbus chia tải, MQTT chia tải và `drain()` **đã tách sang 0.8.2** - xem
+> [`../lo-trinh-phien-ban.md`](../lo-trinh-phien-ban.md) mục 0.8.1 và 0.8.2. Lý do tách là
+> **tách rủi ro**, đúng lập luận mục 2 dưới đây dùng để tự hoãn khỏi 0.8.0.
+>
+> ✅ **Lệnh cấm trỏ tới file này ĐÃ GỠ.** Bản cũ cấm mọi tài liệu trỏ tới đây vì thiết kế 0.8.0
+> đã đóng và đang thi công bảy giai đoạn; điều kiện gỡ là *"ngày 0.8.0 phát hành xong"*, và
+> **0.8.0 đã lên PyPI 2026-08-21**. Nay `lo-trinh-phien-ban.md` và `../README.md` đều trỏ tới.
+>
+> ⚠ **Một chỗ trong file này đã LỖI THỜI, xem đính chính ở mục 1.2 và 4.3:** nó mô tả **hai**
+> đường vào `asyncio.run`, còn code 0.8.0 sau kiểm toán **đã hợp nhất còn một**. Việc số 3 của
+> bảng mục 10 vì vậy biến mất.
 >
 > Mọi số liệu dưới đây đo ngày **2026-08-20** trên máy dev (Windows 11, Python 3.14,
 > uvicorn 0.41.0). Số đo là **ảnh chụp**, không phải trạng thái, đo lại trước khi tin.
@@ -65,8 +82,29 @@ python -m app.main
 Cả hai đường đều **không bao giờ gọi `Server.run()`**. Nên `loop="auto"` của uvicorn chưa từng
 được đọc.
 
-⚠ Số dòng có thể trôi: `application.py` đang được sửa trong giai đoạn 3 của 0.8.0. Tìm theo
-tên (`asyncio.run`, `worker_loop_factory`) chứ đừng tìm theo số.
+> ### ⛔ ĐÍNH CHÍNH 2026-08-22: nay chỉ còn MỘT đường vào, không phải hai
+>
+> Sơ đồ trên đo lúc 0.8.0 đang thi công. Bản 0.8.0 sau kiểm toán **đã hợp nhất**: cả ba nhánh
+> của `run()` (đơn tiến trình · supervisor · worker) đều rơi vào `Application._run_worker()`,
+> nơi có **đúng một** lời gọi:
+>
+> ```text
+> Application.run()
+> ├─ khong share_load  ─┐
+> ├─ supervisor        ─┤─→ _run_worker(topology, process_id, sockets)
+> └─ worker            ─┘   └─ asyncio.run(self._run_async(),
+>                                          loop_factory=worker_loop_factory(sockets))
+> ```
+>
+> Nhánh đơn tiến trình truyền `sockets={}`, và `worker_loop_factory({})` trả `None` - tức đúng
+> hành vi hôm nay.
+>
+> **Hệ quả:** rủi ro *"vá một nửa"* mà mục 4.3 cảnh báo **không còn tồn tại về mặt cấu trúc**,
+> chứ không phải được tránh nhờ cẩn thận. Sửa `worker_loop_factory` là phủ hết mọi đường vào,
+> và **việc số 3 của bảng mục 10 biến mất**.
+
+⚠ Số dòng có thể trôi: `application.py` đã được sửa trong giai đoạn 3 của 0.8.0 rồi lại sửa
+trong đợt kiểm toán. Tìm theo tên (`asyncio.run`, `worker_loop_factory`) chứ đừng tìm theo số.
 
 ### 1.3. Vì sao httptools và websockets thì lại chạy
 
@@ -103,6 +141,10 @@ Ba lý do, xếp theo trọng lượng thật:
    API*. Bản vá này **không có bề mặt API nào**: không tham số mới, không khoá YAML mới, không
    `configure_*` mới. Nên hoãn sang 0.8.1 **không khoá mất gì cả**. Đã kiểm điều này trước khi
    quyết, vì nếu có knob thì nó phải chốt ở 0.8.0.
+
+   📌 **Cập nhật 2026-08-22: luật đó đã bị chủ dự án nới 2026-08-19** (*"0.8 đang có nhiều phiên
+   bản con nữa mà, vẫn nhiều cơ hội để đổi"*). **Kết luận không đổi** - bản vá này vốn không có
+   bề mặt API nào để mà vướng, nên nó đúng ở cả hai bản của luật.
 
 ⚠ Điều kiện của lý do 3: **làm tự dò, KHÔNG làm công tắc**. Xem mục 6.1.
 
@@ -177,21 +219,31 @@ socket của kernel, không thuộc handle), và cách hỏng của nó là **co
 công, log "serving", rồi không nhận nổi một kết nối nào**. Đọc docstring của chính hàm đó trước
 khi sửa một ký tự.
 
-### 4.3. Đường vào thứ hai
+### 4.3. ~~Đường vào thứ hai~~ - ⛔ HẾT ĐÚNG 2026-08-22
 
-`application.py:246` (nhánh không `share_load`) cũng phải sửa, và **đây mới là đường 31 app đang
-đi**:
+> **Không còn đường vào thứ hai.** Xem đính chính ở mục 1.2: 0.8.0 đã hợp nhất cả ba nhánh về
+> `Application._run_worker()`, nên sửa `worker_loop_factory` (mục 4.2) là xong.
+>
+> Giữ nguyên vết gạch thay vì xoá, vì nỗi lo bên dưới **từng đúng** và người đọc cần thấy nó đã
+> được đóng bằng cách nào - bằng **cấu trúc code**, không bằng kỷ luật.
+
+~~`application.py:246` (nhánh không `share_load`) cũng phải sửa, và **đây mới là đường 31 app
+đang đi**~~:
 
 ```python
 asyncio.run(self._run_async(), loop_factory=uvloop_factory())
 ```
 
 `asyncio.run(..., loop_factory=)` có từ **Python 3.12**, đúng bằng `requires-python` của gói.
-Không phải thêm lớp tương thích nào.
+Không phải thêm lớp tương thích nào. **Câu này vẫn đúng** - nó là điều kiện cho mục 4.2.
 
-⚠ **Sửa một chỗ quên chỗ kia là dạng lỗi tệ nhất ở đây**: `share_load()` nhanh còn chạy thường
+~~⚠ **Sửa một chỗ quên chỗ kia là dạng lỗi tệ nhất ở đây**: `share_load()` nhanh còn chạy thường
 thì không, hoặc ngược lại, và **không gì báo**. Phải có test canh **cả hai** đường vào cùng gọi
-`uvloop_factory()`.
+`uvloop_factory()`.~~
+
+⭐ **Test canh vẫn phải có, nhưng canh thứ khác**: nay là *"cả ba nhánh của `run()` đều đi qua
+`worker_loop_factory`"*. Ngày ai đó thêm một `asyncio.run` thứ hai thì test đó đỏ - đúng thứ
+lời cảnh báo cũ muốn phòng.
 
 ### 4.4. Log KẾT QUẢ, không log Ý ĐỊNH
 
@@ -227,6 +279,42 @@ Không cái nào là *"đừng làm"*, tất cả là *"đo đi"*. Nhưng chưa 
 môi trường mà máy dev không có.
 
 ---
+
+## 5b. ✅ Kết quả bốn phép đo (Linux, 2026-08-22)
+
+Debian 13, Python 3.13.5, uvloop 0.22.1, uvicorn 0.52.4, 16 CPU. Báo cáo đầy đủ:
+[`../kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](../kiem-toan/0.8.1-ket-qua-do-tren-linux.md).
+
+| # | Phép đo | Kết quả |
+|---|---|---|
+| 1 | Bắt tay TLS thật | **ĐẠT** - TLSv1.3 trọn vẹn, 20/20 request 200, log xác nhận `uvloop.Loop` + `(HTTPS)`. Nỗi lo *"uvloop có hiện thực SSL riêng"* là có thật, và nó chạy đúng |
+| 2 | `SO_PEERCRED` | **ĐẠT** - uvloop trả `uvloop.loop.PseudoSocket` (**khác hẳn** `TransportSocket` của loop mặc định) nhưng proxy `getsockopt` đủ. Có **đối chứng âm**: uid sai -> `False` |
+| 3 | `share_load()` socket kế thừa | **ĐẠT** - cụm 3 tiến trình, cả ba log `uvloop.Loop`, và **cả ba thật sự trả lời** (đếm pid: 60/31/29 trên 120 request). Đo bằng *ai trả lời*, không bằng *nó khởi động được* |
+| 4 | Lãi thật | ⛔ **Lật giả định** - xem dưới |
+
+### ⛔ Phép đo 4: ranh giới không phải giao thức, mà là LOẠI VIỆC
+
+Đo trên **cùng một app Xime**, dao động dưới 2%, hai lượt cách nhau một tiếng cho cùng
+kết quả, ma trận sáu hình dạng tải cho 5/6 ô cùng chiều:
+
+| Loại việc | uvloop / loop mặc định |
+|---|---|
+| Xử lý một request kiểu HTTP: REST **0.91x** · **bắt tay WebSocket 0.93x** | **lỗ ~8-9%** |
+| Truyền trên kết nối đã mở: **tin nhắn WebSocket 1.11x** · echo TCP trần **1.38x** | **lãi 11-38%** |
+
+⭐ **Bắt tay WebSocket là một request HTTP-upgrade, và nó rơi cùng phía với REST** -
+khác phía với chính những tin nhắn chạy sau nó **trên cùng cái socket đó**. Đó là bằng
+chứng mạnh nhất rằng trục phân chia là loại việc, không phải giao thức.
+
+uvloop tăng tốc tầng loop/transport nhưng có **chi phí cố định mỗi callback**; khi app
+kẹt ở công việc mức Python thì phần lãi không có chỗ hiện ra còn chi phí vẫn phải trả.
+
+📌 Kết luận thực dụng: thêm một tiến trình cho **+100%** thông lượng, uvloop cho
+**-10%**. Nút điều chỉnh có ích của một app Xime điển hình là `count:`, không phải event
+loop. ⚠ Điều đó **không** làm mục 6 dưới đây sai - xem ba lý do giữ uvloop trong báo cáo.
+
+⏳ **Chưa đo, nên chưa mở rộng kết luận**: gRPC streaming · socket adapter dưới tải ·
+MQTT · phản hồi lớn nhiều KB · app có I/O database thật.
 
 ## 6. Ranh giới: thứ cố ý KHÔNG làm
 
@@ -341,16 +429,116 @@ print(AutoWebSocketsProtocol)             # None = mọi route @ws sẽ chết l
 
 | # | Việc | Ghi chú |
 |---|---|---|
-| 1 | `xime/core/bootstrap/_loop.py` + `uvloop_factory()` | Module mới, tránh kéo `multiprocessing` vào nhánh thường |
-| 2 | Ghép vào `worker_loop_factory` (`_supervisor.py`) | ⛔ **giữ nguyên nhánh Windows selector** |
-| 3 | Sửa `asyncio.run` ở nhánh **không** `share_load` (`application.py`) | Đường 31 app đang đi. Quên chỗ này là vá một nửa, im lặng |
-| 4 | Log loop **đang chạy thật** trong `_run_async()` | Bắt buộc, xem 4.4 |
-| 5 | Test canh: **cả hai** đường vào đều đi qua `uvloop_factory()` | Loại lỗi "vá một nửa" ở trên |
+| ~~1~~ | ✅ **XONG 2026-08-22** - `xime/core/bootstrap/_loop.py` + `uvloop_factory()` | Module mới, tránh kéo `multiprocessing` vào nhánh thường |
+| ~~2~~ | ✅ **XONG 2026-08-22** - ghép vào `worker_loop_factory` (`_supervisor.py`), tách thành **ba nhánh thật** | ⛔ Nhánh Windows selector **giữ nguyên từng chữ**, có 4 test đối chứng dương canh |
+| ~~3~~ | ~~Sửa `asyncio.run` ở nhánh **không** `share_load`~~ | ⛔ **HẾT ĐÚNG 2026-08-22** - 0.8.0 đã hợp nhất còn một đường vào. Xem 1.2 và 4.3 |
+| ~~4~~ | ✅ **XONG 2026-08-22** - `Application._log_running_loop()` | Đo thật: `INFO | xime.bootstrap | event loop: asyncio.windows_events.ProactorEventLoop`, in **trước** dòng của web adapter |
+| ~~5~~ | ✅ **XONG 2026-08-22** - `tests_temp/bootstrap/test_event_loop.py`, **16 test** | Bốn đối chứng đều đỏ đúng chỗ - xem mục 12 |
 | 6 | Bốn phép đo trên Linux | Mục 5. Chưa đo thì chưa đóng |
-| 7 | WARNING khi có `@ws` mà thiếu thư viện WS | Mục 7, ưu tiên thấp hơn |
-| 8 | `CHANGELOG.md`, `lo-trinh-phien-ban.md`, con trỏ tới file này | **Chỉ sau khi 0.8.0 phát hành xong** |
+| ~~7~~ | ✅ **XONG 2026-08-22** - `xime/adapters/web/ws/_availability.py`, 8 test | Chủ dự án yêu cầu làm luôn. ⚠ **Máy này không thiếu gì** (`websockets 16.0` có, `httptools` đang chạy) - đây là cảnh báo cho **người dùng framework** cài `uvicorn` trần |
+| 8 | `CHANGELOG.md` | ✅ Phần `lo-trinh-phien-ban.md` + con trỏ **đã làm 2026-08-22** (điều kiện *"sau khi 0.8.0 phát hành"* đã thoả). Còn lại `CHANGELOG.md`, làm lúc phát hành |
 
 ---
+
+## 12. Kết quả thi công 2026-08-22 (phần làm được trên Windows)
+
+Việc **1, 2, 4, 5, 7 đã xong**; chỉ còn việc 6 (bốn phép đo Linux) và việc 8
+(`CHANGELOG.md` lúc phát hành).
+
+| Nghiệm thu | |
+|---|---|
+| Bộ test đầy đủ | **2534 passed / 24 skipped / 0 failed** (223s) - kỳ vọng Windows cũ **2510** cộng **16** (uvloop) cộng **8** (việc 7) |
+| `ruff check xime/` | sạch (một lỗi thứ tự import đã sửa) |
+| `mypy` | ⏳ **chưa chạy** - khai trong extra `dev` nhưng **chưa cài trên máy này**. Đây là công cụ **duy nhất** tìm ra C5 ở đợt kiểm toán 0.8 |
+| Chạy thật một tiến trình | `INFO | xime.bootstrap | event loop: asyncio.windows_events.ProactorEventLoop`, in **trước** dòng của web adapter |
+
+### ⭐ Bốn đối chứng - và cái thứ tư tìm ra một lỗ hổng thật
+
+Chạy đúng thủ tục *"gỡ bản vá ra rồi đếm test đỏ"*, vì **"không test nào đỏ" có ba
+nghĩa** và chỉ đối chứng mới tách được chúng:
+
+| Gỡ ra thứ gì | Test đỏ |
+|---|---|
+| Đường uvloop (nhánh Linux trả thẳng `None`) | **3** |
+| Quay về điều kiện gộp của 0.8.0 (`!= "win32" or not sockets`) | **3** |
+| Bỏ `loop_factory=` khỏi `asyncio.run` | **2** |
+| Xoá dòng `self._log_running_loop()` khỏi `_run_async()` | ⛔ **0**, rồi **1** sau khi vá |
+
+⭐ **Dòng cuối là phần đáng đọc nhất.** Bản test đầu có 15 ca, tất cả xanh, và **vẫn
+xanh nguyên khi gỡ hẳn lời gọi log ra khỏi vòng đời**. Nguyên nhân: chúng kiểm
+`_log_running_loop()` bằng cách **gọi thẳng nó**, tức canh **hàm** chứ không canh **việc
+hàm được gọi**.
+
+> Một phép đo nhắm vào thứ mình vừa viết thì gần như luôn xanh. Chỉ có đối chứng mới
+> phân biệt được *"đã canh"* với *"tưởng là đã canh"*.
+
+Vá bằng `test_vong_doi_that_co_log_loop`: chạy `_run_async()` thật rồi đọc log.
+⚠ Phải huỷ task bằng tay - `_serve_adapters()` kết thúc bằng `asyncio.sleep(inf)` **có
+chủ đích** (adapter cuối chết thì tiến trình vẫn ở lại để `/healthz` còn trả lời được),
+nên `await` thẳng là treo. Lần chạy đầu đã treo đúng như vậy.
+
+### ⚠ Thứ Windows KHÔNG chứng minh được
+
+**Không phép đo nào ở trên chạm vào uvloop.** Trên máy này `uvloop_factory()` luôn trả
+`None`, nên 16 test kia chỉ chứng minh **đường dây nối đúng**: nhánh nào gọi tới đâu, ai
+không được gọi. Nhánh uvloop thật sự **chưa chạy một lần nào**.
+
+Bốn phép đo ở mục 5 vì vậy **chặn phát hành 0.8.1**, khác hẳn hai phép đo LMDB (chỉ để
+chỉnh tham số vận hành).
+
+### Kỳ vọng test sau bản vá - HAI con số, theo hệ điều hành
+
+| Nền tảng | `passed` | `skipped` | **Tổng** |
+|---|---|---|---|
+| Linux | **2552** (dự kiến: 2528 + 24) | 6 | **2558** |
+| Windows | **2534** (đo thật) | 24 | **2558** |
+
+⚠ Con số Linux là **dự kiến, chưa đo** - 24 test mới không có ca nào phụ thuộc nền tảng,
+nhưng đó là suy luận chứ không phải phép đo. **Thứ bất biến giữa hai bên là tổng 2558**,
+không phải `passed`.
+
+⚠⚠ **`2534` xuất hiện hai lần với hai nghĩa khác nhau**: nó là **tổng của 0.8.0**, và
+cũng là **`passed` của Windows ở 0.8.1**. Trùng số, khác trục - đúng kiểu nhầm mà con số
+bàn giao sai của đợt trước đã cắn.
+
+### Việc 7 đã làm gì, và một hiểu nhầm đáng ghi lại
+
+Chủ dự án đọc mục 7 rồi bảo *"bạn hãy cài và làm giúp tôi"* - hiểu là **máy này đang
+thiếu thư viện**. Kiểm bằng lệnh thì không: `websockets 16.0` có mặt, và
+`AutoHTTPProtocol` đang là `httptools_impl` chứ không phải `h11`.
+
+> Việc 7 **không phải cài gì cả**. Nó là **thêm một cảnh báo cho người dùng framework**
+> nào cài `uvicorn` trần rồi cài `xime` không kèm extra - lúc đó `xime[web]` không kéo
+> `uvicorn[standard]` về, và mọi route `@ws` của họ chết lặng.
+
+📌 Hiểu nhầm này tự nó là bằng chứng cho lý do việc 7 tồn tại: **trạng thái "có hay
+không có thư viện WebSocket" hôm nay không nói ra ở đâu cả**, nên ngay cả người viết ra
+mục này cũng phải chạy lệnh mới biết.
+
+**Hiện thực:** `xime/adapters/web/ws/_availability.py`, móc vào
+`_register_websocket_handlers` **sau** cửa thoát sớm `if not handlers: return` - đó
+chính là chỗ hiện thực điều kiện *"chỉ kêu khi thật sự có `@ws`"*, và nó là **cấu trúc**
+chứ không phải một `if` thêm vào.
+
+| Quyết định | |
+|---|---|
+| Hỏi `AutoWebSocketsProtocol`, **không** thử `import websockets` | Đó là thứ uvicorn thật sự dùng, và nó chấp cả `websockets` lẫn `wsproto`. Tự liệt kê tên gói là dựng danh sách thứ hai phải bảo trì |
+| Không import được module đó thì **coi như thiếu** | Không kết luận được là *"có"* thì đừng im lặng cho qua |
+| **Cảnh báo, không nổ** | Nổ lúc khởi động là biến app đang chạy thành app từ chối chạy, vì một thư viện mà đường cài chuẩn vốn đã kéo về |
+| Trả `bool` thay vì `None` | Để test khẳng định được **cả hai** nhánh |
+
+**Ba đối chứng, đều đỏ đúng chỗ:**
+
+| Gỡ ra thứ gì | Test đỏ |
+|---|---|
+| Lời gọi cảnh báo trong adapter | **2** |
+| Phép kiểm bên trong (thành *"luôn kêu"*) | **1** - `test_du_thi_im` |
+| Chuyển lời gọi lên **trước** cửa thoát sớm | **1** - `test_canh_bao_nam_sau_cua_thoat_som` |
+
+⭐ Nhóm test thứ ba (`TestNoiVaoDuongKhoiDong`) sinh ra **vì bài học của việc 5 trong
+cùng bản này**: ở đó 15 test kiểm một hàm bằng cách gọi thẳng nó, và vẫn xanh nguyên khi
+lời gọi bị gỡ khỏi vòng đời. Lần này viết luôn phần canh *"hàm có được gọi không"*, thay
+vì đợi đối chứng dạy lại.
 
 ## 11. Liên quan
 

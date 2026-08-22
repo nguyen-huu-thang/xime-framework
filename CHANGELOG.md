@@ -5,6 +5,142 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [0.8.1] - 2026-08-22
+
+Bản nhỏ, một chủ đề: **bật uvloop trên Linux**, cộng một cảnh báo phụ về thư viện
+WebSocket. Không đổi một khoá cấu hình nào, không thêm tên công khai nào.
+
+⚠ **Đo trên Linux xong mới phát hành.** Đây là bản đầu tiên áp quy tắc đó, và lý do
+là ba ca thật ở mục cuối.
+
+### Thêm - uvloop được dùng thật trên Linux và macOS
+
+`pip install "xime[web]"` vốn đã kéo `uvicorn[standard]`, nên **uvloop nằm sẵn trên
+đĩa ở mọi cài đặt Linux từ nhiều bản trước - và chưa bao giờ chạy một lần nào**. Xime
+gọi `Server.serve()`, trong khi `loop_factory` chỉ được đọc trong `Server.run()`.
+
+> Nhìn `pip list` thấy đủ bốn gói tăng tốc rồi kết luận *"đã bật"* là sai, và **không
+> có gì báo**. Không log, không cảnh báo, không khác biệt nào quan sát được từ bên
+> ngoài trừ khi đem đi đo.
+
+- Thêm `xime/core/bootstrap/_loop.py` với `uvloop_factory()`: trả hàm dựng loop của
+  uvloop nếu import được, `None` nếu không. Không dùng `uvloop.install()` (nó đặt
+  policy toàn cục, đụng vào tiến trình của người khác).
+- `worker_loop_factory()` tách thành **ba nhánh thật** thay vì gộp hai câu hỏi vào
+  một điều kiện:
+
+  | Nền tảng | Loop |
+  |---|---|
+  | Windows **có** socket kế thừa | `SelectorEventLoop` - **giữ nguyên từng chữ**, xem dưới |
+  | Windows không socket kế thừa | mặc định (proactor) |
+  | Linux / macOS | **uvloop** nếu có, ngược lại mặc định |
+
+- `Application._run_async()` nay log **loop đang chạy thật** ở mức `INFO`:
+
+  ```text
+  INFO | xime.bootstrap | event loop: uvloop.Loop
+  ```
+
+  Trước đây không có cách nào biết mình đang chạy trên loop nào mà không mở mã ra đọc.
+
+**Chi phí bằng 0 khi không có uvloop**: `uvloop_factory()` trả `None` và app chạy y hệt
+mọi bản trước. Không có công tắc bật/tắt - người vận hành không có đủ thông tin để
+chọn, mà chính người viết framework cũng phải đo mới biết.
+
+### Thêm - cảnh báo khi có route `@ws` mà không có thư viện WebSocket
+
+`uvicorn/protocols/websockets/auto.py` đặt `AutoWebSocketsProtocol = None` khi thiếu
+**cả** `websockets` lẫn `wsproto`. Khi đó mọi route `@ws` **chết lặng**: bắt tay không
+thành, và không một dòng log nào của Xime giải thích vì sao.
+
+`xime/adapters/web/ws/_availability.py` hỏi thẳng `AutoWebSocketsProtocol` - thứ uvicorn
+thật sự dùng - thay vì tự liệt kê tên gói, và **chỉ kêu khi app thật sự có route `@ws`**.
+Cảnh báo, không nổ: `xime[web]` vốn đã kéo về đủ, nên đây là đường cài không chuẩn chứ
+không phải lỗi cấu hình đáng chặn khởi động.
+
+### ⛔⭐ Đo được: uvloop KHÔNG tăng tốc REST, và ranh giới không phải giao thức
+
+Phép đo lãi thật **lật một giả định của chính bản này**. Đo trên **cùng một app Xime**,
+dao động dưới 2%, hai lượt cách nhau một tiếng cho cùng kết quả, ma trận sáu hình dạng
+tải cho 5/6 ô cùng chiều:
+
+| Loại việc | uvloop / loop mặc định |
+|---|---|
+| Xử lý một request kiểu HTTP: REST **0.91x** · **bắt tay WebSocket 0.93x** | **lỗ ~8-9%** |
+| Truyền trên kết nối đã mở: **tin nhắn WebSocket 1.11x** · echo TCP trần **1.38x** | **lãi 11-38%** |
+
+⭐ **Bắt tay WebSocket là một request HTTP-upgrade, và nó rơi cùng phía với REST** -
+khác phía với chính những tin nhắn chạy sau nó **trên cùng cái socket đó**. Trục phân
+chia là **loại việc**, không phải giao thức.
+
+**Vẫn giữ uvloop**, ba lý do: chi phí bằng 0 khi vắng mặt · REST không phải cả framework
+(năm adapter còn lại đều sống trên kết nối đã mở) · hiệu suất trên mỗi %CPU luôn thắng
+(1.31x-1.64x), và đó là chỉ số đáng giá hơn thông lượng đỉnh trên máy tính tiền theo CPU.
+
+📌 Kết luận thực dụng: thêm một tiến trình cho **+100%** thông lượng, uvloop cho
+**-10%**. Nút điều chỉnh có ích của một app Xime điển hình là `count:`, không phải
+event loop.
+
+### Nội bộ - framework nay có bộ benchmark
+
+Trước bản này **không có benchmark nào**. `.claude/scripts/benchmark/` đo năm tầng
+chồng lên nhau, nên **hiệu số giữa hai dòng là giá của đúng lớp nằm giữa chúng**: loop
+trần -> HTTP (asgi/fastapi/xime) -> lõi (DI, Store, RefData) -> cụm nhiều tiến trình ->
+WebSocket.
+
+| | |
+|---|---|
+| **Xime = 41% thông lượng của ASGI trần** | FastAPI ở giữa (66%). Giá của DI + controller + middleware |
+| **Cụm mở rộng gần tuyến tính** | 2.00x với 2 tiến trình, **3.88x với 4**, và **N/N tiến trình thật sự nhận việc** |
+| **`RefData.read()` nhanh hơn `Store.get()` ~60 lần** | Ranh giới *có nguồn bền vững hay không* trùng với ranh giới hiệu năng |
+
+Không nằm trong gói phát hành (`.claude/` đã bị loại khỏi sdist).
+
+### Tài liệu
+
+- **Trang mới [Event loop](docs/vn/event-loop.md)** (vn + en): loop nào đang chạy và
+  cách hỏi chính ứng dụng, Xime chọn loop thế nào trên từng nền tảng, số đo lãi/lỗ ở
+  trên, và vì sao **không có công tắc bật tắt** - người vận hành không có đủ thông tin
+  để chọn, mà chính người viết framework cũng phải đo mới biết.
+- **[WebSocket](docs/vn/websocket.md) thêm mục "Cần cài gì"**: trang này trước nay
+  không nói một chữ nào về thư viện cần có, trong khi bản này vừa thêm một cảnh báo về
+  đúng chuyện đó. Nay có cả chuỗi cảnh báo thật để người gặp nó tra được.
+
+### Sửa - hai test khoá sai thứ chúng hứa khoá
+
+Không đụng một dòng mã sản phẩm nào.
+
+- `test_linux_never_switches` khẳng định `worker_loop_factory(...) is None` trên Linux.
+  Đó là cách diễn đạt của ý *"không đổi loop"* ở thời **chưa có gì khác để đổi sang**.
+- `test_fails_fast_on_first_bad_package` đặt một package **hợp lệ** sau package lỗi rồi
+  chỉ khẳng định *"có ném `ImportError`"* - câu đó đúng **cả khi** scanner gom hết lỗi
+  rồi mới ném, tức nó không phân biệt được fail-fast với fail-late.
+
+### ⭐ Ca thứ ba của "lỗi máy phát triển không thể thấy"
+
+`test_linux_never_switches` **xanh trên Windows kể cả sau khi bản vá làm nó sai**, vì ở
+đó `uvloop_factory()` luôn trả `None` - nên dù `sys.platform` bị monkeypatch thành
+`"linux"`, hàm vẫn trả `None`.
+
+> **Phép đo đó không đo nền tảng được monkeypatch. Nó đo nền tảng thật.**
+
+Nó còn **mâu thuẫn trực tiếp** với `tests_temp/bootstrap/test_event_loop.py`, mà không
+ai thấy vì hai file **không bao giờ cùng đỏ trên một máy**. Sau C4 (ngữ cảnh
+`multiprocessing`) và C5 (`mypy`) của 0.8.0, đây là ca thứ ba, ba cơ chế khác nhau,
+cùng một hình dạng: **điều kiện gây lỗi không tồn tại trên máy phát triển.**
+
+### Nghiệm thu
+
+| | `passed` | `skipped` | **Tổng** |
+|---|---|---|---|
+| Linux (Debian 13, Python 3.13.5) | 2552 | 6 | **2558** |
+| Linux **chạy dưới uvloop thật** | 2552 | 6 | **2558** |
+| Windows (Python 3.14) | 2534 | 24 | **2558** |
+
+`mypy xime/` **41 lỗi = đúng mốc 0.8.0** · `ruff check xime/` sạch. Chênh 18 giữa hai
+nền tảng là test bị chặn bởi nền tảng; **tiêu chí đạt là TỔNG 2558 cộng 0 failed, không
+phải `passed`**.
+
 ## [0.8.0] - 2026-08-20
 
 Thi công theo bảy giai đoạn của `.claude/docs/ke-hoach-code-0.8-2026-08-19.md`,

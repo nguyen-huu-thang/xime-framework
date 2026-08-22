@@ -2,7 +2,7 @@
 
 **English** | [Tiếng Việt](../vn/multi-process.md)
 
-[← ProcessLink](process-link.md) · **Multi-process** · [Testing →](testing.md)
+[← ProcessLink](process-link.md) · **Multi-process** · [Event loop →](event-loop.md)
 
 ---
 

@@ -577,12 +577,34 @@ class Application:
     # Vòng đời adapter: start tuần tự, serve song song và CÔ LẬP
     # ------------------------------------------------------------------
 
+    def _log_running_loop(self) -> None:
+        """Log **hiện thực event loop đang chạy thật**, không log ý định.
+
+        ⭐ Đây là phần bắt buộc của bản vá uvloop 0.8.1, không phải trang trí.
+        Trước nó, câu hỏi *"hôm nay có uvloop không"* chỉ trả lời được bằng cách
+        đọc code: uvloop **đã nằm sẵn trên đĩa** ở mọi cài đặt Linux chuẩn (do
+        `uvicorn[standard]`) mà chưa bao giờ chạy, và **không gì báo**.
+
+        ⛔ **Đừng đổi thành log lúc chọn factory** (kiểu *"đã bật uvloop"* sau khi
+        import thành công). Đó là log một **ý định** rồi để người đọc suy ra sự
+        thật - đúng khuôn đã cắn hai lần ở repo này (`xime.__version__` đứng ở
+        `0.6.3` suốt hai bản, và chính ca uvloop này). Hàm chạy **trong** loop
+        nên `get_running_loop()` trả về thứ thật sự đang chạy.
+        """
+        loop = asyncio.get_running_loop()
+        _logger.info(
+            "event loop: %s.%s",
+            type(loop).__module__,
+            type(loop).__qualname__,
+        )
+
     async def _run_async(self) -> None:
         """Vòng đời đầy đủ: DI -> `start()` tuần tự -> `serve()` song song -> dọn.
 
         `start()` nằm trong `try` để khối `finally` vẫn chạy khi một hook
         `PostConstruct` ném lỗi giữa chừng.
         """
+        self._log_running_loop()
         try:
             await self.start()
             self._validate_grpc_codefirst_targets()

@@ -1,15 +1,21 @@
 # Lộ trình phiên bản Xime Framework
 
 > Chỉ mục tổng các mốc phiên bản đã chốt, để tra nhanh "việc X làm ở bản nào".
-> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật **2026-08-20**.
-> ⭐ **0.8.0 ĐÃ THI CÔNG XONG 2026-08-20** (2376 test) nhưng **CHƯA phát hành** -
-> chưa commit, chưa tag, chưa lên PyPI. Vì cài **editable** nên nó **đã có hiệu
-> lực với cả 31 app trên máy này**, kể cả khi PyPI vẫn dừng ở 0.7.2.
-> Hiện tại trên PyPI: **0.7.2** (đo 2026-08-18: 13 bản, `0.1.0` ->
-> `0.7.2`). ⚠ Dòng cũ ghi *"0.7.1 đã phát hành, đang làm dở 0.7.2"* là **SAI, đừng
-> tin lại** - **lần thứ ba** cùng khuôn ở repo này. **Kiểm bằng lệnh, không bằng trí
-> nhớ.** Vì `xime` cài **editable** nên mọi thay đổi ở repo phát triển có hiệu lực
-> ngay với cả 31 app, kể cả phần chưa phát hành.
+> Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật **2026-08-22**.
+> ⭐ **0.8.0 ĐÃ PHÁT HÀNH 2026-08-21** - PyPI có **14 bản**, `0.1.0` -> `0.8.0`;
+> tag `v0.8.0` có, và `v0.7.2` đã trả nợ. ⛔ Dòng cũ ghi *"0.8.0 chưa phát hành,
+> PyPI dừng ở 0.7.2"* là **SAI, đừng tin lại** - đó là **lần thứ năm** cùng một
+> khuôn ở repo này (*"chưa push PyPI"* · *"0.7.0 chưa commit"* · *"0.7.1 đã phát
+> hành"* · *"pyproject = 0.7.2"* · *"0.8.0 chưa phát hành"*). Mỗi lần đều đúng lúc
+> viết rồi bị bỏ quên. **Kiểm bằng lệnh, không bằng trí nhớ:**
+>
+> ```bash
+> python -c "import urllib.request,json; print(sorted(json.load(urllib.request.urlopen('https://pypi.org/pypi/xime/json'))['releases']))"
+> grep '^version' pyproject.toml && git tag -l | sort -V | tail -3
+> ```
+>
+> Vì `xime` cài **editable** nên mọi thay đổi ở repo phát triển có hiệu lực ngay
+> với cả 31 app, kể cả phần chưa phát hành.
 
 | Bản | Chủ đề | Trạng thái |
 | --- | --- | --- |
@@ -24,7 +30,9 @@
 | 0.7.1 | Server-stream có kiểu (`@stream`) + đợt 2 vá bảo mật (F2/F4/F5/F6/F7/F8/F11/F12/F13/F16) + lỗi đua khi tắt scheduler + ⛔ **GỠ PHỤ THUỘC KHÁI NIỆM (BREAKING)** + khai 3 phụ thuộc bắc cầu | **Đã phát hành PyPI** (commit `975e10c` / `a3fcad8`) - **1516 passed / 11 skipped**. Xem `phien-ban/0.7.1-ket-qua.md`, [`ghi-chep/go-phu-thuoc-khai-niem.md`](ghi-chep/go-phu-thuoc-khai-niem.md), [`ghi-chep/phu-thuoc-bac-cau.md`](ghi-chep/phu-thuoc-bac-cau.md) |
 | 0.7.2 | ⭐ **JWT: khoá xoay theo `kid`** (`JwtKeyProvider`) + ba knob PyJWT từng bị giấu (`algorithms`/`leeway`/`require`) + `sign(headers=)` + ⛔ **`configure_jwt()` thiếu nguồn khoá NỔ lúc khởi động** | ✅ **ĐÃ PHÁT HÀNH** - PyPI có `0.7.2`, commit `3cfc3f3 v0.7.2`. Cuối bản: **1624 passed / 11 skipped** (F1+F3+F14+F15+F17 vào cùng ngày). ⚠ **Thiếu tag `v0.7.2`** và **repo phát hành `upload` chưa theo kịp** (còn ở `a3fcad8 v0.7.1`). Xem [`ghi-chep/jwt-keyset-va-trung-tinh.md`](ghi-chep/jwt-keyset-va-trung-tinh.md) |
 | 0.7.x | **Vá, không chạm API**: ~~A1 keyset JWT~~ · ~~F3 nâng sàn deps~~ · ~~F14~~ · ~~F15~~ · ~~F17~~ · ~~F1 WebSocket~~ | ✅ **A1 xong 2026-08-18 phía framework** ([`ghi-chep/jwt-keyset-va-trung-tinh.md`](ghi-chep/jwt-keyset-va-trung-tinh.md)) - ⚠ **19 app vẫn fail-open**, framework chỉ xoá lý do tồn tại của lỗ. ✅✅ **F1 + F3 + F14 + F15 + F17 xong cùng ngày 2026-08-18 - HẾT MỤC 0.7.x.** ⚠ F1 thêm API công khai (`@ws`) và đổi hành vi mặc định, tức **vượt luật "0.7.x không chạm API"** - chủ dự án chốt ngoại lệ có ý thức vì chưa app nào dùng WebSocket. Bảng đầy đủ ở [`../CLAUDE.md`](../CLAUDE.md). ⚠ **F10 đã chuyển sang 0.8** · ⛔ **F9 đã bị XOÁ** (không còn chuỗi nào để neo sau khi gỡ phụ thuộc khái niệm) |
-| 0.8 | **Đa tiến trình + đổi API adapter một lượt** | ⚠ **Thiết kế đổi hẳn 2026-08-16** - bản 2026-06-27 (Bus Manager, DI scope `global`) phần lớn không còn dùng. ✅ **Phần bus đóng nốt 2026-08-18** ([`thiet-ke/11-bus-lien-tien-trinh.md`](thiet-ke/11-bus-lien-tien-trinh.md), tên chốt `ProcessLink`). ✅ **THI CÔNG XONG 2026-08-20** - bảy giai đoạn kế hoạch cộng một **giai đoạn 8 phát sinh** (trình tạo cấu hình: `xime init` · `xime config --print` · `xime check config`). **2376 passed, 14 skipped**; bốn app thật xanh (388 · 295 · 192 · 53). ⚠ **Chưa commit, chưa tag, chưa đẩy PyPI** - việc của chủ dự án. Bảng tiến độ + các chỗ thi công đụng vào thiết kế: [`../CLAUDE.md`](../CLAUDE.md); chi tiết từng giai đoạn: `CHANGELOG.md` |
+| 0.8 | **Đa tiến trình + đổi API adapter một lượt** | ⚠ **Thiết kế đổi hẳn 2026-08-16** - bản 2026-06-27 (Bus Manager, DI scope `global`) phần lớn không còn dùng. ✅ **Phần bus đóng nốt 2026-08-18** ([`thiet-ke/11-bus-lien-tien-trinh.md`](thiet-ke/11-bus-lien-tien-trinh.md), tên chốt `ProcessLink`). ✅ **THI CÔNG XONG 2026-08-20** - bảy giai đoạn kế hoạch cộng một **giai đoạn 8 phát sinh** (trình tạo cấu hình: `xime init` · `xime config --print` · `xime check config`). **2376 passed, 14 skipped**; bốn app thật xanh (388 · 295 · 192 · 53). ✅ **ĐÃ PHÁT HÀNH PyPI 2026-08-21** (bản thứ 14), sau **sáu đợt kiểm toán, vá 28 mục**; SHA256 gói trên PyPI khớp từng bit với gói dựng ở máy này. Bảng tiến độ + các chỗ thi công đụng vào thiết kế: [`../CLAUDE.md`](../CLAUDE.md); chi tiết từng giai đoạn: `CHANGELOG.md` |
+| 0.8.1 | **uvloop trên Linux** - bật vòng lặp sự kiện nhanh cho web/socket/MQTT | ✅ **XONG 2026-08-22, chờ chủ dự án phát hành.** Đo trên Linux đầy đủ; ⛔ phép đo lãi **lật giả định** - uvloop làm REST chậm ~10%, lãi nằm ở kết nối đã mở. Vẫn giữ. Xem [`kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md) |
+| 0.8.2 | **Fieldbus chia tải + MQTT chia tải + `drain()` lúc tắt** | **Chốt 2026-08-22, chưa code.** Đổi khoá cấu hình nên **phải nằm trong dòng 0.8.x** |
 | 0.9 | Beta - config nốt + bug fix + phản hồi người dùng | Mở |
 
 ---
@@ -358,6 +366,169 @@ chương trình" (nay supervisor **thăng cấp** một con đang chạy).
 **Đường cắt nếu 0.8 quá dài:** ba nhóm đầu là hạ tầng nền, đủ cho một app web/gRPC
 chạy nhiều tiến trình. Ba nhóm fieldbus/MQTT/bus phục vụ hướng IoT-nhà máy, mà **hôm
 nay chưa app nào dùng Modbus/OPC UA/MQTT thật** nên chúng không chặn ai.
+
+## 0.8.1 - uvloop trên Linux
+
+Trạng thái: **XONG 2026-08-22, SẴN SÀNG PHÁT HÀNH.** Code xong, **bốn phép đo Linux
+đã chạy**, `CHANGELOG` xong, `pyproject` lên `0.8.1`. Chỉ còn commit/tag/PyPI của chủ
+dự án.
+
+| Nghiệm thu | |
+|---|---|
+| Bộ test **Linux** | **2552 / 6 / 0** - và **cũng 2552/6/0 khi chạy dưới uvloop thật** |
+| Bộ test **Windows** | **2534 / 24 / 0** (2510 cũ + **16** uvloop + **8** cảnh báo `@ws`) |
+| **Tổng, cả hai bên** | **2558**. ⚠ Nghiệm thu bằng **tổng**, đừng bằng `passed` - nó khác nhau theo nền tảng |
+| `mypy xime/` | **41 lỗi = đúng mốc 0.8.0**, bản vá không thêm cái nào |
+| `ruff check xime/` · `.claude/scripts/benchmark/` | sạch |
+| Chạy thật một tiến trình | Windows `ProactorEventLoop` · **Linux `uvloop.Loop`** |
+
+⛔⭐ **Phép đo lãi thật lật một giả định của chính bản này: uvloop KHÔNG tăng tốc REST
+của Xime, nó làm chậm ~10%.** Ranh giới thật không phải giao thức mà là **loại việc**:
+xử lý một request kiểu HTTP thì lỗ 8-9% (REST 0.91x, **bắt tay WebSocket 0.93x**),
+truyền trên kết nối đã mở thì lãi 11-38% (**tin nhắn WebSocket 1.11x**, loop trần
+1.38x). **Vẫn giữ uvloop** - lý do ở
+[`kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md)
+và [`ghi-chep/benchmark-hieu-nang.md`](ghi-chep/benchmark-hieu-nang.md) mục 6.
+
+⭐ **Chuyến đo đẻ thêm một thứ ngoài đề bài: framework nay CÓ bộ benchmark**
+(`.claude/scripts/benchmark/`, năm tầng). Trước đây không có cái nào.
+
+⭐⭐ **Và nó tìm ra ca thứ BA của "lỗi máy phát triển không thể thấy"**:
+`test_linux_never_switches` khoá `worker_loop_factory(...) is None` trên Linux, **xanh
+trên Windows kể cả sau khi bản vá làm nó sai**, vì ở đây `uvloop_factory()` luôn trả
+`None` nên monkeypatch `sys.platform` không đổi được kết quả. **Phép đo đó đo nền tảng
+thật, không đo nền tảng được monkeypatch.**
+
+✅ **Việc 7 (cảnh báo khi có route `@ws` mà thiếu thư viện WebSocket) cũng đã làm
+2026-08-22** theo yêu cầu chủ dự án - `xime/adapters/web/ws/_availability.py`, 8 test,
+3 đối chứng. ⚠ Nó **không phải chuyện cài thư viện**: máy này đủ (`websockets 16.0`,
+`httptools` đang chạy); đây là cảnh báo cho **người dùng framework** cài `uvicorn` trần.
+
+⚠⚠ **Không phép đo nào ở trên chạm vào uvloop** - trên Windows `uvloop_factory()` luôn
+trả `None`. Chúng chỉ chứng minh **đường dây nối đúng**, không chứng minh uvloop chạy
+được. Xem mục 12 của tài liệu thiết kế.
+
+Thiết kế đầy đủ, tới mức code được:
+**[`sap-toi/tang-toc-uvicorn-uvloop.md`](sap-toi/tang-toc-uvicorn-uvloop.md)**.
+Không cần thêm vòng thiết kế nào.
+
+### Vấn đề
+
+`pip install xime[web]` kéo `uvicorn[standard]`, nên **uvloop đã nằm sẵn trên đĩa ở
+mọi cài đặt Linux** - và nó **chưa bao giờ chạy**. Xime gọi `uvicorn.Server.serve()`,
+còn `loop_factory` chỉ được đọc trong `Server.run()`, nhánh xime không đi qua.
+`httptools` và `websockets` thì lại chạy thật vì chúng được chọn trong
+`config.load()` nằm bên trong `_serve()`.
+
+⭐ Ba cơ chế trông **giống hệt nhau từ ngoài** (cùng khuôn `auto.py`, cùng cách dò),
+nhưng một cái nằm ở nhánh ta không đi qua. Nhìn `pip list` thấy đủ bốn gói rồi kết
+luận *"đã bật tăng tốc"* là sai, và **không có gì báo**.
+
+### Việc phải làm
+
+| # | Việc |
+|---|---|
+| 1 | `xime/core/bootstrap/_loop.py` + `uvloop_factory()` - trả `None` khi không import được |
+| 2 | Ghép vào `worker_loop_factory` (`_supervisor.py`). ⛔ **Giữ nguyên nhánh Windows selector** |
+| ~~3~~ | ~~Sửa `asyncio.run` ở nhánh không `share_load`~~ - xem đính chính dưới |
+| 4 | Log **loop đang chạy thật** trong `_run_async()`. **Bắt buộc** |
+| 5 | Test canh |
+| ~~6~~ | ~~**Bốn phép đo trên Linux**~~ ✅ xong 2026-08-22, ba ĐẠT + một lật giả định |
+| ~~7~~ | ~~WARNING khi app có route `@ws` mà thiếu thư viện WebSocket~~ ✅ xong |
+| ~~8~~ | ~~`CHANGELOG.md` + con trỏ~~ ✅ xong |
+| ~~9~~ | ~~**Tài liệu người dùng**~~ ✅ xong 2026-08-22: trang mới `docs/{vn,en}/event-loop.md` (loop nào đang chạy · Xime chọn thế nào · số đo lãi/lỗ · vì sao không có công tắc) + mục *"cần cài gì"* của `websocket.md` - trang đó trước nay **không nói một chữ nào** về thư viện WebSocket, trong khi bản này vừa thêm cảnh báo về đúng chuyện đó |
+
+**Toàn bộ tám việc đã đóng.** Còn lại là commit/tag/PyPI của chủ dự án.
+
+### ⛔ Đính chính: việc số 3 KHÔNG còn tồn tại
+
+Tài liệu viết 2026-08-20, giữa lúc 0.8.0 đang thi công, nên nó mô tả **hai** đường vào
+`asyncio.run` và cảnh báo *"sửa một chỗ quên chỗ kia là dạng lỗi tệ nhất ở đây"*.
+
+Code 0.8.0 sau kiểm toán **đã hợp nhất còn một đường vào duy nhất**: cả ba nhánh của
+`run()` (đơn tiến trình · supervisor · worker) đều rơi vào `Application._run_worker()`,
+nơi có đúng một lời gọi `asyncio.run(..., loop_factory=worker_loop_factory(sockets))`.
+
+> Rủi ro *"vá một nửa"* nay **không tồn tại về mặt cấu trúc**, chứ không phải được
+> tránh nhờ cẩn thận. Sửa `worker_loop_factory` là phủ hết mọi đường vào.
+
+⚠ Chỗ phải cẩn thận khi sửa hàm đó: điều kiện hiện tại
+`if sys.platform != "win32" or not sockets: return None` **gộp hai chuyện khác nhau
+vào một dòng**. Phải tách thành ba nhánh thật (Windows có socket kế thừa -> selector ·
+Linux/macOS -> uvloop · còn lại -> `None`).
+
+### ⚠ Linux ở đây là để CHẠY THỬ LẦN ĐẦU, không phải để nghiệm thu
+
+uvloop **không có wheel Windows và sẽ không bao giờ có**. Nên trên máy dev,
+`uvloop_factory()` **luôn trả `None`**, tức **nhánh mới viết ra không chạy một lần
+nào**. Bộ test ở Windows chỉ chứng minh được **không hồi quy**.
+
+Nặng hơn bài học C4/C5 của 0.8 một bậc: ở đó *điều kiện gây lỗi* không tồn tại trên
+Windows; ở đây **chính tính năng** không tồn tại. Cái giá đó không xoá được, chỉ bù
+được bằng **bốn phép đo** ở mục 5 của tài liệu (bắt tay TLS thật · `SO_PEERCRED` của
+socket adapter · `share_load()` với socket kế thừa · **lãi thật**), không bù bằng
+niềm tin.
+
+📌 ✅ **Đã đi đúng như dự kiến**: chuyến 2026-08-22 chạy trên chính máy Linux của chủ
+dự án (Debian 13, Python 3.13.5), không cần VPS. ⏳ Hai phép đo `Store`/LMDB **vẫn còn
+chờ** - chúng không chặn gì.
+
+### Thứ cố ý KHÔNG làm
+
+| | |
+|---|---|
+| **Công tắc bật/tắt uvloop** | Có thì dùng, không có thì thôi. Muốn tắt thì `pip uninstall uvloop`. Một công tắc chưa ai cần là một nhánh code chưa ai chạy |
+| **Khai `uvloop` thành phụ thuộc riêng** | `uvicorn[standard]` đã khai kèm marker nền tảng. Khai lại là dựng sàn thứ hai phải bảo trì |
+| **Bắt buộc phải có uvloop trên Linux** | Đây là **tối ưu**, không phải sửa lỗi. Thiếu nó thì app chạy đúng như hôm nay, chỉ chậm hơn |
+| **Mong uvloop giúp gRPC** | `grpcio` chạy trên core C riêng, không dùng transport asyncio. Phần hưởng lợi là **web, socket, MQTT** |
+
+📌 Lý do hoãn số 3 của tài liệu dựa vào luật *"0.8.1 chỉ được hiện thực, không đổi
+API"*. **Luật đó đã bị chủ dự án nới 2026-08-19**, nhưng kết luận không đổi: bản vá
+này vốn không có bề mặt API nào để mà vướng.
+
+## 0.8.2 - fieldbus chia tải + MQTT chia tải + `drain()` lúc tắt
+
+Trạng thái: **CHỐT 2026-08-22, chưa code.** Chủ dự án: *"mấy cái fieldbus + MQTT +
+drain() tôi cũng chưa cần bây giờ."*
+
+| Việc | Đã có gì ở 0.8.0 | Còn thiếu |
+|---|---|---|
+| **Fieldbus chia tải** (Modbus/OPC UA) | Chữ ký **đã khai xong**: `devices_of()`/`servers_of()`, `@poll`/`@on_change` đã bỏ `device=` | Cấu hình bốn tầng `process -> modbus -> loại -> thực thể` · handler chạy **một lần mỗi thực thể** · log khi bỏ qua adapter · lỗi rõ khi gọi thiết bị không thuộc tiến trình mình · chiều ghi đi qua `ProcessLink` |
+| **MQTT chia tải** | Metadata **đã có**: `unique_per_process=("client_id",)` + `disjoint_per_process=("topics",)`, và supervisor **đã kiểm chéo** hai ô | Việc 3 của mục 5.7.4: **topic filter đến từ cấu hình**, `@subscribe` chỉ còn là bảng định tuyến · cảnh báo route không tiến trình nào nghe |
+| **`drain()` lúc tắt** | `EventBus.drain()` đã có | Framework **không bao giờ tự gọi**, nên handler đang chạy bị cắt ngang. Sửa tử tế thì chạm vòng đời adapter |
+
+### Vì sao tách khỏi 0.8.1
+
+**Tách rủi ro** - đúng lập luận mà chính tài liệu uvloop đã dùng để tự hoãn khỏi
+0.8.0: gộp lại thì ngày có sự cố trên Linux không biết thủ phạm là uvloop hay
+fieldbus; tách ra thì mỗi lần đổi có **đúng một nguyên nhân**.
+
+Cộng hai điều kiện thật:
+
+- **uvloop có lãi ngay cho 31 app đang chạy**; ba mảng này thì **chưa app nào dùng
+  Modbus/OPC UA/MQTT thật**, nên chúng không chặn ai.
+- Chuyến Linux của chúng **nặng hơn hẳn**: cả ba đều là mảng **đa tiến trình**, đúng
+  vùng mà C4 đã chứng minh máy Windows không nhìn thấy lỗi về mặt cấu trúc (26 test
+  đỏ trên Linux, **0 đỏ trên Windows**, cùng một mã nguồn).
+
+### ⚠ Hạn chót có thật: phải nằm trong dòng 0.8.x
+
+Cả ba đổi khoá cấu hình, tức **đổi API công khai**. 0.8 là bản Alpha cuối; **0.9 sang
+Beta nơi API coi như đã chốt**. 0.8.2 vẫn là 0.8.x nên thoả - nhưng đừng để trôi tiếp.
+
+### Ba thứ hoãn có ý thức, KHÔNG thuộc 0.8.2
+
+Chủ dự án xác nhận lại 2026-08-22: *"mấy thứ bạn gợi ý hoãn tôi cũng thực sự muốn
+hoãn."*
+
+| | Vì sao hoãn được |
+|---|---|
+| **Cha không có mồm** (mục 2.8c) | Chưa chốt hình dạng, còn bốn phương án đang cân |
+| **Supervisor trông tiến trình ngoài** (câu F) | Chủ dự án 2026-08-19: *"giờ tôi chưa biết dùng nó để làm gì, chưa có nhu cầu"* |
+| **Tắt êm** | Chưa bàn thiết kế; nó là lý do trường *"mức bận"* bị cắt khỏi watchdog |
+
+⭐ Cả ba **không phải API**, nên thêm vào 0.8.3 hay 1.1 đều được - khác hẳn ba việc của
+0.8.2 vốn có hạn chót thật.
 
 ## 0.9 - Beta: config nốt + bug fix + phản hồi người dùng
 

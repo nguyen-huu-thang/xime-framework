@@ -608,6 +608,7 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         """
         from xime.starters.jwt._config import jwt_registry
 
+        from .ws._availability import warn_if_websocket_library_missing
         from .ws._registrar import WebSocketRegistrar
 
         handlers = [
@@ -617,6 +618,11 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         ]
         if not handlers:
             return
+
+        # Đặt TRƯỚC mọi thứ khác: thiếu thư viện WebSocket thì phần dưới vẫn
+        # đăng ký route bình thường, FastAPI vẫn nhận, và cái chết chỉ lộ ra ở
+        # lần bắt tay đầu tiên của một người dùng thật.
+        warn_if_websocket_library_missing(len(handlers))
 
         jwt_config = jwt_registry.get()
         authenticator = None

@@ -22,6 +22,40 @@ Ba thứ framework lo, để code nghiệp vụ không phải lo:
 
 ---
 
+## 1b. Cần cài gì
+
+```bash
+pip install 'xime[web]'
+```
+
+Chỉ vậy. Extra `web` kéo theo `uvicorn[standard]`, trong đó có thư viện
+WebSocket (`websockets`) mà uvicorn cần để bắt tay.
+
+⚠ **Cài `uvicorn` trần thì route `@ws` chết lặng.** Uvicorn không tự cài thư
+viện WebSocket, và khi thiếu nó thì bắt tay **không thành** - route vẫn đăng ký
+bình thường, FastAPI vẫn nhận, và cái chết chỉ lộ ra ở lần kết nối đầu tiên của
+một người dùng thật.
+
+Từ bản `0.8.1`, Xime **cảnh báo lúc khởi động** khi ứng dụng có route `@ws` mà
+môi trường không có thư viện nào:
+
+```text
+WARNING | xime.web.ws | 3 WebSocket route(s) registered but uvicorn has no
+                        WebSocket implementation available (neither
+                        'websockets' nor 'wsproto'), so every handshake on them
+                        will fail with nothing else logged. Install one with:
+                        pip install "xime[web]"   (hoặc: pip install
+                        "uvicorn[standard]")
+```
+
+Nó **chỉ kêu khi ứng dụng thật sự có route `@ws`**, và nó cảnh báo chứ không
+chặn khởi động: đây là một đường cài không chuẩn, không phải lỗi cấu hình.
+
+Cài `wsproto` thay cho `websockets` cũng chạy - Xime hỏi thẳng thứ uvicorn thật
+sự dùng chứ không đi liệt kê tên gói.
+
+---
+
 ## 2. Viết một handler
 
 ```python

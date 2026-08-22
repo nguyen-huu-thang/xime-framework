@@ -12,6 +12,8 @@
 | Sửa mảng X thì dễ phá chỗ nào | [`thiet-ke/01-tong-quan.md`](thiet-ke/01-tong-quan.md) mục 16 |
 | Hôm nay đứng ở đâu, còn việc gì | [`../CLAUDE.md`](../CLAUDE.md) |
 | Luật code của repo này | [`../rules/`](../rules/) |
+| ✅ Đợt đo uvloop 0.8.1 trên Linux (**đã xong**) | [`kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md); đề bài gốc ở [`ban-giao-cho-phien-linux-0.8.1.md`](nhap/ban-giao-cho-phien-linux-0.8.1.md) |
+| **Framework nhanh chậm ra sao, uvloop lãi ở đâu** | [`ghi-chep/benchmark-hieu-nang.md`](ghi-chep/benchmark-hieu-nang.md) |
 
 ## Bảy loại tài liệu, và luật của từng loại
 
@@ -84,6 +86,7 @@ thuộc bản nào · thay cái gì · bị thay bởi cái gì*.
 | [`0.7-bao-mat-ke-hoach-va.md`](kiem-toan/0.7-bao-mat-ke-hoach-va.md) | Vá cái gì, thứ tự nào, kiểm chứng ra sao |
 | [`0.7-bao-mat-cho-quyet.md`](kiem-toan/0.7-bao-mat-cho-quyet.md) | Phần còn chờ chủ dự án quyết |
 | [`0.8-truoc-phat-hanh.md`](kiem-toan/0.8-truoc-phat-hanh.md) | Bảy phát hiện, ba chặn phát hành. **Cả ba nằm ở chỗ công cụ đo nói dối** |
+| [`0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md) | ⭐ **Đợt uvloop đo trên Linux.** Ba phép đo ĐẠT; phép thứ tư **kết luận rõ, và nó lật một giả định của chính bản 0.8.1** (uvloop làm REST chậm ~10%). Sửa hai test lỗi thời - **ca thứ ba của "lỗi máy phát triển không thể thấy"** |
 | [`backlog-sua-loi.md`](kiem-toan/backlog-sua-loi.md) | ⚠ **Không còn mục nào mở.** Đừng đọc để tìm việc |
 
 ## `ghi-chep/` - một ca, một bài học
@@ -96,6 +99,7 @@ thuộc bản nào · thay cái gì · bị thay bởi cái gì*.
 | [`loi-dua-scheduler.md`](ghi-chep/loi-dua-scheduler.md) | `create_task` chưa chạy dòng nào. **Mock không mang ngữ nghĩa của thứ nó thay thế** |
 | [`yeu-cau-server-stream.md`](ghi-chep/yeu-cau-server-stream.md) | Yêu cầu từ data-service và user-service, đã làm ở 0.7.1 |
 | [`lam-viec-voi-nhom.md`](ghi-chep/lam-viec-voi-nhom.md) | Repo này giao tiếp với nhóm chat thế nào |
+| [`benchmark-hieu-nang.md`](ghi-chep/benchmark-hieu-nang.md) | ⭐ **Benchmark đầu tiên của framework, bốn tầng.** uvloop lãi ở loop trần nhưng **làm chồng web chậm ~10%** · Xime = **41%** thông lượng của ASGI trần · cụm nhiều tiến trình mở rộng **gần tuyến tính (3.88x với 4)**. Mục 7 là bài học về **cách đo**, phần không lỗi thời theo máy |
 
 ## `da-phu-dinh/` - THIẾT KẾ bị lật
 
@@ -117,15 +121,22 @@ một thứ đã bị lật, hoặc bỏ qua một thứ vẫn dùng được.
 
 Không sai, chỉ hết vai. Giữ vì đôi khi cần tra *"hồi đó làm theo thứ tự nào"*.
 
+⚠ **File bàn giao giữa hai máy thuộc về đây, không thuộc gốc `docs/`.** Chúng là dữ
+liệu **tạm**: đúng trong một chuyến đo rồi hết vai, và kết luận thật của chúng luôn
+được chép sang `kiem-toan/`. Để ở gốc thì chúng trông ngang hàng với tài liệu tra cứu.
+
 | | |
 |---|---|
 | [`tien-do-grpc-codefirst.md`](nhap/tien-do-grpc-codefirst.md) | Checklist thi công gRPC code-first, xong 100%. Cây mã trả lời chính xác hơn và không bao giờ lỗi thời |
 | [`tien-do-socket-adapter.md`](nhap/tien-do-socket-adapter.md) | Như trên, cho socket adapter |
 | [`ban-do-tai-lieu-cu.md`](nhap/ban-do-tai-lieu-cu.md) | Bản đồ tài liệu phẳng cũ, thay bằng chính file README này |
+| [`ban-giao-cho-phien-windows.md`](nhap/ban-giao-cho-phien-windows.md) | **Chiều về của chuyến Linux 0.8.0** (2026-08-21): 80 file, 629/629 khớp. Kết luận đã vào `kiem-toan/0.8-*`; giữ để tra trình tự |
+| [`ban-giao-cho-phien-linux-0.8.1.md`](nhap/ban-giao-cho-phien-linux-0.8.1.md) | **Đề bài chuyến uvloop 0.8.1** - đã thi hành xong. ⚠ Mục 3.2 của nó (cách chạy test dưới uvloop) từng **hỏng và xanh giả**, đã vá |
+| [`ban-giao-cho-phien-windows-0.8.1.md`](nhap/ban-giao-cho-phien-windows-0.8.1.md) | **Chiều về của chuyến đó**: 25 file mới + 5 sửa, 660/660 khớp. Kết quả đã vào [`kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md) |
 
 ## `sap-toi/` - chưa làm
 
 | | |
 |---|---|
 | [`wishlist-tinh-nang.md`](sap-toi/wishlist-tinh-nang.md) | Danh sách ý tưởng, **không phải cam kết** |
-| [`tang-toc-uvicorn-uvloop.md`](sap-toi/tang-toc-uvicorn-uvloop.md) | Đã đo, chưa code. Nhắm 0.8.1 |
+| [`tang-toc-uvicorn-uvloop.md`](sap-toi/tang-toc-uvicorn-uvloop.md) | ⛔ **NGOẠI LỆ của thư mục này: đã CODE và đã ĐO XONG** (0.8.1, 2026-08-22) - còn nằm ở `sap-toi/` vì dời file là quyết định cấu trúc thuộc chủ dự án. Đọc **mục 5b** cho kết quả bốn phép đo. ⚠ Mục 4.3 và việc số 3 của bảng mục 10 **đã hết đúng** (0.8.0 hợp nhất còn một đường vào `asyncio.run`) |

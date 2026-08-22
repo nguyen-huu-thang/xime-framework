@@ -12,6 +12,7 @@ import sys
 
 import pytest
 
+from xime.core.bootstrap._loop import uvloop_factory
 from xime.core.bootstrap._processes import EndpointSpec
 from xime.core.bootstrap._slot import AdapterSlot
 from xime.core.bootstrap._supervisor import worker_loop_factory
@@ -59,9 +60,22 @@ class TestWorkerLoopFactory:
 
     def test_linux_never_switches(self, monkeypatch):
         """Vế đối chứng số hai: trên Linux `epoll` nhận socket dùng chung bình
-        thường, và proactor thậm chí không tồn tại ở đó."""
+        thường, và proactor thậm chí không tồn tại ở đó.
+
+        ⚠ **Vế này viết là `is None` cho tới 0.8.1, và nó ĐỎ ngay lần đầu chạy
+        trên Linux.** `is None` là cách diễn đạt của ý *"không đổi loop"* ở thời
+        chưa có gì khác để đổi sang; uvloop vào nhánh không-Windows là câu đó
+        hết đúng. Nó vẫn xanh trên Windows vì ở đó `uvloop_factory()` luôn trả
+        `None`, tức phép đo **không đo nền tảng được monkeypatch mà đo nền tảng
+        thật** - cùng lớp lỗi với C4/C5 của đợt kiểm toán 0.8.0.
+
+        Thứ phải giữ thì không đổi: **không bao giờ là selector**. Nhánh uvloop
+        có bộ test riêng ở `tests_temp/bootstrap/test_event_loop.py`.
+        """
         monkeypatch.setattr(sys, "platform", "linux")
-        assert worker_loop_factory({("web", "default"): object()}) is None
+        factory = worker_loop_factory({("web", "default"): object()})
+        assert factory is not asyncio.SelectorEventLoop
+        assert factory is uvloop_factory()
 
 
 class TestGrpcReusePort:

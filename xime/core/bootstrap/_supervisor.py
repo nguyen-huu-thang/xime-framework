@@ -41,6 +41,7 @@ from typing import TYPE_CHECKING, Any
 
 from xime.core._mp import MP_CONTEXT
 from xime.core.bootstrap import _control
+from xime.core.bootstrap._loop import uvloop_factory
 from xime.core.bootstrap._processes import (
     PROCESS_ID_ENV,
     EndpointSpec,
@@ -668,7 +669,34 @@ def _application_from_main(attr: str) -> Application:
 
 
 def worker_loop_factory(sockets: Mapping[tuple[str, str], socket.socket]) -> Any:
-    """Chọn kiểu event loop cho một tiến trình con, chỉ khi nó **kế thừa socket**.
+    """Chọn hiện thực event loop cho tiến trình đang chạy.
+
+    ⚠ **Tên hàm hẹp hơn việc nó làm, và đó là chuyện của lịch sử.** Nó ra đời ở
+    0.8.0 để giải đúng một ca (con Windows kế thừa socket), nhưng từ đợt kiểm
+    toán 0.8.0 thì **cả ba nhánh** của `Application.run()` - đơn tiến trình,
+    supervisor, worker - đều rơi vào `_run_worker()`, nơi có **đúng một** lời
+    gọi `asyncio.run(..., loop_factory=worker_loop_factory(sockets))`. Nên đây
+    là **cửa duy nhất** quyết định loop của mọi tiến trình Xime.
+
+    ⭐ Nhờ vậy nỗi lo *"vá một nửa"* của bản thiết kế uvloop (sửa nhánh
+    `share_load` mà quên nhánh thường, hoặc ngược lại, và **không gì báo**) nay
+    **không tồn tại về mặt cấu trúc**, chứ không phải được tránh nhờ cẩn thận.
+    Test canh: `tests_temp/bootstrap/test_event_loop.py`.
+
+    Ba nhánh, và chúng nằm trên **hai nền tảng rời nhau** nên không đè nhau:
+
+    | Nền tảng | Có socket kế thừa | Trả về |
+    |---|---|---|
+    | Windows | có | `asyncio.SelectorEventLoop` - xem `WinError 87` bên dưới |
+    | Windows | không | `None` (proactor mặc định) |
+    | Linux, macOS | bất kỳ | `uvloop_factory()`: uvloop nếu cài được, `None` nếu không |
+
+    ⛔ **Đừng gộp hai điều kiện thành một dòng `if`.** Bản 0.8.0 viết
+    `if sys.platform != "win32" or not sockets: return None`, đúng khi chỉ có
+    nhánh Windows nhưng nó **trộn hai câu hỏi khác nhau** (*nền tảng nào* và *có
+    kế thừa socket không*), nên thêm uvloop vào đó là sai ngay.
+
+    ## Phần Windows: vì sao selector, và vì sao không được đụng vào
 
     ⚠⚠ **Đo được 2026-08-20, và nó lật một dòng của thiết kế.** Bảng ở mục 5.7.1
     ghi Windows ✅ cho web nhờ `WSADuplicateSocket`. Handle thì chuyển qua được
@@ -697,21 +725,33 @@ def worker_loop_factory(sockets: Mapping[tuple[str, str], socket.socket]) -> Any
     còn prod là Linux (ở đó proactor không tồn tại và `epoll` không có giới hạn
     này). Đổi lại giữ được thứ đắt hơn nhiều: **dev chạy giống prod**.
 
-    Trả `None` khi không cần đổi gì - tức mọi tiến trình trên Linux, và tiến
-    trình Windows nào không dùng chung địa chỉ.
-    """
-    if sys.platform != "win32" or not sockets:
-        return None
-    import asyncio
+    ## Phần Linux/macOS: uvloop
 
-    _log.warning(
-        "windows: switching to the selector event loop because this process "
-        "inherited %d shared socket(s) - the default proactor loop cannot "
-        "accept on a socket another process already bound to its IOCP "
-        "(WinError 87). Production runs on Linux, where this does not apply.",
-        len(sockets),
-    )
-    return asyncio.SelectorEventLoop
+    `uvloop_factory()` trả `None` khi uvloop không import được, tức app chạy
+    đúng như mọi bản trước 0.8.1. Xem `_loop.py` cho lý do đầy đủ, gồm cả việc
+    uvloop **đã nằm sẵn trên đĩa** ở mọi cài đặt Linux chuẩn mà trước nay chưa
+    bao giờ chạy.
+
+    ✅ **uvloop cộng `fork` là cạm bẫy kinh điển, và Xime không dính** - không
+    phải nhờ tránh mà nhờ may: supervisor dùng `multiprocessing.get_context("spawn")`
+    vì lý do khác hẳn (truyền socket và import lại `main.py`), và **cha không
+    chạy asyncio** (nó là vòng lặp `waitpid` thuần). Mỗi con dựng loop từ đầu.
+    ⚠ Ngày ai đó đổi `spawn` thành `fork` thì phải đọc lại đúng dòng này.
+    """
+    if sys.platform == "win32":
+        if not sockets:
+            return None
+        import asyncio
+
+        _log.warning(
+            "windows: switching to the selector event loop because this process "
+            "inherited %d shared socket(s) - the default proactor loop cannot "
+            "accept on a socket another process already bound to its IOCP "
+            "(WinError 87). Production runs on Linux, where this does not apply.",
+            len(sockets),
+        )
+        return asyncio.SelectorEventLoop
+    return uvloop_factory()
 
 
 def _worker_entry(

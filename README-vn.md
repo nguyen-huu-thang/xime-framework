@@ -317,6 +317,7 @@ Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 | [Bus liên tiến trình](docs/vn/process-link.md) | `ProcessLink` - lệnh và câu hỏi giữa các tiến trình, bốn kết cục của `ask`, thứ tự theo kênh |
 | [Công cụ dòng lệnh](docs/vn/cli.md) | `xime init` dựng dự án · `xime config --print` in mọi khoá kèm mặc định · `xime check config` bắt khoá gõ sai |
 | [Chạy nhiều tiến trình](docs/vn/multi-process.md) | `share_load()` - khối `processes:`, cổng dùng chung, supervisor, `run_once()`, thăng cấp primary, watchdog, `/healthz`, và hai phép dò cho code mức module |
+| [Event loop](docs/vn/event-loop.md) | Loop nào đang chạy, uvloop trên Linux, và vì sao nó làm REST chậm ~10% trong khi làm việc trên kết nối đã mở nhanh 11-38% |
 | [Starters](docs/vn/starters.md) | SQLAlchemy, JWT, Scheduler, Cache, Redis, Storage (local / S3 + streaming HTTP) |
 | [Testing](docs/vn/testing.md) | DI override, fake, test utilities |
 | [Đóng góp](docs/vn/contributing.md) | Cách đóng góp, roadmap |

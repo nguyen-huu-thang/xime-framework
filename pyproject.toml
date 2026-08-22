@@ -11,7 +11,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.8.0"
+version = "0.8.1"
 description = "A Python backend framework that brings a Spring Boot-style developer experience while respecting Python's philosophy."
 readme = "README.md"
 requires-python = ">=3.12"

@@ -22,6 +22,41 @@ Three things the framework owns, so business code does not have to:
 
 ---
 
+## 1b. What you need to install
+
+```bash
+pip install 'xime[web]'
+```
+
+That is all. The `web` extra pulls `uvicorn[standard]`, which includes the
+WebSocket library (`websockets`) uvicorn needs for the handshake.
+
+⚠ **With plain `uvicorn`, `@ws` routes die silently.** Uvicorn does not install a
+WebSocket library on its own, and without one the handshake **fails** - the
+routes still register, FastAPI still accepts them, and the failure only surfaces
+on a real user's first connection.
+
+Since `0.8.1`, Xime **warns at startup** when the application has `@ws` routes
+but the environment has no library:
+
+```text
+WARNING | xime.web.ws | 3 WebSocket route(s) registered but uvicorn has no
+                        WebSocket implementation available (neither
+                        'websockets' nor 'wsproto'), so every handshake on them
+                        will fail with nothing else logged. Install one with:
+                        pip install "xime[web]"   (hoặc: pip install
+                        "uvicorn[standard]")
+```
+
+It fires **only when the application actually has `@ws` routes**, and it warns
+rather than refusing to start: this is a non-standard install, not a
+configuration error worth blocking on.
+
+Installing `wsproto` instead of `websockets` works too - Xime asks what uvicorn
+actually uses rather than listing package names.
+
+---
+
 ## 2. Writing a handler
 
 ```python
