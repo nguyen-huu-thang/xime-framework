@@ -276,6 +276,31 @@ claims  = request_context.get(JWT_CLAIMS)   # every verified claim
 
 Paths listed in `public_paths` bypass authentication entirely. **Matching is exact, not by prefix**: listing `/docs` leaves `/docs/oauth2-redirect` protected. With JWT on, list both `/docs` and `/openapi.json` to keep Swagger reachable.
 
+> ### ⛔ A public path never looks at the token, even when the client sends one
+>
+> On a path listed in `public_paths` the middleware returns **before** it touches the
+> `Authorization` header. The handler always sees `identity = None`, even when the caller
+> is signed in and sent a perfectly good token. This is **deliberate and settled**, not a
+> gap waiting to be filled.
+>
+> The question this raises: *"my product page is public, but a signed-in staff member
+> opening it should also see their own drafts - how?"*
+>
+> **Call two endpoints, not one.** A web page talks to the server through many APIs, not
+> one: fetch the part everybody may see from the public path, and the signed-in user's
+> own data from an ordinary **authenticated** path. No endpoint has to carry two modes,
+> and the decision of *what to show to whom* stays where it belongs - in the frontend.
+>
+> **An expired token is the frontend's job too, not the middleware's.** The browser is
+> the only party that knows how long its token has left, so it must fetch a new access
+> token **before** the old one expires, and rotate the refresh token as soon as a page
+> loads with it near expiry. Both dead means signed out - that is the correct outcome,
+> not a bug to fix.
+>
+> ⚠ This assumes a **dynamic frontend**. A static HTML page cannot know whether it is
+> signed in, and that is an accepted limit.
+
+
 > **Needs the extra:** `pip install "xime[jwt]"`. Without it, calling `configure_jwt` makes the app **fail at startup** with the command to run, rather than waiting for the first request carrying a token.
 
 ---

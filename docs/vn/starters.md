@@ -276,6 +276,29 @@ claims  = request_context.get(JWT_CLAIMS)   # toàn bộ claim đã verify
 
 Đường dẫn trong `public_paths` bỏ qua xác thực hoàn toàn. **So khớp là chính xác từng đường dẫn**, không phải theo tiền tố: khai `/docs` thì `/docs/oauth2-redirect` vẫn bị bảo vệ. Bật JWT mà muốn xem Swagger thì khai đủ cả `/docs` và `/openapi.json`.
 
+> ### ⛔ Đường công khai KHÔNG bao giờ nhìn token, kể cả khi client có gửi
+>
+> Trên một đường trong `public_paths`, middleware thoát ra **trước khi** chạm tới header
+> `Authorization`. Handler luôn nhận `identity = None`, dù người gọi đang đăng nhập và
+> gửi một token hoàn hảo. Đây là **thiết kế cố ý và đã chốt**, không phải chỗ còn thiếu.
+>
+> Câu hỏi hay gặp: *"trang sản phẩm của tôi công khai, nhưng nhân viên đang đăng nhập mở
+> nó thì phải thấy thêm bản nháp của mình - làm sao?"*
+>
+> **Gọi hai đường, không phải một.** Một trang web gọi máy chủ qua nhiều API chứ không
+> phải một: phần ai cũng xem được thì lấy từ đường công khai, phần riêng của người đăng
+> nhập thì lấy từ một đường **có xác thực** bình thường. Không cần đường nào mang hai chế
+> độ, và phần quyết định *"hiện gì cho ai"* nằm đúng chỗ của nó - ở frontend.
+>
+> **Token hết hạn cũng là việc của frontend, không phải của middleware.** Trình duyệt là
+> bên duy nhất biết token của mình còn bao lâu, nên nó phải xin cấp access token mới
+> **trước khi** hết hạn, và xin xoay refresh token ngay khi vào trang nếu nó sắp hết.
+> Cả hai đã chết thì coi như chưa đăng nhập - đó là kết quả đúng, không phải lỗi cần vá.
+>
+> ⚠ Cách này đòi **frontend động**. Trang tĩnh chỉ có HTML thì không biết mình đang đăng
+> nhập hay không, và đó là giới hạn chấp nhận.
+
+
 > **Cần extra:** `pip install "xime[jwt]"`. Thiếu nó mà vẫn gọi `configure_jwt` thì app **nổ lúc khởi động** kèm câu lệnh cần chạy, chứ không đợi tới request đầu tiên mang token.
 
 ---

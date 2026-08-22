@@ -497,7 +497,7 @@ rồi mới sang mục kế.
 | # | Việc | Ghi chú |
 |---|---|---|
 | **1** | **`public_paths` khớp được tiền tố** - `configure_jwt(public_paths=["/api/v1/parts/*"])` | ✅ chủ dự án **DUYỆT** 2026-08-22 |
-| **2** | **Một dòng `INFO` khai trạng thái xác thực** lúc khởi động | ⏳ chờ chủ dự án |
+| **2** | **Một dòng `INFO` khai trạng thái xác thực** lúc khởi động | ✅ chủ dự án **DUYỆT** 2026-08-22 (phương án `b`; phương án cảnh báo `a` **bác**) |
 
 #### ⛔ Việc 1 - ba ràng buộc, không phải lời nhắc
 
@@ -539,7 +539,7 @@ nào *đáng lẽ* phải có xác thực, nên nó sẽ kêu oan với mọi se
 
 | Việc | Vì sao |
 |---|---|
-| **Nhận diện trên đường công khai** (mục 3 báo cáo `linh-kien`) | **HOÃN.** Không phải vì ít khách - nó qua được vế trung tính (Spring `AnonymousAuthenticationToken`, Django `AnonymousUser`). Vì **ba câu chưa có lời giải**: token hết hạn và không có token cùng cho `identity = None` (**luật 03 nằm ngay trong bản vá**) · một đường nằm trong cả hai danh sách thì bên nào thắng (việc 1 làm chồng lấn thành chuyện thường) · và nó đổi thứ `authorize()` **của 31 app** nhìn thấy, theo chiều **chặt sang lỏng**, trong code framework không đọc được. Ngày làm thì lời giải là **một danh sách thứ hai**, không phải một cờ |
+| **Nhận diện trên đường công khai** (mục 3 báo cáo `linh-kien`) | ⛔ **BÁC VĨNH VIỄN - chủ dự án chốt 2026-08-22**, kèm câu dặn *"đừng app nào đề nghị nữa"*. Lý do quyết định **không phải ba câu thiết kế tôi nêu**, mà là một chỗ cả tôi lẫn người báo bỏ sót: **một trang gọi máy chủ qua nhiều đường**, nên phần riêng của người đăng nhập lấy từ một đường CÓ xác thực, không cần nhét danh tính vào đường công khai. Ca sử dụng tự giải được bằng thứ đã có. Đầy đủ: mục [Bốn thứ đừng đề xuất lại](#bốn-thứ-đừng-đề-xuất-lại) |
 | **Sửa tài liệu về `configure_jwt` chỉ verify 1 khoá** (mục 6 báo cáo `linh-kien`) | **Không phải nợ của framework.** `docs/vn/starters.md` mục 177-206 đã mô tả đầy đủ `key_provider` + tra khoá theo `kid`. Chỗ lỗi thời nằm trong **comment của 19 repo app** |
 
 ## 3c. Lùi lại - fieldbus + MQTT + `drain()`
@@ -584,7 +584,7 @@ API** nên thêm ở bản nào cũng được.
 
 ---
 
-# Ba thứ đừng đề xuất lại
+# Bốn thứ đừng đề xuất lại
 
 Mỗi cái đã bị bác kèm lý do; danh sách đầy đủ nằm trong từng file thiết kế
 (`docs/thiet-ke/10` mục 8 có **19 hướng**, `docs/thiet-ke/11` mục 11 có **19 hướng**).
@@ -594,6 +594,60 @@ Mỗi cái đã bị bác kèm lý do; danh sách đầy đủ nằm trong từn
 | **TLS mức 2 cho web adapter** | Không tránh được việc private key chạm đĩa, tức không giải quyết được vấn đề nó sinh ra để giải quyết. Cần thì làm **mức 1.5** - mục 4.0 [`docs/thiet-ke/07-tls-web-adapter.md`](docs/thiet-ke/07-tls-web-adapter.md) |
 | **Hook SQLAlchemy chặn sửa entity ngoài transaction** | Phải trả phí runtime cho mọi lời đọc, trái nguyên tắc minimal magic. Bù bằng quy tắc tài liệu - [`rules/transaction.md`](rules/transaction.md) |
 | **`LifecycleManager` gọi `pre_destroy()` khi `post_construct()` ném lỗi** | Dọn object khởi tạo dở sẽ **che lỗi gốc**. Chủ dự án chốt 2026-07-30: giữ nguyên |
+| ⛔ **Nhận diện danh tính trên đường công khai** | **Chủ dự án chốt 2026-08-22, và dặn thẳng: *"đừng app nào đề nghị nữa"*.** Đường trong `public_paths` **không nhìn token, chấm hết**. Lý do ở mục ngay dưới - nó không phải "hoãn vì ít khách" |
+
+## ⛔ Vì sao đường công khai KHÔNG nhận diện - chốt vĩnh viễn 2026-08-22
+
+Đề nghị đến từ phiên `linh-kien-dien-tu`: trang xem sản phẩm là công khai, nhưng nhân
+viên đang đăng nhập mở đúng trang đó thì đáng lẽ phải thấy cả bản `DRAFT` của mình. Hôm
+nay lớp chặn bỏ qua token trên đường công khai nên handler không biết ai đang hỏi.
+
+Chủ dự án bác, và **lập luận quyết định là một chỗ cả người báo lẫn phiên framework đều
+bỏ sót**:
+
+> **Một trang gọi máy chủ qua NHIỀU đường, không phải một API duy nhất.**
+
+Nên trang sản phẩm cứ gọi **hai** chỗ: catalog lấy từ đường công khai, còn phần riêng
+của người đăng nhập (bản `DRAFT`) lấy từ một đường **có xác thực**. Không cần nhét danh
+tính vào đường công khai để giải bài toán đó. Ca sử dụng sinh ra đề nghị này **tự giải
+được bằng thứ đã có**, và giải sạch hơn.
+
+### Ba chỗ hụt còn lại cũng tan theo, vì chúng thuộc FRONTEND
+
+Phiên framework nêu ba câu thiết kế chưa có lời giải, trong đó nặng nhất là *"token hết
+hạn thì handler thấy gì"* - nó gộp *không có token* với *token chết* thành cùng một
+`identity = None`, tức vi phạm [luật 03](../../.claude/rules/03-mot-gia-tri-mot-nghia.md).
+Chủ dự án chỉ ra câu đó **đặt sai tầng**:
+
+| Việc | Thuộc về |
+|---|---|
+| Biết access token **sắp** hết hạn và xin cấp mới **trước khi** hết | **Frontend** |
+| Refresh token sắp hết hạn thì xin xoay **ngay khi** vào trang | **Frontend** |
+| Cả hai đã chết, hỏng | **Từ chối phục vụ.** Coi như chưa đăng nhập, là khách vãng lai - và đó là kết quả ĐÚNG |
+| Biết mình có đang đăng nhập không, để hiện nút | **Frontend tự biết**, không phải hỏi endpoint công khai |
+
+Nguyên văn: *"khách cứ vào app, bất kể đường nào thì token hết hạn thì đổi token đi...
+còn mà hết hạn, hỏng thì chịu. từ chối phục vụ. ở frontend phải biết được mình có đăng
+nhập không để hiện nút."*
+
+⭐ Nói cách khác: **trạng thái ba mặt (không token / token tốt / token chết) là trạng
+thái của TRÌNH DUYỆT, và trình duyệt là bên duy nhất biết đủ để xử lý nó.** Đẩy nó xuống
+lớp chặn của máy chủ là bắt máy chủ trả lời một câu mà nó không có dữ liệu để trả lời -
+rồi sinh ra đúng cái vi phạm luật 03 mà phiên framework đã nhìn thấy.
+
+⚠ Điều kiện đi kèm, chủ dự án khai rõ: cách này đòi **frontend động**. Trang tĩnh chỉ có
+HTML thì không làm được - và đó là giới hạn chấp nhận, không phải chỗ cần vá.
+
+### Hai hệ quả để phiên sau khỏi đào lại
+
+1. **Đây KHÔNG phải "hoãn tới khi có khách thứ hai".** Bản phân tích trước có ghi vậy;
+   câu đó **hết đúng** từ 2026-08-22. Ca sử dụng gốc giải được bằng kiến trúc sẵn có,
+   nên thêm khách cũng không đổi kết luận.
+2. **`public_paths` chở đúng MỘT ý định, không phải hai.** Bản phân tích trước đóng khung
+   nó thành *"một danh sách chở hai ý định"* rồi kết luận lời giải là hai danh sách. Sai
+   tiền đề: *"đường này không cần danh tính"* và *"đường này không được nhận diện"* là
+   **cùng một câu** khi phần biết-mình-là-ai nằm ở frontend. Không có luật 03 nào bị vi
+   phạm ở đây, nên không có gì phải tách.
 
 # Hai bài học đắt nhất, để ở đây vì chúng sẽ lặp
 

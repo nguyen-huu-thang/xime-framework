@@ -10,13 +10,16 @@ người đứng ngoài (họ có cấu hình thật, tải thật, cert thật)
 
 ## Trạng thái
 
+> ⭐ **Muốn nhìn nhanh cái nào xong / bác / còn treo: [`bang-theo-doi.md`](bang-theo-doi.md).**
+> Bảng dưới đây là sổ chi tiết theo từng báo cáo; bảng kia gộp theo từng đề nghị.
+
 | Báo cáo | Ngày | Trạng thái |
 |---|---|---|
 | [gRPC tụt xuống PLAINTEXT khi đổi sang `process:`](data-service-grpc-tls-roi-khi-doi-sang-process-2026-08-21.md) | 2026-08-21 | ✅ **ĐÃ VÁ** - C6, đợt 6 |
 | [gRPC không báo mình đã lên](data-service-grpc-khong-bao-minh-da-len-2026-08-21.md) | 2026-08-21 | ✅ **ĐÃ VÁ** - C7, đợt 6 |
 | [`xime check config` báo oan `socket.dir` / `socket.session_timeout`](vi-du-grpc-socket-check-config-socket-thieu-khoa-2026-08-22.md) | 2026-08-22 | ✅ **ĐÃ ĐỌC · ĐÃ VÁ** - C8. Phạm vi thật **rộng gấp đôi**: `lmdb` cũng dính, và `socket` còn **thừa** một khoá phantom |
-| [`configure_jwt` không repo nào dùng, và hai chỗ chặn 2 repo di trú về](linh-kien-jwt-middleware-khong-ai-dung-2026-08-22.md) | 2026-08-22 | ✅ **ĐÃ ĐỌC** · ⏳ **CHỜ CHỦ DỰ ÁN** - hai điểm kỹ thuật đã **đo lại và xác nhận đúng**. Mục A khuyến nghị **nhận**, mục B khuyến nghị **hoãn** (chính người báo cũng nói vậy). Xem [phần trả lời](tra-loi-2026-08-22.md) |
-| [Route WebSocket không xác thực thì kêu, route HTTP thì im](dental-http-khong-jwt-thi-im-lang-2026-08-22.md) | 2026-08-22 | ✅ **ĐÃ ĐỌC** · mục 7 **ĐÃ VÁ** (C9, phạm vi rộng hơn: **hai** registry) · mục 6 ⏳ **CHỜ CHỦ DỰ ÁN**, khuyến nghị **nhận phương án (b)**. Xem [phần trả lời](tra-loi-2026-08-22.md) |
+| [`configure_jwt` không repo nào dùng, và hai chỗ chặn 2 repo di trú về](linh-kien-jwt-middleware-khong-ai-dung-2026-08-22.md) | 2026-08-22 | ✅ **ĐÃ ĐỌC** · ⏳ **CHỜ CHỦ DỰ ÁN** - hai điểm kỹ thuật đã **đo lại và xác nhận đúng**. Mục A (khớp tiền tố) ✅ **DUYỆT**. Mục B (nhận diện trên đường công khai) ⛔ **BÁC VĨNH VIỄN** - chủ dự án dặn *"đừng app nào đề nghị nữa"*. Xem [phần trả lời](tra-loi-2026-08-22.md) mục 5 |
+| [Route WebSocket không xác thực thì kêu, route HTTP thì im](dental-http-khong-jwt-thi-im-lang-2026-08-22.md) | 2026-08-22 | ✅ **ĐÃ ĐỌC** · mục 7 **ĐÃ VÁ** (C9, phạm vi rộng hơn: **hai** registry) · mục 6 ✅ **DUYỆT phương án (b)** (một dòng `INFO` khai trạng thái xác thực), **bác (a)**. Xem [phần trả lời](tra-loi-2026-08-22.md) mục 6 |
 
 Chi tiết bản vá, phép đo hai chiều và test canh:
 [`../kiem-toan/0.8-kiem-toan-toan-dien.md`](../kiem-toan/0.8-kiem-toan-toan-dien.md)
