@@ -6,30 +6,45 @@
 
 ## Trạng thái
 
-**`0.8.1` ĐÃ SẴN SÀNG PHÁT HÀNH, chờ chủ dự án.** Mã xong, đo trên Linux xong,
-`CHANGELOG` xong, `pyproject` đã lên `0.8.1`. **Chưa commit, chưa tag, chưa lên PyPI** -
-ba việc đó là của chủ dự án.
+**`0.8.1` ĐÃ PHÁT HÀNH 2026-08-22.** Commit, tag, và đẩy PyPI đều xong. **SHA256 gói
+trên PyPI khớp từng bit** với gói dựng ở máy này, và cài từ PyPI vào venv trắng chạy được.
 
 | | |
 |---|---|
-| PyPI | `0.8.0` (bản thứ **14**) - `0.8.1` **chưa lên** |
+| PyPI | **`0.8.1`** - bản thứ **15**, đẩy lên 2026-08-22 07:32 UTC |
 | `pyproject` tại chỗ | **`0.8.1`** |
-| Repo phát triển | `a982cae v0.8.0` + phần `0.8.1` **chưa commit** |
-| Repo phát hành | mã **đã đồng bộ**, README **đã sinh lại**, `dist/` có gói `0.8.1` đã `twine check` PASSED. HEAD vẫn `8a1e376 v0.8.0` - **chưa commit** |
+| Repo phát triển | **`d5b5806 v0.8.1`**, tag `v0.8.1`, cây làm việc **sạch** |
+| Repo phát hành | **`4ac504f v0.8.1`**, tag `v0.8.1`, cây làm việc **sạch** |
+
+⚠ **Endpoint tổng của PyPI trả về bản cũ trong nhiều giờ sau khi đẩy.**
+`https://pypi.org/pypi/xime/json` vẫn liệt kê 14 bản và `info.version = 0.8.0` trong khi
+`0.8.1` đã lên từ lâu. Đó là **cache**, không phải sự thật. Hỏi thẳng bản cần biết:
+
+```bash
+python -c "import urllib.request,json; print(json.load(urllib.request.urlopen('https://pypi.org/pypi/xime/0.8.1/json'))['info']['version'])"
+```
+
+⭐ Đây đúng là [luật 03](../../.claude/rules/03-mot-gia-tri-mot-nghia.md) ở tầng phép đo:
+*"endpoint tổng không có 0.8.1"* mang **hai** nghĩa - *chưa ai đẩy* và *cache chưa kịp
+cập nhật* - và chúng bắt người đọc làm hai việc ngược nhau. Lần này suýt đọc thành nghĩa
+thứ nhất.
+
+📌 **Chưa push lên GitHub, và đó là CỐ Ý** - 2 commit đang chờ. Luật workspace: 9 repo có
+remote mang tài liệu nội bộ trong `.claude/`, chủ dự án chốt không push, và việc lọc
+trước khi push (nếu có ngày push) thuộc thẩm quyền chủ dự án.
 
 **0.8.0 đã phát hành 2026-08-21**: kiểm toán sáu đợt, vá 28 mục, và **SHA256 gói trên
 PyPI khớp từng bit** với gói dựng ở máy này.
 
-Vì `xime` cài **editable** nên mã ở đây có hiệu lực ngay với **31 app** trên máy này.
-⚠ Nghĩa là **31 app đang chạy `0.8.1` rồi**, dù PyPI còn đứng ở `0.8.0` - đừng đọc
-*"chưa phát hành"* thành *"chưa ai dùng"*.
+Vì `xime` cài **editable** nên mã ở đây có hiệu lực ngay với **31 app** trên máy này -
+chúng đã chạy `0.8.1` từ trước lúc phát hành.
 
 ✅ **Hai chuyến Linux đã nhận về, cả hai đối chứng từng byte:**
 
 | Chuyến | Kết quả |
 |---|---|
-| Vá `0.8.0` (2026-08-21) | 80 file · **629/629 khớp**. [`docs/ban-giao-cho-phien-windows.md`](docs/nhap/ban-giao-cho-phien-windows.md) |
-| Đo uvloop `0.8.1` (2026-08-22) | 25 file mới + 5 sửa · **660/660 khớp**. [`docs/ban-giao-cho-phien-windows-0.8.1.md`](docs/nhap/ban-giao-cho-phien-windows-0.8.1.md) và [`docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md) |
+| Vá `0.8.0` (2026-08-21) | 80 file · **629/629 khớp**. [`docs/nhap/ban-giao-cho-phien-windows.md`](docs/nhap/ban-giao-cho-phien-windows.md) |
+| Đo uvloop `0.8.1` (2026-08-22) | 25 file mới + 5 sửa · **660/660 khớp**. [`docs/nhap/ban-giao-cho-phien-windows-0.8.1.md`](docs/nhap/ban-giao-cho-phien-windows-0.8.1.md) và [`docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md) |
 
 
 ### Kỳ vọng bộ test - HAI con số, theo hệ điều hành
@@ -271,66 +286,39 @@ HỎI CHỦ DỰ ÁN TRƯỚC**.
 
 # Việc đang chờ
 
-## 1. Phát hành `0.8.1` - ba việc, cả ba của CHỦ DỰ ÁN
+## 1. ✅ Phát hành `0.8.1` - XONG 2026-08-22
 
-Phiên trợ lý đã chuẩn bị **tới sát mép rồi dừng**. Còn lại:
+Không còn việc gì ở mục này. Giữ lại phần đối chứng vì lần sau phát hành sẽ chạy y hệt.
 
-> ⛔⛔ **`pypi_token.py --guide` LỖI THỜI ở bước 2, và làm theo là hỏng trang PyPI.**
-> Nó bảo `Copy-Item "$src\README.md" "$dst\README.md"`, nhưng README của repo phát hành
-> là bản **được SINH RA** (huy hiệu `pypi/v` + mọi liên kết tương đối đổi thành URL
-> GitHub tuyệt đối). Chép đè là mất cả hai, và `](LICENSE)` trên PyPI trỏ vào hư không.
->
-> ```bash
-> python .claude/scripts/sinh_readme_phat_hanh.py          # ghi
-> python .claude/scripts/sinh_readme_phat_hanh.py --kiem   # chỉ so
-> ```
->
-> `--guide` cũng bảo chép `README-vn.md` - file đó **không còn** trong danh sách trắng
-> sdist, bỏ qua. Trình sinh README ra đời ở 0.8.0, sau khi `--guide` được viết.
-
-| # | Việc | |
-|---|---|---|
-| 1 | `git add` + commit phần `0.8.1`, tag **`v0.8.1`** | ⛔ chủ dự án |
-| 2 | Commit + tag **`v0.8.1`** ở repo phát hành. ✅ **Đồng bộ mã, sinh README, build, `twine check` ĐÃ LÀM XONG** - xem 1b | ⛔ chủ dự án |
-| 3 | `python pypi_token.py --upload "D:/code/xime framework/upload/dist"` | ⛔ chủ dự án |
-
-**Đã xong, không phải làm lại:** nhận bản đo từ Linux (660/660 khớp) · bộ test Windows
-2534/24/0 · `ruff` sạch · `pyproject` và `xime/__init__.py` lên `0.8.1` ·
-`CHANGELOG.md` · `pip install -e .` · **tài liệu người dùng** (`docs/{vn,en}/event-loop.md`
-mới + mục "cần cài gì" của `websocket.md`, hai bảng mục lục README) · dọn `.claude/docs/`
-(ba file bàn giao vào `nhap/`, gỡ file hướng dẫn phát hành theo yêu cầu chủ dự án).
-
-### 1b. Repo phát hành đã chuẩn bị xong những gì
-
-Làm ngày 2026-08-22 theo yêu cầu chủ dự án. Còn lại đúng `git add` + commit + tag.
-
-| Việc | Kết quả |
+| Bước | Kết quả |
 |---|---|
-| Xoá `dist/` cũ | gói `0.8.0` đã gỡ, `dist/` nay chỉ có `0.8.1` |
-| Chép mã: `xime/`, `docs/`, `CHANGELOG.md`, `LICENSE`, `pyproject.toml` | **291 file khớp từng byte** với repo phát triển |
-| README | **SINH bằng script, không chép** - xem cảnh báo ở mục 1 |
-| `python -m build` | `xime-0.8.1.tar.gz` + `xime-0.8.1-py3-none-any.whl` |
-| `twine check` | **PASSED** cả hai |
-| Soi ruột gói | sdist 294 mục · wheel 247 mục · **0 rò rỉ** `.claude/`, `tests_temp/`, `pypi_token.py` |
-| So với `0.8.0` trên PyPI | **thêm đúng 4 file**, bỏ 0: `docs/{vn,en}/event-loop.md` + `xime/core/bootstrap/_loop.py` + `xime/adapters/web/ws/_availability.py` |
-| Cài thử venv trắng | wheel **và** sdist đều cài được, `__version__ = 0.8.1` |
+| Repo phát triển | commit `d5b5806`, tag `v0.8.1`, cây làm việc sạch |
+| Repo phát hành | mã 291 file khớp từng byte, README **sinh bằng script**, commit `4ac504f`, tag `v0.8.1` |
+| Gói | `twine check` PASSED · sdist 294 mục · wheel 247 mục · **0 rò rỉ** `.claude/` `tests_temp/` `pypi_token.py` |
+| So với `0.8.0` trên PyPI | **thêm đúng 4 file, bỏ 0**: `docs/{vn,en}/event-loop.md` · `xime/core/bootstrap/_loop.py` · `xime/adapters/web/ws/_availability.py` |
+| Đẩy PyPI | **SHA256 khớp từng bit** cả `.whl` lẫn `.tar.gz` |
+| Cài từ PyPI vào venv trắng | chạy được, `__version__ = 0.8.1`, cả hai module mới có mặt |
+| Trang PyPI | huy hiệu `pypi/v` có · dòng *Event loop* có · **0 liên kết tương đối còn sót** |
 
-⚠ `.gitignore` nằm trong sdist là **bình thường** - hatchling luôn đưa nó vào, và bản
-`0.8.0` trên PyPI cũng có. Nội dung nó chính là thứ chặn `pypi_token.py`.
+### ⛔ Hai chỗ `pypi_token.py --guide` nói SAI - nó viết trước khi có trình sinh README
 
-⭐ Đối chứng phụ thu được lúc cài thử: venv chỉ có `xime` trần (không `[web]`) cho
-`websocket_library_missing()` trả **`True`** - đúng ca mà cảnh báo mới của `0.8.1` sinh
-ra để bắt, và đúng thứ mục *"cần cài gì"* của `docs/{vn,en}/websocket.md` vừa mô tả.
-
-⚠ **Trước khi dựng lại (nếu có lý do dựng lại), sinh README bằng script, đừng sửa tay** -
-bản `0.7.2` đã trôi vì sửa tay:
+**Chỗ nguy hiểm:** bước 2 bảo `Copy-Item "$src/README.md" "$dst/README.md"`. README của
+repo phát hành là bản **được SINH RA** (huy hiệu `pypi/v` + mọi liên kết tương đối đổi
+thành URL GitHub tuyệt đối). Chép đè là mất cả hai, và `](LICENSE)` trên PyPI trỏ vào hư
+không. Đợt này đã sinh bằng script:
 
 ```bash
-python .claude/scripts/sinh_readme_phat_hanh.py --kiem   # chỉ so
 python .claude/scripts/sinh_readme_phat_hanh.py          # ghi
+python .claude/scripts/sinh_readme_phat_hanh.py --kiem   # chỉ so
 ```
 
-### 1c. Nợ cũ, không thuộc `0.8.1`
+**Chỗ vô hại:** nó bảo chép `README-vn.md` - file đó **không còn** trong danh sách trắng
+sdist. Bỏ qua.
+
+⏳ Sửa `--guide` cho khớp thực tế là việc còn mở, thuộc chủ dự án (`pypi_token.py` là két
+token, không ai khác nên đụng vào).
+
+### 1b. Nợ cũ, không thuộc `0.8.1`
 
 | # | Việc |
 |---|---|
@@ -341,7 +329,8 @@ python .claude/scripts/sinh_readme_phat_hanh.py          # ghi
 ⚠ **Đừng tin bảng trên, kiểm bằng lệnh** - lý do ở mục [Trạng thái](#trạng-thái).
 
 ```bash
-python -c "import urllib.request,json; print(sorted(json.load(urllib.request.urlopen('https://pypi.org/pypi/xime/json'))['releases']))"
+# Hoi THANG ban can biet - endpoint tong bi cache nhieu gio sau khi day
+python -c "import urllib.request,json; print(json.load(urllib.request.urlopen('https://pypi.org/pypi/xime/0.8.1/json'))['info']['version'])"
 grep '^version' pyproject.toml
 git tag -l | sort -V | tail -3
 git stash list
@@ -357,7 +346,7 @@ File này trả lời *"hôm nay đứng ở đâu"*. Chuyện đã xảy ra n�
 | 28 phát hiện, phép đo, bản vá, đối chứng | [`docs/kiem-toan/0.8-kiem-toan-toan-dien.md`](docs/kiem-toan/0.8-kiem-toan-toan-dien.md) |
 | 12 mục chỉ đo được trên Linux, kèm kết quả | [`docs/kiem-toan/0.8-cho-do-tren-linux.md`](docs/kiem-toan/0.8-cho-do-tren-linux.md) |
 | Chín commit của đợt Linux, nguyên văn lý do | [`docs/kiem-toan/0.8-nhat-ky-va-tren-linux.md`](docs/kiem-toan/0.8-nhat-ky-va-tren-linux.md) |
-| Trình tự nhận bản vá và phát hành | [`docs/ban-giao-cho-phien-windows.md`](docs/nhap/ban-giao-cho-phien-windows.md) |
+| Trình tự nhận bản vá và phát hành | [`docs/nhap/ban-giao-cho-phien-windows.md`](docs/nhap/ban-giao-cho-phien-windows.md) |
 | Rà đóng gói trước phát hành | [`docs/kiem-toan/0.8-truoc-phat-hanh.md`](docs/kiem-toan/0.8-truoc-phat-hanh.md) |
 
 ### Sinh lại README của repo phát hành

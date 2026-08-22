@@ -2,8 +2,8 @@
 
 > Chỉ mục tổng các mốc phiên bản đã chốt, để tra nhanh "việc X làm ở bản nào".
 > Chi tiết từng mục nằm ở các doc được trỏ tới. Cập nhật **2026-08-22**.
-> ⭐ **0.8.0 ĐÃ PHÁT HÀNH 2026-08-21** - PyPI có **14 bản**, `0.1.0` -> `0.8.0`;
-> tag `v0.8.0` có, và `v0.7.2` đã trả nợ. ⛔ Dòng cũ ghi *"0.8.0 chưa phát hành,
+> ⭐ **0.8.1 ĐÃ PHÁT HÀNH 2026-08-22** - PyPI có **15 bản**, `0.1.0` -> `0.8.1`;
+> tag `v0.8.1` có ở **cả hai** repo, SHA256 khớp từng bit. (0.8.0 lên ngày 2026-08-21.) ⛔ Dòng cũ ghi *"0.8.0 chưa phát hành,
 > PyPI dừng ở 0.7.2"* là **SAI, đừng tin lại** - đó là **lần thứ năm** cùng một
 > khuôn ở repo này (*"chưa push PyPI"* · *"0.7.0 chưa commit"* · *"0.7.1 đã phát
 > hành"* · *"pyproject = 0.7.2"* · *"0.8.0 chưa phát hành"*). Mỗi lần đều đúng lúc
@@ -31,7 +31,7 @@
 | 0.7.2 | ⭐ **JWT: khoá xoay theo `kid`** (`JwtKeyProvider`) + ba knob PyJWT từng bị giấu (`algorithms`/`leeway`/`require`) + `sign(headers=)` + ⛔ **`configure_jwt()` thiếu nguồn khoá NỔ lúc khởi động** | ✅ **ĐÃ PHÁT HÀNH** - PyPI có `0.7.2`, commit `3cfc3f3 v0.7.2`. Cuối bản: **1624 passed / 11 skipped** (F1+F3+F14+F15+F17 vào cùng ngày). ⚠ **Thiếu tag `v0.7.2`** và **repo phát hành `upload` chưa theo kịp** (còn ở `a3fcad8 v0.7.1`). Xem [`ghi-chep/jwt-keyset-va-trung-tinh.md`](ghi-chep/jwt-keyset-va-trung-tinh.md) |
 | 0.7.x | **Vá, không chạm API**: ~~A1 keyset JWT~~ · ~~F3 nâng sàn deps~~ · ~~F14~~ · ~~F15~~ · ~~F17~~ · ~~F1 WebSocket~~ | ✅ **A1 xong 2026-08-18 phía framework** ([`ghi-chep/jwt-keyset-va-trung-tinh.md`](ghi-chep/jwt-keyset-va-trung-tinh.md)) - ⚠ **19 app vẫn fail-open**, framework chỉ xoá lý do tồn tại của lỗ. ✅✅ **F1 + F3 + F14 + F15 + F17 xong cùng ngày 2026-08-18 - HẾT MỤC 0.7.x.** ⚠ F1 thêm API công khai (`@ws`) và đổi hành vi mặc định, tức **vượt luật "0.7.x không chạm API"** - chủ dự án chốt ngoại lệ có ý thức vì chưa app nào dùng WebSocket. Bảng đầy đủ ở [`../CLAUDE.md`](../CLAUDE.md). ⚠ **F10 đã chuyển sang 0.8** · ⛔ **F9 đã bị XOÁ** (không còn chuỗi nào để neo sau khi gỡ phụ thuộc khái niệm) |
 | 0.8 | **Đa tiến trình + đổi API adapter một lượt** | ⚠ **Thiết kế đổi hẳn 2026-08-16** - bản 2026-06-27 (Bus Manager, DI scope `global`) phần lớn không còn dùng. ✅ **Phần bus đóng nốt 2026-08-18** ([`thiet-ke/11-bus-lien-tien-trinh.md`](thiet-ke/11-bus-lien-tien-trinh.md), tên chốt `ProcessLink`). ✅ **THI CÔNG XONG 2026-08-20** - bảy giai đoạn kế hoạch cộng một **giai đoạn 8 phát sinh** (trình tạo cấu hình: `xime init` · `xime config --print` · `xime check config`). **2376 passed, 14 skipped**; bốn app thật xanh (388 · 295 · 192 · 53). ✅ **ĐÃ PHÁT HÀNH PyPI 2026-08-21** (bản thứ 14), sau **sáu đợt kiểm toán, vá 28 mục**; SHA256 gói trên PyPI khớp từng bit với gói dựng ở máy này. Bảng tiến độ + các chỗ thi công đụng vào thiết kế: [`../CLAUDE.md`](../CLAUDE.md); chi tiết từng giai đoạn: `CHANGELOG.md` |
-| 0.8.1 | **uvloop trên Linux** - bật vòng lặp sự kiện nhanh cho web/socket/MQTT | ✅ **XONG 2026-08-22, chờ chủ dự án phát hành.** Đo trên Linux đầy đủ; ⛔ phép đo lãi **lật giả định** - uvloop làm REST chậm ~10%, lãi nằm ở kết nối đã mở. Vẫn giữ. Xem [`kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md) |
+| 0.8.1 | **uvloop trên Linux** - bật vòng lặp sự kiện nhanh cho web/socket/MQTT | ✅ **ĐÃ PHÁT HÀNH 2026-08-22** (bản thứ 15, SHA256 khớp từng bit). Đo trên Linux đầy đủ; ⛔ phép đo lãi **lật giả định** - uvloop làm REST chậm ~10%, lãi nằm ở kết nối đã mở. Vẫn giữ. Xem [`kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md) |
 | 0.8.2 | **Fieldbus chia tải + MQTT chia tải + `drain()` lúc tắt** | **Chốt 2026-08-22, chưa code.** Đổi khoá cấu hình nên **phải nằm trong dòng 0.8.x** |
 | 0.9 | Beta - config nốt + bug fix + phản hồi người dùng | Mở |
 
@@ -308,7 +308,7 @@ quyết cuối cùng chốt 2026-07-29** - không còn gì chặn việc bắt t
 > `da-phu-dinh/ke-hoach-0.8-ban-dau.md` **nên được viết lại chứ không bổ sung**.
 
 Trạng thái: **CODE XONG 2026-08-20**, rà trước phát hành 2026-08-20, và **kiểm
-toán toàn diện bốn đợt + vá xong 2026-08-21**. Chưa commit, chưa tag, chưa PyPI.
+toán toàn diện bốn đợt + vá xong 2026-08-21**. **ĐÃ PHÁT HÀNH 2026-08-21** (bản thứ 14).
 
 > ⛔ Dòng cũ ghi *"chưa code"* đã lỗi thời hai lần: nó đã code xong, rồi đã được
 > kiểm toán và vá xong.
@@ -369,9 +369,9 @@ nay chưa app nào dùng Modbus/OPC UA/MQTT thật** nên chúng không chặn a
 
 ## 0.8.1 - uvloop trên Linux
 
-Trạng thái: **XONG 2026-08-22, SẴN SÀNG PHÁT HÀNH.** Code xong, **bốn phép đo Linux
-đã chạy**, `CHANGELOG` xong, `pyproject` lên `0.8.1`. Chỉ còn commit/tag/PyPI của chủ
-dự án.
+Trạng thái: **ĐÃ PHÁT HÀNH 2026-08-22.** Code xong, **bốn phép đo Linux đã chạy**,
+commit `d5b5806` + tag `v0.8.1` ở repo phát triển và `4ac504f` + `v0.8.1` ở repo phát
+hành, gói lên PyPI lúc 07:32 UTC với **SHA256 khớp từng bit** gói dựng ở máy này.
 
 | Nghiệm thu | |
 |---|---|
