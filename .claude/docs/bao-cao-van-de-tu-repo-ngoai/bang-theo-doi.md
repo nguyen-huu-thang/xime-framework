@@ -13,21 +13,26 @@
 | **C7** | Không adapter nào có mốc dương trong log | `data` | 🟡 Lỗi | ✅ **ĐÃ VÁ** - `0.8.0`, đợt 6 |
 | **C8** | `xime check config` tố oan khoá hợp lệ | ví dụ gRPC+Socket | 🟡 Lỗi | ✅ **ĐÃ VÁ + COMMIT** `07de5a2` |
 | **C9** | Gợi ý lỗi thiếu đăng ký dẫn sai đường | `dental` mục 7 | 🟢 Lỗi | ✅ **ĐÃ VÁ + COMMIT** `07de5a2` |
-| **1** | `public_paths` khớp được **tiền tố** | `linh-kien` mục 2 | ✨ Tính năng | 🔨 **DUYỆT, CHƯA CODE** |
-| **2** | Một dòng `INFO` khai trạng thái xác thực | `dental` mục 6b | ✨ Tính năng | 🔨 **DUYỆT, CHƯA CODE** |
+| **1** | `public_paths` khớp được **tiền tố** | `linh-kien` mục 2 | ✨ Tính năng | ✅ **ĐÃ CODE** 2026-08-22, chờ commit |
+| **2** | Một dòng `INFO` khai trạng thái xác thực | `dental` mục 6b | ✨ Tính năng | ✅ **ĐÃ CODE** 2026-08-22, chờ commit |
 | **3** | Cảnh báo khi app không có middleware nào | `dental` mục 6a | ✨ Tính năng | ⛔ **BÁC** |
 | **4** | Nhận diện danh tính trên đường công khai | `linh-kien` mục 3 | ✨ Tính năng | ⛔⛔ **BÁC VĨNH VIỄN** |
 | **5** | Sửa tài liệu *"`configure_jwt` chỉ verify 1 khoá"* | `linh-kien` mục 6 | 📄 Tài liệu | ➖ **KHÔNG PHẢI VIỆC CỦA FRAMEWORK** |
 
-## Còn treo - đúng hai việc
+## Đã code 2026-08-22 - hai việc còn treo nay hết treo
 
-| # | Việc | Ràng buộc phải nhớ khi code |
+| # | Việc | Điều đáng nhớ khi đọc lại |
 |---|---|---|
-| **1** | `configure_jwt(public_paths=["/api/v1/parts/*"])` | ⛔ **Không `startswith` trần** - `/api/v1/parts/*` khớp `/api/v1/partsecret` là một lớp lỗ hổng, hỏng theo chiều **chặt sang lỏng**. Khớp theo **đoạn đường dẫn**.<br>⚠ Là **ĐỔI HÀNH VI**, không phải thuần cộng thêm - ký tự `*` trong đường dẫn đang có sẽ đổi nghĩa.<br>⚠ **Test đi thành cặp**: đường trong tiền tố phải MỞ **và** đường chỉ *giống* tiền tố phải ĐÓNG |
-| **2** | Một dòng `INFO` lúc khởi động khai app có xác thực hay không | Không cấu hình, không cờ, không tên công khai mới. Chỉ in ra thứ framework vốn đã biết |
+| **1** | `configure_jwt(public_paths=["/api/v1/parts/*"])` | Khớp theo **đoạn đường dẫn**, nên không bao giờ chạm `/api/v1/partsecret`. Dấu `*` ở vị trí khác là **lỗi lúc khởi động**, không bị bỏ qua.<br>⭐ **Ba chỗ khác cũng đọc `public_paths`** và mỗi chỗ từng tự chép luật khớp - registrar WebSocket, trình dựng OpenAPI, phép thêm đường sức khoẻ. Nay cả ba gọi **cùng một hàm**. Vá mỗi middleware là dựng lại đúng lỗi C8 |
+| **2** | Dòng `INFO` khai trạng thái xác thực lúc khởi động | Phát ra trong `lifespan` (sau khi route đăng ký xong), đếm **bề mặt API của app** chứ không đếm route hạ tầng. Là `INFO` có chủ ý - cảnh báo thì kêu oan với mọi service công khai hợp lệ |
 
-**Cách giao:** hai commit **riêng**, mỗi việc xong thì dừng và báo - theo cách chủ dự án
-dặn 2026-08-22 (*"vá dần dần, nhiều lần commit vá, rồi commit `v0.8.2` sau cùng"*).
+**Đo:** `2571 passed / 24 skipped / 0 failed = tổng 2595` (`2564 + 31` test mới) ·
+`ruff check xime/` sạch · `mypy` **49 lỗi trước và sau, không thêm cái nào**.
+
+⭐⭐ **Một lỗ hổng test do đối chứng tìm ra, đáng nhớ hơn hai tính năng:** bản test đầu của
+việc 2 gọi thẳng `_log_auth_state`, nên **xoá lời gọi trong `lifespan` thì 0 test đỏ** -
+nó canh **hàm**, không canh **việc hàm được gọi**. Cùng khuôn đã trả giá ở đợt uvloop
+`0.8.1`. Đã vá bằng một test dựng app thật rồi chạy `lifespan`.
 
 ## Bị bác - và vì sao, gọn một dòng
 

@@ -276,6 +276,12 @@ claims  = request_context.get(JWT_CLAIMS)   # toàn bộ claim đã verify
 
 Đường dẫn trong `public_paths` bỏ qua xác thực hoàn toàn. **So khớp là chính xác từng đường dẫn**, không phải theo tiền tố: khai `/docs` thì `/docs/oauth2-redirect` vẫn bị bảo vệ. Bật JWT mà muốn xem Swagger thì khai đủ cả `/docs` và `/openapi.json`.
 
+**Mở cả một nhánh** thì khai đuôi `/*`: `/api/v1/parts/*` mở `/api/v1/parts` và mọi đường dưới nó. So khớp theo **đoạn đường dẫn**, nên nó **không bao giờ** chạm `/api/v1/partsecret` hay `/api/v1/parts-admin` - đây là chỗ `startswith` trần mở ra một lớp lỗ hổng, và framework khớp theo đoạn chính vì thế.
+
+⚠ Dấu `*` ở **bất kỳ vị trí nào khác** (`/api/*/parts`, `/api/**`) là **lỗi lúc khởi động**, không phải mục bị bỏ qua. Bỏ qua thì mục đó khớp không gì cả, mà người viết đọc cấu hình của mình như một mẫu - nó im lặng không phải mẫu. Riêng `/*` bị từ chối kèm thông báo riêng: nó không phải một cấu hình của middleware mà là sự vắng mặt của middleware.
+
+Cùng danh sách đó cũng chi phối route `@ws` và ổ khoá trên Swagger - **một luật khớp, một nguồn**, nên `/*` mở đúng cùng một nhánh ở cả ba chỗ.
+
 > ### ⛔ Đường công khai KHÔNG bao giờ nhìn token, kể cả khi client có gửi
 >
 > Trên một đường trong `public_paths`, middleware thoát ra **trước khi** chạm tới header

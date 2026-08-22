@@ -396,6 +396,9 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         async def lifespan(fastapi_app: FastAPI) -> AsyncGenerator[None, None]:
             # DI container already built by Application.start() - only register routes.
             self._register_controllers(fastapi_app, xime_app, self.adapter_id)
+            # Ở ĐÂY chứ không phải trong build_app: route được đăng ký ngay dòng
+            # trên, nên đếm sớm hơn là báo một con số luôn bằng số route hạ tầng.
+            self._log_auth_state(fastapi_app, jwt_effective, self.adapter_id)
             yield
 
         fastapi_app = FastAPI(
@@ -413,7 +416,7 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         # e.g. CORS preflight is handled before auth; declared-first runs first.
         # Middleware của user (configure_middleware) nằm giữa: ngoài JwtAuth để
         # CORS preflight chạy trước auth; khai báo trước chạy trước.
-        self._add_jwt_middleware(fastapi_app, xime_app, self.adapter_id)
+        jwt_effective = self._add_jwt_middleware(fastapi_app, xime_app, self.adapter_id)
         for middleware, options in reversed(registry.get_middlewares(self.adapter_id)):
             # Phân giải marker Inject/FromConfig (DI service, runtime config) ngay
             # tại đây - DI container đã dựng xong nên option động lấy được giá trị
@@ -462,10 +465,88 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         async def _swagger_ui_html():
             return get_swagger_ui_html(openapi_url=openapi_url, title=title)
 
+
+    @staticmethod
+    def _log_auth_state(app: FastAPI, jwt_config: Any, server_id: str) -> None:
+        """Say, at start-up, whether this server authenticates anything.
+
+        An application that protects its data and one that serves every route to
+        anybody produce a byte-for-byte identical start-up log today: both say
+        "startup complete" and neither mentions authentication at all. Measured,
+        not assumed - two minimal apps differing only in whether configure_jwt()
+        is called diff to zero lines.
+        Một app bảo vệ dữ liệu và một app phục vụ mọi route cho bất kỳ ai sinh ra
+        log khởi động GIỐNG HỆT nhau: cả hai đều báo "startup complete" và không
+        cái nào nhắc tới xác thực. Đo được chứ không phải suy đoán - hai app tối
+        giản khác nhau đúng chỗ có gọi configure_jwt() hay không thì diff ra 0 dòng.
+
+        That silence is the whole reason the fail-open shape survives: after
+        0.7.2 an app still falls back into it by putting configure_jwt() behind
+        an `if`, and nothing says so.
+        Chính sự im lặng đó là lý do hình dạng fail-open sống được: sau 0.7.2 một
+        app vẫn rơi lại vào nó bằng cách đặt configure_jwt() sau một `if`, và
+        không gì nói ra.
+
+        ⛔ INFO on purpose, not a warning. A fully public service is legitimate
+        and not rare, and the framework cannot tell "/healthz" from
+        "/api/v1/records/{id}" - warning on that shape would cry wolf at every
+        start-up of an application doing nothing wrong, and a probe that cries
+        wolf is a probe someone turns off. This line judges nobody: the public
+        service reads it and sees what it meant; the private one reads the same
+        words and sits up.
+        ⛔ Là INFO có chủ ý, không phải cảnh báo. Service công khai hoàn toàn là
+        hợp lệ và không hiếm, mà framework không phân biệt được "/healthz" với
+        "/api/v1/records/{id}" - cảnh báo ở đó là kêu oan mỗi lần khởi động của
+        một app không làm gì sai, và một phép dò kêu oan là một phép dò sẽ bị tắt.
+
+        Same shape as the gRPC adapter's positive marker: a healthy cluster must
+        leave a trace, or there is nothing to compare against when in doubt.
+        """
+        # Đếm bề mặt API của ỨNG DỤNG, không đếm route hạ tầng: `/docs`,
+        # `/openapi.json`, `/healthz` đều khai `include_in_schema=False`. Chúng
+        # cũng mở thật, nhưng một con số người viết không map được về code của
+        # mình thì không nói cho họ điều gì - và câu hỏi "sao lại 11?" là chỗ một
+        # dòng log bắt đầu bị bỏ qua.
+        http_routes = sum(
+            1
+            for route in app.routes
+            if getattr(route, "methods", None)
+            and getattr(route, "include_in_schema", False)
+        )
+
+        if jwt_config is None:
+            _log.info(
+                "web %s: no JWT middleware - %d HTTP route(s) open to anyone",
+                server_id,
+                http_routes,
+            )
+            return
+
+        aud = jwt_config.audience
+        _log.info(
+            "web %s: JWT middleware active (aud=%s, %d public path(s), %d HTTP route(s))",
+            server_id,
+            aud if aud else "not enforced",
+            len(jwt_config.public_paths),
+            http_routes,
+        )
+
     @staticmethod
     def _add_jwt_middleware(
         app: FastAPI, xime_app: Application, server_id: str = "default"
-    ) -> None:
+    ) -> Any:
+        """Add the JWT middleware. Returns the EFFECTIVE config, or None.
+
+        The return value exists so the caller can say out loud which of the two
+        states the app ended up in - see _log_auth_state(). "Effective" and not
+        "as configured": the health paths are appended here, so a caller reading
+        the registry instead would report a public list the middleware does not
+        actually use.
+        Giá trị trả về để bên gọi nói ra được app rơi vào trạng thái nào trong
+        hai trạng thái - xem _log_auth_state(). Là cấu hình CÓ HIỆU LỰC chứ
+        không phải cấu hình đã khai: đường sức khoẻ được thêm ở đây, nên ai đọc
+        registry sẽ báo một danh sách công khai mà middleware không hề dùng.
+        """
         # Reading the registry runs on EVERY web start-up, including apps that
         # never touch JWT - so this import must not require the [jwt] extra.
         # Đọc registry chạy ở MỌI lần khởi động web, kể cả app không dùng JWT -
@@ -474,7 +555,7 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
 
         jwt_config = jwt_registry.get()
         if jwt_config is None:
-            return
+            return None
 
         # Exactly one key source. Refusing "neither" is the whole point: without
         # this check an application whose keys were not available at start-up
@@ -536,7 +617,15 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         # im lặng đúng lúc cần nhất. Bù lại thân phản hồi không mang gì nhạy cảm.
         health_paths = public_health_paths(server_id)
         if health_paths:
-            missing = [p for p in health_paths if p not in jwt_config.public_paths]
+            # Qua ĐÚNG luật khớp của middleware, không phải phép `in` trên danh
+            # sách thô: mục "/healthz/*" đã phủ "/healthz" rồi, và thêm lần nữa
+            # là bản mô tả nói khác thứ thật sự có hiệu lực.
+            from xime.starters.jwt._config import path_is_public, split_public_paths
+
+            _exact, _prefixes = split_public_paths(jwt_config.public_paths)
+            missing = [
+                p for p in health_paths if not path_is_public(p, _exact, _prefixes)
+            ]
             if missing:
                 jwt_config = replace(
                     jwt_config,
@@ -548,6 +637,7 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
             key_provider=xime_app.get(key_provider_cls) if key_provider_cls else None,
             verifier=xime_app.get(verifier_cls) if verifier_cls else None,
         )
+        return jwt_config
 
     @staticmethod
     def _register_controllers(

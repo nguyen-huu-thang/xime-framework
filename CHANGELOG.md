@@ -10,6 +10,74 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Ba báo cáo từ repo **ngoài**, đọc và xử lý 2026-08-22. Nguyên văn:
 [`.claude/docs/bao-cao-van-de-tu-repo-ngoai/`](.claude/docs/bao-cao-van-de-tu-repo-ngoai/README.md).
 
+### Thêm - `public_paths` mở được cả một nhánh bằng đuôi `/*`
+
+⚠ **ĐỔI HÀNH VI, không phải thuần cộng thêm.** Ký tự `*` trong một mục `public_paths`
+trước đây là một ký tự bình thường, nay mang nghĩa. URL hầu như không bao giờ chứa `*`
+thật, nhưng đây là đổi ngữ nghĩa của một giá trị cấu hình **đã phát hành**.
+
+```python
+configure_jwt(JwtMiddlewareConfig(
+    public_paths=["/auth/login", "/health", "/api/v1/parts/*"],
+))
+```
+
+`/api/v1/parts/*` mở `/api/v1/parts` (gốc nhánh) và mọi đường dưới nó.
+
+- ⛔ **Khớp theo ĐOẠN đường dẫn, không phải theo chuỗi.** `/api/v1/parts/*` **không bao
+  giờ** chạm `/api/v1/partsecret` hay `/api/v1/parts-admin`. `startswith` trần thì có, và
+  đó là một **lớp lỗ hổng** hỏng theo chiều **chặt sang lỏng** - chiều không sinh lỗi,
+  không sinh test đỏ, không sinh dòng log nào.
+- **Dấu `*` ở vị trí khác là lỗi lúc khởi động**, không phải mục bị bỏ qua: `/api/*/parts`,
+  `/api/**`, `/parts*` đều bị từ chối. Bỏ qua thì mục đó khớp **không gì cả**, mà người
+  viết đọc cấu hình của mình như một mẫu - nó im lặng không phải mẫu.
+- `/*` bị từ chối kèm thông báo riêng: nó không phải một cấu hình của middleware mà là
+  **sự vắng mặt** của middleware. Service công khai hoàn toàn thì đừng gọi `configure_jwt()`.
+- Nổ ngay tại `configure_jwt()` chứ không đợi `build_app()`, để dấu vết trỏ vào
+  `config/jwt.py` của ứng dụng thay vì vào lòng framework.
+
+⭐ **Ba chỗ khác cũng đọc `public_paths` và mỗi chỗ từng tự chép luật khớp** - registrar
+WebSocket, trình dựng OpenAPI, và phép thêm đường sức khoẻ. Nay cả ba gọi **cùng một
+hàm**. Vá mỗi middleware là dựng lại đúng lỗi vừa đi sửa ở C8: một luật, nhiều bản chép
+tay, và bản nào trôi thì không gì đỏ - ổ khoá trên Swagger bắt đầu nói khác middleware,
+route `@ws` dưới một nhánh công khai vẫn đòi token.
+
+Trung tính, và bằng chứng không đến từ app nào: Spring Security `/public/**`, Django,
+Express, ASP.NET - không hệ nào bắt liệt kê chính xác. Chỗ hụt là **tham số đường dẫn**,
+và tập đường sinh ra từ một tham số là **vô hạn**.
+
+### Thêm - log khởi động khai app này có xác thực hay không
+
+Đo được, không phải suy đoán: hai app Xime tối giản khác nhau **đúng một chỗ** (có gọi
+`configure_jwt()` hay không) sinh ra log khởi động `diff` ra **0 dòng khác biệt**. Cả hai
+báo *"startup complete"*, không cái nào nhắc tới xác thực - trong khi một cái phục vụ dữ
+liệu cho bất kỳ ai.
+
+```text
+INFO | web default: JWT middleware active (aud=phongkham, 1 public path(s), 6 HTTP route(s))
+INFO | web default: no JWT middleware - 6 HTTP route(s) open to anyone
+```
+
+- Phát ra trong `lifespan`, **sau** khi controller đăng ký xong - đếm sớm hơn là báo một
+  con số luôn bằng số route hạ tầng.
+- Đếm **bề mặt API của ứng dụng**: `/docs`, `/openapi.json`, `/healthz` khai
+  `include_in_schema=False` nên không tính. Chúng cũng mở thật, nhưng một con số người
+  viết không map được về code của mình thì không nói cho họ điều gì.
+- `aud` để trống thì in `aud=not enforced`, không in `aud=None` - đây là dòng người vận
+  hành đọc, không phải `repr` của một dataclass.
+
+⛔ **Là `INFO` có chủ ý, không phải cảnh báo.** Service công khai hoàn toàn là hợp lệ và
+không hiếm, mà framework không phân biệt được `/healthz` với `/api/v1/benh-an/{ma}`.
+Cảnh báo ở đó là kêu oan mỗi lần khởi động của một app không làm gì sai - và *một phép dò
+kêu oan là một phép dò sẽ bị tắt*. Dòng này không phán xét ai: app công khai đọc nó và
+thấy đúng ý mình, app riêng tư đọc đúng câu đó và giật mình.
+
+⭐ Cùng hình dạng với **C7** ở adapter gRPC: *trạng thái tốt phải có dấu vết, nếu không
+thì không có gì để so khi nghi ngờ*. Và nó vá đúng thứ làm **A1** sống lâu - A1 không
+phải chuyện thiếu một phép kiểm (`0.7.2` đã thêm), mà là chuyện **trạng thái "không có
+xác thực" trông giống hệt trạng thái "có xác thực"**. Đặt `configure_jwt()` sau một `if`
+là quay lại A1 nguyên vẹn, và trước bản này framework không nói gì.
+
 ### Sửa - `xime check config` tố oan khoá hợp lệ (C8)
 
 Báo về từ phiên giữ **ví dụ gRPC + Socket**. Khối `socket` khai `complete=True` -

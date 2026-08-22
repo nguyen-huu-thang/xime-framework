@@ -35,10 +35,18 @@ def build_custom_openapi(app: FastAPI, config: OpenApiConfig) -> Callable[[], di
 
 
 def _normalize_path(path: str) -> str:
-    """Strip trailing slash, keep bare '/' - matches JwtAuthMiddleware._normalize
-    so a path declared public for auth is also documented as public.
-    Trùng cách chuẩn hóa của JwtAuthMiddleware để public_paths nhất quán giữa
-    docs và auth thực thi."""
+    """Strip trailing slash, keep bare '/'.
+
+    ⚠ Kept only for the schema side of the comparison. The public list itself is
+    read through split_public_paths(), the SAME function the middleware uses, so
+    a "/*" entry documents the branch it actually opens. Two hand-written copies
+    of one matching rule is how the padlock in Swagger starts disagreeing with
+    the middleware, and nothing fails when it does.
+    ⚠ Chỉ còn dùng cho vế schema. Danh sách công khai thì đọc qua
+    split_public_paths() - CÙNG hàm middleware dùng - nên mục "/*" ghi tài liệu
+    đúng nhánh nó thật sự mở. Hai bản chép tay của một luật khớp chính là cách ổ
+    khoá trên Swagger bắt đầu nói khác middleware, mà không gì đỏ khi nó lệch.
+    """
     return path.rstrip("/") or "/"
 
 
@@ -52,12 +60,15 @@ def _apply_security(
     schema["components"].setdefault("securitySchemes", {})
     schema["components"]["securitySchemes"][scheme.scheme_name] = scheme.to_openapi_dict()
 
-    public = {_normalize_path(p) for p in public_paths}
+    from xime.starters.jwt._config import path_is_public, split_public_paths
+
+    public, public_prefixes = split_public_paths(public_paths)
     security_req: list[dict[str, list[str]]] = [{scheme.scheme_name: []}]
 
-    # Apply security cho tất cả endpoint, bỏ qua public_paths (so khớp đã chuẩn hóa)
+    # Apply security cho tất cả endpoint, bỏ qua public_paths (cùng luật khớp
+    # với middleware, kể cả mục "/*")
     for path, path_item in schema.get("paths", {}).items():
-        if _normalize_path(path) in public:
+        if path_is_public(path, public, public_prefixes):
             continue
         for method_spec in path_item.values():
             # path_item có thể chứa key không phải method (vd: "summary", "$ref")

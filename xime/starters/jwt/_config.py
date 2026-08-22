@@ -20,10 +20,24 @@ class JwtMiddlewareConfig:
                   phải một luật ưu tiên ngầm.
     identity_claim : JWT claim mapped to SecurityContext.identity (default: "sub").
     public_paths   : Request paths that bypass JWT authentication entirely.
-                     Matched EXACTLY (only a trailing slash is ignored), not by
-                     prefix: listing "/docs" does not open "/docs/anything".
-                     So khớp CHÍNH XÁC (chỉ bỏ qua dấu / cuối), KHÔNG phải tiền
-                     tố: khai "/docs" không mở "/docs/bất-kỳ-gì".
+                     Matched EXACTLY (only a trailing slash is ignored) unless
+                     the entry ends in "/*": listing "/docs" does not open
+                     "/docs/anything", while "/api/v1/parts/*" opens that path
+                     and every path under it. Matching is by path SEGMENT, so
+                     "/api/v1/parts/*" never reaches "/api/v1/partsecret".
+                     A "*" in any other position is a start-up error, not an
+                     ignored entry - an ignored one matches nothing, and the
+                     author reads their config as a pattern that is silently
+                     not one.
+                     A path listed here is never looked at with a token: the
+                     handler sees identity=None even when the caller is signed
+                     in. That is deliberate - see the guide.
+                     So khớp CHÍNH XÁC (chỉ bỏ qua dấu / cuối) trừ khi mục kết
+                     thúc bằng "/*": khai "/docs" không mở "/docs/bất-kỳ-gì",
+                     còn "/api/v1/parts/*" mở cả nhánh. Khớp theo ĐOẠN đường
+                     dẫn, nên "/api/v1/parts/*" không bao giờ chạm
+                     "/api/v1/partsecret". Dấu "*" ở vị trí khác là lỗi lúc khởi
+                     động chứ không bị bỏ qua.
     audience : Expected `aud` claim. When set, the token's audience MUST match
                (PyJWT raises otherwise). When None, the audience is NOT enforced
                and tokens carrying an `aud` claim are still accepted (a multi-
@@ -96,6 +110,90 @@ class JwtMiddlewareConfig:
     leeway: float = 0
     require: list[str] = field(default_factory=list)
 
+
+
+def normalize_path(path: str) -> str:
+    """Strip a trailing slash, but keep a bare '/' intact."""
+    return path.rstrip("/") or "/"
+
+
+def split_public_paths(paths: list[str]) -> tuple[frozenset[str], tuple[str, ...]]:
+    """Split public_paths into the exact entries and the prefix entries.
+
+    An entry ending in ``/*`` opens that whole branch; every other entry keeps
+    the original exact-match behaviour.
+
+    The prefix is stored WITH its trailing slash on purpose, and that single
+    character is the whole security property: matching "/api/v1/parts/" cannot
+    reach "/api/v1/partsecret", while a bare str.startswith("/api/v1/parts")
+    would. Getting this wrong opens paths nobody listed, and it fails from
+    strict to permissive - the direction that produces no error, no failing
+    test and no log line.
+    Tiền tố được giữ NGUYÊN dấu `/` cuối, và đúng một ký tự đó là toàn bộ tính
+    chất bảo mật ở đây: so với "/api/v1/parts/" thì không chạm được
+    "/api/v1/partsecret", còn startswith("/api/v1/parts") trần thì có. Sai chỗ
+    này là mở những đường không ai khai, và nó hỏng theo chiều chặt sang lỏng -
+    chiều không sinh lỗi, không sinh test đỏ, không sinh dòng log nào.
+
+    Raises:
+        StartupException: when an entry uses ``*`` in any other shape. Such an
+            entry silently matches nothing today, so the author believes they
+            wrote a pattern and got one - refusing loudly beats a no-op.
+    """
+    from xime.core.exception.framework import StartupException
+
+    exact: set[str] = set()
+    prefixes: list[str] = []
+    for raw in paths:
+        path = (raw or "").strip()
+        if not path:
+            continue
+
+        if "*" not in path:
+            exact.add(normalize_path(path))
+            continue
+
+        if path == "/*":
+            raise StartupException(
+                "\nJWT public_paths: '/*' would disable authentication entirely\n"
+                "  Why it matters: every route becomes public, which is not a\n"
+                "          configuration of the middleware but the absence of it.\n"
+                "  Fix   : list the branches you mean, e.g. '/api/v1/parts/*',\n"
+                "          or - if the service really is fully public - do not\n"
+                "          call configure_jwt() at all."
+            )
+
+        if not path.endswith("/*") or path.count("*") != 1:
+            raise StartupException(
+                f"\nJWT public_paths: unsupported wildcard in {path!r}\n"
+                "  Supported: one trailing '/*', meaning that path and everything\n"
+                "          under it - '/api/v1/parts/*'.\n"
+                "  Not supported: a '*' anywhere else. It is refused rather than\n"
+                "          ignored because an ignored entry matches nothing, so the\n"
+                "          author reads their config as a pattern that is silently\n"
+                "          not one.\n"
+                "  Fix   : use a trailing '/*', or list the paths exactly."
+            )
+
+        # path[:-1] drops the '*'; normalize then re-attach exactly one '/'.
+        prefixes.append(normalize_path(path[:-1]) + "/")
+
+    return frozenset(exact), tuple(prefixes)
+
+
+def path_is_public(
+    path: str, exact: frozenset[str], prefixes: tuple[str, ...]
+) -> bool:
+    """Whether a request path is covered by the public list."""
+    normalized = normalize_path(path)
+    if normalized in exact:
+        return True
+    # "/api/v1/parts/*" also opens the branch root "/api/v1/parts" - the listing
+    # page belongs to the branch it names.
+    return any(
+        normalized.startswith(prefix) or normalized == prefix[:-1]
+        for prefix in prefixes
+    )
 
 class _JwtRegistry:
     def __init__(self) -> None:
@@ -177,4 +275,8 @@ def configure_jwt(
     là một ứng dụng khởi động không có xác thực, trông hoàn toàn khoẻ mạnh trong
     khi mọi endpoint đều mở.
     """
+    # Kiểm cú pháp public_paths NGAY tại đây, dù middleware sẽ tách lại lúc dựng
+    # app: lỗi ném từ chỗ này mang dấu vết trỏ vào config/jwt.py của ứng dụng,
+    # còn ném lúc build_app() thì trỏ vào lòng framework.
+    split_public_paths(config.public_paths)
     jwt_registry.set(config, key_provider, verifier)

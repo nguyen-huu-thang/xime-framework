@@ -276,6 +276,12 @@ claims  = request_context.get(JWT_CLAIMS)   # every verified claim
 
 Paths listed in `public_paths` bypass authentication entirely. **Matching is exact, not by prefix**: listing `/docs` leaves `/docs/oauth2-redirect` protected. With JWT on, list both `/docs` and `/openapi.json` to keep Swagger reachable.
 
+**To open a whole branch**, end the entry with `/*`: `/api/v1/parts/*` opens `/api/v1/parts` and everything under it. Matching is by path **segment**, so it never reaches `/api/v1/partsecret` or `/api/v1/parts-admin` - that is exactly the hole a bare `startswith` opens, and why the framework matches by segment.
+
+⚠ A `*` in **any other position** (`/api/*/parts`, `/api/**`) is a **start-up error**, not an ignored entry. An ignored one matches nothing, so the author reads their config as a pattern that is silently not one. `/*` is refused with its own message: it is not a configuration of the middleware but the absence of it.
+
+The same list also governs `@ws` routes and the padlock in Swagger - **one matching rule, one source** - so `/*` opens the same branch in all three places.
+
 > ### ⛔ A public path never looks at the token, even when the client sends one
 >
 > On a path listed in `public_paths` the middleware returns **before** it touches the

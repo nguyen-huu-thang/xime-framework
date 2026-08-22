@@ -12,7 +12,7 @@ from xime.core.security.enums import CredentialType
 from xime.core.security.session import authenticate
 
 from ._authenticator import JwtAuthenticator
-from ._config import JwtMiddlewareConfig
+from ._config import JwtMiddlewareConfig, path_is_public, split_public_paths
 from ._provider import JwtKeyProvider
 from ._verifier import JwtTokenVerifier
 
@@ -93,8 +93,9 @@ class JwtAuthMiddleware:
             config, key_provider=key_provider, verifier=verifier
         )
         # Normalize configured paths: strip trailing slashes so "/auth/login"
-        # and "/auth/login/" are treated as the same entry.
-        self._public = frozenset(self._normalize(p) for p in config.public_paths)
+        # and "/auth/login/" are treated as the same entry. An entry ending in
+        # "/*" becomes a branch prefix instead - see split_public_paths().
+        self._public, self._public_prefixes = split_public_paths(config.public_paths)
 
     async def __call__(self, scope, receive, send) -> None:
         # Token auth only applies to HTTP; websocket/lifespan pass through.
@@ -109,7 +110,7 @@ class JwtAuthMiddleware:
         # chuyển nguyên vẹn xuống handler.
         request = Request(scope, receive=receive)
 
-        if self._normalize(request.url.path) in self._public:
+        if path_is_public(request.url.path, self._public, self._public_prefixes):
             await self.app(scope, receive, send)
             return
 

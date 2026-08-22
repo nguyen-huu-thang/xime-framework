@@ -37,11 +37,17 @@ class WebSocketRegistrar:
         # route WebSocket vẫn mở, y như route HTTP của nó.
         self._auth = authenticator
         self._config = config
-        self._public = (
-            frozenset(self._normalize(p) for p in config.public_paths)
-            if config is not None
-            else frozenset()
-        )
+        # One source of truth for the matching rule: a "/*" entry must open the
+        # same branch here as it does for HTTP, or the same list would mean two
+        # different things depending on the protocol.
+        # Một nguồn duy nhất cho luật khớp: mục "/*" phải mở đúng nhánh đó ở đây
+        # y như với HTTP, không thì cùng một danh sách mang hai nghĩa tuỳ giao thức.
+        from xime.starters.jwt._config import split_public_paths
+
+        if config is not None:
+            self._public, self._public_prefixes = split_public_paths(config.public_paths)
+        else:
+            self._public, self._public_prefixes = frozenset(), ()
 
     # ------------------------------------------------------------------
 
@@ -115,8 +121,6 @@ class WebSocketRegistrar:
         return False
 
     def _is_public(self, path: str) -> bool:
-        return self._normalize(path) in self._public
+        from xime.starters.jwt._config import path_is_public
 
-    @staticmethod
-    def _normalize(path: str) -> str:
-        return path.rstrip("/") or "/"
+        return path_is_public(path, self._public, self._public_prefixes)

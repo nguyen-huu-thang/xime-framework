@@ -492,12 +492,26 @@ rồi mới sang mục kế.
 > được là **so trước/sau trên CÙNG một máy, CÙNG một mypy**, không phải so với một con
 > số ghi trong tài liệu.
 
-### Còn phải làm
+### Đã code 2026-08-22, chờ commit
 
-| # | Việc | Ghi chú |
+| # | Việc | Trạng thái |
 |---|---|---|
-| **1** | **`public_paths` khớp được tiền tố** - `configure_jwt(public_paths=["/api/v1/parts/*"])` | ✅ chủ dự án **DUYỆT** 2026-08-22 |
-| **2** | **Một dòng `INFO` khai trạng thái xác thực** lúc khởi động | ✅ chủ dự án **DUYỆT** 2026-08-22 (phương án `b`; phương án cảnh báo `a` **bác**) |
+| **1** | **`public_paths` khớp được tiền tố** - `configure_jwt(public_paths=["/api/v1/parts/*"])` | ✅ **XONG** |
+| **2** | **Một dòng `INFO` khai trạng thái xác thực** lúc khởi động | ✅ **XONG** |
+
+Đo sau cả hai: **2571 passed / 24 skipped / 0 failed = tổng 2595** (`2564 + 31` test
+mới) · `ruff check xime/` sạch · `mypy` **49 lỗi, đúng mốc máy này**.
+
+⭐⭐ **Một lỗ hổng test do đối chứng tìm ra, đáng nhớ hơn cả hai tính năng:** bản test đầu
+của việc 2 gọi thẳng `_log_auth_state`, nên **xoá lời gọi trong `lifespan` thì 0 test
+đỏ** - nó canh **hàm**, không canh **việc hàm được gọi**. Cùng khuôn đã trả giá ở đợt
+uvloop `0.8.1`, và lần này nó lặp lại **trong cùng tuần**. Đã vá bằng một test dựng app
+thật rồi chạy `lifespan`.
+
+⭐ **Việc 1 rộng hơn dự kiến:** có **ba chỗ khác** cũng đọc `public_paths` và mỗi chỗ tự
+chép luật khớp - registrar WebSocket, trình dựng OpenAPI, phép thêm đường sức khoẻ. Sửa
+mỗi middleware là dựng lại đúng lỗi vừa vá ở C8 (một luật, nhiều bản chép tay). Nay cả
+ba gọi cùng một hàm.
 
 #### ⛔ Việc 1 - ba ràng buộc, không phải lời nhắc
 
