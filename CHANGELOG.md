@@ -5,6 +5,55 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [Chưa phát hành]
+
+Ba báo cáo từ repo **ngoài**, đọc và xử lý 2026-08-22. Nguyên văn:
+[`.claude/docs/bao-cao-van-de-tu-repo-ngoai/`](.claude/docs/bao-cao-van-de-tu-repo-ngoai/README.md).
+
+### Sửa - `xime check config` tố oan khoá hợp lệ (C8)
+
+Báo về từ phiên giữ **ví dụ gRPC + Socket**. Khối `socket` khai `complete=True` -
+giấy phép để `check config` tố khoá lạ - nhưng danh sách khoá của nó chỉ có 3
+trong khi adapter đọc 8. Một `application.yml` chép **nguyên văn ví dụ trong tài
+liệu chính thức** bị chính công cụ kiểm của framework báo lỗi.
+
+⭐ **Framework đo lại thì phạm vi rộng gấp đôi báo cáo, và sai theo CẢ HAI chiều:**
+
+| | |
+|---|---|
+| Khối `socket` thiếu 6 khoá | `dir` `owner` `group` `session_timeout` `max_chunk_size` `recv_queue_size` |
+| ...và **thừa 1** | khai `socket.path`, một khoá **không đường nào đọc** - path đến từ `process.socket.<id>.path`. Người dùng viết nó, `check config` báo CLEAN, adapter bind chỗ khác hẳn |
+| Khối `lmdb` thiếu 2 khoá | `file_mode`, `dir_mode` - hai khoá có **7 test** riêng |
+
+Đo hai chiều trên đúng YAML người báo dùng: **4 lỗi trước, CLEAN sau**. Người báo
+chỉ thấy 2/4 vì repo họ không dùng `lmdb`.
+
+⚠ Chiều **thừa** hỏng im lặng hơn chiều **thiếu**: thiếu khoá thì có tiếng kêu,
+thừa khoá thì không.
+
+- Thêm **test canh tầng KHOÁ** (`tests_temp/cli_config/test_spec.py`). Phép dò có
+  sẵn chỉ canh **tên khối**, và nó mù hoàn toàn với tầng dưới nó - đúng chỗ cả hai
+  lỗi lọt qua. Canh **cả hai chiều**, kèm đối chứng.
+- ⭐ Test cũ `test_a_hand_written_block_keeps_its_keys` **xanh suốt thời gian đó**:
+  nó so bản mô tả với một bản chép của chính bản mô tả. **Một phép kiểm chỉ đối
+  chiếu được khi hai vế có nguồn KHÁC nhau.**
+
+### Sửa - gợi ý của lỗi thiếu đăng ký dẫn sai đường (C9)
+
+Báo về từ phiên giữ **`Application Layer/dental`**. Lớp nhận một bảng `RefData` qua
+constructor mà container chưa có nó thì nhận gợi ý *"add the package containing 'X'
+to dependency.scan()"* - và `scan()` **không bao giờ** với tới `RefData`.
+
+> Một gợi ý SAI đắt hơn là không có gợi ý: người đọc làm theo, không có gì đổi, còn
+> nguyên nhân thật thì vẫn nằm im.
+
+⭐ Đo lại thì có **hai** registry nằm ngoài `scan()` chứ không phải một: bảng
+`RefData` (`configure_refdata`) và handler `ProcessLink` (`configure_link`).
+
+- `UnregisteredDependencyException` nhận `hint=` tuỳ chọn; `_hint_for()` chỉ đúng
+  registry thật. Lớp thường vẫn dùng gợi ý mặc định - **không ai bị đổi lấy một
+  cảnh báo sai**.
+
 ## [0.8.1] - 2026-08-22
 
 Bản nhỏ, một chủ đề: **bật uvloop trên Linux**, cộng một cảnh báo phụ về thư viện

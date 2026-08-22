@@ -450,7 +450,102 @@ cùng đỏ trên một máy**.
 ⛔ **Không làm công tắc**, không khai `uvloop` thành phụ thuộc riêng, không mong nó giúp
 gRPC (`grpcio` chạy trên core C riêng).
 
-## 3b. 0.8.2 - fieldbus + MQTT + `drain()`
+## 3b. `0.8.2` - ba báo cáo từ repo ngoài
+
+> ✅ **Chủ dự án chốt 2026-08-22**, sau khi đọc [ba báo cáo từ repo ngoài](docs/bao-cao-van-de-tu-repo-ngoai/README.md)
+> và [phần trả lời](docs/bao-cao-van-de-tu-repo-ngoai/tra-loi-2026-08-22.md).
+> Fieldbus + MQTT + `drain()` **lùi lại**, xem mục 3c.
+
+⛔⭐ **Cách làm chủ dự án dặn, áp cho cả bản này và về sau:**
+
+> *"Tôi muốn vá dần dần, nhiều lần commit vá. Rồi commit `v0.8.2` sau cùng. Không việc
+> gì phải dồn hết vào bản commit `v0.8.2`."*
+
+Nghĩa là **mỗi việc xong thì giao ngay một lần**, không gom lại chờ ngày phát hành.
+Commit mang số hiệu bản là commit **cuối cùng** và chỉ nâng số - không phải cái chở
+toàn bộ nội dung. Hệ quả cho phiên: xong một mục thì dừng, báo, để chủ dự án commit,
+rồi mới sang mục kế.
+
+### Đã xong, chờ commit
+
+| # | Việc | Trạng thái |
+|---|---|---|
+| **C8** | `xime check config` tố oan khoá hợp lệ - khối `socket` thiếu 6 khoá **và thừa 1** (`socket.path` không đường nào đọc), khối `lmdb` thiếu `file_mode`/`dir_mode`. Kèm **test canh tầng khoá** canh cả hai chiều | ✅ **XONG 2026-08-22** |
+| **C9** | Gợi ý lỗi thiếu đăng ký dẫn sai đường - `RefData` và handler `ProcessLink` **không bao giờ** tới được bằng `dependency.scan()` | ✅ **XONG 2026-08-22** |
+
+Đo: **2540 passed / 24 skipped / 0 failed = tổng 2564** (`2558 + 6` test mới) ·
+`ruff check xime/` sạch · `mypy` **49 lỗi trước và sau bản vá, không thêm cái nào**.
+
+> ⚠⚠ **`mypy` NAY CÀI ĐƯỢC TRÊN MÁY NÀY** (chủ dự án duyệt 2026-08-22), nhưng con số
+> của nó **KHÔNG so được với mốc 41 ghi ở mục 1 và mục 3**.
+>
+> | | |
+> |---|---|
+> | Linux, chuyến `0.8.1` | **41 lỗi** |
+> | Windows, `mypy 2.3.1`, **cùng một HEAD** | **49 lỗi** |
+>
+> Chênh 8 là **phiên bản mypy khác**, không phải code khác - đo bằng cách stash bản vá
+> rồi chạy lại trên HEAD sạch: **49 trước, 49 sau**.
+>
+> ⭐ Nên *"mypy 41 lỗi"* là một tiêu chí nghiệm thu **không bất biến** - nó phụ thuộc
+> phiên bản công cụ, đúng như *"kỳ vọng 2534"* phụ thuộc hệ điều hành. Phép kiểm dùng
+> được là **so trước/sau trên CÙNG một máy, CÙNG một mypy**, không phải so với một con
+> số ghi trong tài liệu.
+
+### Còn phải làm
+
+| # | Việc | Ghi chú |
+|---|---|---|
+| **1** | **`public_paths` khớp được tiền tố** - `configure_jwt(public_paths=["/api/v1/parts/*"])` | ✅ chủ dự án **DUYỆT** 2026-08-22 |
+| **2** | **Một dòng `INFO` khai trạng thái xác thực** lúc khởi động | ⏳ chờ chủ dự án |
+
+#### ⛔ Việc 1 - ba ràng buộc, không phải lời nhắc
+
+1. **Không `startswith` trần.** `/api/v1/parts/*` khớp `/api/v1/partsecret` là một **lớp
+   lỗ hổng**, và nó hỏng theo chiều **chặt sang lỏng** nên không gì báo. Khớp theo **đoạn
+   đường dẫn**: chuẩn hoá tiền tố cho kết thúc bằng `/`, xử lý riêng đường gốc.
+   Mã tham khảo đã chạy thật: `linh-kien-dien-tu/backend/app/api/rest/TrustJwtAuthMiddleware.py`
+   (`_split_public` / `_is_public`), và bản gọn hơn ở `nhan-su-cham-cong`.
+2. **Đây là ĐỔI HÀNH VI, không phải thuần cộng thêm.** Ký tự `*` trong một đường dẫn đang
+   có sẽ đổi nghĩa. URL hiếm khi mang `*` thật, nhưng `public_paths` là giá trị cấu hình
+   **đã phát hành** - CHANGELOG phải ghi đúng loại.
+3. **Test đi thành cặp.** Đường trong tiền tố phải **mở** và đường chỉ *giống* tiền tố
+   phải **đóng**. Chỉ có vế đầu thì cách sửa sai *"mở tất"* cũng qua được.
+
+Bằng chứng trung tính (không dựa vào app Xime nào): Spring Security `/public/**`, Django,
+Express, ASP.NET - **không hệ nào** bắt liệt kê chính xác. Chỗ hụt là **tham số đường
+dẫn**, và tập đường sinh ra từ một tham số là **VÔ HẠN**.
+
+⚠ Lập luận *"framework tự va vào qua route `/docs`"* trong báo cáo gốc **không đứng
+vững** - `/docs`, `/openapi.json`, `/redoc` là tập **hữu hạn**, liệt kê hết được, và
+`docs/vn/starters.md:277` đã bảo làm đúng thế. Đừng trích lại nó như lý do.
+
+#### Việc 2 - đo được, không phải suy đoán
+
+Dựng hai app Xime tối giản khác nhau đúng một chỗ (`configure_jwt()` gọi hay không), rồi
+`diff` log khởi động: **0 dòng khác biệt**. App bảo vệ dữ liệu và app mở toang mọi
+endpoint sinh log **giống hệt nhau**, cả hai đều báo *"startup complete"*.
+
+Đây là **C7 ở một adapter khác** - lỗ hổng *trạng thái tốt không có dấu vết* mà framework
+đã nhận cho gRPC. Và nó vá đúng thứ làm **A1** sống lâu: sau `0.7.2` đường rơi vào A1
+**hẹp lại nhưng chưa đóng** - đặt `configure_jwt()` sau một `if` là quay lại A1 nguyên
+vẹn, và framework không nói gì.
+
+⛔ **Phương án cảnh báo (mục 6a của báo cáo `dental`) đã BÁC:** framework không biết route
+nào *đáng lẽ* phải có xác thực, nên nó sẽ kêu oan với mọi service công khai hợp lệ - và
+*một phép dò kêu oan là một phép dò sẽ bị tắt*.
+
+### Đã trả lời, KHÔNG làm
+
+| Việc | Vì sao |
+|---|---|
+| **Nhận diện trên đường công khai** (mục 3 báo cáo `linh-kien`) | **HOÃN.** Không phải vì ít khách - nó qua được vế trung tính (Spring `AnonymousAuthenticationToken`, Django `AnonymousUser`). Vì **ba câu chưa có lời giải**: token hết hạn và không có token cùng cho `identity = None` (**luật 03 nằm ngay trong bản vá**) · một đường nằm trong cả hai danh sách thì bên nào thắng (việc 1 làm chồng lấn thành chuyện thường) · và nó đổi thứ `authorize()` **của 31 app** nhìn thấy, theo chiều **chặt sang lỏng**, trong code framework không đọc được. Ngày làm thì lời giải là **một danh sách thứ hai**, không phải một cờ |
+| **Sửa tài liệu về `configure_jwt` chỉ verify 1 khoá** (mục 6 báo cáo `linh-kien`) | **Không phải nợ của framework.** `docs/vn/starters.md` mục 177-206 đã mô tả đầy đủ `key_provider` + tra khoá theo `kid`. Chỗ lỗi thời nằm trong **comment của 19 repo app** |
+
+## 3c. Lùi lại - fieldbus + MQTT + `drain()`
+
+> ⏭ **Chủ dự án lùi 2026-08-22.** Không gắn số hiệu bản nữa: *"cho nó là làm trong bản
+> nào đó `0.8.x` đi, không nói rõ."*
 
 | Việc | Còn thiếu gì |
 |---|---|
@@ -459,18 +554,18 @@ gRPC (`grpcio` chạy trên core C riêng).
 | **`drain()` lúc tắt máy** | Framework không bao giờ tự gọi. Sửa tử tế thì chạm vòng đời adapter |
 | ~~**Nợ luật 03 của `EventBus`**~~ | ✅ **ĐÃ TRẢ ở 0.8**: `publish()` trả `PublishOutcome` ba giá trị |
 
-⚠ **Hạn chót thật: phải nằm trong dòng 0.8.x.** Cả ba đổi khoá cấu hình, tức đổi API
-công khai, mà **0.9 sang Beta nơi API coi như đã chốt**.
+⚠ **Hạn chót vẫn còn nguyên và vẫn cứng: phải nằm trong dòng `0.8.x`.** Cả ba đổi khoá
+cấu hình, tức đổi API công khai, mà **`0.9` sang Beta nơi API coi như đã chốt**. Lùi được
+là vì `0.8.x` còn nhiều bản con, không phải vì hạn chót nới ra.
 
-⭐ Vì sao tách khỏi 0.8.1: **tách rủi ro** (có sự cố trên Linux thì biết ngay thủ phạm),
-cộng hai điều kiện thật - uvloop **có lãi ngay cho 31 app**, còn ba mảng này **chưa app
-nào dùng Modbus/OPC UA/MQTT thật**; và chuyến Linux của chúng nặng hơn hẳn vì cả ba đều
-là mảng **đa tiến trình**.
+⭐ Vì sao lùi được mà không mất gì: **chưa app nào dùng Modbus/OPC UA/MQTT thật**, trong
+khi chuyến Linux của chúng nặng hơn hẳn vì cả ba đều là mảng **đa tiến trình**. Cùng lý
+do đã tách `0.8.1` khỏi `0.8.2` lần trước.
 
 ⏭ **Hoãn có ý thức, chủ dự án xác nhận lại 2026-08-22** (*"mấy thứ bạn gợi ý hoãn tôi
 cũng thực sự muốn hoãn"*): *cha không có mồm* (mục 2.8c - cha không dựng DI nên không có
 đường báo ra ngoài) · *supervisor trông tiến trình ngoài* · *tắt êm*. Cả ba **không phải
-API** nên thêm ở 0.8.3 hay 1.1 đều được.
+API** nên thêm ở bản nào cũng được.
 
 ## 4. Cần máy khác mới làm được
 

@@ -193,8 +193,132 @@ class TestResolve:
         assert result.unavailable is not None
 
     def test_a_hand_written_block_keeps_its_keys(self) -> None:
-        assert {k.name for k in resolve(BY_NAME["lmdb"]).keys} == {
+        assert {k.name for k in resolve(BY_NAME["lmdb"]).keys} >= {
             "path",
             "map_size",
             "total_max",
         }
+
+
+# ---------------------------------------------------------------------------
+# Tầng thứ HAI: khoá bên trong một khối
+# ---------------------------------------------------------------------------
+#
+# ⚠ Phép dò ở trên canh **tên khối**, và nó mù hoàn toàn với tầng dưới nó. Hai
+# lỗi thật lọt qua đúng chỗ đó (báo về từ repo ngoài, 2026-08-22): khối `socket`
+# khai `complete=True` với 3 khoá trong khi adapter đọc 8, và khối `lmdb` khai 3
+# trong khi starter đọc 5. `check config` vì thế tố oan `socket.dir` và
+# `socket.session_timeout` - hai khoá CÓ tác dụng runtime thật.
+#
+# ⭐ Và test cũ `test_a_hand_written_block_keeps_its_keys` **xanh suốt thời gian
+# đó**: nó so bản mô tả với một bản chép của chính bản mô tả. Một phép kiểm chỉ
+# đối chiếu được khi hai vế có nguồn KHÁC nhau - ở đây vế kia phải là mã đọc
+# cấu hình, không phải một danh sách viết tay thứ hai.
+
+
+def _keys_the_code_reads() -> dict[str, set[str]]:
+    """Khoá con mà mã framework đọc, theo từng khối.
+
+    Nhận đúng một hình dạng, và đó là hình dạng cả `socket` lẫn `lmdb` dùng::
+
+        raw = runtime.get("<khoi>")
+        ...
+        raw.get("<khoa>")
+
+    Hai lời gọi phải nằm trong **cùng một hàm**, nên biến `raw` của hàm này
+    không lẫn với `raw` của hàm khác.
+
+    ⚠ Chỗ mù, khai ra chứ không vá: khối đọc bằng đường dẫn phẳng
+    (``config.get("redis.url")``) hoặc bằng marker (``FromConfig("cors.<tên>")``
+    dựng tên lúc chạy) không đi qua hình dạng này. Chúng có phép dò riêng ở
+    tầng khối, và ép cả ba đường vào một phép dò sẽ đổi lấy cảnh báo giả.
+    """
+    out: dict[str, set[str]] = {}
+    for path in _ROOT.rglob("*.py"):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:  # pragma: no cover
+            continue
+        for func in ast.walk(tree):
+            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            # biến nào đang giữ khối gốc nào
+            holder: dict[str, str] = {}
+            for node in ast.walk(func):
+                if not (isinstance(node, ast.Assign) and len(node.targets) == 1):
+                    continue
+                target, value = node.targets[0], node.value
+                if not (isinstance(target, ast.Name) and isinstance(value, ast.Call)):
+                    continue
+                f = value.func
+                if (
+                    isinstance(f, ast.Attribute)
+                    and f.attr in _READERS
+                    and isinstance(f.value, ast.Name)
+                    and f.value.id == "runtime"
+                ):
+                    block = _first_string_arg(value)
+                    if block and "." not in block:
+                        holder[target.id] = block
+            if not holder:
+                continue
+            for node in ast.walk(func):
+                if not isinstance(node, ast.Call):
+                    continue
+                f = node.func
+                if not (
+                    isinstance(f, ast.Attribute)
+                    and f.attr == "get"
+                    and isinstance(f.value, ast.Name)
+                    and f.value.id in holder
+                ):
+                    continue
+                key = _first_string_arg(node)
+                if key:
+                    out.setdefault(holder[f.value.id], set()).add(key)
+    return out
+
+
+class TestAKeyTheCodeReadsIsDescribed:
+    """`complete=True` là giấy phép để `check config` tố khoá lạ. Giấy phép đó
+    chỉ đúng khi danh sách khoá khớp với thứ mã thật sự đọc."""
+
+    def test_no_complete_block_hides_a_key_its_own_code_reads(self) -> None:
+        thieu: list[str] = []
+        for block, keys in _keys_the_code_reads().items():
+            described = BY_NAME.get(block)
+            if described is None or not described.complete:
+                continue
+            known = {k.name for k in resolve(described).keys}
+            thieu += [f"{block}.{k}" for k in sorted(keys - known)]
+        assert not thieu, (
+            f"mã đọc {thieu} nhưng bản mô tả không khai - `check config` sẽ tố "
+            "oan chúng là khoá lạ, dù chúng có tác dụng runtime thật"
+        )
+
+    def test_no_complete_block_advertises_a_key_nobody_reads(self) -> None:
+        """Chiều ngược lại, và là chiều hỏng **im lặng hơn**.
+
+        Khối `socket` từng khai một khoá `path` mà không đường nào đọc: người
+        dùng viết `socket.path`, `check config` báo CLEAN, còn adapter bind
+        socket ở chỗ khác hẳn. Thiếu khoá thì có tiếng kêu; thừa khoá thì không.
+        """
+        thua: list[str] = []
+        for block, keys in _keys_the_code_reads().items():
+            described = BY_NAME.get(block)
+            if described is None or not described.complete:
+                continue
+            known = {k.name for k in resolve(described).keys}
+            thua += [f"{block}.{k}" for k in sorted(known - keys)]
+        assert not thua, (
+            f"bản mô tả khai {thua} nhưng không đường nào đọc - `check config` "
+            "sẽ cho qua một khoá vô tác dụng"
+        )
+
+    def test_the_probe_itself_finds_something(self) -> None:
+        """Đối chứng. Con số 0 của một phép dò có hai nghĩa - *không có vi
+        phạm* và *phép dò không biết kêu* - và chỉ vế này tách được chúng."""
+        found = _keys_the_code_reads()
+        assert "socket" in found and "lmdb" in found
+        assert found["socket"] >= {"dir", "session_timeout", "max_chunk_size"}
+        assert found["lmdb"] >= {"path", "file_mode", "dir_mode"}

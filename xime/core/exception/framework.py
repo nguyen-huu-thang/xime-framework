@@ -47,14 +47,30 @@ class UnregisteredDependencyException(StartupException):
     plain classes that are simply absent from all scanned packages.
     """
 
-    def __init__(self, dependent_name: str, dependency_name: str):
+    def __init__(
+        self, dependent_name: str, dependency_name: str, hint: str | None = None
+    ):
         self.dependent_name = dependent_name
         self.dependency_name = dependency_name
+        # Some classes can NEVER be reached by scan() - they enter the container
+        # from a registry of their own (configure_refdata, ProcessLink handlers).
+        # Pointing those at scan() sends the reader down a road with no end: the
+        # advice is followed, nothing changes, and the real cause stays hidden.
+        # A wrong hint costs more than no hint.
+        # Vai lop KHONG BAO GIO toi duoc bang scan() - chung vao container tu
+        # registry rieng. Chi chung ve scan() la dan nguoi doc di mot con duong
+        # khong co dich: lam theo ma khong co gi doi, con nguyen nhan that thi
+        # van nam im. Mot goi y SAI dat hon la khong co goi y.
+        if hint is None:
+            hint = (
+                f"add the package containing '{dependency_name}' to "
+                "dependency.scan()"
+            )
         super().__init__(
             f"\nUnregistered Dependency\n"
             f"  Class     : {dependent_name}\n"
             f"  Dependency: {dependency_name}\n"
-            f"  Hint      : add the package containing '{dependency_name}' to dependency.scan()"
+            f"  Hint      : {hint}"
         )
 
 

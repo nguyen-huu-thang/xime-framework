@@ -259,6 +259,16 @@ SPEC: tuple[Block, ...] = (
                     "as an OOM kill, not as a slowdown."
                 ),
             ),
+            Key(
+                "file_mode",
+                default='"0600"',
+                doc="Quote it, as with socket.permission. POSIX only.",
+            ),
+            Key(
+                "dir_mode",
+                default='"0700"',
+                doc="Quote it, same reason. POSIX only.",
+            ),
         ),
         complete=True,
         needs="xime[lmdb]",
@@ -266,15 +276,40 @@ SPEC: tuple[Block, ...] = (
     ),
     Block(
         name="socket",
-        doc="Unix domain socket adapter. POSIX only.",
+        doc=(
+            "Unix domain socket adapter. POSIX only.\n"
+            "NOTE: the socket PATH is not set here. It comes from\n"
+            "`process.socket.<server_id>.path`, or is derived as\n"
+            "<dir>/<server_id>.sock. A `socket.path` key would be read\n"
+            "by nobody."
+        ),
         keys=(
-            Key("path", doc="Socket path. Left out, the framework derives one."),
+            Key(
+                "dir",
+                doc=(
+                    "Base directory for auto-named *.sock files.\n"
+                    "Left out, the first writable default dir is used."
+                ),
+            ),
             Key(
                 "permission",
                 default='"0600"',
                 doc="Quote it: YAML reads an unquoted 0600 as decimal 600.",
             ),
+            Key("owner", default=None, doc="chown to this user, by name."),
+            Key("group", default=None, doc="chown to this group, by name."),
             Key("allowed_uids", default="[]", doc="SO_PEERCRED allowlist. [] means any UID."),
+            Key("session_timeout", default=30.0, doc="Seconds; an idle session is dropped."),
+            Key(
+                "max_chunk_size",
+                default=1024 * 1024,
+                doc="Bytes; a larger chunk is refused.",
+            ),
+            Key(
+                "recv_queue_size",
+                default=16,
+                doc="Buffered chunks per session before backpressure.",
+            ),
         ),
         complete=True,
         see="docs/socket-adapter.md",

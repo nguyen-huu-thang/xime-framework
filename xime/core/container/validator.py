@@ -11,6 +11,48 @@ from xime.core.exception import (
 from xime.core.metadata.type_utils import get_protocol_methods, is_protocol
 
 
+def _hint_for(dep_type: type) -> str | None:
+    """Point at the registry that class actually comes from.
+
+    Two registries feed the container OUTSIDE dependency.scan(): RefData tables
+    (configure_refdata) and ProcessLink handlers (configure_link). Neither can
+    ever be reached by scanning a package, so the default hint is not merely
+    unhelpful for them - it is a road with no end. That matters most in a
+    hand-built container inside a test, which is exactly where a reader has no
+    orchestrator to compare against.
+    Hai registry nap vao container NGOAI dependency.scan(): bang RefData va
+    handler ProcessLink. Khong cai nao toi duoc bang cach quet mot package, nen
+    goi y mac dinh khong chi vo ich voi chung - no la mot con duong khong co
+    dich. Dieu do dat nhat trong container dung tay o test, dung cho nguoi doc
+    khong co orchestrator de doi chieu.
+
+    Returns None when the default hint is the right one - saying nothing beats
+    guessing.
+    """
+    # Lazy import: this runs only on the failure path, and core.container must
+    # not depend on core.refdata / core.link at module level.
+    try:
+        from xime.core.refdata import RefData
+    except Exception:  # pragma: no cover - refdata is core, but stay defensive
+        pass
+    else:
+        if isinstance(dep_type, type) and issubclass(dep_type, RefData):
+            return (
+                "a RefData table reaches the container through "
+                "configure_refdata(), not dependency.scan()"
+            )
+
+    try:
+        from xime.core.link import link_registry
+    except Exception:  # pragma: no cover
+        return None
+    if dep_type in set(link_registry.handlers()):
+        return (
+            "a ProcessLink handler reaches the container through "
+            "configure_link(), not dependency.scan()"
+        )
+    return None
+
 class GraphValidator:
     """
     Validates the dependency graph and bindings before registration.
@@ -134,7 +176,9 @@ class GraphValidator:
         for cls, deps in resolved.items():
             for dep_type in deps.values():
                 if not is_protocol(dep_type) and dep_type not in registered:
-                    raise UnregisteredDependencyException(cls.__name__, dep_type.__name__)
+                    raise UnregisteredDependencyException(
+                        cls.__name__, dep_type.__name__, hint=_hint_for(dep_type)
+                    )
 
     # ------------------------------------------------------------------
     # 4. Binding correctness check
