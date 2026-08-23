@@ -307,6 +307,44 @@ The same list also governs `@ws` routes and the padlock in Swagger - **one match
 > signed in, and that is an accepted limit.
 
 
+### The start-up log line about authentication - and what it does NOT say
+
+Every web adapter prints exactly one `INFO` line at start-up, stating what the framework knows about authentication on that server:
+
+```text
+web default: JWT middleware active (aud=clinic, 1 public path(s), 31 HTTP route(s))
+web default: configure_jwt() not called - 3 custom middleware installed, 31 HTTP route(s)
+web default: configure_jwt() not called - no middleware installed, 31 HTTP route(s)
+```
+
+It exists because an application that protects its data and one that serves every route to anybody used to produce **identical** start-up logs - a `diff` showed zero differing lines, both saying *"startup complete"*. Putting `configure_jwt()` behind an `if` drops you back into the fail-open shape, and until this release nothing said so.
+
+> ### ⛔ The second line does NOT say your application lacks authentication
+>
+> This is the easiest line to misread, so plainly: `configure_jwt() not called` is a
+> **measurement**, not a **conclusion**. The framework knows exactly one fact - whether
+> that function was called - and it stops there.
+>
+> Installing your own authentication middleware through `configure_middleware(...)` is a
+> **legitimate and common** way to do it: when the application fetches keys from its own
+> service, or applies authorisation rules the framework has no business knowing. Those
+> applications get the second line, and their requests without a token still return `401`
+> exactly as they should.
+>
+> That is why the middleware count is **printed but never interpreted**.
+> `configure_middleware` is also how compression, logging and request ids get installed,
+> so inferring *"this application is authenticated"* from a non-zero count would be right
+> by accident. The reader knows what their application installs; the framework does not.
+>
+> **The shape worth stopping at is the third line** - `configure_jwt()` not called **and**
+> no middleware at all. There, nothing is in front of anyone.
+
+⛔ **It is `INFO`, deliberately not a warning.** A fully public service is legitimate and not rare, and the framework cannot tell `/healthz` from `/api/v1/records/{id}`. Warning there cries wolf at every start-up of an application doing nothing wrong, and **a probe that cries wolf is a probe someone turns off** - at which point the genuinely fail-open application also prints a line nobody reads any more.
+
+📌 The wording was not free. The first version said *"no JWT middleware - N HTTP route(s) open to anyone"*: it measured **one** fact and printed **two** conclusions it had no evidence for. Across the 23 applications that reported back, that sentence was wrong every single time it printed. The current wording is the result of narrowing the claim down to what is actually measured.
+
+The route count measures the **application's API surface**: `/docs`, `/openapi.json` and `/healthz` declare `include_in_schema=False` and are not counted. They are open too, but a number the author cannot map back to their own code tells them nothing.
+
 > **Needs the extra:** `pip install "xime[jwt]"`. Without it, calling `configure_jwt` makes the app **fail at startup** with the command to run, rather than waiting for the first request carrying a token.
 
 ---
@@ -360,6 +398,63 @@ configure_scheduler(SchedulerConfig(
 ```
 
 `CronJob` and `IntervalJob` accept an optional `id` (defaults to the class name). `IntervalJob` combines `hours` / `minutes` / `seconds`; a zero interval is rejected at startup (fail-fast). The scheduler starts after all singletons are constructed and stops gracefully on shutdown, waiting for any in-flight job to finish.
+
+### ⛔ A job runs ONCE for the whole cluster, not once per process
+
+When the application runs several processes (`share_load()`), the scheduler runs **on the primary process only**. The other processes keep the adapter in `standby` and never tick. This is the **design**, not a temporary limitation, and no configuration key changes it.
+
+Why: nearly every real job touches something **shared** - a table in the database, an email to a customer, a sync cursor. Running it four times there is not four times faster, it is four emails and a cursor advanced four notches. That is the *"running twice is WRONG"* class, and it fails **silently**: no exception, no failing test, just a customer receiving the same message four times.
+
+| | Runs once, then done | Runs forever |
+|---|---|---|
+| **On every process** | `post_construct()` | adapter with `scaling="replicated"` |
+| **Once for the cluster** | `run_once()` | **the scheduler** |
+
+### "But my job needs to run on every process"
+
+Before looking for a way, run this test - it rules out almost everything:
+
+> **Does my job read or write something only THIS process has, or something every process can reach?**
+
+If every process can reach it, the primary alone is enough and running it anywhere else only costs more. If only this process has it, then the real question is not *"how do I run a job on every process"* but *"why is my business data sitting in one process's memory"* - that is what needs fixing, with [`RefData`](refdata.md) or [`Store`](store.md).
+
+Auditing what is left, exactly two kinds of work genuinely have to run per process, and **neither is business logic**:
+
+| Kind | Why it lives outside the scheduler |
+|---|---|
+| **Sampling this process's own metrics** (RSS, requests served, queue depth) | The primary cannot see another process's counters. But the cluster shares **one socket**, so a scrape lands on a random process - **without aggregation the number is meaningless no matter how many schedulers you run**. The answer is to collect through [`ProcessLink`](process-link.md) and push once, not to duplicate the job |
+| **A device one process exclusively holds** (Modbus, OPC UA, a subset of MQTT topics) | This is genuine business logic, but it belongs to a `sharded` adapter and has its own mechanism (`@poll`, `@on_change` run once **per entity**). It does not go through the scheduler |
+
+And if you really do need a periodic loop on every process - sampling your own resources, say - **do not wait for the framework to unlock anything**. That shape is already writable today and costs nothing:
+
+```python
+import asyncio
+import contextlib
+
+from xime.core.bootstrap.adapter import Adapter
+
+class ResourceSampler(Adapter, scaling="replicated"):
+    adapter_kind = "sampler"
+
+    def __init__(self) -> None:
+        self.adapter_id = "default"
+        self._stopped = asyncio.Event()
+
+    async def start(self, app) -> None: ...
+
+    async def serve(self) -> None:
+        while not self._stopped.is_set():
+            await self._sample()          # touches only this process's counters
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._stopped.wait(), timeout=15)
+
+    async def stop(self) -> None:
+        self._stopped.set()
+
+app.use(ResourceSampler())
+```
+
+That is exactly what `SchedulerAdapter` already is, differing by one `scaling` argument and by where it lives.
 
 ---
 

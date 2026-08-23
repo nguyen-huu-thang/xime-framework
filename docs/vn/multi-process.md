@@ -614,6 +614,11 @@ Adapter hạng đơn nhất đang chờ ở con phụ nằm ở trạng thái `s
 }
 ```
 
+⭐ **Job nền của cụm chỉ chạy ở primary, và đó là thiết kế** - không có khoá cấu hình nào
+đổi được. Cần một vòng lặp định kỳ ở **mọi** tiến trình thì đó không phải việc của
+scheduler mà là một adapter `scaling="replicated"`; lý do đầy đủ và ví dụ chép được nằm ở
+[`starters.md`](starters.md) mục *"Job chạy MỘT LẦN cho cả cụm"*.
+
 ### ⛔ Hai đường dẫn này KHÔNG xác thực
 
 Cố ý. Chúng phải trả lời được **khi mọi thứ khác đã hỏng**, kể cả khi không lấy

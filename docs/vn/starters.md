@@ -305,6 +305,43 @@ Cùng danh sách đó cũng chi phối route `@ws` và ổ khoá trên Swagger -
 > nhập hay không, và đó là giới hạn chấp nhận.
 
 
+### Dòng log khởi động về xác thực - và điều nó KHÔNG nói
+
+Mỗi web adapter in đúng một dòng `INFO` lúc khởi động, khai thứ framework biết được về xác thực trên server đó:
+
+```text
+web default: JWT middleware active (aud=phongkham, 1 public path(s), 31 HTTP route(s))
+web default: configure_jwt() not called - 3 custom middleware installed, 31 HTTP route(s)
+web default: configure_jwt() not called - no middleware installed, 31 HTTP route(s)
+```
+
+Nó tồn tại vì trước đây một app bảo vệ dữ liệu và một app phục vụ mọi route cho bất kỳ ai sinh ra log khởi động **giống hệt nhau** - `diff` ra 0 dòng khác biệt, cả hai đều báo *"startup complete"*. Đặt `configure_jwt()` sau một `if` là rơi lại vào hình dạng fail-open, và trước bản này không gì nói ra.
+
+> ### ⛔ Dòng thứ hai KHÔNG nói app của bạn thiếu xác thực
+>
+> Đây là chỗ hay bị đọc nhầm nhất, nên nói thẳng: `configure_jwt() not called` là một
+> **phép đo**, không phải một **kết luận**. Framework biết đúng một sự kiện - hàm đó có
+> được gọi hay không - và nó dừng lại ở đó.
+>
+> Cài xác thực bằng middleware của chính mình qua `configure_middleware(...)` là cách
+> dùng **hợp lệ và phổ biến**: khi ứng dụng lấy khoá từ một dịch vụ riêng, hoặc cần luật
+> phân quyền mà framework không nên biết. Những app đó nhận dòng thứ hai, và request
+> không token của họ vẫn trả `401` đúng như phải thế.
+>
+> Vì vậy con số middleware được **in ra chứ không được diễn giải**. `configure_middleware`
+> cũng là đường cài nén, log, request id - suy từ một con số khác 0 ra *"app này có xác
+> thực"* là đúng vì lý do tình cờ. Người đọc biết ứng dụng của mình cài gì; framework
+> thì không.
+>
+> **Hình dạng đáng dừng lại là dòng thứ ba** - `configure_jwt()` không gọi **và** không
+> middleware nào. Ở đó thì đúng là chưa có lớp nào chặn ai cả.
+
+⛔ **Là `INFO`, và cố ý không phải cảnh báo.** Một service công khai hoàn toàn là hợp lệ và không hiếm, mà framework không phân biệt được `/healthz` với `/api/v1/benh-an/{ma}`. Cảnh báo ở đó kêu oan mỗi lần khởi động của một ứng dụng không làm gì sai, và **một phép dò kêu oan là một phép dò sẽ bị tắt** - lúc ấy ứng dụng thật sự fail-open cũng in ra một dòng không ai còn đọc.
+
+📌 Bài học đằng sau câu chữ này không miễn phí: bản đầu của dòng log nói *"no JWT middleware - N HTTP route(s) open to anyone"*, tức đo **một** sự kiện rồi in ra **hai** kết luận không có bằng chứng. Trên 23 ứng dụng báo về, câu đó **sai mọi lần nó in ra**. Chữ hiện tại là kết quả của việc thu hẹp phát biểu về đúng thứ đo được.
+
+Con số route đếm **bề mặt API của ứng dụng**: `/docs`, `/openapi.json`, `/healthz` khai `include_in_schema=False` nên không tính. Chúng cũng mở thật, nhưng một con số người viết không map được về code của mình thì không nói cho họ điều gì.
+
 > **Cần extra:** `pip install "xime[jwt]"`. Thiếu nó mà vẫn gọi `configure_jwt` thì app **nổ lúc khởi động** kèm câu lệnh cần chạy, chứ không đợi tới request đầu tiên mang token.
 
 ---
@@ -358,6 +395,63 @@ configure_scheduler(SchedulerConfig(
 ```
 
 `CronJob` và `IntervalJob` nhận thêm `id` tùy chọn (mặc định là tên class). `IntervalJob` cộng dồn `hours` / `minutes` / `seconds`; khoảng bằng 0 bị từ chối lúc startup (fail-fast). Scheduler khởi động sau khi mọi singleton được dựng xong và dừng êm khi shutdown, chờ job đang chạy dở hoàn tất.
+
+### ⛔ Job chạy MỘT LẦN cho cả cụm, không phải một lần mỗi tiến trình
+
+Ứng dụng chạy nhiều tiến trình (`share_load()`) thì scheduler **chỉ chạy ở tiến trình primary**. Ba tiến trình còn lại giữ adapter ở trạng thái `standby` và không tick một lần nào. Đây là **thiết kế**, không phải giới hạn tạm thời, và không có khoá cấu hình nào đổi được.
+
+Vì sao: gần như mọi job thật đều chạm thứ **dùng chung** - một bảng trong database, một email gửi cho khách, một con trỏ đồng bộ. Chạy bốn lần ở đó không phải là làm nhanh gấp bốn, nó là gửi bốn email và tiến con trỏ bốn nấc. Đó là hạng *"chạy hai lần thì SAI"*, và nó hỏng **im lặng**: không exception, không test đỏ, chỉ là khách nhận bốn tin nhắn giống nhau.
+
+| | Chạy một lần rồi thôi | Chạy mãi |
+|---|---|---|
+| **Ở mọi tiến trình** | `post_construct()` | adapter `scaling="replicated"` |
+| **Một lần cho cả cụm** | `run_once()` | **scheduler** |
+
+### "Nhưng job của tôi cần chạy ở từng tiến trình"
+
+Trước khi tìm cách, hãy chạy phép kiểm này - nó loại được gần hết:
+
+> **Job của tôi đọc hoặc ghi thứ mà CHỈ tiến trình này có, hay thứ mọi tiến trình đều với tới?**
+
+Vế sau thì primary chạy là đủ, và chạy thêm ở đâu cũng chỉ tốn thêm. Vế trước thì câu hỏi thật không phải *"làm sao chạy job ở mọi tiến trình"* mà là *"vì sao dữ liệu nghiệp vụ của tôi lại nằm trong bộ nhớ một tiến trình"* - đó mới là chỗ phải sửa, và sửa bằng [`RefData`](refdata.md) hoặc [`Store`](store.md).
+
+Rà lại thì chỉ còn đúng hai loại việc thật sự phải chạy theo tiến trình, và **không loại nào là nghiệp vụ**:
+
+| Loại | Vì sao nó ở ngoài scheduler |
+|---|---|
+| **Quan trắc số đo của chính tiến trình** (RSS, số request đã phục vụ, độ dài hàng đợi) | Primary không nhìn thấy bộ đếm của tiến trình khác. Nhưng cụm dùng **chung một socket**, nên một lượt scrape rơi ngẫu nhiên vào một tiến trình - **không gộp thì con số vô nghĩa dù có bao nhiêu scheduler**. Lời giải là gom về một chỗ qua [`ProcessLink`](process-link.md) rồi đẩy một lần, không phải nhân bản job |
+| **Thiết bị mà một tiến trình độc quyền giữ** (Modbus, OPC UA, một tập topic MQTT) | Đây là nghiệp vụ thật, nhưng nó thuộc adapter hạng `sharded` và có cơ chế riêng (`@poll`, `@on_change` chạy một lần **mỗi thực thể**). Không đi qua scheduler |
+
+Còn nếu thật sự cần một vòng lặp định kỳ ở mọi tiến trình - ví dụ tự lấy mẫu tài nguyên của chính mình - thì **đừng chờ framework mở khoá**, hình dạng đó viết được ngay hôm nay và không tốn gì:
+
+```python
+import asyncio
+import contextlib
+
+from xime.core.bootstrap.adapter import Adapter
+
+class ResourceSampler(Adapter, scaling="replicated"):
+    adapter_kind = "sampler"
+
+    def __init__(self) -> None:
+        self.adapter_id = "default"
+        self._stopped = asyncio.Event()
+
+    async def start(self, app) -> None: ...
+
+    async def serve(self) -> None:
+        while not self._stopped.is_set():
+            await self._sample()          # chỉ chạm số đo của chính tiến trình này
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._stopped.wait(), timeout=15)
+
+    async def stop(self) -> None:
+        self._stopped.set()
+
+app.use(ResourceSampler())
+```
+
+Đó chính là thứ `SchedulerAdapter` đang là, chỉ khác một chữ `scaling` và khác chỗ nó nằm.
 
 ---
 

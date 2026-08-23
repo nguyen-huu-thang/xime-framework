@@ -497,7 +497,7 @@ rồi mới sang mục kế.
 | # | Việc | Trạng thái |
 |---|---|---|
 | **1** | **`public_paths` khớp được tiền tố** - `configure_jwt(public_paths=["/api/v1/parts/*"])` | ✅ **XONG** |
-| **2** | **Một dòng `INFO` khai trạng thái xác thực** lúc khởi động | ✅ **XONG** |
+| **2** | **Một dòng `INFO` khai trạng thái xác thực** lúc khởi động | ✅ **XONG** · ⚠ **bản đầu SAI CHỮ, đã sửa 2026-08-23** - xem mục dưới |
 
 Đo sau cả hai: **2571 passed / 24 skipped / 0 failed = tổng 2595** (`2564 + 31` test
 mới) · `ruff check xime/` sạch · `mypy` **49 lỗi, đúng mốc máy này**.
@@ -534,7 +534,60 @@ dẫn**, và tập đường sinh ra từ một tham số là **VÔ HẠN**.
 vững** - `/docs`, `/openapi.json`, `/redoc` là tập **hữu hạn**, liệt kê hết được, và
 `docs/vn/starters.md:277` đã bảo làm đúng thế. Đừng trích lại nó như lý do.
 
-#### Việc 2 - đo được, không phải suy đoán
+#### ⛔⛔ Việc 2 - hậu kiểm 2026-08-23: bản đầu SAI, đã sửa chữ
+
+**Bản ship đầu tiên của dòng log kết luận sai 100% số lần nó in ra.** Phiên `Service ngang`
+báo về ngay hôm sau, và họ đúng - framework đo lại xác nhận từng con số.
+
+Câu cũ: `no JWT middleware - N HTTP route(s) open to anyone`. Nó đo **một** sự kiện
+(`configure_jwt()` có được gọi không) rồi in ra **hai** kết luận không có bằng chứng nào đỡ.
+
+| | Số repo |
+|---|---|
+| Cài xác thực bằng `configure_middleware` - câu cũ kết luận **SAI** | **23** |
+| Dùng `configure_jwt` - câu cũ kết luận đúng | **0** |
+
+Họ khởi động thật bốn repo với Trust + Postgres, `curl` không token ra **401**. Tôi dựng lại
+một app tối giản và thấy cùng một tiến trình in `open to anyone` rồi trả `401` cho request
+không token - hai câu tự mâu thuẫn trong cùng một log.
+
+⭐⭐ **Vì sao nặng hơn chuyện chữ nghĩa, và đây là phần đáng nhớ:** dòng log này **là** bản
+vá A1. Một phép dò kêu oan là một phép dò sẽ bị tắt - khi cùng một câu xuất hiện dưới 23
+ứng dụng khoẻ mạnh thì ứng dụng thật sự fail-open in ra một dòng **không ai còn đọc**. Bản
+vá vẫn nằm trong code nhưng hết tác dụng với người đọc, tức **đúng thứ nó sinh ra để chặn**.
+Cùng hình dạng **C7** (cụm khoẻ và cụm hỏng sinh log giống nhau), khác ở chỗ lần này hai
+bên giống nhau vì **chữ quá rộng** chứ không vì thiếu log.
+
+⚠ Và nó lặp lại đúng lý do tôi đã dùng để **bác** phương án 6a của `dental` hôm trước. Bác
+đúng, rồi tự dựng lại cùng cái bẫy ở chỗ khác.
+
+**Chữ hiện tại - khai thứ đo được, không kết luận:**
+
+```text
+web default: JWT middleware active (aud=phongkham, 1 public path(s), 31 HTTP route(s))
+web default: configure_jwt() not called - 3 custom middleware installed, 31 HTTP route(s)
+web default: configure_jwt() not called - no middleware installed, 31 HTTP route(s)
+```
+
+⛔ **Số middleware được IN RA, không được diễn giải.** `configure_middleware` cũng là đường
+cài nén, log, request id - suy từ con số khác 0 ra *"có xác thực"* là **đúng vì lý do tình
+cờ**. Chính người báo tự phanh chỗ này, và phanh đúng. Hình dạng fail-open thật là dòng thứ
+ba, và nó tự nói ra mà không cần ai kết luận hộ.
+
+⭐ **Phạm vi tôi đo RỘNG HƠN báo cáo ở một chỗ và HẸP HƠN ở chỗ khác** - lần đầu có vế thứ
+hai: họ nhấn vào `open to anyone`, nhưng `no JWT middleware` **cũng sai** với người cài
+middleware JWT của chính họ, nên sửa cả câu chứ không sửa nửa câu. Ngược lại họ đoán `socket`
+adapter có thể dính - **không**: grep cho thấy chỉ `web/_adapter.py` đọc `jwt_registry`.
+
+**Đo:** `tests_temp/web/` **49 passed / 1 skipped**, riêng bộ test dòng log **8 -> 14 test**.
+Hai đối chứng: quay về chữ cũ -> **8 đỏ** (cả 6 test của lớp mới) · gộp middleware của mọi
+server thay vì theo `server_id` -> **1 đỏ**, đúng test canh chuyện đó.
+
+📌 Tài liệu người dùng: `docs/{vn,en}/starters.md` mục *"Dòng log khởi động về xác thực - và
+điều nó KHÔNG nói"*. Viết cho phiên app đọc khi họ thấy dòng lạ, và nói thẳng câu quan trọng
+nhất: **`configure_jwt() not called` là một phép đo, không phải một lời phán xét.**
+
+#### Việc 2 - bối cảnh ban đầu, giữ vì lý do vẫn đúng
 
 Dựng hai app Xime tối giản khác nhau đúng một chỗ (`configure_jwt()` gọi hay không), rồi
 `diff` log khởi động: **0 dòng khác biệt**. App bảo vệ dữ liệu và app mở toang mọi
@@ -553,7 +606,7 @@ nào *đáng lẽ* phải có xác thực, nên nó sẽ kêu oan với mọi se
 
 | Việc | Vì sao |
 |---|---|
-| **Nhận diện trên đường công khai** (mục 3 báo cáo `linh-kien`) | ⛔ **BÁC VĨNH VIỄN - chủ dự án chốt 2026-08-22**, kèm câu dặn *"đừng app nào đề nghị nữa"*. Lý do quyết định **không phải ba câu thiết kế tôi nêu**, mà là một chỗ cả tôi lẫn người báo bỏ sót: **một trang gọi máy chủ qua nhiều đường**, nên phần riêng của người đăng nhập lấy từ một đường CÓ xác thực, không cần nhét danh tính vào đường công khai. Ca sử dụng tự giải được bằng thứ đã có. Đầy đủ: mục [Bốn thứ đừng đề xuất lại](#bốn-thứ-đừng-đề-xuất-lại) |
+| **Nhận diện trên đường công khai** (mục 3 báo cáo `linh-kien`) | ⛔ **BÁC VĨNH VIỄN - chủ dự án chốt 2026-08-22**, kèm câu dặn *"đừng app nào đề nghị nữa"*. Lý do quyết định **không phải ba câu thiết kế tôi nêu**, mà là một chỗ cả tôi lẫn người báo bỏ sót: **một trang gọi máy chủ qua nhiều đường**, nên phần riêng của người đăng nhập lấy từ một đường CÓ xác thực, không cần nhét danh tính vào đường công khai. Ca sử dụng tự giải được bằng thứ đã có. Đầy đủ: mục [Năm thứ đừng đề xuất lại](#năm-thứ-đừng-đề-xuất-lại) |
 | **Sửa tài liệu về `configure_jwt` chỉ verify 1 khoá** (mục 6 báo cáo `linh-kien`) | **Không phải nợ của framework.** `docs/vn/starters.md` mục 177-206 đã mô tả đầy đủ `key_provider` + tra khoá theo `kid`. Chỗ lỗi thời nằm trong **comment của 19 repo app** |
 
 ## 3c. Lùi lại - fieldbus + MQTT + `drain()`
@@ -598,7 +651,7 @@ API** nên thêm ở bản nào cũng được.
 
 ---
 
-# Bốn thứ đừng đề xuất lại
+# Năm thứ đừng đề xuất lại
 
 Mỗi cái đã bị bác kèm lý do; danh sách đầy đủ nằm trong từng file thiết kế
 (`docs/thiet-ke/10` mục 8 có **19 hướng**, `docs/thiet-ke/11` mục 11 có **19 hướng**).
@@ -609,6 +662,7 @@ Mỗi cái đã bị bác kèm lý do; danh sách đầy đủ nằm trong từn
 | **Hook SQLAlchemy chặn sửa entity ngoài transaction** | Phải trả phí runtime cho mọi lời đọc, trái nguyên tắc minimal magic. Bù bằng quy tắc tài liệu - [`rules/transaction.md`](rules/transaction.md) |
 | **`LifecycleManager` gọi `pre_destroy()` khi `post_construct()` ném lỗi** | Dọn object khởi tạo dở sẽ **che lỗi gốc**. Chủ dự án chốt 2026-07-30: giữ nguyên |
 | ⛔ **Nhận diện danh tính trên đường công khai** | **Chủ dự án chốt 2026-08-22, và dặn thẳng: *"đừng app nào đề nghị nữa"*.** Đường trong `public_paths` **không nhìn token, chấm hết**. Lý do ở mục ngay dưới - nó không phải "hoãn vì ít khách" |
+| ⛔ **Job scheduler chạy riêng từng tiến trình** | **Chốt 2026-08-23.** Scheduler là adapter hạng `singleton`, chỉ chạy ở primary, và không có khoá cấu hình nào đổi được. Rà hết thì **0 ca nghiệp vụ** cần chạy theo tiến trình, và đó là hệ quả cấu trúc chứ không phải may - xem mục ngay dưới |
 
 ## ⛔ Vì sao đường công khai KHÔNG nhận diện - chốt vĩnh viễn 2026-08-22
 
@@ -662,6 +716,58 @@ HTML thì không làm được - và đó là giới hạn chấp nhận, không
    tiền đề: *"đường này không cần danh tính"* và *"đường này không được nhận diện"* là
    **cùng một câu** khi phần biết-mình-là-ai nằm ở frontend. Không có luật 03 nào bị vi
    phạm ở đây, nên không có gì phải tách.
+
+## ⛔ Vì sao scheduler KHÔNG chạy theo tiến trình - chốt 2026-08-23
+
+Chủ dự án hỏi: *"liệu có tồn tại logic nghiệp vụ nào mà hẹn giờ lại riêng cho từng
+tiến trình không... nếu có thì liệu có phải thiếu sót không hay vẫn giải được bằng
+liên lạc đa tiến trình."*
+
+Rà hết thì **0 ca nghiệp vụ**, và điều đáng ghi lại không phải con số mà là **lý do
+nó bằng 0**:
+
+> Nghiệp vụ theo định nghĩa là chạm dữ liệu của khách, mà dữ liệu của khách **không
+> bao giờ** nằm riêng trong bộ nhớ một tiến trình - [luật 01](../../.claude/rules/01-song-song-hoa-va-shard.md)
+> nghĩa 1 cấm đúng điều đó. Nó nằm ở DB, ở `RefData`, ở `Store`, tức mọi tiến trình
+> với tới như nhau. Đã vậy thì chạy job ở bốn nơi không cho thêm gì.
+
+⭐ **Hệ quả dùng được làm phép kiểm, đưa cho phiên app khi họ hỏi:**
+
+> **Một job nghiệp vụ mà *cần* chạy riêng từng tiến trình là một job đang phụ thuộc
+> vào thứ chỉ tiến trình đó có. Tức nó đã vi phạm luật 01 từ trước, và bản vá đúng
+> không phải cho nó chạy N lần mà là đẩy cái trạng thái kia ra ngoài.**
+
+### Hai loại việc thật sự phải chạy theo tiến trình, và cả hai ở ngoài scheduler
+
+| Loại | Nhà của nó |
+|---|---|
+| **Quan trắc số đo của chính tiến trình** | Đây là khe hở duy nhất còn lại, vì luật 01 cho phép đúng hai thứ ở lại trong RAM: *số đo* và *bản sao đọc có nguồn bền vững* - vế sau nay là `RefData` nên tự khép. Nhưng cụm **dùng chung một socket**, nên một lượt scrape rơi ngẫu nhiên vào một tiến trình: **không gộp thì con số vô nghĩa dù có bao nhiêu scheduler**. Lời giải là gom qua `ProcessLink` rồi đẩy một lần |
+| **Thiết bị một tiến trình độc quyền giữ** (Modbus, OPC UA, tập topic MQTT) | Nghiệp vụ thật, nhưng thuộc adapter hạng `sharded` với cơ chế riêng (`@poll`, `@on_change` chạy một lần **mỗi thực thể**) - xem mục 3c |
+
+### Thiếu sót không? Về hành vi thì không, về API thì có một chỗ phải biết
+
+**Đường thoát tồn tại và không tốn gì:** một adapter `scaling="replicated"` mà `serve()`
+là vòng lặp `sleep` thì chạy ở mọi tiến trình. Đó chính là thứ `SchedulerAdapter` đang
+là, khác đúng một chữ `scaling`. Ví dụ chép được nằm trong `docs/{vn,en}/starters.md`.
+
+⚠ **`CronJob`/`IntervalJob` không có trường phạm vi, và `SchedulerAdapter` khai
+`scaling` ở tầng lớp.** Thêm một trường phạm vi là **đổi API công khai**, mà `0.9` sang
+Beta nơi API coi như đã chốt - nên nếu bao giờ muốn để ngỏ cửa đó thì nó phải nằm trong
+`0.8.x`, không lùi được.
+
+⛔ **Khuyến nghị đã chốt: đừng thêm.** Không phải vì *"chưa ai cần"* mà vì cửa đó **hỏng
+theo chiều im lặng**: khai nhầm `per_process` cho một job gửi email nhắc là gửi bốn lần,
+không exception, không test đỏ - đúng hạng *"chạy hai lần thì SAI"* của luật 01. Một cửa
+như vậy phải rất đáng mới đáng mở, mà ca duy nhất còn lại (số đo) đã có lời giải sạch hơn.
+
+### `ProcessLink` giải được gì
+
+| Chiều | |
+|---|---|
+| primary tick rồi phát lệnh cho mọi tiến trình làm việc cục bộ | **giải sạch**, job vẫn `singleton` |
+| mọi tiến trình gửi số đo về gộp lại | **giải sạch**, và ở ca metrics đây là cách **đúng** chứ không phải cách thay thế |
+| việc phải chạy được **khi primary đã chết** | ⛔ không, vì lệnh đi qua chính thứ vừa chết. Đó là lý do watchdog nằm ở **tiến trình cha** |
+
 
 # Hai bài học đắt nhất, để ở đây vì chúng sẽ lặp
 

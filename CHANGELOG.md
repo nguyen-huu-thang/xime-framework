@@ -54,8 +54,9 @@ báo *"startup complete"*, không cái nào nhắc tới xác thực - trong khi
 liệu cho bất kỳ ai.
 
 ```text
-INFO | web default: JWT middleware active (aud=phongkham, 1 public path(s), 6 HTTP route(s))
-INFO | web default: no JWT middleware - 6 HTTP route(s) open to anyone
+INFO | web default: JWT middleware active (aud=phongkham, 1 public path(s), 31 HTTP route(s))
+INFO | web default: configure_jwt() not called - 3 custom middleware installed, 31 HTTP route(s)
+INFO | web default: configure_jwt() not called - no middleware installed, 31 HTTP route(s)
 ```
 
 - Phát ra trong `lifespan`, **sau** khi controller đăng ký xong - đếm sớm hơn là báo một
@@ -66,17 +67,39 @@ INFO | web default: no JWT middleware - 6 HTTP route(s) open to anyone
 - `aud` để trống thì in `aud=not enforced`, không in `aud=None` - đây là dòng người vận
   hành đọc, không phải `repr` của một dataclass.
 
+⛔⛔ **Dòng này KHAI THỨ ĐO ĐƯỢC và không bao giờ kết luận vượt quá**, và luật đó mua bằng
+một lỗi thật trong chính đợt này. Bản đầu in *"no JWT middleware - N HTTP route(s) open to
+anyone"*: nó đo **một** sự kiện (`configure_jwt()` có được gọi không) rồi in ra **hai** kết
+luận không có bằng chứng nào đỡ. Phiên `Service ngang` khởi động thật bốn repo và đo lại
+toàn workspace:
+
+| | Số repo |
+|---|---|
+| Cài xác thực bằng `configure_middleware` - câu cũ kết luận **SAI** | **23** |
+| Dùng `configure_jwt` - câu cũ kết luận đúng | **0** |
+
+`curl` không token vào các repo đó trả **401**. Xác thực đang chạy; câu cũ **sai 100% số
+lần nó in ra**.
+
+⭐ Vì sao nặng hơn chuyện chữ nghĩa: *một phép dò kêu oan là một phép dò sẽ bị tắt*. Khi
+cùng một câu xuất hiện dưới 23 ứng dụng khoẻ mạnh thì ứng dụng thật sự fail-open in ra một
+dòng không ai còn đọc - **đúng thứ dòng log này sinh ra để chặn**. Cùng hình dạng với
+**C7** ở adapter gRPC (*cụm khoẻ và cụm hỏng sinh log giống nhau*), khác ở chỗ lần này hai
+bên giống nhau vì **chữ quá rộng** chứ không vì thiếu log.
+
+Nay số middleware do ứng dụng tự cài được **in ra chứ không được diễn giải**:
+`configure_middleware` cũng là đường cài nén, log, request id, nên suy từ một con số khác 0
+ra *"app này có xác thực"* là đúng vì lý do tình cờ. Người đọc biết ứng dụng của mình cài
+gì; framework thì không. Hình dạng fail-open thật là dòng thứ ba - không gọi `configure_jwt`
+**và** không middleware nào - và nó tự nói ra mà không cần ai kết luận hộ.
+
 ⛔ **Là `INFO` có chủ ý, không phải cảnh báo.** Service công khai hoàn toàn là hợp lệ và
 không hiếm, mà framework không phân biệt được `/healthz` với `/api/v1/benh-an/{ma}`.
-Cảnh báo ở đó là kêu oan mỗi lần khởi động của một app không làm gì sai - và *một phép dò
-kêu oan là một phép dò sẽ bị tắt*. Dòng này không phán xét ai: app công khai đọc nó và
-thấy đúng ý mình, app riêng tư đọc đúng câu đó và giật mình.
 
-⭐ Cùng hình dạng với **C7** ở adapter gRPC: *trạng thái tốt phải có dấu vết, nếu không
-thì không có gì để so khi nghi ngờ*. Và nó vá đúng thứ làm **A1** sống lâu - A1 không
-phải chuyện thiếu một phép kiểm (`0.7.2` đã thêm), mà là chuyện **trạng thái "không có
-xác thực" trông giống hệt trạng thái "có xác thực"**. Đặt `configure_jwt()` sau một `if`
-là quay lại A1 nguyên vẹn, và trước bản này framework không nói gì.
+⭐ Nó vá đúng thứ làm **A1** sống lâu - A1 không phải chuyện thiếu một phép kiểm (`0.7.2`
+đã thêm), mà là chuyện **trạng thái "không có xác thực" trông giống hệt trạng thái "có xác
+thực"**. Đặt `configure_jwt()` sau một `if` là quay lại A1 nguyên vẹn, và trước bản này
+framework không nói gì.
 
 ### Sửa - `xime check config` tố oan khoá hợp lệ (C8)
 
@@ -121,6 +144,28 @@ to dependency.scan()"* - và `scan()` **không bao giờ** với tới `RefData`
 - `UnregisteredDependencyException` nhận `hint=` tuỳ chọn; `_hint_for()` chỉ đúng
   registry thật. Lớp thường vẫn dùng gợi ý mặc định - **không ai bị đổi lấy một
   cảnh báo sai**.
+
+### Tài liệu - scheduler và đa tiến trình: nói ra thứ trước nay chỉ đúng trong im lặng
+
+`docs/{vn,en}/starters.md` mục Scheduler **không hề nói** rằng scheduler chỉ chạy ở tiến
+trình primary. Bảng *"chỉ primary"* có trong tài liệu nhưng đó là bảng của `RefData`, không
+phải của scheduler - người viết một job đẩy số đo đọc đúng mục Scheduler và không gặp cảnh
+báo nào, rồi mất số đo của ba phần tư cụm mà không có dấu hiệu gì.
+
+Nay mục đó có thêm hai phần: hành vi (`singleton`, `standby`, **không khoá cấu hình nào đổi
+được**) và một mục trả lời thẳng câu *"nhưng job của tôi cần chạy ở từng tiến trình"* - kèm
+phép kiểm để tự loại, hai loại việc thật sự phải chạy theo tiến trình (**cả hai ở ngoài
+scheduler**), và một adapter `scaling="replicated"` chép được cho ai thật sự cần.
+
+⭐ Kết luận đáng ghi hơn cả bản vá tài liệu: rà hết thì **0 ca nghiệp vụ** cần hẹn giờ theo
+tiến trình, và đó là **hệ quả cấu trúc chứ không phải may mắn** - nghiệp vụ chạm dữ liệu của
+khách, mà dữ liệu của khách không bao giờ nằm riêng trong bộ nhớ một tiến trình. Nên *một job
+nghiệp vụ cần chạy riêng từng tiến trình là một job đã vi phạm luật 01 từ trước*.
+
+⛔ **Không thêm trường phạm vi vào `IntervalJob`/`CronJob`**, và đây là quyết định chứ không
+phải hoãn: cửa đó hỏng theo chiều **im lặng** - khai nhầm cho một job gửi email nhắc là gửi
+bốn lần, không exception, không test đỏ.
+
 
 ## [0.8.1] - 2026-08-22
 

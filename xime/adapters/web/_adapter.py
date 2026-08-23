@@ -468,39 +468,54 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
 
     @staticmethod
     def _log_auth_state(app: FastAPI, jwt_config: Any, server_id: str) -> None:
-        """Say, at start-up, whether this server authenticates anything.
+        """State, at start-up, what the framework KNOWS about authentication here.
 
         An application that protects its data and one that serves every route to
-        anybody produce a byte-for-byte identical start-up log today: both say
-        "startup complete" and neither mentions authentication at all. Measured,
-        not assumed - two minimal apps differing only in whether configure_jwt()
-        is called diff to zero lines.
-        Một app bảo vệ dữ liệu và một app phục vụ mọi route cho bất kỳ ai sinh ra
-        log khởi động GIỐNG HỆT nhau: cả hai đều báo "startup complete" và không
-        cái nào nhắc tới xác thực. Đo được chứ không phải suy đoán - hai app tối
-        giản khác nhau đúng chỗ có gọi configure_jwt() hay không thì diff ra 0 dòng.
+        anybody used to produce a byte-for-byte identical start-up log: both said
+        "startup complete" and neither mentioned authentication. Measured, not
+        assumed - two minimal apps differing only in whether configure_jwt() is
+        called diffed to zero lines. That silence is why the fail-open shape
+        survives: after 0.7.2 an app still falls back into it by putting
+        configure_jwt() behind an `if`, and nothing says so.
+        Một app bảo vệ dữ liệu và một app phục vụ mọi route cho bất kỳ ai từng
+        sinh ra log khởi động GIỐNG HỆT nhau. Chính sự im lặng đó là lý do hình
+        dạng fail-open sống được, và dòng này tồn tại để phá sự giống nhau ấy.
 
-        That silence is the whole reason the fail-open shape survives: after
-        0.7.2 an app still falls back into it by putting configure_jwt() behind
-        an `if`, and nothing says so.
-        Chính sự im lặng đó là lý do hình dạng fail-open sống được: sau 0.7.2 một
-        app vẫn rơi lại vào nó bằng cách đặt configure_jwt() sau một `if`, và
-        không gì nói ra.
+        ⛔⛔ This line reports what is MEASURED and never concludes past it, and
+        that rule was bought with a real mistake. The first version said "no JWT
+        middleware - N route(s) open to anyone". It measured one fact (was
+        configure_jwt() called) and printed two conclusions it had no evidence
+        for. Across the 23 applications that reported back, the sentence was
+        wrong every single time it printed: they install authentication through
+        configure_middleware() with their own middleware, so the framework's own
+        registry never sees a JwtAuthMiddleware while requests without a token
+        correctly get 401.
+        ⛔⛔ Dòng này khai thứ ĐO ĐƯỢC và không bao giờ kết luận vượt quá, và luật
+        đó mua bằng một lỗi thật: bản đầu nói "no JWT middleware - N route(s)
+        open to anyone", tức đo MỘT sự kiện rồi in ra HAI kết luận không có bằng
+        chứng. Trên 23 ứng dụng báo về, câu đó sai 100% số lần in ra - họ cài xác
+        thực bằng configure_middleware() với middleware của chính họ.
 
-        ⛔ INFO on purpose, not a warning. A fully public service is legitimate
-        and not rare, and the framework cannot tell "/healthz" from
-        "/api/v1/records/{id}" - warning on that shape would cry wolf at every
-        start-up of an application doing nothing wrong, and a probe that cries
-        wolf is a probe someone turns off. This line judges nobody: the public
-        service reads it and sees what it meant; the private one reads the same
-        words and sits up.
-        ⛔ Là INFO có chủ ý, không phải cảnh báo. Service công khai hoàn toàn là
-        hợp lệ và không hiếm, mà framework không phân biệt được "/healthz" với
-        "/api/v1/records/{id}" - cảnh báo ở đó là kêu oan mỗi lần khởi động của
-        một app không làm gì sai, và một phép dò kêu oan là một phép dò sẽ bị tắt.
+        ⭐ Why that mattered more than wording: a probe that cries wolf is a probe
+        someone turns off. Once the same sentence appears under 23 healthy
+        applications, the one genuinely fail-open application prints a line
+        nobody reads any more - which is exactly the failure this line was added
+        to prevent. Same shape as C7 on the gRPC adapter (a healthy cluster and a
+        broken one logging alike), except here the two look alike because the
+        wording is too wide, not because a log is missing.
+        ⭐ Vì sao nó nặng hơn chuyện chữ nghĩa: một phép dò kêu oan là một phép dò
+        sẽ bị tắt. Khi cùng một câu xuất hiện dưới 23 app khoẻ mạnh thì app thật
+        sự fail-open in ra một dòng không ai còn đọc - đúng thứ dòng này sinh ra
+        để chặn.
 
-        Same shape as the gRPC adapter's positive marker: a healthy cluster must
-        leave a trace, or there is nothing to compare against when in doubt.
+        ⛔ INFO on purpose, not a warning, and the middleware count is printed but
+        never interpreted. configure_middleware() is also how compression,
+        logging and request ids get installed, so inferring "authenticated" from
+        a non-zero count would be right by accident. The reader knows what their
+        own application installs; the framework does not.
+        ⛔ Là INFO có chủ ý, và số middleware được IN RA chứ không được suy diễn.
+        configure_middleware() cũng là đường cài nén, log, request id - suy từ số
+        đó ra "có xác thực" là đúng vì lý do tình cờ.
         """
         # Đếm bề mặt API của ỨNG DỤNG, không đếm route hạ tầng: `/docs`,
         # `/openapi.json`, `/healthz` đều khai `include_in_schema=False`. Chúng
@@ -515,9 +530,16 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         )
 
         if jwt_config is None:
+            # Số middleware do chính ứng dụng cài, KHÔNG kèm suy diễn nào. Zero
+            # là hình dạng fail-open thật, và nó tự nói ra mà không cần framework
+            # kết luận hộ.
+            installed = len(registry.get_middlewares(server_id))
             _log.info(
-                "web %s: no JWT middleware - %d HTTP route(s) open to anyone",
+                "web %s: configure_jwt() not called - %s, %d HTTP route(s)",
                 server_id,
+                f"{installed} custom middleware installed"
+                if installed
+                else "no middleware installed",
                 http_routes,
             )
             return

@@ -635,6 +635,12 @@ primary* is still visible - in the `primary` field of that same response.
 }
 ```
 
+⭐ **Cluster background jobs run on the primary only, and that is the design** - no
+configuration key changes it. If you need a periodic loop on **every** process, that is not
+a scheduler job but an adapter with `scaling="replicated"`; the full reasoning and a
+copyable example live in [`starters.md`](starters.md) under *"A job runs ONCE for the whole
+cluster"*.
+
 ### ⛔ Neither path is authenticated
 
 Deliberately. They have to answer **when everything else is broken**, including

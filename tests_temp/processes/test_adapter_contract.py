@@ -275,6 +275,30 @@ class TestLifecycle:
 
         assert job.log == ["start"]
 
+    async def test_a_replicated_adapter_still_starts_outside_primary(self):
+        """⭐ Vế đối chứng theo trục CÒN LẠI, và nó vá một lỗ hổng thật.
+
+        Hai test ngay trên đi thành cặp theo trục *primary hay không*, nhưng cả
+        hai chỉ nói về adapter **đơn nhất**. Nên cách sửa sai *"non-primary thì
+        không start gì cả"* **qua được cả hai** - đo bằng đối chứng, không phải
+        suy đoán.
+
+        Vế này cũng là **lời hứa của tài liệu**: `docs/{vn,en}/starters.md` mục
+        *"Job chạy MỘT LẦN cho cả cụm"* chỉ người cần một vòng lặp định kỳ ở mọi
+        tiến trình sang viết một adapter `scaling="replicated"`. Đường thoát đó
+        chỉ có thật nếu dòng dưới đây xanh.
+        """
+        app = _bare_app()
+        sampler = Spy("sampler")
+        app._adapters = [sampler]
+        app._is_primary = False
+        app._started, app._standby, app._isolated, app._serving = [], [], [], {}
+
+        await app._start_adapters()
+
+        assert sampler.log == ["start"]
+        assert app._standby == []
+
     async def test_a_crashing_serve_does_not_take_its_siblings_down(self):
         """⛔ Đây là lý do bỏ `asyncio.TaskGroup`.
 
