@@ -107,6 +107,94 @@ với `serve()` là vòng lặp `sleep`. Thêm một trường phạm vi vào `I
 Đầy đủ: [`.claude/CLAUDE.md`](../../CLAUDE.md) mục *"Vì sao scheduler KHÔNG chạy theo tiến
 trình"* · tài liệu người dùng ở `docs/{vn,en}/starters.md` mục Scheduler.
 
+## Báo cáo 2026-08-23 (2) - `Service ngang/kho`: con mồ côi vô hình, 401 lạnh máy, SIGTERM
+
+Nguyên văn: [`kho-con-mo-coi-vo-hinh-va-401-lanh-may-2026-08-23.md`](kho-con-mo-coi-vo-hinh-va-401-lanh-may-2026-08-23.md).
+
+| # | Họ báo | Của framework? | Xử lý |
+|---|---|---|---|
+| 1 | Con mồ côi vô hình với phép dò `app.main` và với `netstat` | ✅ **CÓ, và là gốc** | **ĐÃ VÁ** - con tự đi khi cha đi |
+| 2 | 401 lạnh máy ấm theo **tiến trình**, cần 8 lần gọi | ⛔ **KHÔNG** - của app | Trả lời + chỉ đường; xem dưới |
+| 3 | Con bị `-15` rồi dựng lại, họ **chưa quy được trách nhiệm** | ⚠ **Triệu chứng của #1** | **ĐÃ VÁ phần log**; và mã thoát đã quy được trách nhiệm |
+
+### 1. Vá GỐC chứ không vá triệu chứng - và vì vậy KHÔNG làm thứ họ đề nghị
+
+Đề nghị chính của họ là **cho con một dòng lệnh nhận ra được** (`--xime-process=api-2`).
+**Không làm**, hai lý do:
+
+- Nó là **tính năng**, không phải vá lỗi: thêm một bề mặt công khai mới ở bản alpha cuối,
+  và dòng lệnh của con do `multiprocessing.spawn` sinh - đổi nó là vá vào ruột CPython,
+  phụ thuộc phiên bản.
+- Nó vá **triệu chứng**. Câu hỏi đúng không phải *"làm sao tìm con mồ côi"* mà là *"vì sao
+  có con mồ côi"*. `_supervisor.py` đã khai đây là kết cục tệ nhất ngay trong docstring của
+  chính nó, nhưng chỉ phòng thủ bằng **bắt tín hiệu** - che được cái chết lịch sự của cha,
+  không che được `SIGKILL` / `-Force` / cha sập / OOM.
+
+Nay con canh cha bằng `multiprocessing.parent_process()` (thư viện chuẩn, chạy trên cả hai
+nền tảng), cha đi thì con đi. **Không còn con mồ côi thì không còn bài toán tìm nó.**
+
+⭐ Ba đề nghị của họ vì vậy được giải quyết theo thứ tự ngược: (3) job object trên Windows -
+không cần nữa; (2) ghi vào tài liệu - **có làm**, vì cụm chạy bản cũ vẫn còn ngoài kia; (1)
+đổi dòng lệnh - không cần nữa.
+
+### 2. 401 lạnh máy: của app, và framework đã có sẵn lời giải
+
+Họ mô tả đúng hiện tượng, nhưng nguyên nhân nằm ở `config/jwt.py` của họ: bộ khoá verify
+đang là **trạng thái riêng của từng tiến trình**. Framework đã có đường cho đúng chuyện này
+từ 0.8.0, và nó xoá 401 lạnh máy **hoàn toàn**, không phải giảm bớt:
+
+| Việc | Chỗ nó thuộc về |
+|---|---|
+| Primary lấy khoá **một lần cho cả cụm** | `run_once()` |
+| Khoá nằm ở **bộ nhớ chung**, mọi tiến trình đọc | `RefData` |
+| Làm tươi định kỳ | một job đơn nhất (`singleton`) |
+
+⭐ **Điểm mấu chốt họ chưa biết: cha ĐỢI `run_once()` xong rồi mới sinh con tiếp theo**
+(`_supervisor.py::run` - `_spawn(ordered[0])` -> `_await_run_once` -> mới tới các con còn
+lại). Nên khoá đã nằm trong `RefData` **trước khi con thứ hai ra đời**: không con nào có
+cửa sổ lạnh, kể cả con đầu. Con số *"8 lần gọi liên tiếp"* không phải một ngưỡng cần ghi
+vào tài liệu - nó là **cái giá của việc chưa làm M5**.
+
+Khuôn chép được: `Application Layer/saas-foundation/template` (đã vá 2026-08-23) và
+`Base Platform/data` (repo đầu tiên đi hết M0-M6).
+
+⛔ **Không nhận đề nghị "nạp khoá ở `post_construct`"**: `post_construct` chạy ở **mọi**
+tiến trình, nên đó là N lời gọi mạng cho một thứ mà cả cụm dùng chung - đúng thứ `run_once`
+sinh ra để thay thế.
+
+### 3. `-15`: quy được trách nhiệm, và họ đã suy luận đúng hướng
+
+Họ để ngỏ giữa *watchdog của framework* và *công cụ chạy lệnh của họ*, và nghiêng về vế thứ
+hai vì *"nếu là tín hiệu cả nhóm thì supervisor cũng phải chết"*. Suy luận đó đúng, và mã
+thoát chứng minh nó một cách độc lập:
+
+**Trên Windows, `-15` KHÔNG thể đến từ một công cụ bên ngoài.** CPython
+(`multiprocessing/popen_spawn_win32.py::wait`) đổi hằng `TERMINATE = 0x10000` thành
+`-signal.SIGTERM`, mà `0x10000` chỉ do chính `multiprocessing` ghi. `taskkill /F` ghi `1`,
+`Stop-Process -Force` ghi `0xFFFFFFFF`.
+
+Còn ba chỗ giết con trong framework thì **đều log trước khi giết** (`CRITICAL` ở watchdog,
+`ERROR` ở `_shutdown`), và nhánh `_shutdown` đặt `_stopping = True` nên câu in ra sẽ là
+*"during shutdown"* chứ không phải *"restarting"*. Họ thấy `restarting` và không thấy dòng
+nào trong hai loại đó.
+
+> ⇒ Kẻ giết là **một tiến trình `multiprocessing` khác**, tức **một cụm cũ chưa tắt hẳn** -
+> chính là mục 1. Hai mục họ báo riêng hoá ra là **một lỗi**.
+
+**Đã vá phần log** theo đúng đề nghị của họ (và đề nghị đó rẻ, đúng, nên nhận nguyên):
+dòng exit nay khai *ai giết*, không chỉ khai mã thoát. Lời khai bị xoá khi con được sinh
+lại, kẻo lần chết sau bị gán lý do của lần trước.
+
+### ⭐ Khuôn "phạm vi rộng hơn báo cáo" lặp lần thứ 5 - nhưng lần này theo chiều KHÁC
+
+Bốn lần trước là *rộng hơn về số lượng* (2 adapter -> 3, 1 registry -> 2). Lần này là
+**rộng hơn về tầng**: họ báo ba vấn đề rời nhau, đo lại thì mục 3 là **triệu chứng của mục
+1**, và mục 1 không phải chuyện *phát hiện* mà là chuyện *ngăn chặn*.
+
+📌 Và một chiều ngược, lần thứ hai có vế này: mục 2 **hẹp hơn** báo cáo - họ đề nghị sửa
+tài liệu đa tiến trình, nhưng con số của họ đến từ một việc chưa làm trong repo của họ, nên
+ghi nó vào tài liệu framework sẽ **dạy sai cho 20 repo còn lại**.
+
 ## ⭐ Một khuôn lặp lại, 4/4 lần, không ngoại lệ
 
 **Framework đo lại thì phạm vi luôn RỘNG HƠN báo cáo:**

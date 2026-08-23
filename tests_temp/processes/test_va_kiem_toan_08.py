@@ -138,6 +138,7 @@ class TestHamKhiConChetLienTuc:
         node = sup.Supervisor.__new__(sup.Supervisor)
         node._children = {}
         node._spawned_at = {}
+        node._killed_by_me = {}
         node._respawns = {}
         node._stopping = False
         node._primary_id = None
@@ -172,6 +173,7 @@ class TestHamKhiConChetLienTuc:
         monkeypatch.setattr(sup.time, "sleep", cho.append)
         node = sup.Supervisor.__new__(sup.Supervisor)
         node._children, node._spawned_at, node._respawns = {}, {}, {}
+        node._killed_by_me = {}
         node._stopping, node._primary_id = False, None
         monkeypatch.setattr(node, "_spawn", lambda pid: None)
 

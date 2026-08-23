@@ -586,6 +586,130 @@ notices until the first child dies.
 
 ---
 
+### When the parent dies, the children follow - and why you cannot find an orphan
+
+The parent traps `SIGINT` / `SIGTERM` / `SIGBREAK` and shuts the whole group down
+in order. The other three ways it can die **cannot be trapped by anyone**, and
+all three happen in real life:
+
+| How the parent dies | Handler runs? |
+|---|---|
+| `Ctrl+C`, `systemd stop`, `taskkill` (no `/F`) | ✅ parent stops the group |
+| `SIGKILL`, `Stop-Process -Force`, `taskkill /F` | ⛔ **nothing can trap it** |
+| The parent itself crashes | ⛔ |
+| The machine runs out of memory and the kernel kills it | ⛔ |
+
+So **each child watches its parent**: when the parent disappears, the child shuts
+itself down along the very same graceful path it uses when the parent asks it to
+stop. Nothing to declare, no configuration key.
+
+```text
+CRITICAL | orphan guard: the supervisor (pid 23032) is gone - this process is
+           now an orphan holding a shared socket, so it is shutting down.
+           Nothing will restart it; restart the cluster from main.py.
+```
+
+If the graceful path has not finished after 15 seconds (the loop is blocked) it
+**exits hard with code 3**. Blunt, and deliberately so: by then the only thing
+still worth doing is **releasing the port**.
+
+#### ⭐⭐ Why this deserves its own section: an orphan is INVISIBLE to the obvious checks
+
+This is the expensive part, and it cost one session four rounds of debugging. An
+orphan does not merely *exist* - it **hides from both checks you would reach
+for**, and both answer in the **reassuring** direction.
+
+**Check 1 - filter by command line. Returns 1 process while 12 are running.**
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
+  Where-Object { $_.CommandLine -like '*app.main*' }     # ⛔ finds only the PARENT
+```
+
+Children **do not carry `app.main` in their command line** - `multiprocessing`
+starts them with `spawn`, so their command line is:
+
+```text
+parent:  python -m app.main
+child:   python -c "from multiprocessing.spawn import spawn_main; ..."
+```
+
+**Check 2 - `netstat`. Points at PIDs that no longer exist.**
+
+```text
+TCP  0.0.0.0:8122  LISTENING  3084      <- Get-Process 3084 -> does not exist
+```
+
+The socket is still alive because **the children inherited the handle**, but
+`netstat` attributes a socket to the PID that **created** it - the parent's
+corpse. The reader concludes *"just a stale entry, ignore it"*, and that
+conclusion is wrong.
+
+> Two reassuring answers add up to a cluster still serving **old code** while you
+> believe you just restarted it.
+
+From 0.8.x on you will not meet this: children leave when the parent leaves. But
+if you are debugging a cluster running an older build, the two commands below
+find the right thing - they ask about the **parent-child relationship** and the
+**real owner of the socket**, not about command lines:
+
+```powershell
+# Windows: search by PARENT RELATIONSHIP
+$deadParents = @(3084, 10188, 13056)
+Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
+  Where-Object { $deadParents -contains $_.ParentProcessId } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+
+# The REAL owner of the port, not netstat
+Get-NetTCPConnection -LocalPort 8122 -State Listen | Select-Object OwningProcess
+```
+
+```bash
+# Linux
+pkill -f 'multiprocessing.spawn'      # or: ss -lptn 'sport = :8122'
+```
+
+#### ⛔ On Windows, `-15` is NOT a signal from outside
+
+This sent one session half a day in the wrong direction, so it is worth
+remembering.
+
+When you see:
+
+```text
+WARNING | supervisor: api-3 exited with code -15 (...) - restarting
+```
+
+the natural reflex is *"something sent `SIGTERM` to my child"*. **Not on
+Windows.** CPython (`multiprocessing/popen_spawn_win32.py`) reads
+`GetExitCodeProcess`, and when the code equals the constant
+`TERMINATE = 0x10000` it **rewrites it** to `-signal.SIGTERM`. And `0x10000` is
+only ever written by `multiprocessing` itself. External tools write very
+different codes:
+
+| Who killed it | Exit code Python reports |
+|---|---|
+| `multiprocessing` (`terminate()`/`kill()`) | `-15` |
+| `taskkill /F` | `1` |
+| `Stop-Process -Force` (.NET `Process.Kill()`) | `4294967295` |
+
+> So on Windows, `-15` on a child that **this parent did not kill** is evidence
+> that **an older cluster is still running** and killing the new one's children.
+
+That is why the log line now states **who did it**, not just the exit code:
+
+```text
+... exited with code -15 (my watchdog killed it: event loop blocked for 12.3s) - restarting
+... exited with code -15 (NOT me - another multiprocessing parent terminated it; ...) - restarting
+```
+
+Those two sentences lead to opposite actions: the first is an internal matter
+already handled, the second means *go find the older cluster*. On POSIX, `-N`
+literally means signal `N` - no rewriting involved.
+
+
+---
+
 ## `/healthz` and `/readyz`
 
 **Off** by default. One line turns them on:

@@ -566,6 +566,123 @@ mất là khả năng **tự phục hồi**, và không ai thấy gì cho tới 
 
 ---
 
+### Cha chết thì con đi theo - và vì sao bạn không tìm thấy con mồ côi
+
+Cha bắt `SIGINT` / `SIGTERM` / `SIGBREAK` để tắt cả đàn theo thứ tự. Nhưng ba
+đường còn lại thì **không ai bắt được**, và cả ba đều xảy ra thật:
+
+| Cha chết kiểu gì | Handler chạy? |
+|---|---|
+| `Ctrl+C`, `systemd stop`, `taskkill` (không `/F`) | ✅ cha tắt cả đàn |
+| `SIGKILL`, `Stop-Process -Force`, `taskkill /F` | ⛔ **không ai bắt được** |
+| Cha sập vì lỗi trong chính nó | ⛔ |
+| Máy hết RAM và kernel giết cha | ⛔ |
+
+Nên **con tự canh cha**: cha biến mất thì con tự tắt, theo đúng đường tắt êm mà
+nó vẫn dùng khi cha bảo tắt. Bạn không phải khai gì, không có khoá cấu hình nào.
+
+```text
+CRITICAL | orphan guard: the supervisor (pid 23032) is gone - this process is
+           now an orphan holding a shared socket, so it is shutting down.
+           Nothing will restart it; restart the cluster from main.py.
+```
+
+Quá 15 giây mà chưa tắt xong (loop đã treo) thì nó **thoát cứng bằng mã 3**.
+Thô, và cố ý: tới được đó thì việc duy nhất còn đáng làm là **trả lại cổng**.
+
+#### ⭐⭐ Vì sao chuyện này đáng một mục riêng: con mồ côi VÔ HÌNH với phép dò quen thuộc
+
+Đây là phần đắt nhất, và nó đã lấy của một phiên bốn vòng gỡ lỗi. Con mồ côi
+không chỉ *tồn tại* - nó **trốn được cả hai phép dò mà người ta sẽ dùng**, và cả
+hai đều trả lời theo hướng **trấn an**.
+
+**Phép dò 1 - lọc theo dòng lệnh. Trả về 1 tiến trình trong khi có 12.**
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
+  Where-Object { $_.CommandLine -like '*app.main*' }     # ⛔ chỉ thấy CHA
+```
+
+Vì con **không mang `app.main` trong dòng lệnh** - `multiprocessing` sinh con
+bằng `spawn`, nên dòng lệnh của chúng là:
+
+```text
+cha:  python -m app.main
+con:  python -c "from multiprocessing.spawn import spawn_main; ..."
+```
+
+**Phép dò 2 - `netstat`. Chỉ vào những PID đã chết.**
+
+```text
+TCP  0.0.0.0:8122  LISTENING  3084      <- Get-Process 3084 -> khong ton tai
+```
+
+Socket vẫn sống vì **con thừa kế handle**, nhưng `netstat` gán socket cho PID
+người **tạo** ra nó - tức cái xác của cha. Người đọc kết luận *"chỉ là bản ghi
+cũ, kệ nó"*, và kết luận đó sai.
+
+> Hai câu trả lời yên tâm cộng lại thành một cụm đang phục vụ **mã cũ** trong
+> khi bạn tin rằng mình vừa khởi động lại nó.
+
+Từ 0.8.x trở đi bạn **không gặp cảnh này nữa**: con tự đi khi cha đi. Nhưng nếu
+đang gỡ một cụm chạy bản cũ, hai lệnh dưới đây tìm đúng thứ cần tìm - chúng hỏi
+**quan hệ cha con** và **chủ sở hữu thật của socket**, không hỏi dòng lệnh:
+
+```powershell
+# Windows: tim theo QUAN HE CHA
+$chaChet = @(3084, 10188, 13056)
+Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
+  Where-Object { $chaChet -contains $_.ParentProcessId } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+
+# Chu so huu THAT cua cong, khong phai netstat
+Get-NetTCPConnection -LocalPort 8122 -State Listen | Select-Object OwningProcess
+```
+
+```bash
+# Linux
+pkill -f 'multiprocessing.spawn'      # hoac: ss -lptn 'sport = :8122'
+```
+
+#### ⛔ `-15` trên Windows KHÔNG phải tín hiệu từ bên ngoài
+
+Chỗ này đã làm một phiên mất nửa buổi đi tìm sai hướng, nên nó đáng nhớ.
+
+Thấy dòng này trong log:
+
+```text
+WARNING | supervisor: api-3 exited with code -15 (...) - restarting
+```
+
+thì phản xạ tự nhiên là *"có ai đó gửi `SIGTERM` cho con tôi"*. **Trên Windows
+thì không.** CPython (`multiprocessing/popen_spawn_win32.py`) đọc
+`GetExitCodeProcess`, và nếu mã đúng bằng hằng `TERMINATE = 0x10000` thì nó
+**đổi thành** `-signal.SIGTERM`. Mà `0x10000` chỉ do chính `multiprocessing`
+ghi ra. Công cụ ngoài ghi mã khác hẳn:
+
+| Ai giết | Mã thoát Python thấy |
+|---|---|
+| `multiprocessing` (`terminate()`/`kill()`) | `-15` |
+| `taskkill /F` | `1` |
+| `Stop-Process -Force` (`Process.Kill()` của .NET) | `4294967295` |
+
+> Nên trên Windows, `-15` ở một con mà **cha này không giết** là bằng chứng
+> rằng **một cụm cũ chưa tắt hẳn** đang giết con của cụm mới.
+
+Vì vậy dòng log nay khai luôn **ai giết**, không chỉ khai mã thoát:
+
+```text
+... exited with code -15 (my watchdog killed it: event loop blocked for 12.3s) - restarting
+... exited with code -15 (NOT me - another multiprocessing parent terminated it; ...) - restarting
+```
+
+Hai câu đó dẫn tới hai việc ngược nhau: cái đầu là chuyện nội bộ đã xử lý xong,
+cái sau là *đi tìm cụm cũ*. Trên POSIX thì `-N` đúng nghĩa đen là tín hiệu `N`,
+không có phép đổi nào.
+
+
+---
+
 ## `/healthz` và `/readyz`
 
 Mặc định **TẮT**. Khai một dòng thì có:

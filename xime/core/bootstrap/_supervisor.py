@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import logging
 import os
+import signal
 import socket
 import sys
 import time
@@ -75,6 +76,8 @@ if TYPE_CHECKING:
     from xime.core.bootstrap.application import Application
 
 _log = logging.getLogger("xime.bootstrap")
+
+_SIGNAL_NUMBERS = {int(sig) for sig in signal.Signals}
 
 # Cùng giá trị uvicorn dùng mặc định. Cha bind hộ nên con không đặt được số này,
 # và một backlog quá nhỏ chỉ lộ ra dưới tải - đúng lúc khó đo nhất.
@@ -754,6 +757,41 @@ def worker_loop_factory(sockets: Mapping[tuple[str, str], socket.socket]) -> Any
     return uvloop_factory()
 
 
+def _foreign_death(exitcode: int | None) -> str:
+    """Dịch mã thoát của một con mà **cha này không hề giết**.
+
+    Chỉ chạy ở nhánh *"không phải tôi"*, nên nó không bao giờ phải cạnh tranh
+    lời khai với sổ `_killed_by_me` - cái đó luôn thắng khi có.
+
+    ⚠ **`-15` trên Windows KHÔNG phải `SIGTERM` từ bên ngoài.** Đây là chỗ đã
+    làm một phiên mất nửa buổi. CPython
+    (`multiprocessing/popen_spawn_win32.py::wait`) đọc `GetExitCodeProcess`,
+    và nếu mã đúng bằng hằng `TERMINATE = 0x10000` thì nó **đổi thành**
+    `-signal.SIGTERM`. Mà `0x10000` chỉ do chính `multiprocessing` ghi ra,
+    trong `terminate()`/`kill()`. Công cụ ngoài ghi mã khác hẳn: `taskkill /F`
+    ghi `1`, `Stop-Process -Force` (tức `Process.Kill()` của .NET) ghi
+    `0xFFFFFFFF`.
+
+    > Nên trên Windows, `-15` ở một con mà cha này không giết là bằng chứng
+    > **một tiến trình `multiprocessing` KHÁC** đang giết con của cụm này -
+    > gần như luôn là một cụm cũ chưa tắt hẳn.
+
+    Trên POSIX thì `-N` đúng nghĩa đen là tín hiệu `N`, không có phép đổi nào.
+    """
+    if exitcode is None:
+        return "still running?"
+    if exitcode >= 0:
+        return "it exited on its own"
+    if sys.platform == "win32" and exitcode == -signal.SIGTERM:
+        return (
+            "NOT me - another multiprocessing parent terminated it; on Windows "
+            "this exit code cannot come from taskkill or Stop-Process. Look for "
+            "a leftover supervisor from an earlier run"
+        )
+    name = signal.Signals(-exitcode).name if -exitcode in _SIGNAL_NUMBERS else "?"
+    return f"NOT me - killed by signal {-exitcode} ({name})"
+
+
 def _worker_entry(
     process_id: str,
     app_attr: str,
@@ -794,6 +832,8 @@ class Supervisor:
         self._ctx = MP_CONTEXT
         self._children: dict[str, Any] = {}
         self._spawned_at: dict[str, float] = {}
+        # Vì sao CHÍNH TÔI giết con này. Trống = không phải tôi.
+        self._killed_by_me: dict[str, str] = {}
         # Số lần một con chết LIÊN TIẾP mà không sống nổi _RESPAWN_RESET_AFTER.
         self._respawns: dict[str, int] = {}
         self._stopping = False
@@ -918,6 +958,9 @@ class Supervisor:
                 os.environ[PROCESS_ID_ENV] = previous
         self._children[process_id] = proc
         self._spawned_at[process_id] = time.monotonic()
+        # Con mới thì xoá lời khai của con cũ cùng tên, kẻo lần chết sau bị gán
+        # nhầm lý do của lần trước.
+        self._killed_by_me.pop(process_id, None)
         _log.info(
             "supervisor: started %s (pid %s)%s",
             process_id,
@@ -1054,12 +1097,18 @@ class Supervisor:
                     process_id,
                     age,
                 )
+                self._killed_by_me[process_id] = (
+                    f"my watchdog killed it: no heartbeat in {age:.0f}s"
+                )
             elif silent > SILENCE_SECONDS:
                 _log.critical(
                     "supervisor: %s has been silent for %.1fs (its event loop is "
                     "blocked) - killing it",
                     process_id,
                     silent,
+                )
+                self._killed_by_me[process_id] = (
+                    f"my watchdog killed it: event loop blocked for {silent:.1f}s"
                 )
             else:
                 continue
@@ -1140,10 +1189,17 @@ class Supervisor:
                 proc.exitcode,
             )
             return
+        # ⭐ Khai AI giết, không chỉ khai MÃ THOÁT. Một mã thoát mang hai nghĩa
+        # bắt người đọc log đoán, và hai nghĩa đó dẫn tới hai việc ngược nhau:
+        # *"watchdog của tôi vừa giết nó vì nó treo"* là chuyện nội bộ đã được
+        # xử lý, còn *"ai đó bên ngoài giết nó"* là một tiến trình khác đang
+        # can thiệp vào cụm này - thường là một cụm cũ chưa tắt hẳn.
         _log.warning(
-            "supervisor: %s exited with code %s - restarting",
+            "supervisor: %s exited with code %s (%s) - restarting",
             process_id,
             proc.exitcode,
+            self._killed_by_me.pop(process_id, None)
+            or _foreign_death(proc.exitcode),
         )
         # ⭐ THĂNG CẤP Ở ĐÂY, không ở chỗ phát hiện treo: tới được dòng này
         # nghĩa là `join()` đã trả về, tức **kernel xác nhận tiến trình đã

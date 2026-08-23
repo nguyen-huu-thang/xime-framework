@@ -137,6 +137,20 @@ một nhãn kiểu *"kỳ vọng 2534"* mang hai giá trị - đúng
 [luật 03](../../.claude/rules/03-mot-gia-tri-mot-nghia.md) ở tầng con số nghiệm thu.
 **Thứ bất biến giữa hai bên là TỔNG `2558`, cộng `0 failed`.**
 
+⚠⚠ **`2558` là mốc của bản ĐÃ PHÁT HÀNH `0.8.1`. Nhánh chưa phát hành đã đi xa hơn
+- đừng dùng `2558` để nghiệm thu một cây làm việc đang có việc dở.** Tổng chạy dồn:
+
+| Sau việc gì | Tổng | Windows `passed` |
+|---|---|---|
+| `0.8.1` phát hành | 2558 | 2534 |
+| C8 + C9 | 2564 | 2540 |
+| `public_paths` tiền tố + dòng log xác thực | 2595 | 2571 |
+| sửa chữ dòng log (hậu kiểm 2026-08-23) | 2602 | 2578 |
+| **con mồ côi + log "ai giết"** | **2617** | **2593** |
+
+📌 Con số này lỗi thời mỗi lần thêm test, đúng như mọi con số khác trong file. Phép
+kiểm không lỗi thời vẫn là: **chạy trước, chạy sau, so trên CÙNG một máy.**
+
 Chênh 18 là **test bị chặn bởi nền tảng**, đã đếm từng cái - Windows bỏ qua, Linux chạy:
 
 | Tệp | Số | Lý do bỏ qua |
@@ -491,6 +505,82 @@ rồi mới sang mục kế.
 > phiên bản công cụ, đúng như *"kỳ vọng 2534"* phụ thuộc hệ điều hành. Phép kiểm dùng
 > được là **so trước/sau trên CÙNG một máy, CÙNG một mypy**, không phải so với một con
 > số ghi trong tài liệu.
+
+### Đã code 2026-08-23, chờ commit - con mồ côi và log "ai giết"
+
+Báo cáo thứ hai trong ngày, từ `Service ngang/kho` sau lượt e2e thật đầu tiên. Ba mục,
+và **đo lại thì mục 3 là triệu chứng của mục 1** - họ báo rời nhau, hoá ra một lỗi.
+
+| # | Việc | Trạng thái |
+|---|---|---|
+| **1** | **Con tự đi khi cha chết** - `xime/core/bootstrap/_orphan.py`, cắm ở `ClusterMember.listen()` | ✅ **XONG** |
+| **3** | Log lúc con chết khai **ai giết**, không chỉ khai mã thoát | ✅ **XONG** |
+| 2 | 401 lạnh máy đếm theo tiến trình | ⛔ **KHÔNG phải lỗi framework** - xem dưới |
+
+**Đo:** **2593 passed / 24 skipped / 0 failed = tổng 2617** (`2602 + 15` test mới) ·
+`ruff check xime/` sạch.
+
+#### ⭐⭐ Vì sao đây là VÁ LỖI chứ không phải thêm tính năng
+
+`_supervisor.py` đã khai con mồ côi là kết cục tệ nhất, **trong docstring của chính nó**:
+
+> *"cha chết ngay còn con sống tiếp mồ côi - vẫn giữ cổng, vẫn phục vụ, và không ai dựng
+> lại chúng nữa. Đúng thứ tệ nhất: hệ thống trông như đã tắt mà thực ra chưa."*
+
+Nhưng lớp phòng thủ ở đó là **bắt tín hiệu**, nên nó chỉ che cái chết *lịch sự* của cha.
+`SIGKILL` / `Stop-Process -Force` / cha sập / OOM - **không đường nào bắt được**. Tức
+framework đã tự đặt ra một bất biến rồi chỉ giữ được một nửa. Bản vá không thêm khoá cấu
+hình nào, không thêm tên công khai nào; nó **khôi phục một lời hứa đã có**.
+
+⭐ Cơ chế là **thư viện chuẩn**: `multiprocessing.parent_process()` mang sentinel của cha,
+`join()` chặn tới đúng lúc cha thoát. Linux là đầu ống thừa kế, Windows là `HANDLE` tới
+tiến trình cha. Đo thật trên cụm 3 tiến trình chia chung cổng: `-Force` lên cha thì cả ba
+con thoát, cổng được trả, **0 traceback**.
+
+⛔ **KHÔNG làm thứ họ đề nghị chính** (thêm `--xime-process=api-2` vào dòng lệnh con): đó
+là **tính năng** (bề mặt công khai mới ở bản alpha cuối, và dòng lệnh con do
+`multiprocessing.spawn` sinh nên đổi nó là vá vào ruột CPython), **và nó vá triệu chứng**.
+Câu hỏi đúng không phải *"làm sao tìm con mồ côi"* mà là *"vì sao có con mồ côi"*.
+
+#### ⛔ Hai nền tảng, hai lệnh, đổi chỗ thì hỏng IM LẶNG
+
+| | Dùng gì | Vì sao không dùng cái kia |
+|---|---|---|
+| POSIX | `os.kill(getpid(), SIGTERM)` | `raise_signal()` gửi cho **thread đang gọi**, nên không ngắt `epoll_wait` của thread chính - handler uvicorn có thể không chạy tới lúc hết hạn |
+| Windows | `signal.raise_signal(SIGTERM)` | `os.kill()` ở đây gọi thẳng `TerminateProcess`, tức **mất sạch phần dọn êm** |
+
+⚠ Test vì vậy **bắt cả hai đường rồi mới khẳng định đường nào phải chạy**. Vá một đường là
+dựng lại đúng cái bẫy đã cắn **ba lần** ở repo này: một phép đo xanh vì nó không bao giờ
+chạy nhánh của nền tảng kia (`test_linux_never_switches` của 0.8.1 là ca gần nhất).
+
+#### ⭐ `-15` trên Windows: quy được trách nhiệm, và nó chỉ ngược về mục 1
+
+Người báo để ngỏ giữa *watchdog của framework* và *công cụ chạy lệnh của họ*. Mã thoát
+trả lời dứt khoát: CPython (`popen_spawn_win32.py::wait`) đổi `TERMINATE = 0x10000` thành
+`-signal.SIGTERM`, mà `0x10000` **chỉ do `multiprocessing` ghi**. `taskkill /F` ghi `1`,
+`Stop-Process -Force` ghi `0xFFFFFFFF`. Còn ba chỗ giết con trong framework thì **đều log
+trước khi giết**, và nhánh `_shutdown` in *"during shutdown"* chứ không phải *"restarting"*.
+
+> ⇒ Kẻ giết là **một tiến trình `multiprocessing` khác** - một cụm cũ chưa tắt hẳn. Tức
+> **mục 3 là triệu chứng của mục 1**, và bản vá mục 1 xoá luôn nó.
+
+#### ⛔ Mục 2 (401 lạnh máy) KHÔNG phải lỗi framework
+
+Bộ khoá verify của họ đang là trạng thái **riêng từng tiến trình**. Đường đúng đã có từ
+0.8.0: primary lấy khoá trong `run_once()`, cất ở `RefData`, làm tươi bằng job đơn nhất.
+
+⭐ Điểm mấu chốt: **cha ĐỢI `run_once()` xong rồi mới sinh con tiếp theo**
+(`_supervisor.py::run`). Nên khoá nằm trong `RefData` **trước khi con thứ hai ra đời** -
+không con nào có cửa sổ lạnh, kể cả con đầu. Con số *"8 lần gọi liên tiếp"* của họ không
+phải ngưỡng đáng ghi vào tài liệu framework; nó là **giá của việc chưa làm M5**, và ghi nó
+vào tài liệu chung sẽ **dạy sai cho 20 repo còn lại**.
+
+⛔ Không nhận đề nghị *"nạp khoá ở `post_construct`"*: hook đó chạy ở **mọi** tiến trình,
+tức N lời gọi mạng cho một thứ cả cụm dùng chung - đúng thứ `run_once` sinh ra để thay.
+
+📌 Tài liệu người dùng: `docs/{vn,en}/multi-process.md` mục *"Cha chết thì con đi theo -
+và vì sao bạn không tìm thấy con mồ côi"* (kèm hai lệnh dò đúng cho ai đang gỡ cụm chạy
+bản cũ, và bảng mã thoát Windows).
 
 ### Đã code 2026-08-22, chờ commit
 

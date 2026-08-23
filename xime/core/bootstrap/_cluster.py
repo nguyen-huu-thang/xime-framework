@@ -44,6 +44,7 @@ from xime.core.link import (
 from xime.core.link._decorators import ANNOUNCE
 
 from . import _control
+from ._orphan import OrphanGuard
 from ._watchdog import Heartbeats, Watchdog
 
 if TYPE_CHECKING:
@@ -64,6 +65,7 @@ class ClusterMember:
         self._link: ProcessLink | None = None
         self._beats: Heartbeats | None = None
         self._watchdog: Watchdog | None = None
+        self._orphan: OrphanGuard | None = None
         self._index = handle.index if handle is not None else 0
         self._slots = handle.slots if handle is not None else 1
         self._on_promote: PromoteHandler | None = None
@@ -155,6 +157,12 @@ class ClusterMember:
         Gọi **sau** khi DI dựng xong: handler của ứng dụng là instance lấy từ
         container.
         """
+        # TRƯỚC lối ra sớm bên dưới: con mồ côi giữ cổng là chuyện của quan hệ
+        # cha-con, không phải của việc ứng dụng có khai kênh bus nào không. Đặt
+        # sau `return` là mất phép canh ở đúng những ứng dụng đơn giản nhất.
+        # `start()` tự im khi không có cha (chạy tay, chạy trong test).
+        self._orphan = OrphanGuard()
+        self._orphan.start()
         if self._link is None:
             return
         self._on_promote = on_promote
@@ -174,6 +182,11 @@ class ClusterMember:
 
     async def quiesce(self) -> None:
         """Dừng vòng đọc và nhịp vỗ. Gọi trước khi dọn DI."""
+        # Thôi canh TRƯỚC khi dừng những thứ còn lại: từ đây trở đi cha biến
+        # mất là chuyện bình thường của một lần tắt, không phải mồ côi.
+        if self._orphan is not None:
+            self._orphan.stop()
+            self._orphan = None
         if self._watchdog is not None:
             await self._watchdog.stop()
             self._watchdog = None

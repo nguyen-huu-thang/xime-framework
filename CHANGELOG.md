@@ -7,8 +7,82 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 
 ## [Chưa phát hành]
 
-Ba báo cáo từ repo **ngoài**, đọc và xử lý 2026-08-22. Nguyên văn:
+Báo cáo từ repo **ngoài**, đọc và xử lý 2026-08-22 và 2026-08-23. Nguyên văn:
 [`.claude/docs/bao-cao-van-de-tu-repo-ngoai/`](.claude/docs/bao-cao-van-de-tu-repo-ngoai/README.md).
+
+### Sửa - con không còn sống sót sau khi cha bị giết cứng
+
+Cha đã bắt `SIGINT` / `SIGTERM` / `SIGBREAK` từ 0.8.0 để tắt cả đàn theo thứ tự, và
+docstring của chính nó gọi con mồ côi là kết cục tệ nhất:
+
+> *"cha chết ngay còn con sống tiếp mồ côi - vẫn giữ cổng, vẫn phục vụ, và không ai
+> dựng lại chúng nữa. Đúng thứ tệ nhất: hệ thống trông như đã tắt mà thực ra chưa."*
+
+Nhưng bắt tín hiệu chỉ che được cái chết **lịch sự** của cha. `SIGKILL`,
+`Stop-Process -Force`, `taskkill /F`, cha sập vì lỗi của chính nó, kernel giết cha vì
+hết RAM - **không đường nào trong bốn đường đó bắt được**, và con sống tiếp.
+
+Nay con tự canh cha bằng `multiprocessing.parent_process()` - hạ tầng có sẵn của thư
+viện chuẩn, hoạt động trên cả hai nền tảng bằng hai cơ chế khác nhau (Linux: một đầu
+ống thừa kế; Windows: `HANDLE` tới tiến trình cha). **Không thêm vùng nhớ chung nào,
+không thêm khoá cấu hình nào, không thêm tên công khai nào.**
+
+- Con đi bằng **đúng tín hiệu mà một lần tắt bình thường dùng**, nên nó tắt theo cùng
+  một đường code và cùng một thứ tự dọn. Huỷ task chính thì cũng dọn đúng, nhưng
+  uvicorn in nguyên một traceback mức `ERROR` ngay dưới dòng `CRITICAL` vừa in - và
+  một traceback ở đó đọc như *"tắt hỏng"* trong khi nó đang tắt đúng. Đo trên cụm 3
+  tiến trình thật: huỷ task ra **3 traceback**, gửi tín hiệu ra **0**.
+- ⚠ Hai nền tảng dùng hai lệnh khác nhau và **đổi chỗ chúng thì hỏng im lặng**: POSIX
+  phải `os.kill(getpid(), SIGTERM)` vì `raise_signal()` gửi cho *thread đang gọi* nên
+  không ngắt `epoll_wait` của thread chính; Windows phải `raise_signal()` vì ở đó
+  `os.kill()` gọi thẳng `TerminateProcess`, tức mất sạch phần dọn êm.
+- Tắt êm quá **15 giây** (loop đã treo) thì thoát cứng bằng mã **3**. Con mồ côi mà
+  loop treo là ca tệ nhất trong các ca tệ - giữ cổng và không phục vụ nổi ai - nên
+  việc duy nhất còn đáng làm là trả lại cổng.
+- Không canh khi **không có cha**: chạy tay một tiến trình, chạy trong test, chạy dưới
+  một trình giám sát khác. Đó là đường vào hợp lệ, không phải lỗi.
+
+⭐⭐ **Vì sao nó nặng hơn là "thừa vài tiến trình": con mồ côi VÔ HÌNH với cả hai phép
+dò mà người ta sẽ dùng, và cả hai đều trả lời theo hướng TRẤN AN.** Lọc tiến trình theo
+`app.main` ra *"1 tiến trình, đúng như mong đợi"* - vì `spawn` khiến dòng lệnh của con
+là `python -c "from multiprocessing.spawn import spawn_main; ..."`, không mang tên
+module nào. `netstat` thì gán socket cho PID **người tạo**, nên nó chỉ vào xác của cha
+và người đọc kết luận *"chỉ là bản ghi cũ"*. Cộng lại: một cụm đang phục vụ **mã cũ**
+trong khi bạn tin mình vừa khởi động lại nó. Phiên báo lỗi mất **bốn vòng gỡ lỗi** vào
+hư không trước khi thấy.
+
+📌 Đo đầu-cuối trên Windows 11, cụm 3 tiến trình chia chung cổng: `Stop-Process -Force`
+lên cha thì cả ba con thoát, cổng được trả, 0 traceback.
+
+### Sửa - log lúc con chết nay khai AI GIẾT, không chỉ khai mã thoát
+
+`supervisor: api-3 exited with code -15 - restarting` đúng nhưng mang **hai nghĩa dẫn
+tới hai việc ngược nhau**: *"watchdog của tôi vừa giết nó vì nó treo"* là chuyện nội bộ
+đã xử lý xong, còn *"ai đó bên ngoài giết nó"* là một tiến trình khác đang can thiệp vào
+cụm này. Người đọc log không có cách nào tách ra.
+
+```text
+... exited with code -15 (my watchdog killed it: event loop blocked for 12.3s) - restarting
+... exited with code -15 (NOT me - another multiprocessing parent terminated it; ...) - restarting
+```
+
+⛔ **Và trên Windows `-15` KHÔNG phải `SIGTERM` từ bên ngoài** - chỗ này đã làm một phiên
+mất nửa buổi. CPython (`multiprocessing/popen_spawn_win32.py::wait`) đọc
+`GetExitCodeProcess`, và nếu mã đúng bằng hằng `TERMINATE = 0x10000` thì nó **đổi thành**
+`-signal.SIGTERM`. Mà `0x10000` chỉ do chính `multiprocessing` ghi ra:
+
+| Ai giết | Mã thoát Python thấy |
+|---|---|
+| `multiprocessing` (`terminate()`/`kill()`) | `-15` |
+| `taskkill /F` | `1` |
+| `Stop-Process -Force` (`Process.Kill()` của .NET) | `4294967295` |
+
+Nên trên Windows, `-15` ở một con mà **cha này không giết** là bằng chứng rằng **một cụm
+cũ chưa tắt hẳn** đang giết con của cụm mới - tức triệu chứng của đúng lỗi vừa vá ở trên.
+Trên POSIX thì `-N` đúng nghĩa đen là tín hiệu `N`, không có phép đổi nào.
+
+⚠ Lời khai bị **xoá khi con được sinh lại**: không xoá thì lần chết sau bị gán lý do của
+lần trước - một dòng log đúng cú pháp và sai sự thật, loại khó phát hiện nhất.
 
 ### Thêm - `public_paths` mở được cả một nhánh bằng đuôi `/*`
 
