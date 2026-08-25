@@ -147,7 +147,9 @@ một nhãn kiểu *"kỳ vọng 2534"* mang hai giá trị - đúng
 | `public_paths` tiền tố + dòng log xác thực | 2595 | 2571 |
 | sửa chữ dòng log (hậu kiểm 2026-08-23) | 2602 | 2578 |
 | con mồ côi + log "ai giết" | 2617 | 2593 |
-| **`BaseModel` ra khỏi DI + `exclude_segments`** | **2636** | **2612** |
+| `BaseModel` ra khỏi DI + `exclude_segments` | 2636 | 2612 |
+| tài liệu hướng dẫn khớp lại bản hiện tại (`cli_docs` tự sinh thêm 4) | 2640 | 2616 |
+| **export `public_health_paths`** | **2645** | **2621** |
 
 📌 Con số này lỗi thời mỗi lần thêm test, đúng như mọi con số khác trong file. Phép
 kiểm không lỗi thời vẫn là: **chạy trước, chạy sau, so trên CÙNG một máy.**
@@ -481,7 +483,7 @@ Commit mang số hiệu bản là commit **cuối cùng** và chỉ nâng số -
 toàn bộ nội dung. Hệ quả cho phiên: xong một mục thì dừng, báo, để chủ dự án commit,
 rồi mới sang mục kế.
 
-### Đã xong, chờ commit
+### Đã vá, commit `07de5a2`
 
 | # | Việc | Trạng thái |
 |---|---|---|
@@ -507,7 +509,7 @@ rồi mới sang mục kế.
 > được là **so trước/sau trên CÙNG một máy, CÙNG một mypy**, không phải so với một con
 > số ghi trong tài liệu.
 
-### Đã code 2026-08-23, chờ commit - con mồ côi và log "ai giết"
+### Đã vá 2026-08-23, commit `548c731` - con mồ côi và log "ai giết"
 
 Báo cáo thứ hai trong ngày, từ `Service ngang/kho` sau lượt e2e thật đầu tiên. Ba mục,
 và **đo lại thì mục 3 là triệu chứng của mục 1** - họ báo rời nhau, hoá ra một lỗi.
@@ -583,7 +585,7 @@ tức N lời gọi mạng cho một thứ cả cụm dùng chung - đúng thứ
 và vì sao bạn không tìm thấy con mồ côi"* (kèm hai lệnh dò đúng cho ai đang gỡ cụm chạy
 bản cũ, và bảng mã thoát Windows).
 
-### Đã code 2026-08-25, chờ commit - `BaseModel` ra khỏi DI và `exclude_segments`
+### Đã vá 2026-08-25, commit `4219a56` - `BaseModel` ra khỏi DI và `exclude_segments`
 
 Không đến từ báo cáo nào. Chủ dự án đưa `nha-tro/backend/framework-notes/ghi-chu-framework.md`
 (viết 2026-07-04) ra rà lại xem mục nào framework đã vá mà ghi chú còn ghi. Rà ra **5 mục,
@@ -765,7 +767,71 @@ Chủ dự án nhắc 3 repo; đo ra **13 file `ghi-chu-framework.md` giống h�
 Tất cả nay mang khối **⛔ ĐÍNH CHÍNH - phiên `xime framework` ghi 2026-08-25** ở đầu, thân
 file giữ nguyên văn vì mỗi mục đều đúng vào lúc viết.
 
-### Đã code 2026-08-22, chờ commit
+### Đã code 2026-08-25, chờ commit - export `public_health_paths`
+
+Báo cáo từ `nha-tro`:
+[`bao-cao-van-de-tu-repo-ngoai/nha-tro-public-health-paths-khong-export-2026-08-25.md`](docs/bao-cao-van-de-tu-repo-ngoai/nha-tro-public-health-paths-khong-export-2026-08-25.md).
+Hàm có từ `0.8.0`, docstring tự khai *"middleware JWT cho chúng đi qua"*, nhưng **thiếu ở
+`__all__`** nên app không có đường công khai gọi tới. Hậu quả: `/healthz` đòi token, tức
+một `/healthz` **im lặng đúng lúc app không lấy nổi khoá verify**.
+
+**Đo:** **2621 passed / 24 skipped / 0 failed = tổng 2645** (`2640 + 5` test mới) ·
+`ruff check xime/` sạch · `mypy` **49 lỗi trước và sau, không thêm cái nào**.
+
+#### ⭐⭐ Đo lại LẬT lý do phản đối, không chỉ nới con số
+
+Báo cáo cố ý không xin gì - nó đưa hai đường và **tự ghi luôn lý do phản đối** đường thứ
+nhất: *export nó là hợp thức hoá middleware JWT tự viết, đúng thứ bản vá A1 đang cố xoá*.
+Lập luận đó nghe rất đúng, và nó **sai về mặt sự kiện**: `admin/backend/app/config/network.py`
+gọi hàm này cho một **hàng rào IP**.
+
+> Chỗ dùng đó không dính gì tới JWT, và **không biến mất** khi repo chuyển sang
+> `configure_jwt`. Ghi log truy cập, hãm nhịp, đếm số đo cũng cùng nhóm.
+
+Nên đường thứ hai (*không export, đổi docstring thành "chi tiết nội bộ của `configure_jwt`"*)
+sẽ ghi một **câu sai** vào tài liệu. Chỉ còn một đường đi được.
+
+| Đo trên 28 repo | |
+|---|---|
+| Gọi `public_health_paths` từ module riêng tư, **trong code sản phẩm** | **8 repo** - `admin` (2 file), `linh-kien-dien-tu`, `nha-hang`, `crm`, `giao-viec`, `kho`, `nhan-su-cham-cong`, `so-thu-chi` |
+| Lời import riêng tư khác nằm ngoài thư mục `test/` | **0** |
+
+⭐ Con số thứ hai là thứ khiến quyết định dễ: mọi lời import riêng tư còn lại
+(`JwtAuthMiddleware`, `registry`, `ErrorMappingInterceptor`...) đều nằm trong **test**, mà
+test thò tay vào ruột là chuyện khác hẳn. Đây là **rò rỉ duy nhất trong code sản phẩm của
+cả workspace** - cửa đã có người đi qua từ lâu, việc còn lại chỉ là chọn giữa *một cửa được
+đỡ* và *8 repo bám vào ruột framework*.
+
+📌 Tiền lệ đúng dạng này đã có: `JWT_CLAIMS` export ở `0.7.2`, lý do ghi ngay trong
+`starters/jwt/__init__.py` - *"chỉ người ta vào một module có tên bắt đầu bằng dấu gạch
+dưới là bảo họ thò tay vào ruột của mình"*.
+
+#### Hai thứ chưa tài liệu nào nói, nay có
+
+| | |
+|---|---|
+| **Dùng `configure_jwt` thì ĐỪNG gọi** | Framework tự cộng đường sức khoẻ vào `public_paths` trước khi gắn middleware. Chép tay lần nữa là dựng một bản sao sẽ lệch vào ngày luật khớp đường dẫn đổi |
+| **Phải gọi SAU `configure_health()`** | Nó đọc sổ đăng ký tại thời điểm được gọi, nên gọi sớm nhận tuple **rỗng** - mà rỗng trông y hệt *"app này không bật endpoint sức khoẻ"*. Hàng rào chặn mất `/healthz` và **không có gì báo**, vì middleware từ chối rất gọn gàng. `admin` phải tự phát hiện chuyện này |
+
+#### Test đi đúng con đường tài liệu hướng dẫn
+
+`tests_temp/watchdog/test_health_endpoint.py` nay lấy hàm qua **`from xime.adapters.web
+import public_health_paths`**, không qua `._health`. Lấy đường riêng tư thì bộ test vẫn
+xanh kể cả ngày cái tên rơi khỏi `__all__` - tức nó canh **hàm**, không canh **thứ người
+dùng chạm tới**. Cùng bài học đã trả giá ở đợt uvloop `0.8.1` và ở dòng log xác thực.
+
+Ba test mới chạy một **hàng rào IP thật** (không phải middleware xác thực - cố ý, để bộ
+test tự nói ra lý do phản đối kia không đứng vững): đường sức khoẻ **qua được** · đường
+nghiệp vụ **không qua** · quên `configure_health()` thì `/healthz` **bị chính hàng rào của
+mình chặn**.
+
+**Ba đối chứng, đều đỏ đúng chỗ:** bỏ tên khỏi `__all__` → **1 đỏ** · bỏ lời import khỏi
+`__init__` → **cả file lỗi** · hàng rào cho qua tất → **2 đỏ**.
+
+⚠ Tên công khai mới, mà `0.9` sang Beta nơi API coi như đã chốt → **phải nằm trong `0.8.x`**,
+không lùi được.
+
+### Đã vá 2026-08-22, commit `d2294c6` (sửa chữ ở `d1328e2`)
 
 | # | Việc | Trạng thái |
 |---|---|---|

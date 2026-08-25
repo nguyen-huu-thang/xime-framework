@@ -36,6 +36,10 @@ Một `/healthz` đòi token là một `/healthz` im lặng đúng lúc cần nh
 
 Bù lại, thân phản hồi **không mang gì nhạy cảm**: id và hạng adapter, trạng thái,
 và một cờ primary. Không host, không cổng, không phiên bản, không thông điệp lỗi.
+
+⭐ Câu *"nằm trong `public_paths` mặc định"* chỉ đúng cho middleware JWT **của
+framework**. Middleware tự viết - hàng rào IP, ghi log, hãm nhịp - thì tự hỏi
+`public_health_paths()`; xem docstring của hàm đó.
 """
 
 from __future__ import annotations
@@ -82,7 +86,45 @@ def configure_health(
 
 
 def public_health_paths(server_id: str = "default") -> tuple[str, ...]:
-    """Đường dẫn sức khoẻ đang bật - middleware JWT cho chúng đi qua."""
+    """Đường dẫn sức khoẻ đang bật, để middleware TỰ VIẾT cho chúng đi qua.
+
+    Args:
+        server_id: server nào, khi ứng dụng có nhiều web adapter.
+
+    Returns:
+        Các đường dẫn `configure_health()` đã bật. Chưa khai thì rỗng.
+
+    ### ⛔ Dùng `configure_jwt` thì ĐỪNG gọi hàm này
+
+    Framework **tự** cộng đường sức khoẻ vào `public_paths` trước khi gắn
+    middleware JWT (`_adapter.py`, nhánh `_configure_jwt_middleware`). Gọi thêm
+    ở đây là chép tay một việc đã có người làm, và bản chép sẽ **lệch** vào
+    ngày luật khớp đường dẫn đổi.
+
+    Hàm này dành cho middleware **không phải của framework** - và không chỉ
+    middleware xác thực. Hàng rào IP, ghi log truy cập, hãm nhịp, đếm số đo:
+    thứ nào cũng có lý do bỏ qua đường sức khoẻ, và những lý do đó **không mất
+    đi** khi ứng dụng chuyển sang `configure_jwt`.
+
+    ```python
+    from xime.adapters.web import configure_middleware, public_health_paths
+
+    configure_middleware(
+        HangRaoIpMiddleware,
+        public_paths=[*cau_hinh_rieng, *public_health_paths()],
+    )
+    ```
+
+    ### ⚠ Phải đọc SAU `configure_health()`
+
+    Nó đọc sổ đăng ký tại thời điểm được gọi, nên gọi trước khi khai thì nhận
+    một tuple **rỗng** - và rỗng ở đây trông y hệt *"app này không bật endpoint
+    sức khoẻ"*. Hàng rào chặn mất `/healthz` mà không có gì báo, vì middleware
+    của bạn từ chối rất gọn gàng.
+
+    Cách tránh: để `configure_health()` ở đầu `config/web.py`, trước mọi lời
+    gọi `configure_middleware`.
+    """
     config = registry.get_health(server_id)
     if config is None:
         return ()

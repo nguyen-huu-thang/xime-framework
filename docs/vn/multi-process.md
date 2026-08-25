@@ -786,6 +786,36 @@ phiên bản, không thông điệp lỗi.
 ⭐ Hình dạng an toàn nhất ở prod: đặt chúng trên một **server phụ chỉ nghe
 `127.0.0.1`**. Người vận hành và systemd tới được, internet thì không.
 
+### Middleware TỰ VIẾT thì hỏi `public_health_paths()`
+
+Câu *"không xác thực"* ở trên đúng cho middleware JWT **của framework**: nó tự
+cộng hai đường dẫn vào `public_paths` trước khi gắn. Middleware của bạn thì
+framework không biết gì, nên bạn tự hỏi:
+
+```python
+# config/web.py
+from xime.adapters.web import configure_health, configure_middleware, public_health_paths
+
+configure_health()                       # ⚠ khai TRƯỚC, xem cảnh báo dưới
+
+configure_middleware(
+    HangRaoIpMiddleware,
+    public_paths=[*cau_hinh_rieng, *public_health_paths()],
+)
+```
+
+⭐ **Không chỉ chuyện xác thực.** Hàng rào IP, ghi log truy cập, hãm nhịp, đếm số
+đo - thứ nào cũng có lý do bỏ qua đường sức khoẻ, và những lý do đó **không mất
+đi** khi ứng dụng chuyển sang `configure_jwt`.
+
+⛔ **Dùng `configure_jwt` thì ĐỪNG cộng thêm.** Framework đã làm rồi; chép tay
+lần nữa là dựng một bản sao sẽ lệch vào ngày luật khớp đường dẫn đổi.
+
+⚠ **Phải gọi SAU `configure_health()`.** Nó đọc sổ đăng ký ngay tại thời điểm
+được gọi, nên gọi sớm thì nhận một tuple **rỗng** - mà rỗng ở đây trông y hệt
+*"app này không bật endpoint sức khoẻ"*. Hàng rào chặn mất `/healthz` và **không
+có gì báo**, vì middleware của bạn từ chối rất gọn gàng.
+
 ---
 
 ## Adapter chỉ nhận ĐỊNH DANH, địa chỉ đến từ cấu hình

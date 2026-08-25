@@ -1,6 +1,6 @@
 # Bảng theo dõi: repo ngoài đề nghị gì, kết cục ra sao
 
-> Cập nhật 2026-08-22. Nguồn: [ba báo cáo gốc](README.md) · [phần trả lời](tra-loi-2026-08-22.md).
+> Cập nhật 2026-08-25. Nguồn: [ba báo cáo gốc](README.md) · [phần trả lời](tra-loi-2026-08-22.md).
 >
 > Bảng này trả lời đúng một câu: **cái nào xong, cái nào bác, cái nào còn treo.**
 > Lý do và phép đo thì nằm ở hai file trên - đừng chép lại vào đây.
@@ -13,15 +13,17 @@
 | **C7** | Không adapter nào có mốc dương trong log | `data` | 🟡 Lỗi | ✅ **ĐÃ VÁ** - `0.8.0`, đợt 6 |
 | **C8** | `xime check config` tố oan khoá hợp lệ | ví dụ gRPC+Socket | 🟡 Lỗi | ✅ **ĐÃ VÁ + COMMIT** `07de5a2` |
 | **C9** | Gợi ý lỗi thiếu đăng ký dẫn sai đường | `dental` mục 7 | 🟢 Lỗi | ✅ **ĐÃ VÁ + COMMIT** `07de5a2` |
-| **1** | `public_paths` khớp được **tiền tố** | `linh-kien` mục 2 | ✨ Tính năng | ✅ **ĐÃ CODE** 2026-08-22, chờ commit |
-| **2** | Một dòng `INFO` khai trạng thái xác thực | `dental` mục 6b | ✨ Tính năng | ✅ **ĐÃ CODE + ĐÃ SỬA CHỮ** - bản đầu kết luận sai 100%, xem mục **7** |
-| **7** | Dòng log ở mục 2 **kết luận SAI với 23/23 app** | `Service ngang` | 🟡 Lỗi | ✅ **ĐÃ VÁ** 2026-08-23, chờ commit |
+| **1** | `public_paths` khớp được **tiền tố** | `linh-kien` mục 2 | ✨ Tính năng | ✅ **ĐÃ VÁ + COMMIT** `d2294c6` |
+| **2** | Một dòng `INFO` khai trạng thái xác thực | `dental` mục 6b | ✨ Tính năng | ✅ **ĐÃ COMMIT** `d2294c6`, sửa chữ ở `d1328e2` - bản đầu kết luận sai 100%, xem mục **7** |
+| **7** | Dòng log ở mục 2 **kết luận SAI với 23/23 app** | `Service ngang` | 🟡 Lỗi | ✅ **ĐÃ VÁ + COMMIT** `d1328e2` |
+| **8** | Con mồ côi vô hình + 401 lạnh máy | `kho` | 🔴 Lỗi | ✅ **ĐÃ VÁ** 2026-08-23 (mục 1 + 3). Mục 2 ➖ **không phải lỗi framework** |
+| **9** | `public_health_paths()` không export | `nha-tro` | 🟡 Lỗi | ✅ **ĐÃ VÁ** 2026-08-25 - export + docstring + 5 test canh |
 | **3** | Cảnh báo khi app không có middleware nào | `dental` mục 6a | ✨ Tính năng | ⛔ **BÁC** |
 | **4** | Nhận diện danh tính trên đường công khai | `linh-kien` mục 3 | ✨ Tính năng | ⛔⛔ **BÁC VĨNH VIỄN** |
 | **5** | Sửa tài liệu *"`configure_jwt` chỉ verify 1 khoá"* | `linh-kien` mục 6 | 📄 Tài liệu | ➖ **KHÔNG PHẢI VIỆC CỦA FRAMEWORK** |
 | **6** | Job scheduler chạy riêng **từng tiến trình** | chủ dự án hỏi | ❓ Câu hỏi | ⛔ **KHÔNG LÀM** - có lời giải, xem dưới |
 
-## Đã code 2026-08-22 - hai việc còn treo nay hết treo
+## Đã code 2026-08-22, commit `d2294c6` - hai việc còn treo nay hết treo
 
 | # | Việc | Điều đáng nhớ khi đọc lại |
 |---|---|---|
@@ -208,3 +210,59 @@ ghi nó vào tài liệu framework sẽ **dạy sai cho 20 repo còn lại**.
 
 📌 **Hệ quả cho quy trình:** nhận một báo cáo thì việc đầu tiên là **tự quét lại toàn bộ
 lớp đó**, không phải sửa đúng chỗ được nêu.
+
+## Mục 9: `public_health_paths()` không export - 2026-08-25
+
+Báo cáo cố ý **không xin gì**: nó đưa hai đường và tự ghi luôn lý do phản đối đường
+thứ nhất, rồi để chủ dự án chọn. Thứ nó khẳng định là **đừng giữ nguyên trạng** -
+*"một hàm tự mô tả mình là để cho app dùng, mà app không gọi tới được"*.
+
+⭐ **Đo lại thì phạm vi rộng hơn, và lần này nó LẬT lý do phản đối chứ không chỉ nới
+con số.** Báo cáo lo rằng export nó là **hợp thức hoá** middleware JWT tự viết - đúng
+thứ bản vá A1 đang cố xoá. Nhưng một repo dùng nó cho **hàng rào IP**:
+
+```python
+# admin/backend/app/config/network.py
+public_paths = [*config.get("auth.jwt.public_paths", []), *public_health_paths()]
+configure_middleware(AdminNetworkMiddleware, allowlist=..., public_paths=public_paths)
+```
+
+Chỗ dùng đó **không dính gì tới JWT** và **không biến mất** khi repo chuyển sang
+`configure_jwt`. Ghi log truy cập, hãm nhịp, đếm số đo cũng cùng nhóm. Nên đường thứ
+hai mà báo cáo đề nghị (*không export, đổi docstring thành "chi tiết nội bộ của
+`configure_jwt`"*) sẽ ghi một **câu sai** vào tài liệu.
+
+| Đo trên 28 repo | |
+|---|---|
+| Gọi `public_health_paths` từ module riêng tư, **trong code sản phẩm** | **8 repo** - `admin` (2 file), `linh-kien-dien-tu`, `nha-hang`, `crm`, `giao-viec`, `kho`, `nhan-su-cham-cong`, `so-thu-chi` |
+| Lời import riêng tư khác nằm ngoài thư mục `test/` | **0** |
+
+⭐ Con số thứ hai là thứ khiến quyết định dễ: mọi lời import riêng tư còn lại
+(`JwtAuthMiddleware`, `registry`, `ErrorMappingInterceptor`...) đều nằm trong **test**,
+mà test thò tay vào ruột là chuyện khác hẳn. Đây là **rò rỉ duy nhất trong code sản
+phẩm của cả workspace**.
+
+📌 **Hai chỗ báo cáo tự lỗi thời trong ngày**, ghi để người sau khỏi tin nhầm: mục 4
+mô tả `nha-tro` đang lách bằng import riêng tư, nhưng chính họ đã chuyển sang
+`configure_jwt` sáng cùng ngày nên dòng đó **đã biến mất rồi**. Người báo là repo duy
+nhất trong nhóm **đã thoát**, còn 8 repo họ không đo thì vẫn đang kẹt. Và ca `crm`
+ngày 08-21 họ dẫn **không có trong thư mục này** (chắc đi qua nhóm chat) - nhưng `crm`
+nằm trong 8 repo trên và chú thích của họ ghi đúng triệu chứng, nên coi như được chứng
+thực gián tiếp.
+
+**Đã làm:** thêm vào `__all__` của `xime.adapters.web` · viết lại docstring (nó phục vụ
+**mọi** middleware tự viết, không riêng xác thực; dùng `configure_jwt` thì **đừng** gọi;
+phải gọi **sau** `configure_health()`) · mục mới ở `docs/{vn,en}/multi-process.md` · 5
+test canh.
+
+⚠ Tên công khai mới, mà `0.9` sang Beta nơi API coi như đã chốt → **phải nằm trong
+`0.8.x`**, không lùi được.
+
+**Đo:** `2621 passed / 24 skipped / 0 failed = tổng 2645` (`2640 + 5` test mới) ·
+`ruff check xime/` sạch · `mypy` **49 lỗi trước và sau, không thêm cái nào**.
+
+⭐ Test lấy hàm qua **đường công khai** (`from xime.adapters.web import ...`), không qua
+`._health`. Lấy đường riêng tư thì bộ test vẫn xanh kể cả ngày cái tên rơi khỏi `__all__`
+- tức nó canh **hàm**, không canh **thứ người dùng chạm tới**. Đúng bài học đã trả giá ở
+đợt uvloop và ở dòng log xác thực.
+

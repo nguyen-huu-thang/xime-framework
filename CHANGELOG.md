@@ -10,6 +10,41 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Báo cáo từ repo **ngoài**, đọc và xử lý 2026-08-22 và 2026-08-23. Nguyên văn:
 [`.claude/docs/bao-cao-van-de-tu-repo-ngoai/`](.claude/docs/bao-cao-van-de-tu-repo-ngoai/README.md).
 
+### Thêm - `public_health_paths()` nay là API công khai của `xime.adapters.web`
+
+Hàm đã có từ 0.8.0 và docstring của chính nó ghi *"middleware JWT cho chúng đi qua"*, nhưng
+nó **thiếu ở `__all__`**, nên ứng dụng không có đường công khai nào gọi tới. Hậu quả: một
+`/healthz` đòi token, tức một `/healthz` im lặng **đúng vào lúc app không lấy nổi khoá verify**
+- lúc người ta cần nó trả lời nhất.
+
+Đo lại trên **28 repo** thì phạm vi rộng hơn báo cáo: **8 repo đang gọi nó từ module riêng tư
+`xime.adapters.web._health` trong CODE SẢN PHẨM**, và đó là lời import riêng tư **duy nhất**
+nằm ngoài thư mục test của cả 28 repo. Cửa đã có người đi qua từ lâu; việc còn lại chỉ là
+chọn giữa *một cửa được đỡ* và *8 repo bám vào ruột framework*.
+
+⭐ **Nó KHÔNG chỉ phục vụ middleware xác thực**, và đây là chỗ lật lại lý do phản đối duy nhất
+mà báo cáo nêu (*"export nó là hợp thức hoá middleware JWT tự viết, đúng thứ A1 đang cố xoá"*).
+Một repo dùng nó cho **hàng rào IP** - chỗ dùng đó không dính gì tới JWT và **không biến mất**
+khi repo chuyển sang `configure_jwt`. Ghi log truy cập, hãm nhịp, đếm số đo cũng vậy.
+
+Kèm hai thứ trước nay không tài liệu nào nói:
+
+- **Dùng `configure_jwt` thì ĐỪNG gọi hàm này** - framework tự cộng đường sức khoẻ vào
+  `public_paths` trước khi gắn middleware. Chép tay lần nữa là dựng một bản sao sẽ lệch vào
+  ngày luật khớp đường dẫn đổi.
+- **Phải gọi SAU `configure_health()`.** Nó đọc sổ đăng ký tại thời điểm được gọi, nên gọi
+  sớm thì nhận tuple **rỗng** - mà rỗng ở đây trông y hệt *"app này không bật endpoint sức
+  khoẻ"*. Hàng rào chặn mất `/healthz` và **không có gì báo**, vì middleware từ chối rất gọn.
+
+Test canh đi thành **cặp** và chạy đúng con đường tài liệu hướng dẫn (`from xime.adapters.web
+import public_health_paths`, không phải `._health`): đường sức khoẻ **qua được** hàng rào ·
+đường nghiệp vụ **không qua** · và quên `configure_health()` thì `/healthz` **bị chính hàng
+rào của mình chặn**. Ba đối chứng, đều đỏ đúng chỗ: bỏ tên khỏi `__all__` → 1 đỏ · bỏ lời
+import → cả file lỗi · hàng rào cho qua tất → 2 đỏ.
+
+⚠ Đây là **tên công khai mới**, mà `0.9` sang Beta nơi API coi như đã chốt - nên nó phải nằm
+trong dòng `0.8.x`, không lùi được.
+
 ### Sửa - tài liệu hướng dẫn nay khớp với bản hiện tại, không còn khuôn của bản cũ
 
 Bài `getting-started` viết cho một bản cũ và **không chạy được**: rút nguyên văn 9 khối code

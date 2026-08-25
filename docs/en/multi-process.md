@@ -817,6 +817,37 @@ carries nothing sensitive: no host, no port, no version, no error message.
 ⭐ The safest shape in production: put them on a **secondary server bound to
 `127.0.0.1`**. Operators and systemd can reach them; the internet cannot.
 
+### Middleware you wrote yourself: ask `public_health_paths()`
+
+The *"not authenticated"* line above holds for the framework's **own** JWT
+middleware: it adds both paths to `public_paths` before installing itself. The
+framework knows nothing about yours, so ask for them:
+
+```python
+# config/web.py
+from xime.adapters.web import configure_health, configure_middleware, public_health_paths
+
+configure_health()                       # ⚠ declare it FIRST, see the warning below
+
+configure_middleware(
+    IpFenceMiddleware,
+    public_paths=[*your_own_config, *public_health_paths()],
+)
+```
+
+⭐ **Not only an auth concern.** An IP fence, an access log, a rate limiter, a
+metrics counter: each has a reason to skip the health paths, and none of those
+reasons **goes away** once the application moves to `configure_jwt`.
+
+⛔ **On `configure_jwt`, do NOT add them again.** The framework already did; a
+hand-written copy is a second implementation that drifts the day the path
+matching rule changes.
+
+⚠ **Call it AFTER `configure_health()`.** It reads the registry at the moment it
+is called, so calling it early returns an **empty** tuple - and empty here looks
+exactly like *"this app has no health endpoints"*. Your fence then blocks
+`/healthz` with **nothing to warn you**, because it refuses very tidily.
+
 ---
 
 ## Adapters take an IDENTITY only; addresses come from configuration
