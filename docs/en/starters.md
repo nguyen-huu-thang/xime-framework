@@ -696,8 +696,8 @@ configure_jwt(JwtMiddlewareConfig(
     public_paths=["/auth/login", "/health"],
 ))
 
-# config/routing.py
-configure_controllers("api.rest")
+# config/web.py
+configure_controllers("my_service.api.rest")
 
 # config/scheduler.py
 configure_scheduler(SchedulerConfig(jobs=[

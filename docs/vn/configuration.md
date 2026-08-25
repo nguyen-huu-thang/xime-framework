@@ -36,11 +36,11 @@ dependency = BindingConfig()
 
 # Khai báo package nào cần scan để tìm class được DI quản lý
 dependency.scan(
-    "application.usecase",
-    "application.service",
-    "infrastructure.persistence.repository",
-    "infrastructure.client",
-    "api.rest",
+    "my_service.application.usecase",
+    "my_service.application.service",
+    "my_service.infrastructure.persistence.repository",
+    "my_service.infrastructure.client",
+    "my_service.api.rest",
 )
 
 # Bind tường minh Protocol interface đến implementation
@@ -60,14 +60,14 @@ Tên biến `dependency` là convention mà XIME tìm kiếm. Bạn cũng có th
 app = Application(binding=my_custom_binding)
 ```
 
-### `config/routing.py`
+### `config/web.py`
 
 Khai báo package nào chứa controller:
 
 ```python
 from xime.adapters.web.routing import configure_controllers
 
-configure_controllers("api.rest")
+configure_controllers("my_service.api.rest")
 ```
 
 `configure_controllers()` lưu package vào module-level registry. `WebAdapter` đọc registry này khi build FastAPI app.

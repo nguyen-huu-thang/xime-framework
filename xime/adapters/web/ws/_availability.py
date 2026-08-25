@@ -27,8 +27,11 @@ import logging
 
 _log = logging.getLogger("xime.web.ws")
 
+# ⚠ Tiếng Anh: đây là chuỗi NGƯỜI DÙNG THẤY, không phải chú thích. Mọi dòng log
+# của framework đều tiếng Anh, và phần còn lại của chính cảnh báo này cũng vậy -
+# một chữ tiếng Việt lọt vào giữa làm nó đọc như một lỗi hiển thị.
 _HUONG_DAN = (
-    'pip install "xime[web]"   (hoặc: pip install "uvicorn[standard]")'
+    'pip install "xime[web]"   (or: pip install "uvicorn[standard]")'
 )
 
 

@@ -79,7 +79,7 @@ class CryptoController:
 # config/socket.py
 from xime.adapters.socket import configure_socket_controllers
 
-configure_socket_controllers("api.socket")
+configure_socket_controllers("my_service.api.socket")
 ```
 
 Also add `api.socket` to `dependency.scan(...)` in `config/dependency.py` so the DI container creates the controller instance.
@@ -88,14 +88,19 @@ Also add `api.socket` to `dependency.scan(...)` in `config/dependency.py` so the
 
 ```python
 # main.py
-from xime import Application
-from xime.adapters.web import WebAdapter
 from xime.adapters.socket import SocketAdapter
+from xime.adapters.web import WebAdapter
+from xime.core.bootstrap import Application
+
+import config
 
 app = Application()
+app.add_config(config)
 app.use(WebAdapter())
 app.use(SocketAdapter("crypto"))    # listens on /run/xime/crypto.sock
-app.run()
+
+if __name__ == "__main__":
+    app.run()
 ```
 
 ---

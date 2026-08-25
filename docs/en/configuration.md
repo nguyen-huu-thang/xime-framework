@@ -36,11 +36,11 @@ dependency = BindingConfig()
 
 # Declare which packages to scan for DI-managed classes
 dependency.scan(
-    "application.usecase",
-    "application.service",
-    "infrastructure.persistence.repository",
-    "infrastructure.client",
-    "api.rest",
+    "my_service.application.usecase",
+    "my_service.application.service",
+    "my_service.infrastructure.persistence.repository",
+    "my_service.infrastructure.client",
+    "my_service.api.rest",
 )
 
 # Explicitly bind Protocol interfaces to implementations
@@ -61,14 +61,14 @@ The `dependency` variable name is the convention XIME looks for. You can also pa
 app = Application(binding=my_custom_binding)
 ```
 
-### `config/routing.py`
+### `config/web.py`
 
 Declares which packages contain controllers:
 
 ```python
 from xime.adapters.web.routing import configure_controllers
 
-configure_controllers("api.rest")
+configure_controllers("my_service.api.rest")
 ```
 
 `configure_controllers()` stores the package in a module-level registry. The `WebAdapter` reads this registry when building the FastAPI app.

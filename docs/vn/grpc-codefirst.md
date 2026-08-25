@@ -88,7 +88,7 @@ class CryptoController:
 from xime.adapters.grpc.codefirst import configure_grpc_codefirst
 
 configure_grpc_codefirst(
-    packages=["api.grpc"],
+    packages=["my_service.api.grpc"],
     output_dir="generated",
     lock_file="proto.lock.json",
 )
@@ -116,12 +116,17 @@ và tạo `proto.lock.json` (commit file này vào git).
 
 ```python
 # main.py
-from xime import Application
 from xime.adapters.grpc import GrpcAdapter
+from xime.core.bootstrap import Application
+
+import config
 
 app = Application()
+app.add_config(config)
 app.use(GrpcAdapter())
-app.run()
+
+if __name__ == "__main__":
+    app.run()
 ```
 
 `GrpcAdapter` tự động phát hiện và phục vụ tất cả controller code-first đã cấu hình qua
@@ -384,11 +389,11 @@ hình độc lập:
 ```python
 # config/grpc.py - proto-first
 from xime.adapters.grpc import configure_grpc_services
-configure_grpc_services("api.grpc.proto_first")
+configure_grpc_services("my_service.api.grpc.proto_first")
 
 # config/grpc_codefirst.py - code-first
 from xime.adapters.grpc.codefirst import configure_grpc_codefirst
-configure_grpc_codefirst(packages=["api.grpc.codefirst"])
+configure_grpc_codefirst(packages=["my_service.api.grpc.codefirst"])
 ```
 
 ---

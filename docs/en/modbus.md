@@ -89,8 +89,11 @@ dependency.register(ModbusClient)
 ```python
 # main.py
 app = Application()
+app.add_config(config)
 app.use(WebAdapter()).use(ModbusAdapter("inverter_1"))   # the argument is `target_id` since 0.8
-app.run()
+
+if __name__ == "__main__":
+    app.run()
 ```
 
 ---
@@ -189,10 +192,10 @@ class InverterMonitor:
 ```python
 # config/modbus.py
 from xime.adapters.modbus import configure_modbus_devices
-configure_modbus_devices("api.modbus")
+configure_modbus_devices("my_service.api.modbus")
 
 # config/dependency.py
-dependency.scan("api.modbus")
+dependency.scan("my_service.api.modbus")
 ```
 
 Things worth knowing:
@@ -273,7 +276,7 @@ modbus:
 ```python
 from xime.adapters.modbus import ModbusServerAdapter, configure_modbus_server
 
-configure_modbus_server("api.modbus")
+configure_modbus_server("my_service.api.modbus")
 app.use(ModbusServerAdapter())
 ```
 

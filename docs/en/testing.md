@@ -88,7 +88,7 @@ from xime import Application, BindingConfig
 @pytest.fixture
 async def app():
     binding = BindingConfig()
-    binding.scan("application.usecase", "infrastructure.persistence.repository")
+    binding.scan("my_service.application.usecase", "my_service.infrastructure.persistence.repository")
     binding.bind({
         UserRepository: TestUserRepository,   # override for tests
         TransactionManager: SqlAlchemyTransactionManager,

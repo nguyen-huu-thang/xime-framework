@@ -65,7 +65,7 @@ class SensorController:
 # config/mqtt.py
 from xime.adapters.mqtt import configure_mqtt_controllers
 
-configure_mqtt_controllers("api.mqtt")
+configure_mqtt_controllers("my_service.api.mqtt")
 ```
 
 Nhớ thêm `api.mqtt` vào `dependency.scan(...)` trong `config/dependency.py` để DI container tạo instance controller.
@@ -74,12 +74,17 @@ Nhớ thêm `api.mqtt` vào `dependency.scan(...)` trong `config/dependency.py` 
 
 ```python
 # main.py
-from xime import Application
 from xime.adapters.mqtt import MqttAdapter
+from xime.core.bootstrap import Application
+
+import config
 
 app = Application()
+app.add_config(config)
 app.use(MqttAdapter())     # target_id "default"; đọc block mqtt: trong application.yml
-app.run()
+
+if __name__ == "__main__":
+    app.run()
 ```
 
 ```python

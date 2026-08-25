@@ -56,10 +56,10 @@ You declare which packages to scan in `config/dependency.py`:
 
 ```python
 dependency.scan(
-    "application.usecase",
-    "application.service",
-    "infrastructure.repository",
-    "infrastructure.client",
+    "my_service.application.usecase",
+    "my_service.application.service",
+    "my_service.infrastructure.repository",
+    "my_service.infrastructure.client",
 )
 ```
 
@@ -628,16 +628,21 @@ A single XIME process can run multiple `WebAdapter` and `GrpcAdapter` instances 
 
 ```python
 # app/main.py
-from xime import Application
-from xime.adapters.web import WebAdapter
 from xime.adapters.grpc import GrpcAdapter
+from xime.adapters.web import WebAdapter
+from xime.core.bootstrap import Application
+
+import config
 
 app = Application()
+app.add_config(config)
 app.use(WebAdapter())               # server_id="default"
 app.use(WebAdapter("admin"))        # server_id="admin"
 app.use(GrpcAdapter())
 app.use(GrpcAdapter("internal"))
-app.run()
+
+if __name__ == "__main__":
+    app.run()
 ```
 
 Addresses live in `application.yml`, not in code:

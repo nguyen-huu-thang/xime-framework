@@ -81,21 +81,21 @@ async def get_user(self, user_id: int) -> UserResponse:
 
 ## Đăng ký Controller
 
-Khai báo package controller trong `config/routing.py`:
+Khai báo package controller trong `config/web.py`:
 
 ```python
-# config/routing.py
+# config/web.py
 from xime.adapters.web.routing import configure_controllers
 
-configure_controllers("api.rest")
-configure_controllers("api.internal")  # hỗ trợ nhiều package
+configure_controllers("my_service.api.rest")
+configure_controllers("my_service.api.internal")  # hỗ trợ nhiều package
 ```
 
 Controller cũng phải có trong danh sách DI scan:
 
 ```python
 # config/dependency.py
-dependency.scan("api.rest", "api.internal", ...)
+dependency.scan("my_service.api.rest", "my_service.api.internal", ...)
 ```
 
 **Lưu ý:** yêu cầu khai báo package ở cả hai chỗ là hạn chế đã biết. Phiên bản tương lai có thể cho phép `configure_controllers()` tự thêm vào DI scan.

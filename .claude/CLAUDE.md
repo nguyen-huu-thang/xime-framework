@@ -608,7 +608,73 @@ tham số nào, singleton không đối số, hợp lệ"* - và cho class đi q
 tham số.** `config_loader.py:75` cũng lọc, tức bộ lọc đúng có mặt ở **hai trong ba** chỗ
 cần nó - cùng hình dạng **C6** (một luật, nhiều bản chép tay, hụt đúng một chỗ).
 
-#### ⭐⭐ Bài getting-started KHÔNG CHẠY ĐƯỢC, và không ai biết
+#### ⭐⭐ Bài getting-started KHÔNG CHẠY ĐƯỢC - và lý do BaseModel chỉ là lớp thứ ba
+
+Rút nguyên văn 9 khối code của bài rồi chạy `python -m app.main` như bài dặn. Nó chết
+**trước cả** chỗ `BaseModel`, ở `ModuleNotFoundError: No module named 'application'`.
+
+| Lớp | Lỗi | Kiểu hỏng |
+|---|---|---|
+| 1 | **12 đường dẫn module thiếu tiền tố `app.`** mỗi bản ngôn ngữ - bài khai `app/domain/user.py` và chạy `python -m app.main`, nhưng import viết `from domain.user import User` | ồn ào, chết ngay |
+| 2 | **`application.yml` để ở `app/resources/`** trong khi framework tìm `resources/application.yml` **tương đối với thư mục chạy lệnh** | ⚠ **IM LẶNG** - app khởi động, chạy bằng mặc định, không gì báo. Đo được vì đổi cổng trong file mà tiến trình vẫn bám cổng cũ |
+| 3 | `UserResponse(BaseModel)` trong `api/rest/` bị scan | ồn ào |
+
+Sửa cả ba rồi dựng lại từ bản đã sửa: **`GET /users/1` trả `{"id":1,"name":"Alice",...}`,
+`/docs` trả 200.**
+
+⭐ **`xime init` thì chạy tốt** (đã kiểm: `python main.py`, `/ping` trả `{"status":"ok"}`,
+`/docs` 200). Lỗi chỉ nằm ở bài viết tay - và bài **chưa từng nhắc `xime init` một lần nào**,
+nên người mới dựng tay 9 file trong khi một lệnh là xong. Nay có mục trỏ sang.
+
+#### ✅ Ba bố cục cùng tồn tại - ĐÃ THỐNG NHẤT về khuôn của `xime init`
+
+Chủ dự án chốt 2026-08-25: *"sửa các bài hướng dẫn sao cho nó khớp với phiên bản hiện tại;
+cái đó trước viết cho các phiên bản cũ, lâu lắm rồi."*
+
+`getting-started` **viết lại hoàn toàn** cả hai ngôn ngữ theo bố cục `xime init` sinh ra
+(`main.py` + `config/` + `resources/` ở gốc, code nghiệp vụ trong gói mang tên dự án). Rút
+code từ bản mới ra chạy để nghiệm thu, **cả VN lẫn EN**: `GET /users/1` trả
+`{"id":1,"name":"Alice",...}`, `/docs` 200.
+
+Ba thứ bài cũ dạy sai so với bản hiện tại, và cả ba đều là **khuôn của bản trước 0.8**:
+
+| | Bài cũ | Hậu quả |
+|---|---|---|
+| `main.py` | `use()` **trong** `if __name__` | con chạy lại file đó với `__name__ == "__mp_main__"`, khối `if` không nổ -> **không adapter nào, DI rỗng** |
+| `add_config` + `config/__init__.py` | **không nhắc một chữ** | cơ chế tự dò cũ tìm qua `__main__.__spec__.parent`, giá trị đó khác ở tiến trình con -> im lặng rơi xuống DI rỗng |
+| `resources/` | trong `app/` | framework tìm **tương đối thư mục chạy lệnh** -> file bị bỏ qua **im lặng**, app chạy bằng mặc định |
+
+Dọn thêm cho toàn bộ `docs/`, không riêng bài mở đầu: **10 đoạn `main.py`** gọi `run()` ngoài
+`if __name__` (nay 0) · **60 đường dẫn module** thiếu tiền tố gói ở 22 file · **10 chỗ** gọi
+`config/routing.py` trong khi khuôn hiện hành là `config/web.py`.
+
+⭐ **Bộ test tự kiểm tài liệu, và tôi không biết cho tới lúc con số nhảy.** Tổng test tăng
+`2612 -> 2614 -> 2616` mà tôi không thêm test nào, hoá ra
+`tests_temp/cli_docs/test_documented_commands.py` **sinh một test cho mỗi lệnh `xime ...`
+xuất hiện trong khối code của tài liệu**. Thêm `xime init` và `xime config --print` vào bài là
+thêm hai test - và chúng **pass**, tức lệnh viết vào tài liệu là lệnh có thật.
+
+⭐ Kèm một lỗi tìm được nhờ phép quét tiếng Việt trong bản EN: `_HUONG_DAN` ở
+`ws/_availability.py` in `(hoặc: pip install ...)` **giữa một câu tiếng Anh**. Đó là chuỗi
+người dùng thấy, không phải chú thích. Tài liệu chỉ trích lại đúng nó, nên **lỗi ở code**.
+
+#### Bối cảnh: ba bố cục đã từng cùng tồn tại
+
+| Nguồn | Bố cục | Chạy được? |
+|---|---|---|
+| `xime init` | `main.py` + `config/` ở gốc, code trong package tên dự án | ✅ |
+| `getting-started.md` | mọi thứ trong `app/`, `resources/` ở gốc | ✅ **sau khi vá** |
+| 31 codebase Xime | như trên | ✅ |
+| **Các bài docs khác** (routing, websocket, modbus, opcua, mqtt, testing, starters, configuration, core-concepts) | `scan("application.usecase")`, `configure_controllers("api.rest")` - **không tiền tố**, tức khớp `xime init` chứ không khớp getting-started | - |
+
+**~52 dòng ở 22 file** đang theo bố cục của `xime init`. Tôi **KHÔNG tự sửa** chúng: chúng là
+đoạn minh hoạ rời không khai cây thư mục, nên không sai - nhưng người đọc đi từ
+getting-started sang routing.md sẽ thấy hai kiểu đường dẫn. Thống nhất về một bố cục là
+**quyết định cấu trúc**, thuộc chủ dự án.
+
+#### ⭐⭐ Bối cảnh: BaseModel
+
+
 
 Đo lại trên bản trước khi vá: `docs/{vn,en}/getting-started.md` khai
 `class UserResponse(BaseModel)` trong `api/rest/user_controller.py` rồi

@@ -10,6 +10,72 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Báo cáo từ repo **ngoài**, đọc và xử lý 2026-08-22 và 2026-08-23. Nguyên văn:
 [`.claude/docs/bao-cao-van-de-tu-repo-ngoai/`](.claude/docs/bao-cao-van-de-tu-repo-ngoai/README.md).
 
+### Sửa - tài liệu hướng dẫn nay khớp với bản hiện tại, không còn khuôn của bản cũ
+
+Bài `getting-started` viết cho một bản cũ và **không chạy được**: rút nguyên văn 9 khối code
+của nó rồi chạy như bài dặn thì chết ở `ModuleNotFoundError: No module named 'application'`.
+Đã viết lại cả hai ngôn ngữ theo đúng bố cục mà **`xime init` sinh ra**, rồi rút code từ bản
+mới ra chạy lại để nghiệm thu: `GET /users/1` trả `{"id":1,"name":"Alice",...}`, `/docs` trả
+200.
+
+Ba thứ bài cũ dạy sai so với bản hiện tại:
+
+- **Khuôn `main.py`.** Bài cũ đặt `app.use(...)` **trong** `if __name__`. Ngày chạy nhiều
+  tiến trình, con **chạy lại chính file đó** và ở đó `__name__` là `__mp_main__`, nên khối
+  `if` không kích hoạt và con lên với **không adapter nào, DI rỗng**. Nay `Application()`,
+  `add_config()`, `use()` nằm ở mức module, chỉ `run()` ở trong khối.
+- **`add_config(config)` và gói `config/__init__.py`** hoàn toàn vắng mặt trong bài cũ, dù cơ
+  chế tự dò của bản cũ **hỏng ở tiến trình con** (nó tìm qua `__main__.__spec__.parent`) rồi
+  im lặng rơi xuống một DI rỗng.
+- **Vị trí `resources/`.** Bài cũ để `app/resources/application.yml`, mà framework tìm
+  `resources/application.yml` **tương đối với thư mục chạy lệnh**. Để nhầm thì file bị **bỏ
+  qua không một lời nào** - app vẫn khởi động, chạy bằng giá trị mặc định. Đo được vì đổi cổng
+  trong file mà tiến trình vẫn bám cổng cũ.
+
+Kèm dọn cho **toàn bộ** tài liệu, không riêng bài mở đầu:
+
+- **10 đoạn `main.py`** ở `mqtt`, `modbus`, `socket-adapter`, `grpc-codefirst`,
+  `core-concepts` gọi `app.run()` **ngoài** `if __name__` và thiếu `add_config`. Nay 0 đoạn
+  còn như vậy trong toàn bộ `docs/`.
+- **60 đường dẫn module** thiếu tiền tố gói nghiệp vụ, ở 22 file.
+- **10 chỗ** còn gọi file cấu hình routing là `config/routing.py`; khuôn hiện hành là
+  `config/web.py`, nay thống nhất.
+- Bài mở đầu trước nay **chưa nhắc `xime init` một lần nào**, nên người mới dựng tay 9 file
+  trong khi một lệnh là xong.
+
+📌 `xime init` thì **vẫn chạy tốt** và luôn đúng - đã kiểm: sinh dự án, `python main.py`,
+`GET /ping` trả `{"status":"ok"}`, `/docs` trả 200. Lỗi chỉ nằm ở bài viết tay.
+
+### Sửa - một cảnh báo tiếng Anh của framework lẫn một chữ tiếng Việt
+
+`_HUONG_DAN` trong `xime/adapters/web/ws/_availability.py` in
+`(hoặc: pip install "uvicorn[standard]")` giữa một câu tiếng Anh. Đây là chuỗi **người dùng
+thấy**, không phải chú thích, và mọi dòng log khác của framework đều tiếng Anh. Đổi thành
+`(or: ...)`.
+
+### Sửa - bài hướng dẫn `getting-started` không chạy được, nay chạy được đầu-cuối
+
+Rút nguyên văn 9 khối code của bài rồi chạy `python -m app.main` như bài dặn: nó chết ngay ở
+`ModuleNotFoundError: No module named 'application'`. Hai lớp lỗi, sửa xong thì bài chạy thật
+- `GET /users/1` trả `{"id":1,"name":"Alice",...}` và `/docs` trả 200.
+
+- **12 đường dẫn module thiếu tiền tố `app.`** ở mỗi bản ngôn ngữ. Bài khai bố cục
+  `app/domain/user.py` và lệnh chạy `python -m app.main` từ gốc dự án, nhưng các import lại
+  viết `from domain.user import User`, và `dependency.scan("application.usecase")`,
+  `configure_controllers("api.rest")` cũng thiếu tiền tố. Hỏng **ồn ào**, chết ngay.
+- ⚠ **`application.yml` bị đặt sai chỗ, và chỗ này hỏng IM LẶNG.** Bài để nó ở
+  `app/resources/`, nhưng framework tìm `resources/application.yml` theo đường dẫn **tương
+  đối với thư mục chạy lệnh**. Để nhầm thì file **bị bỏ qua không một lời nào**: app vẫn khởi
+  động, chạy bằng giá trị mặc định của framework. Đo được vì đổi cổng trong file mà tiến
+  trình vẫn bám cổng cũ.
+- Bài nay có mục trỏ sang **`xime init`**, thứ trước đây nó không nhắc một lần nào - người
+  mới dựng tay 9 file trong khi một lệnh là xong. Kèm cảnh báo rằng `xime init` sinh ra một
+  **bố cục khác** (`main.py` và `config/` ở gốc, code trong package mang tên dự án), nên đừng
+  trộn hai bố cục.
+
+📌 `xime init` thì **chạy tốt**, đã kiểm: sinh dự án, `python main.py`, `GET /ping` trả
+`{"status":"ok"}`, `/docs` trả 200. Lỗi chỉ nằm ở bài hướng dẫn viết tay.
+
 ### Sửa - Pydantic `BaseModel` không còn làm chết startup khi để trong package được quét
 
 Đặt một DTO viết bằng `BaseModel` cạnh controller là đủ để `dependency.scan()` nhận nó

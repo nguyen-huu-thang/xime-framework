@@ -81,21 +81,21 @@ async def get_user(self, user_id: int) -> UserResponse:
 
 ## Controller Registration
 
-Declare controller packages in `config/routing.py`:
+Declare controller packages in `config/web.py`:
 
 ```python
-# config/routing.py
+# config/web.py
 from xime.adapters.web.routing import configure_controllers
 
-configure_controllers("api.rest")
-configure_controllers("api.internal")  # multiple packages supported
+configure_controllers("my_service.api.rest")
+configure_controllers("my_service.api.internal")  # multiple packages supported
 ```
 
 Controllers must also be in the DI scan list:
 
 ```python
 # config/dependency.py
-dependency.scan("api.rest", "api.internal", ...)
+dependency.scan("my_service.api.rest", "my_service.api.internal", ...)
 ```
 
 **Note:** the requirement to list the package in both places is a known limitation. A future version may allow `configure_controllers()` to automatically add to the DI scan.

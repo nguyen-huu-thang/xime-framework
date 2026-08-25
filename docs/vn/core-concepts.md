@@ -56,10 +56,10 @@ Bạn khai báo package nào cần quét trong `config/dependency.py`:
 
 ```python
 dependency.scan(
-    "application.usecase",
-    "application.service",
-    "infrastructure.repository",
-    "infrastructure.client",
+    "my_service.application.usecase",
+    "my_service.application.service",
+    "my_service.infrastructure.repository",
+    "my_service.infrastructure.client",
 )
 ```
 
@@ -626,16 +626,21 @@ Một tiến trình XIME có thể chạy nhiều `WebAdapter` và `GrpcAdapter`
 
 ```python
 # app/main.py
-from xime import Application
-from xime.adapters.web import WebAdapter
 from xime.adapters.grpc import GrpcAdapter
+from xime.adapters.web import WebAdapter
+from xime.core.bootstrap import Application
+
+import config
 
 app = Application()
+app.add_config(config)
 app.use(WebAdapter())               # server_id="default"
 app.use(WebAdapter("admin"))        # server_id="admin"
 app.use(GrpcAdapter())
 app.use(GrpcAdapter("internal"))
-app.run()
+
+if __name__ == "__main__":
+    app.run()
 ```
 
 Địa chỉ nằm trong `application.yml`, không trong code:

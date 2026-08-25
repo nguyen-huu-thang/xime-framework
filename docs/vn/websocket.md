@@ -44,7 +44,7 @@ WARNING | xime.web.ws | 3 WebSocket route(s) registered but uvicorn has no
                         WebSocket implementation available (neither
                         'websockets' nor 'wsproto'), so every handshake on them
                         will fail with nothing else logged. Install one with:
-                        pip install "xime[web]"   (hoặc: pip install
+                        pip install "xime[web]"   (or: pip install
                         "uvicorn[standard]")
 ```
 
@@ -84,10 +84,10 @@ Lớp này được DI container dựng như mọi controller, nên gói của n
 
 ```python
 # config/dependency.py
-dependency.scan("api.ws")
+dependency.scan("my_service.api.ws")
 
-# config/routing.py
-configure_controllers("api.ws")
+# config/web.py
+configure_controllers("my_service.api.ws")
 ```
 
 Bốn method để override, không bắt buộc cái nào:

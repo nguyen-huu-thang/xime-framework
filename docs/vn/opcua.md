@@ -98,10 +98,10 @@ class TankMonitor:
 ```python
 # config/opcua.py
 from xime.adapters.opcua import configure_opcua_nodes
-configure_opcua_nodes("api.opcua")
+configure_opcua_nodes("my_service.api.opcua")
 
 # config/dependency.py
-dependency.scan("api.opcua")
+dependency.scan("my_service.api.opcua")
 ```
 
 Những điều cần biết:
@@ -203,7 +203,7 @@ opcua:
 ```python
 from xime.adapters.opcua import OpcuaServerAdapter, configure_opcua_server
 
-configure_opcua_server("api.opcua")
+configure_opcua_server("my_service.api.opcua")
 app.use(OpcuaServerAdapter())
 ```
 
