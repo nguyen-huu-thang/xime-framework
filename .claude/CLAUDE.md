@@ -146,7 +146,8 @@ một nhãn kiểu *"kỳ vọng 2534"* mang hai giá trị - đúng
 | C8 + C9 | 2564 | 2540 |
 | `public_paths` tiền tố + dòng log xác thực | 2595 | 2571 |
 | sửa chữ dòng log (hậu kiểm 2026-08-23) | 2602 | 2578 |
-| **con mồ côi + log "ai giết"** | **2617** | **2593** |
+| con mồ côi + log "ai giết" | 2617 | 2593 |
+| **`BaseModel` ra khỏi DI + `exclude_segments`** | **2636** | **2612** |
 
 📌 Con số này lỗi thời mỗi lần thêm test, đúng như mọi con số khác trong file. Phép
 kiểm không lỗi thời vẫn là: **chạy trước, chạy sau, so trên CÙNG một máy.**
@@ -581,6 +582,122 @@ tức N lời gọi mạng cho một thứ cả cụm dùng chung - đúng thứ
 📌 Tài liệu người dùng: `docs/{vn,en}/multi-process.md` mục *"Cha chết thì con đi theo -
 và vì sao bạn không tìm thấy con mồ côi"* (kèm hai lệnh dò đúng cho ai đang gỡ cụm chạy
 bản cũ, và bảng mã thoát Windows).
+
+### Đã code 2026-08-25, chờ commit - `BaseModel` ra khỏi DI và `exclude_segments`
+
+Không đến từ báo cáo nào. Chủ dự án đưa `nha-tro/backend/framework-notes/ghi-chu-framework.md`
+(viết 2026-07-04) ra rà lại xem mục nào framework đã vá mà ghi chú còn ghi. Rà ra **5 mục,
+3 đã hết đúng**, và một mục hoá ra là lỗi thật chưa ai vá.
+
+| # | Việc | Trạng thái |
+|---|---|---|
+| **B** | `BaseModel` không còn vào DI - `type_utils.is_pydantic_model()` + `scanner._is_eligible` | ✅ **XONG** |
+| **A** | `dependency.exclude_segments(...)` - app ghi đè danh sách package bị loại | ✅ **XONG** |
+| **C-E** | Tài liệu: vì sao `@dataclass` không bị loại · `configure()` · log mức module | ✅ **XONG** |
+| - | Đính chính 13 file `ghi-chu-framework.md` bên app | ✅ **XONG** |
+
+**Đo:** **2612 passed / 24 skipped / 0 failed = tổng 2636** (`2617 + 19` test mới) ·
+`ruff check xime/` sạch · `mypy` **49 lỗi trước và sau, không thêm cái nào**.
+
+#### ⭐⭐ Hai hàm cùng file trả lời ngược nhau về cùng một class
+
+`get_init_parameters()` lọc `VAR_KEYWORD` nên với một `BaseModel` nó trả `[]` - *"không có
+tham số nào, singleton không đối số, hợp lệ"* - và cho class đi qua cửa.
+`resolve_constructor_hints()` cách đó 40 dòng **không lọc**, nên nó đọc `**data: Any` thành
+`{'data': Any}`. **Framework nhận class đó VÌ nó không có tham số nào, rồi chết vì đòi một
+tham số.** `config_loader.py:75` cũng lọc, tức bộ lọc đúng có mặt ở **hai trong ba** chỗ
+cần nó - cùng hình dạng **C6** (một luật, nhiều bản chép tay, hụt đúng một chỗ).
+
+#### ⭐⭐ Bài getting-started KHÔNG CHẠY ĐƯỢC, và không ai biết
+
+Đo lại trên bản trước khi vá: `docs/{vn,en}/getting-started.md` khai
+`class UserResponse(BaseModel)` trong `api/rest/user_controller.py` rồi
+`dependency.scan("api.rest")` - dựng đúng hình đó thì startup chết với
+`UnregisteredDependencyException: Any`.
+
+> **Bài "hello world" của framework hỏng, và không ai phát hiện** vì mọi app thật đều
+> sớm học được cách xếp DTO vào `dto/` rồi không bao giờ quay lại đọc bài hướng dẫn.
+
+Đây là bằng chứng mạnh nhất rằng nó là **lỗi**, không phải lựa chọn thiết kế: chính tài
+liệu chính thức bảo người ta làm một việc mà framework từ chối.
+
+#### ⛔ Bản vá đầu tôi đề xuất SAI, và mô phỏng đầu-cuối là thứ bắt được
+
+Đề xuất đầu là lọc `VAR_KEYWORD` trong `resolve_constructor_hints`. Chạy thử trọn đường thì
+nó chỉ đổi `UnregisteredDependencyException: Any` thành `ValidationError: field required` -
+vì `build()` chỉ **kiểm**, còn dựng thật xảy ra ở `orchestrator.py:126` (`get_all_in_order()`).
+Bỏ `**data` khỏi danh sách dependency chỉ khiến container yên tâm gọi `Model()` không đối số.
+
+⭐ Lỗi mới **tệ hơn lỗi cũ**: nó không còn một chữ nào dính tới DI, nên người đọc đi tìm dữ
+liệu sai thay vì tìm class đặt nhầm chỗ. Đúng nghĩa thứ ba của *"không test nào đỏ"* -
+**bản vá không làm việc mà lời giải thích của nó nói**.
+
+#### ⛔ `@dataclass` KHÔNG bị loại - chốt, và lý do đã vào tài liệu
+
+Framework **phân biệt được** (`is_dataclass()`, kèm bẫy: nó trả `True` cho class thường
+**kế thừa** từ dataclass, phải hỏi `"__dataclass_fields__" in cls.__dict__`). Cố ý không dùng:
+
+- `@dataclass class PhongService: repo: PhongRepository` sinh ra `__init__(self, repo: ...)` -
+  **chính xác** là constructor injection. Ranh giới của DI là *dựng được hay không*, không
+  phải *người ta định dùng làm gì*.
+- Loại nó hỏng **im lặng**: service viết bằng dataclass biến mất khỏi DI không một lời nào.
+  Hôm nay đặt nhầm chỗ thì **nổ lúc khởi động kèm tên class**.
+- Đo AST trên 31 codebase: **197 `@dataclass` trong vùng được quét, 0 cái hình dạng bean**.
+  ⚠ Đó là bằng chứng về **thói quen của Xime**, không phải về **khả năng của Python** - và
+  framework phải đúng cho người ngoài.
+
+#### ⭐ Đối chứng 4 bắt được một lỗ hổng test, lần thứ ba trong một tháng
+
+Bản đầu của lớp `TestOrchestratorChuyenTiepDungHaiTrangThai` **chép lại** nhánh
+`if ... is not None` rồi kiểm bản chép. Xoá nhánh thật trong `orchestrator.py` thì **19/19
+vẫn xanh**. Đã sửa thành chạy `StartupOrchestrator` thật với package thật trên đĩa; nay xoá
+nhánh ra là **2 đỏ**.
+
+Bốn đối chứng, đều đỏ đúng chỗ: gỡ lọc `BaseModel` → **3 đỏ** · cắt dây container→scanner →
+**2 đỏ** · gộp `None` với `()` → **2 đỏ** · xoá nhánh orchestrator → **2 đỏ**.
+
+#### `exclude_segments`: mối nối đã có sẵn, chưa ai truyền một lần nào
+
+`PackageScanner.__init__` nhận `excluded_segments` từ lâu, nhưng `build()` gọi
+`PackageScanner()` trắng và không chỗ nào trong repo - kể cả `tests_temp/` - truyền tham số
+đó. **Mã chết.** Bản này chỉ nối nó ra tới `dependency`, không đổi hành vi mặc định của app nào.
+
+⚠ **`None` (chưa khai) phải giữ khác `()` (khai rỗng).** Gộp lại thì mọi app trên đời bỗng
+quét cả `domain/` mà không có gì báo. Vì vậy orchestrator chuyển tiếp **có điều kiện** - đừng
+"dọn cho gọn" thành lời gọi vô điều kiện.
+
+⚠ Đây là **API công khai mới**, mà `0.9` sang Beta nơi API coi như đã chốt → **phải nằm trong
+`0.8.x`**, không lùi được.
+
+#### Ba mục của ghi chú `nha-tro` hoá ra đã hết đúng từ lâu
+
+| Ghi chú nói | Sự thật |
+|---|---|
+| param có default kiểu nguyên thủy vẫn fail | ✅ vá ở `0.7.0`. ⛔ Cách né họ ghi (*bỏ annotation*) nay **phản tác dụng** - class thiếu type hint bị scanner bỏ qua hoàn toàn |
+| thiếu `register_instance` / `register_factory` | ⚠ `dependency.configure()` làm đủ, **có từ 2026-06-03** - trước ghi chú một tháng |
+| mọi truy vấn kể cả ĐỌC phải bọc transaction | ✅ hết đúng từ `0.6.3` (`ReadOnlyManager`), và chính repo đó đã dùng ở nhiều chỗ |
+
+⭐ **Phát hiện phụ, và nó giải thích cả ba:** `dependency.configure()` **chưa từng nằm trong
+tài liệu người dùng, một dòng nào** - chỉ có ở `rules/coding.md` nội bộ. Nay có mục riêng ở
+`docs/{vn,en}/core-concepts.md`.
+
+#### Log ở mức module: không phải "bị nuốt", mà mất một nửa
+
+| Mức gọi lúc import | Kết quả |
+|---|---|
+| `DEBUG` / `INFO` | **mất hẳn** |
+| `WARNING` trở lên | **hiện, nhưng thô** - qua `logging.lastResort`, không mức, không mốc giờ, không theo `logging.format` |
+
+⭐ Người viết thấy cảnh báo của mình **có hiện** nên kết luận logging đang chạy, rồi
+`logger.info` cùng file thì mất và họ đi tìm lý do ở chỗ khác. ⛔ **Không cấu hình logging
+sớm hơn**: mức và định dạng đọc từ `application.yml` chưa nạp lúc đó, và nó hợp thức hoá đúng
+thứ `rules/module-level-code.md` đã cấm.
+
+#### 13 bản chép, không phải 3
+
+Chủ dự án nhắc 3 repo; đo ra **13 file `ghi-chu-framework.md` giống hệt nhau** (cùng md5).
+Tất cả nay mang khối **⛔ ĐÍNH CHÍNH - phiên `xime framework` ghi 2026-08-25** ở đầu, thân
+file giữ nguyên văn vì mỗi mục đều đúng vào lúc viết.
 
 ### Đã code 2026-08-22, chờ commit
 

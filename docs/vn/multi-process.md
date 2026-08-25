@@ -102,6 +102,46 @@ nằm ở file cấu hình, không nằm ở file có lỗi.**
 Câu để tự kiểm: *nếu dòng này chạy bốn lần thay vì một, có gì hỏng hoặc lãng phí
 không?*
 
+### ⚠ Ghi log ở mức module: một nửa biến mất, nửa còn lại ra thô
+
+Framework cấu hình logging **bên trong `run()`**, vì mức log và định dạng đọc từ
+`application.yml` mà runtime config chưa nạp trước đó. Còn `config/web.py`,
+`config/jwt.py`... được import ở **đầu `main.py`**, tức trước `run()`.
+
+Nên `logger` gọi lúc import **không** đơn giản là bị nuốt - nó hỏng theo hai kiểu
+khác nhau, và đó mới là chỗ đắt:
+
+| Mức gọi lúc import | Kết quả |
+|---|---|
+| `DEBUG` / `INFO` | **mất hẳn**, không dấu vết |
+| `WARNING` trở lên | **hiện, nhưng thô** - lọt qua `logging.lastResort`, không mức, không mốc giờ, không theo `logging.format` của bạn |
+
+```python
+# config/jwt.py - chay luc import, TRUOC khi framework cau hinh logging
+_log.info("lay khoa tu Trust")      # ⛔ mat han
+_log.warning("khong lay duoc khoa") # ⚠ hien, nhung khong theo dinh dang nao
+```
+
+⭐ **Vì sao nó lừa người đọc:** bạn thấy cảnh báo của mình **có hiện**, nên kết
+luận logging đang chạy - rồi `logger.info` cùng file thì mất, và bạn đi tìm lý do
+ở chỗ khác. Nửa bằng chứng, và nửa đó dẫn sai hướng.
+
+**Không có bản vá cho chuyện này, vì không nên có.** Cấu hình logging sớm hơn
+nghĩa là cấu hình bằng một bộ giá trị đoán rồi cấu hình lại, và nó hợp thức hoá
+đúng thứ mục này vừa cấm: ghi log **là làm**, và nó chạy `N+1` lần.
+
+**Ba chỗ đúng để đặt câu log đó:**
+
+| Chỗ | Chạy khi |
+|---|---|
+| `post_construct()` | mỗi tiến trình, sau khi DI và logging đã lên |
+| `run_once()` | **một lần cho cả cụm** - đúng cho câu log về trạng thái chung |
+| adapter tự khai | ví dụ dòng `web ...: JWT middleware active (...)` mà framework tự in ở `lifespan` |
+
+⚠ Cần một dòng ra được **trước** khi framework lên thì tự gọi `logging.basicConfig`
+ở đầu `main.py` - nhưng nhớ rằng nó chạy `N+1` lần và framework sẽ cấu hình đè lên
+sau đó.
+
 ### Phép dò 1 - `share_load()` đo thời gian
 
 `share_load()` là điểm đầu tiên framework giành lại quyền điều khiển sau khi

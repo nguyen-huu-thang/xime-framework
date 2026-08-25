@@ -69,6 +69,98 @@ Packages that are **excluded** from DI (classes here are never registered):
 
 These are excluded because they are data objects, not services - injecting them makes no sense.
 
+### Overriding the exclusion list
+
+Those six segments are a **default, not a law**. They carry DDD vocabulary (`vo` means
+*value object*), so a project that names things differently - or one that genuinely keeps
+services under a package called `domain` - can redeclare them:
+
+```python
+dependency.exclude_segments("domain", "dto", "entity", "legacy")   # replaces the default
+dependency.exclude_segments()                                       # scan EVERYTHING
+```
+
+| What you do | What the framework does |
+|---|---|
+| **never call it** | uses the six defaults |
+| call it with names | **replaces** the default, does not extend it |
+| **call it empty** | excludes nothing at all |
+
+⚠ *Not calling it* and *calling it empty* are **two different things**. To scan everything
+you must call it empty explicitly; deleting the call returns you to the defaults.
+
+The filter matches **individual segments of the module path**, so `app.domain.model` is
+excluded because one segment is `domain`. It only runs while walking **sub-modules**: point
+`scan()` straight at `app.domain` and classes declared in that package's own `__init__.py`
+**are still registered** - naming it explicitly is taken as intent.
+
+### ⛔ `@dataclass` is NOT excluded, and that is deliberate
+
+A common question: a DTO written as a `@dataclass` left in a scanned package kills startup,
+so why doesn't the framework simply skip every `@dataclass`?
+
+**Because `@dataclass` is a legitimate way to write a service**, not a marker meaning "this
+is data":
+
+```python
+@dataclass
+class RoomService:
+    repo: RoomRepository        # injected through the field - this works
+```
+
+`@dataclass` generates `__init__(self, repo: RoomRepository)`. That is **exactly**
+constructor injection, only written differently.
+
+The framework **can** tell them apart (`dataclasses.is_dataclass()`) but deliberately does
+not, for two reasons:
+
+1. **DI's boundary is *can it be built*, not *what did the author mean*.** `Protocol`,
+   `ABC` and `BaseModel` are excluded because DI **cannot** build them. A `@dataclass` can
+   be built, so excluding it would trade a structural rule for a guess about intent -
+   something a framework cannot read.
+2. **Excluding it would fail SILENTLY, the opposite of today.** Today a misplaced DTO
+   **fails at startup with the class name in the message** - annoying, but visible
+   immediately and fixed in a minute. If dataclasses were excluded, a service written as a
+   dataclass would **vanish from DI without a word**, and the error would surface later,
+   somewhere else, as *"No Implementation Found"* for a class sitting right in front of you.
+
+📌 Measured across 31 Xime codebases (2026-08-25): **197 `@dataclass` declarations inside
+scanned packages, 0 of them bean-shaped**. So in practice it is always data - but that is
+evidence about *habit*, not about *capability*, and the framework must stay correct for
+users outside Xime.
+
+**Three correct ways to handle it, best first:**
+
+| Approach | When |
+|---|---|
+| Put it in `dto/`, `domain/`, ... | the default - cheapest, nothing to declare |
+| `__all__` in `__init__.py` listing only DI-managed classes | mixed package you do not want to split |
+| `dependency.exclude_segments(...)` with your own segment | a whole layer is data, e.g. `port` |
+
+### Pydantic `BaseModel` IS excluded, for a completely different reason
+
+`BaseModel` never enters DI, alongside `Protocol` and `ABC` - **even inside a scanned
+package, even when every field has a default.**
+
+Not because "it is usually data", but because it **cannot** receive a dependency:
+
+```python
+def __init__(self, **data: Any) -> None      # BaseModel's real signature
+```
+
+Constructor injection matches dependencies **by parameter name**. `**data` has no parameter
+name to match, so there is nowhere to plug a wire in - regardless of what the author wants.
+
+If you need a configuration value object as a singleton, use `dependency.configure()`:
+
+```python
+class DomainConfig:
+    def policy(self) -> SubscriptionPolicy:
+        return SubscriptionPolicy(trial_days=14)
+
+dependency.configure(DomainConfig)
+```
+
 ---
 
 ## 3. Class Registration Rules
@@ -76,10 +168,47 @@ These are excluded because they are data objects, not services - injecting them 
 A class is registered into the DI container only when **all** of these are true:
 
 1. It is not an `ABC` subclass or a `Protocol` subclass
-2. All `__init__` parameters have type hints
-3. Its package is in the scan list and not in the exclude list
+2. **It is not a Pydantic `BaseModel`** (see section 2 - it has nowhere to receive a dependency)
+3. All `__init__` parameters have type hints
+4. Its package is in the scan list and not in the exclude list
 
 If a class has a parameter without a type hint, it is silently skipped - not an error. This lets third-party classes live in scanned packages without causing problems.
+
+### Three ways into DI, not just `scan()`
+
+`scan()` is the common path but not the only one, and the other two solve exactly the cases
+`scan()` cannot:
+
+| Path | Use when | What the framework does |
+|---|---|---|
+| `dependency.scan("...")` | the class lives in a conventional package | scans and filters by the rules above |
+| `dependency.register(A, B)` | the class lives in an **excluded** package but still needs to be a singleton (domain factory, domain service) | **skips the four rules above** - an explicit declaration is honoured; normal constructor injection still applies, so every `__init__` parameter needs a type hint |
+| `dependency.configure(Cls)` | you need **custom construction logic**: reading config, building from a secret, calling a third-party factory | calls every public method that has a return type; each becomes **one singleton of that type** |
+
+`configure()` is the answer to *"I have an object I want to build myself and then put into
+DI"*:
+
+```python
+class DomainConfig:
+    # every public method with a return type -> one singleton
+    def policy(self) -> SubscriptionPolicy:
+        return SubscriptionPolicy(trial_days=14)          # build it however you like
+
+    def encryption(self, cfg: AppConfig) -> KeyEncryptionService:
+        return AesKeyEncryptionService(cfg.secret_key)     # parameters are injected
+
+dependency.configure(DomainConfig)
+```
+
+Three constraints on a config class:
+
+- **No constructor parameters** - it must be stateless.
+- Method parameters (other than `self`) **are injected by the container**, so they need type hints.
+- Each method is called **exactly once**; the result is a singleton like any other class.
+
+⚠ The word *"factory"* is misleading here: this is a **factory method that builds a
+singleton**, not a mechanism that produces a new instance per call. Xime has **only one
+scope, singleton** - see section 5.
 
 ---
 

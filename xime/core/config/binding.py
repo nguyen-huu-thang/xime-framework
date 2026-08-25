@@ -20,6 +20,12 @@ class BindingConfig:
 
     def __init__(self) -> None:
         self._packages: list[str] = []
+        # None means "never declared" -> the scanner keeps its own defaults.
+        # An EMPTY tuple means "declared, exclude nothing" -> scan everything.
+        # ⚠ Hai thứ đó KHÁC NHAU và phải giữ khác nhau: gộp chúng vào một list
+        # rỗng là một giá trị mang hai nghĩa, và app khai rỗng sẽ âm thầm nhận
+        # mặc định. Xem .claude/rules/03-mot-gia-tri-mot-nghia.md.
+        self._excluded_segments: tuple[str, ...] | None = None
         self._bindings: dict[type, type | tuple[type, ...]] = {}
         self._explicit_classes: list[type] = []
         self._config_classes: list[type] = []
@@ -28,6 +34,31 @@ class BindingConfig:
     def scan(self, *package_names: str) -> None:
         """Register one or more package paths to scan for DI candidates."""
         self._packages.extend(package_names)
+
+    def exclude_segments(self, *segment_names: str) -> None:
+        """
+        Replace the scanner's default list of excluded path segments.
+
+        By default the scanner skips any module whose dotted path contains one
+        of: domain, dto, entity, vo, constant, exception. Those are a DEFAULT,
+        not a law - they carry DDD vocabulary (`vo` is *value object*), so a
+        project naming things differently, or one that genuinely keeps services
+        under a package called `domain`, has to be able to say so.
+
+            dependency.exclude_segments("domain", "dto", "legacy")  # replaces
+            dependency.exclude_segments()                           # scan ALL
+
+        Replaces, never extends: one call states the whole list.
+
+        ⚠ Không gọi hàm này và gọi nó RỖNG là hai chuyện khác nhau - không gọi
+        thì dùng sáu đoạn mặc định, gọi rỗng thì không loại đoạn nào cả. Muốn
+        quét tất thì phải gọi rỗng tường minh; xoá lời gọi đi là quay về mặc
+        định.
+
+        Calling it more than once keeps the LAST call, like any other explicit
+        declaration - it is a statement of the final list, not an accumulator.
+        """
+        self._excluded_segments = tuple(segment_names)
 
     def bind(self, bindings: dict[type, type | tuple[type, ...]]) -> None:
         """
@@ -117,6 +148,15 @@ class BindingConfig:
     def packages(self) -> tuple[str, ...]:
         """Immutable snapshot of registered scan packages."""
         return tuple(self._packages)
+
+    @property
+    def excluded_segments(self) -> tuple[str, ...] | None:
+        """
+        Declared exclusion list, or None when the app never declared one.
+
+        None and an empty tuple are DIFFERENT answers - see exclude_segments().
+        """
+        return self._excluded_segments
 
     @property
     def bindings(self) -> dict[type, type | tuple[type, ...]]:

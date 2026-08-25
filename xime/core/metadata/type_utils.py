@@ -54,6 +54,39 @@ def is_protocol(cls: type) -> bool:
     return bool(getattr(cls, "_is_protocol", False))
 
 
+def is_pydantic_model(cls: type) -> bool:
+    """
+    Return True if cls is a Pydantic model. Pydantic models can never receive a
+    dependency, so they must not be registered in DI.
+
+    The reason is structural, not a convention: BaseModel's constructor is
+    ``def __init__(self, **data: Any)``. Constructor injection matches
+    dependencies BY PARAMETER NAME, and ``**data`` has no parameter name to
+    match - there is nowhere to plug a wire in, whatever the author intended.
+
+    Left out of DI, a model class simply stays a plain data type, which is what
+    it already was. Left IN, it reaches the resolver as a class demanding a
+    dependency of type ``Any`` that nothing can ever satisfy.
+
+    Lý do là CẤU TRÚC chứ không phải quy ước: `**data` không có tên tham số nào
+    để khớp, nên không có chỗ cắm dây. Cùng nhóm với Protocol và ABC - thứ DI
+    không thể dựng - chứ không phải nhóm "thường là dữ liệu".
+
+    ⚠ `@dataclass` cố ý KHÔNG nằm ở đây. Nó SINH RA một `__init__` có tham số
+    mang type hint, tức nó là một cách viết service hợp lệ, và DI dựng được nó.
+    Loại nó sẽ là đoán ý định thay vì đọc cấu trúc, và sẽ hỏng im lặng: một
+    service viết bằng dataclass biến mất khỏi DI mà không có lời nào.
+    Xem docs/{vn,en}/core-concepts.md mục 2.
+    """
+    # pydantic is a hard dependency of xime, but stay defensive: this must never
+    # be the thing that breaks a startup.
+    try:
+        from pydantic import BaseModel
+    except ImportError:  # pragma: no cover
+        return False
+    return isinstance(cls, type) and issubclass(cls, BaseModel)
+
+
 def is_abstract(cls: type) -> bool:
     """
     Return True if cls has unimplemented abstract methods (ABC-style).

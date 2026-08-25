@@ -38,6 +38,9 @@ class XimeContainer:
 
     def __init__(self) -> None:
         self._packages: list[str] = []
+        # None = never declared -> PackageScanner keeps its own defaults.
+        # Empty tuple = declared, exclude nothing. The two are NOT the same.
+        self._excluded_segments: tuple[str, ...] | None = None
         self._bindings: dict[type, type | tuple[type, ...]] = {}
         self._instances: dict[type, object] = {}
         self._explicit_classes: list[type] = []
@@ -55,6 +58,20 @@ class XimeContainer:
         """Register one or more package paths to scan for DI candidates."""
         self._guard_not_built("scan")
         self._packages.extend(package_names)
+        return self
+
+    def exclude_segments(self, *segment_names: str) -> "XimeContainer":
+        """
+        Replace the scanner's default list of excluded path segments.
+
+        Never called -> PackageScanner keeps its defaults (domain, dto, entity,
+        vo, constant, exception). Called with an EMPTY list -> nothing is
+        excluded and every scanned package is walked in full.
+
+        ⚠ Hai trạng thái đó phải giữ khác nhau, xem BindingConfig.exclude_segments().
+        """
+        self._guard_not_built("exclude_segments")
+        self._excluded_segments = tuple(segment_names)
         return self
 
     def bind(self, bindings: dict[type, type | tuple[type, ...]]) -> "XimeContainer":
@@ -162,7 +179,14 @@ class XimeContainer:
         resolver_bindings, validation_bindings = self._prepare_dynamic_binding()
 
         # 1. Scan + merge explicit classes (dedup, preserve order)
-        scanned = PackageScanner().scan(*self._packages)
+        # `None` is passed straight through so PackageScanner applies its own
+        # defaults; an empty frozenset is a real instruction to exclude nothing.
+        scanner = PackageScanner(
+            frozenset(self._excluded_segments)
+            if self._excluded_segments is not None
+            else None
+        )
+        scanned = scanner.scan(*self._packages)
         all_classes = self._merge_unique(scanned, self._explicit_classes)
 
         # 2. Extract factory entries from config classes

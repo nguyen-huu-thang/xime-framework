@@ -74,6 +74,13 @@ class StartupOrchestrator:
             .bind(self._binding.bindings)
             .register(*self._binding.explicit_classes)
         )
+        # Only forwarded when the app actually declared one: `None` must reach
+        # the scanner as "use your defaults", not as "exclude nothing".
+        # ⚠ Đừng "dọn cho gọn" thành một lời gọi vô điều kiện - gọi với None hay
+        # với tuple rỗng là hai lệnh khác nhau, và nhầm chúng thì mọi app trên
+        # đời bỗng quét cả `domain/` mà không có gì báo.
+        if self._binding.excluded_segments is not None:
+            container.exclude_segments(*self._binding.excluded_segments)
         # Kho tham chiếu: arena là singleton dựng sẵn (nó mở vùng nhớ chung
         # trước khi container tồn tại), còn từng bảng là class thường - DI
         # dựng chúng và inject arena vào, đúng khuôn `Store(env)`.

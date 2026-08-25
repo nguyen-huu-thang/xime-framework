@@ -102,6 +102,48 @@ changed lives in the config file, not in the file that is now wrong.**
 The question to ask yourself: *if this line ran four times instead of once,
 would anything break or be wasted?*
 
+### ⚠ Logging at module level: half of it vanishes, the other half comes out raw
+
+The framework configures logging **inside `run()`**, because the level and format
+are read from `application.yml` and the runtime config is not loaded before that.
+Meanwhile `config/web.py`, `config/jwt.py` and friends are imported at the **top of
+`main.py`**, before `run()`.
+
+So a `logger` call made during import is **not** simply swallowed - it fails in two
+different ways, and that is the expensive part:
+
+| Level called during import | Result |
+|---|---|
+| `DEBUG` / `INFO` | **gone entirely**, no trace |
+| `WARNING` and above | **shown, but raw** - it escapes through `logging.lastResort`: no level, no timestamp, ignoring your `logging.format` |
+
+```python
+# config/jwt.py - runs at import time, BEFORE the framework configures logging
+_log.info("fetching keys from Trust")   # gone entirely
+_log.warning("could not fetch keys")    # shown, but in no configured format
+```
+
+⭐ **Why it misleads:** you see your warning appear, conclude that logging works,
+then your `logger.info` in the same file disappears and you go looking for the
+reason somewhere else. Half the evidence, and that half points the wrong way.
+
+**There is no fix for this, and there should not be.** Configuring logging earlier
+means configuring it from guessed values and then configuring it again, and it
+legitimises exactly what this section forbids: writing a log line **is doing work**,
+and it runs `N+1` times.
+
+**Three right places for that log line:**
+
+| Place | Runs |
+|---|---|
+| `post_construct()` | in every process, after DI and logging are up |
+| `run_once()` | **once for the whole cluster** - right for a line about shared state |
+| an adapter's own line | e.g. the `web ...: JWT middleware active (...)` line the framework prints at `lifespan` |
+
+⚠ If you truly need output **before** the framework starts, call
+`logging.basicConfig` yourself at the top of `main.py` - but remember it runs `N+1`
+times and the framework will reconfigure over it afterwards.
+
 ### Probe 1 - `share_load()` measures the time
 
 `share_load()` is the first point where the framework takes control back after

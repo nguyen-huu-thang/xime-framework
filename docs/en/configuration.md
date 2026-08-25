@@ -49,6 +49,12 @@ dependency.bind({
 })
 ```
 
+The scanner skips any module whose path contains `domain`, `dto`, `entity`, `vo`, `constant`
+or `exception`. That is a **default, not a law** - redeclare it with
+`dependency.exclude_segments(...)`, including calling it empty to exclude nothing. ⚠ Never
+calling it and calling it empty are two different things; see
+[core-concepts.md](core-concepts.md) section 2.
+
 The `dependency` variable name is the convention XIME looks for. You can also pass a `BindingConfig` directly to `Application`:
 
 ```python

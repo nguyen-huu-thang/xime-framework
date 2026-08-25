@@ -10,6 +10,74 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Báo cáo từ repo **ngoài**, đọc và xử lý 2026-08-22 và 2026-08-23. Nguyên văn:
 [`.claude/docs/bao-cao-van-de-tu-repo-ngoai/`](.claude/docs/bao-cao-van-de-tu-repo-ngoai/README.md).
 
+### Sửa - Pydantic `BaseModel` không còn làm chết startup khi để trong package được quét
+
+Đặt một DTO viết bằng `BaseModel` cạnh controller là đủ để `dependency.scan()` nhận nó
+làm ứng viên DI, rồi startup chết với:
+
+```text
+Unregistered Dependency
+  Class     : TaoPhongRequest
+  Dependency: Any
+  Hint      : add the package containing 'Any' to dependency.scan()
+```
+
+Câu gợi ý còn chỉ sai đường: `Any` không nằm trong package nào để mà thêm.
+
+⭐ **Chính bài hướng dẫn getting-started rơi vào đây.** Nó khai
+`class UserResponse(BaseModel)` trong `api/rest/user_controller.py` rồi
+`dependency.scan("api.rest")` - đo lại trên bản trước khi vá thì nó chết đúng câu trên.
+Tức bài "hello world" của framework **không chạy được**, và điều đó chưa ai phát hiện vì
+mọi app thật đều sớm học được cách xếp DTO vào `dto/`.
+
+Nguyên nhân là hai hàm cùng file, cách nhau 40 dòng, trả lời ngược nhau về **cùng một
+class**: `get_init_parameters()` lọc `VAR_KEYWORD` nên nó thấy *"không có tham số nào"*
+và cho class đi qua cửa; `resolve_constructor_hints()` không lọc nên nó đọc `**data: Any`
+thành một dependency tên `data`. Framework **nhận class đó vì nó không có tham số nào,
+rồi chết vì đòi một tham số**.
+
+Nay `BaseModel` nằm cùng nhóm với `Protocol` và `ABC` - **thứ DI về mặt cấu trúc không
+dựng được** - và bị loại ngay ở cửa. Lý do là cấu trúc chứ không phải quy ước: constructor
+injection khớp dependency **theo tên tham số**, mà `**data` không có tên nào để khớp.
+
+- ⛔ **`@dataclass` cố ý KHÔNG bị loại.** Nó sinh ra `__init__(self, repo: Repo)`, tức là
+  một cách viết service hợp lệ, và DI dựng được nó. Ranh giới của DI là *dựng được hay
+  không*, không phải *người ta định dùng làm gì*. Loại nó còn hỏng **im lặng** theo chiều
+  ngược hôm nay: một service viết bằng dataclass sẽ biến mất khỏi DI mà không có lời nào,
+  trong khi hôm nay một dataclass dữ liệu đặt nhầm chỗ **nổ lúc khởi động kèm tên class**.
+  Đo trên 31 codebase: 197 `@dataclass` trong vùng được quét, **0** cái có hình dạng bean.
+- ⛔ **Đường đã cân nhắc và loại: lọc `VAR_KEYWORD` trong `resolve_constructor_hints`.**
+  Chạy mô phỏng đầu-cuối thì nó chỉ đổi `UnregisteredDependencyException: Any` thành
+  `ValidationError: field required` - vì `build()` chỉ kiểm, còn dựng thật xảy ra ở
+  `get_all_in_order()`. Lỗi mới không còn dấu vết nào của DI nên **khó lần hơn lỗi cũ**.
+- `dependency.register(MotBaseModel)` vẫn lọt và vẫn nổ như trước: `register()` bỏ qua
+  phép xét tư cách, và khai tường minh thì tôn trọng lời khai.
+
+### Thêm - `dependency.exclude_segments(...)`: app tự khai danh sách package bị loại
+
+Scanner vẫn bỏ qua mọi module có đoạn đường dẫn là `domain`, `dto`, `entity`, `vo`,
+`constant`, `exception`. Sáu đoạn đó là **mặc định, không phải luật** - chúng mang từ vựng
+DDD (`vo` là *value object*), nên một dự án đặt tên khác, hoặc một dự án thật sự giữ
+service trong package tên `domain`, trước nay bị framework **nuốt im lặng**: không lỗi,
+không cảnh báo, class chỉ đơn giản không có mặt.
+
+```python
+dependency.exclude_segments("domain", "dto", "legacy")   # thay the han
+dependency.exclude_segments()                             # quet TAT, khong loai gi
+```
+
+- **Thay thế, không cộng thêm.** Một lời gọi khai trọn danh sách; gọi nhiều lần thì lần
+  cuối thắng.
+- ⚠ **Không gọi** và **gọi rỗng** là hai chuyện khác nhau: không gọi thì dùng sáu đoạn mặc
+  định, gọi rỗng thì không loại đoạn nào. Trạng thái *chưa khai* mang giá trị `None` chứ
+  không phải danh sách rỗng - gộp hai thứ đó là một giá trị mang hai nghĩa, và nó sẽ hỏng
+  im lặng theo chiều nguy hiểm nhất (mọi app bỗng quét cả `domain/` mà không có gì báo).
+- `PackageScanner` đã nhận sẵn tham số này từ lâu nhưng **chưa ai truyền một lần nào** -
+  bản này chỉ nối nó ra tới `dependency`, không đổi hành vi mặc định của bất kỳ app nào.
+- Bộ lọc vẫn chỉ chạy khi duyệt **module con**: trỏ `scan()` thẳng vào `app.domain` thì
+  class trong `__init__.py` của chính package đó vẫn được đăng ký. Chỉ đích danh thì coi
+  như cố ý.
+
 ### Sửa - con không còn sống sót sau khi cha bị giết cứng
 
 Cha đã bắt `SIGINT` / `SIGTERM` / `SIGBREAK` từ 0.8.0 để tắt cả đàn theo thứ tự, và

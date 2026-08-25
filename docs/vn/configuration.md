@@ -49,6 +49,11 @@ dependency.bind({
 })
 ```
 
+Scanner tự bỏ qua module có đoạn đường dẫn là `domain`, `dto`, `entity`, `vo`, `constant`,
+`exception`. Đó là **mặc định, không phải luật** - khai lại bằng `dependency.exclude_segments(...)`,
+kể cả khai rỗng để không loại gì. ⚠ Không gọi và gọi rỗng là hai chuyện khác nhau; chi tiết
+ở [core-concepts.md](core-concepts.md) mục 2.
+
 Tên biến `dependency` là convention mà XIME tìm kiếm. Bạn cũng có thể truyền `BindingConfig` trực tiếp vào `Application`:
 
 ```python

@@ -69,6 +69,96 @@ Package **bị loại trừ** khỏi DI (class ở đây không bao giờ đư�
 
 Bị loại trừ vì chúng là data object, không phải service - inject chúng không có ý nghĩa.
 
+### Ghi đè danh sách loại trừ
+
+Sáu đoạn trên là **mặc định**, không phải luật. Chúng mang từ vựng DDD (`vo` là *value
+object*), nên dự án đặt tên khác - hoặc dự án thật sự có service nằm trong package tên
+`domain` - phải khai lại:
+
+```python
+dependency.exclude_segments("domain", "dto", "entity", "legacy")   # thay the han
+dependency.exclude_segments()                                       # quet TAT, khong loai gi
+```
+
+| Bạn làm gì | Framework hiểu |
+|---|---|
+| **không gọi** | dùng mặc định sáu đoạn |
+| gọi kèm danh sách | **thay thế** mặc định, không cộng thêm |
+| **gọi rỗng** | không loại đoạn nào cả |
+
+⚠ *Không gọi* và *gọi rỗng* là **hai chuyện khác nhau**. Muốn quét tất thì phải gọi rỗng
+tường minh; xoá lời gọi đi là quay về mặc định.
+
+Bộ lọc soi **từng đoạn của đường dẫn module**, nên `app.domain.model` bị loại vì có đoạn
+`domain`. Nó chỉ chạy khi duyệt **module con**: trỏ `scan()` thẳng vào `app.domain` thì
+class trong `__init__.py` của chính package đó **vẫn được đăng ký** - chỉ đích danh thì
+coi như bạn cố ý.
+
+### ⛔ `@dataclass` KHÔNG bị loại, và đó là quyết định có chủ đích
+
+Câu hỏi thường gặp: DTO viết bằng `@dataclass` để nhầm trong package được quét thì làm
+chết startup, sao framework không tự bỏ qua mọi `@dataclass`?
+
+**Vì `@dataclass` là một dạng service hợp lệ**, không phải một dấu hiệu "đây là dữ liệu":
+
+```python
+@dataclass
+class PhongService:
+    repo: PhongRepository        # inject qua field - chay dung
+```
+
+`@dataclass` sinh ra `__init__(self, repo: PhongRepository)`. Đó **chính xác** là
+constructor injection, chỉ khác cách viết.
+
+Framework **phân biệt được** (`dataclasses.is_dataclass()`), nhưng cố ý không dùng, vì hai
+lý do:
+
+1. **Ranh giới của DI là *dựng được hay không*, không phải *người ta định dùng làm gì*.**
+   `Protocol`, `ABC`, `BaseModel` bị loại vì DI **không thể** dựng chúng. `@dataclass` thì
+   dựng được, nên loại nó là chuyển sang đoán ý định - thứ framework không đọc được.
+2. **Loại nó sẽ hỏng IM LẶNG, ngược chiều hôm nay.** Hôm nay đặt DTO nhầm chỗ thì **nổ lúc
+   khởi động kèm tên class** - khó chịu nhưng thấy ngay và sửa trong một phút. Nếu loại,
+   một service viết bằng dataclass sẽ **biến mất khỏi DI không một lời nào**, rồi lỗi hiện
+   ra muộn hơn ở chỗ khác dưới dạng *"No Implementation Found"* cho một class đang nằm sờ
+   sờ trước mắt.
+
+📌 Số đo trên 31 codebase Xime (2026-08-25): **197 `@dataclass` nằm trong vùng được quét,
+0 cái có hình dạng bean**. Tức trong thực tế nó luôn là dữ liệu - nhưng đó là bằng chứng
+về *thói quen*, không phải về *khả năng*, và framework phải đúng cho cả người dùng ngoài
+Xime.
+
+**Ba cách xử lý đúng, theo thứ tự nên dùng:**
+
+| Cách | Khi nào |
+|---|---|
+| Đặt vào `dto/`, `domain/`... | mặc định - rẻ nhất, không cần khai gì |
+| `__all__` trong `__init__.py` liệt kê đúng class DI-managed | package trộn lẫn, không muốn tách thư mục |
+| `dependency.exclude_segments(...)` thêm đoạn của mình | cả một tầng là dữ liệu, ví dụ `port` |
+
+### Pydantic `BaseModel` thì BỊ loại, và lý do khác hẳn
+
+`BaseModel` không bao giờ vào DI, cùng nhóm với `Protocol` và `ABC` - **kể cả khi nó nằm
+trong package được quét, kể cả khi mọi field đều có giá trị mặc định.**
+
+Không phải vì "nó thường là dữ liệu", mà vì nó **không thể** nhận dependency:
+
+```python
+def __init__(self, **data: Any) -> None      # chu ky that cua BaseModel
+```
+
+Constructor injection khớp dependency **theo tên tham số**. `**data` không có tên tham số
+nào để khớp, nên không có chỗ cắm dây - dù người viết có muốn hay không.
+
+Cần một value object cấu hình làm singleton thì dùng `dependency.configure()`:
+
+```python
+class DomainConfig:
+    def chinh_sach(self) -> SubscriptionPolicy:
+        return SubscriptionPolicy(trial_days=14)
+
+dependency.configure(DomainConfig)
+```
+
 ---
 
 ## 3. Điều kiện đăng ký Class
@@ -76,10 +166,47 @@ Bị loại trừ vì chúng là data object, không phải service - inject ch�
 Một class được đăng ký vào DI container khi **tất cả** điều kiện sau đúng:
 
 1. Không phải subclass của `ABC` hay `Protocol`
-2. Tất cả tham số `__init__` có type hint
-3. Package của nó nằm trong danh sách scan và không trong danh sách exclude
+2. **Không phải Pydantic `BaseModel`** (xem mục 2 - nó không có chỗ nhận dependency)
+3. Tất cả tham số `__init__` có type hint
+4. Package của nó nằm trong danh sách scan và không trong danh sách exclude
 
 Nếu class có tham số thiếu type hint, nó bị bỏ qua yên lặng - không phải lỗi. Điều này cho phép class bên thứ ba tồn tại trong package được scan mà không gây vấn đề.
+
+### Ba đường vào DI, không chỉ có `scan()`
+
+`scan()` là đường phổ biến nhất nhưng không phải đường duy nhất, và hai đường còn lại giải
+đúng những ca mà `scan()` không giải được:
+
+| Đường | Dùng khi | Framework làm gì |
+|---|---|---|
+| `dependency.scan("...")` | class nằm trong package theo quy ước | quét, tự lọc theo điều kiện trên |
+| `dependency.register(A, B)` | class nằm trong package **bị loại trừ** mà vẫn cần là singleton (domain factory, domain service) | **bỏ qua bốn điều kiện trên** - khai tường minh thì tôn trọng lời khai; vẫn constructor injection bình thường, nên mọi tham số `__init__` phải có type hint |
+| `dependency.configure(Cls)` | cần **logic khởi tạo riêng**: đọc cấu hình, dựng từ secret, gọi factory của bên thứ ba | gọi từng public method có return type, mỗi method thành **một singleton mang kiểu đó** |
+
+`configure()` là câu trả lời cho câu hỏi *"tôi có một object muốn tự tay dựng rồi đưa vào
+DI thì làm sao"*:
+
+```python
+class DomainConfig:
+    # moi method public co return type -> mot singleton
+    def chinh_sach(self) -> SubscriptionPolicy:
+        return SubscriptionPolicy(trial_days=14)          # tu dung theo y minh
+
+    def ma_hoa(self, cfg: AppConfig) -> KeyEncryptionService:
+        return AesKeyEncryptionService(cfg.secret_key)     # tham so duoc inject
+
+dependency.configure(DomainConfig)
+```
+
+Ba ràng buộc của config class:
+
+- **Không có tham số constructor** - nó phải stateless.
+- Tham số của method (ngoài `self`) **được container inject**, nên phải có type hint.
+- Method được gọi **đúng một lần**; kết quả là singleton như mọi class khác.
+
+⚠ Chữ *"factory"* ở đây dễ gây hiểu nhầm: nó là **factory method dựng singleton**, không
+phải cơ chế sinh instance mới mỗi lần gọi. Xime chỉ có **một scope là singleton** - xem
+mục 5.
 
 ---
 

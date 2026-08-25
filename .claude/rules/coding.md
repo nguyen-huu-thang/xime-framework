@@ -36,8 +36,52 @@ class UserService:
 Một class chỉ được đăng ký vào DI container khi:
 
 - Không phải `ABC` hay `Protocol`
+- **Không phải Pydantic `BaseModel`** (xem ngay dưới)
 - Tất cả tham số constructor có type hint (thiếu hint → coi như class đó không đăng kí mà là class ngoài DI)
-- Không thuộc package bị loại trừ: `domain`, `dto`, `entity`, `vo`, `constant`, `exception`
+- Không thuộc package bị loại trừ: `domain`, `dto`, `entity`, `vo`, `constant`, `exception` -
+  **mặc định này ghi đè được** bằng `dependency.exclude_segments(...)`, kể cả khai rỗng để
+  quét tất
+
+### Pydantic `BaseModel` bị loại, `@dataclass` thì KHÔNG - và ranh giới không phải "cái nào là dữ liệu"
+
+Hai thứ này trông giống nhau (đều hay dùng làm DTO, đều làm chết startup khi để nhầm chỗ)
+nhưng framework đối xử ngược nhau, và lý do đáng nhớ hơn quy tắc:
+
+> **Ranh giới của DI là *dựng được hay không*, không phải *người ta định dùng làm gì*.**
+
+| | Vào DI? | Vì sao |
+|---|---|---|
+| `BaseModel` | ⛔ **Không, chặn ở cửa** | `__init__` của nó là `(self, **data: Any)`. Constructor injection khớp **theo tên tham số**, mà `**data` không có tên nào để khớp - **không có chỗ cắm dây**, dù người viết có muốn hay không |
+| `@dataclass` | ✅ **Có** | Nó **sinh ra** `__init__(self, repo: Repo)` - chính xác là constructor injection, chỉ khác cách viết. DI dựng được, nên giữ |
+
+⚠ **Đừng đề xuất loại `@dataclass`.** Framework phân biệt được (`dataclasses.is_dataclass()`)
+và cố ý không dùng, vì loại nó sẽ hỏng **im lặng** theo chiều ngược hôm nay: một service viết
+bằng dataclass **biến mất khỏi DI không một lời nào**, trong khi hôm nay một dataclass dữ
+liệu đặt nhầm chỗ **nổ lúc khởi động kèm tên class**.
+
+⚠ **Và đừng "vá" bằng cách lọc `VAR_KEYWORD` trong `resolve_constructor_hints`.** Đã thử và
+loại: `build()` chỉ **kiểm**, dựng thật xảy ra ở `get_all_in_order()`, nên bỏ `**data` khỏi
+danh sách dependency chỉ đổi `UnregisteredDependencyException: Any` thành
+`ValidationError: field required` - một lỗi **không còn dấu vết nào của DI**, tức khó lần hơn
+lỗi cũ. Phải chặn ở `_is_eligible`.
+
+Cần một `BaseModel` làm singleton (value object cấu hình) thì dùng `dependency.configure()`.
+
+### Ghi đè danh sách package bị loại trừ
+
+```python
+dependency.exclude_segments("domain", "dto", "legacy")   # thay the han, khong cong them
+dependency.exclude_segments()                             # quet TAT, khong loai gi
+```
+
+⚠ **Không gọi** và **gọi rỗng** là hai chuyện khác nhau: chưa khai thì state là `None` và
+scanner giữ sáu đoạn mặc định; khai rỗng thì không loại đoạn nào. Gộp hai trạng thái đó lại
+là một giá trị mang hai nghĩa ([luật 03](../../../.claude/rules/03-mot-gia-tri-mot-nghia.md)),
+và nó hỏng theo chiều nguy nhất: mọi app bỗng quét cả `domain/` mà **không có gì báo**. Vì
+vậy `orchestrator.py` chuyển tiếp **có điều kiện** - đừng dọn thành lời gọi vô điều kiện.
+
+Bộ lọc chỉ chạy khi duyệt **module con**: trỏ `scan()` thẳng vào `app.domain` thì class trong
+`__init__.py` của chính package đó vẫn được đăng ký. Chỉ đích danh thì coi như cố ý.
 
 ### Tham số có giá trị mặc định = tham số KHÔNG bắt buộc
 

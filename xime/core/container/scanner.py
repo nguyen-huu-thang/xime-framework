@@ -7,6 +7,7 @@ from xime.core.metadata.type_utils import (
     get_init_parameters,
     is_abstract,
     is_protocol,
+    is_pydantic_model,
     resolve_constructor_hints,
 )
 
@@ -39,6 +40,7 @@ class PackageScanner:
     Eligibility rules:
       - Not a Protocol
       - Not an abstract class (ABC with unimplemented methods)
+      - Not a Pydantic model (its **data constructor can never be injected)
       - Every __init__ parameter has a type hint
         (parameters without hints → class is silently skipped)
     """
@@ -137,6 +139,15 @@ class PackageScanner:
         if is_protocol(cls):
             return False
         if is_abstract(cls):
+            return False
+        # A Pydantic model's constructor is `(self, **data: Any)`, so it has no
+        # parameter name for DI to match - it can never receive a dependency.
+        # Stopped here rather than later: reaching the resolver it would demand a
+        # binding for `Any`, and dropping that demand instead would only move the
+        # crash to `Model()` being called with no arguments.
+        # Chặn ở CỬA chứ không để đi tiếp: đi tiếp thì lỗi hoặc là đòi binding cho
+        # `Any`, hoặc là ValidationError - cả hai đều không còn dấu vết nào của DI.
+        if is_pydantic_model(cls):
             return False
 
         params = get_init_parameters(cls)
