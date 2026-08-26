@@ -608,7 +608,12 @@ Vì `ContextVar` an toàn với async, mỗi request đồng thời có context 
 
 ### Danh tính peer (mTLS)
 
-Với call gRPC qua mTLS đã verify, framework đọc Common Name của client certificate vào request context và cho truy xuất qua helper:
+Với call gRPC qua mTLS đã verify, framework đọc client certificate vào request context và cho truy xuất qua **hai** helper. Chúng trả lời **hai câu hỏi khác nhau**, nên việc đầu tiên là chốt xem mình thật sự cần danh tính nào:
+
+| Helper | Trả về | Nhận diện |
+|---|---|---|
+| `current_caller()` | Common Name, một chuỗi | **một peer cụ thể** - trên thực tế là một tiến trình, một lần cấp cert |
+| `current_peer_sans()` | mọi Subject Alternative Name, một tuple | thứ nơi triển khai đặt vào đó, thường là **một danh tính logic mà nhiều peer dùng chung** |
 
 ```python
 from xime.core.security import current_caller
@@ -616,7 +621,36 @@ from xime.core.security import current_caller
 caller = current_caller()   # CN đã verify, hoặc None khi không có mTLS
 ```
 
-Cơ chế fail-soft: call plaintext hay chỉ TLS một phía sẽ khiến `current_caller()` trả `None` và không bao giờ phá request. Framework chỉ cấp cơ chế (ai gọi); authorization - caller được làm gì - vẫn nằm ở ứng dụng. CN là giá trị thô: có thể là service id hoặc định danh ứng dụng, app tự quyết cách diễn giải.
+Cả hai đều fail-soft: call plaintext hay chỉ TLS một phía sẽ khiến chúng trả `None` và không bao giờ phá request. Framework chỉ cấp cơ chế (ai gọi); authorization - caller được làm gì - vẫn nằm ở ứng dụng. Không giá trị nào bị diễn giải: framework thuật lại đúng thứ cert khai, không hơn. Cả hai giá trị cũng nằm trong request context dưới hai key trung tính `PEER_CN` và `PEER_SANS`, dành cho code đọc thẳng context; key **vắng mặt** khi cert không cấp gì, không bao giờ là có-mà-rỗng.
+
+#### ⛔ CN gọi tên một PEER, không phải một service - chốt trước khi viết allowlist
+
+Nơi triển khai nào chạy nhiều tiến trình sau một service logic thì thường cấp **một cert cho mỗi tiến trình**, và chở danh tính chung, bền hơn, ở SAN. Đó chính là công dụng của SPIFFE ID và các scheme URI khác.
+
+Neo allowlist vào CN trong hoàn cảnh đó thì nó hỏng theo **hai chiều ngược nhau, cả hai đều im lặng**:
+
+| | |
+|---|---|
+| Một tiến trình mới của service vốn đã được tin | **chặn oan**, mà `PERMISSION_DENIED` nhìn y hệt một cuộc tấn công |
+| Cùng CN đó được cấp lại cho chủ khác | **cho qua**, vì danh sách đi theo tấm cert chứ không đi theo danh tính |
+
+Không bên nào ném lỗi, không bên nào ghi log, và cả hai đều trả về một chuỗi hợp lệ. Vậy nên: khớp CN khi ý bạn là *đúng peer này*; khớp một entry SAN khi ý bạn là *service này, tiến trình nào gọi cũng được*.
+
+```python
+from xime.core.security import current_peer_sans
+
+LABEL, SCHEME = "URI:", "spiffe://"
+workload_id = None
+for entry in current_peer_sans() or ():
+    value = entry.removeprefix(LABEL)   # một số công cụ thêm tiền tố loại SAN
+    if value.startswith(SCHEME):        # NEO ĐẦU chuỗi, đừng bao giờ dùng `in`
+        workload_id = value
+        break
+```
+
+gRPC trả SAN dạng **danh sách phẳng, không gắn nhãn** - tên DNS, địa chỉ IP và URI lẫn vào nhau, không có gì phân biệt - nên việc chọn ra entry mình cần là việc của bạn. Phép khớp phải neo đầu chuỗi: một entry như `https://example.com/?redirect=spiffe://attacker` có chứa scheme của bạn mà không phải định danh thuộc scheme đó, và phép tìm chuỗi con sẽ nhận nó.
+
+`current_peer_sans()` trả `None` khi cert không cấp SAN nào, khi call không qua mTLS, hoặc khi transport không thuật lại được. Ba tình huống, một giá trị - và `current_caller()` là thứ tách chúng ra, vì nó trả lời câu call có qua mTLS hay không.
 
 ---
 

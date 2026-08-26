@@ -38,6 +38,20 @@ def current_caller() -> str | None:
     that caller is allowed to do - stays in the application.
     Framework chỉ cấp cơ chế (ai gọi). Authorization vẫn nằm ở ứng dụng.
 
+    ⚠ A CN names ONE PEER - in practice one process, one certificate
+    issuance. Deployments that run several processes behind a single logical
+    service usually issue one certificate per process and carry the durable,
+    shared identity in a SAN instead; see current_peer_sans(). An allowlist
+    pinned to the CN there denies a new process of an already-trusted service
+    AND follows any change at the certificate-issuing layer - both silently,
+    because either way the call still yields a perfectly valid string.
+    ⚠ CN gọi tên MỘT PEER - trên thực tế là một tiến trình, một lần cấp cert.
+    Nơi chạy nhiều tiến trình sau một service logic thường cấp một cert cho
+    mỗi tiến trình và chở danh tính chung, bền hơn, ở SAN - xem
+    current_peer_sans(). Allowlist neo vào CN ở đó vừa chặn oan tiến trình mới
+    của service vốn đã được tin, vừa đi theo mọi thay đổi ở tầng cấp cert, và
+    cả hai đều im lặng vì đằng nào lời gọi cũng trả về một chuỗi hợp lệ.
+
     Currently populated by the gRPC RequestContextInterceptor. Other transports
     may populate the same PEER_CN key as they gain peer-identity support.
     Hiện được set bởi RequestContextInterceptor của gRPC.
@@ -92,6 +106,11 @@ def current_peer_sans() -> tuple[str, ...] | None:
     Trích xuất fail-soft: cert dị dạng hoặc không đọc được trả None chứ không nổ,
     y như current_caller(). Framework thuật lại thứ cert khai và không diễn giải
     một chút nào.
+
+    Need one SPECIFIC peer rather than a logical identity several peers may
+    share - one process, one certificate issuance? That is current_caller().
+    Cần đúng MỘT peer cụ thể thay vì một danh tính logic mà nhiều peer có thể
+    dùng chung - một tiến trình, một lần cấp cert - thì đó là current_caller().
 
     Currently populated by the gRPC RequestContextInterceptor, alongside PEER_CN.
     Hiện được set bởi RequestContextInterceptor của gRPC, cạnh PEER_CN.

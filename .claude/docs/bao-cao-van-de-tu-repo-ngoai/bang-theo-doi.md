@@ -1,6 +1,6 @@
 # Bảng theo dõi: repo ngoài đề nghị gì, kết cục ra sao
 
-> Cập nhật 2026-08-25. Nguồn: [ba báo cáo gốc](README.md) · [phần trả lời](tra-loi-2026-08-22.md).
+> Cập nhật 2026-08-26. Nguồn: [ba báo cáo gốc](README.md) · [phần trả lời](tra-loi-2026-08-22.md).
 >
 > Bảng này trả lời đúng một câu: **cái nào xong, cái nào bác, cái nào còn treo.**
 > Lý do và phép đo thì nằm ở hai file trên - đừng chép lại vào đây.
@@ -18,6 +18,7 @@
 | **7** | Dòng log ở mục 2 **kết luận SAI với 23/23 app** | `Service ngang` | 🟡 Lỗi | ✅ **ĐÃ VÁ + COMMIT** `d1328e2` |
 | **8** | Con mồ côi vô hình + 401 lạnh máy | `kho` | 🔴 Lỗi | ✅ **ĐÃ VÁ** 2026-08-23 (mục 1 + 3). Mục 2 ➖ **không phải lỗi framework** |
 | **9** | `public_health_paths()` không export | `nha-tro` | 🟡 Lỗi | ✅ **ĐÃ VÁ** 2026-08-25 - export + docstring + 5 test canh |
+| **10** | Tài liệu không nói phải **chọn** giữa `current_caller()` và `current_peer_sans()` | `data` | 📄 Tài liệu | ✅ **ĐÃ VÁ** 2026-08-26 - và phạm vi rộng hơn: tài liệu **khẳng định lựa chọn sai**, có từ `v0.4.0` |
 | **3** | Cảnh báo khi app không có middleware nào | `dental` mục 6a | ✨ Tính năng | ⛔ **BÁC** |
 | **4** | Nhận diện danh tính trên đường công khai | `linh-kien` mục 3 | ✨ Tính năng | ⛔⛔ **BÁC VĨNH VIỄN** |
 | **5** | Sửa tài liệu *"`configure_jwt` chỉ verify 1 khoá"* | `linh-kien` mục 6 | 📄 Tài liệu | ➖ **KHÔNG PHẢI VIỆC CỦA FRAMEWORK** |

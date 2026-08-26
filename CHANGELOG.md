@@ -5,6 +5,44 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [Chưa phát hành]
+
+### Tài liệu - `current_caller()` và `current_peer_sans()` trả lời HAI câu khác nhau
+
+Báo cáo từ phiên `Base Platform/data` ngày 2026-08-26. **Không có thay đổi hành vi nào** -
+cả hai hàm vẫn làm đúng thứ chúng vẫn làm; đây là sửa tài liệu.
+
+Ca thật: một chốt phân quyền khai *"chỉ app admin được gọi RPC này"* so allowlist theo CN,
+và sống hai tháng. Sai đơn vị - CN nhận diện **một peer** (một tiến trình, một lần cấp
+cert), còn danh tính logic mà nhiều tiến trình dùng chung thì nằm ở SAN. Hỏng **hai chiều
+ngược nhau, cả hai im lặng**: tiến trình thứ hai của service vốn đã được tin thì bị chặn oan,
+còn cùng CN cấp lại cho chủ khác thì được cho qua.
+
+⭐ Framework đo lại thì chỗ hỏng **nặng hơn báo cáo**, không chỉ rộng hơn. Báo cáo nói tài
+liệu *không nói phải chọn*; thực tế `docs/{en,vn}/core-concepts.md` **khẳng định thẳng lựa
+chọn sai** - *"CN là giá trị thô: có thể là service id hoặc định danh ứng dụng"* - ngược hẳn
+docstring của chính interceptor (*"PEER_CN định danh tiến trình gọi"*). Câu đó có từ `0.4.0`
+và sống qua **ba** lần đổi API: `current_app_id()` thêm ở `0.6.3`, gỡ ở `0.7.1`,
+`current_peer_sans()` vào thay chỗ. Mỗi lần đều có người sửa `peer.py`, không lần nào ai mở
+file tài liệu.
+
+Kèm hai lỗ nữa: `current_peer_sans()` có **0 lần** xuất hiện trong `docs/` dù nó là bản thay
+thế cho một API đã gỡ, và `check_doc_coverage.py` **đã liệt kê nó là thiếu từ trước**.
+
+Đã sửa ba chỗ:
+
+- `docs/{en,vn}/core-concepts.md` mục *Peer identity (mTLS)*: bỏ câu sai, thêm bảng phân biệt
+  hai helper, thêm mục đầy đủ cho `current_peer_sans()` (khớp phải **neo đầu chuỗi**, danh
+  sách SAN là **phẳng và không gắn nhãn**) và hai key `PEER_CN` / `PEER_SANS`.
+- `current_caller()`: thêm đoạn ⚠ nói CN là **một peer**, trỏ sang `current_peer_sans()`.
+- `current_peer_sans()`: thêm dòng đối xứng trỏ ngược lại.
+
+Câu chữ giữ **trung lập**, không nhắc scheme nào - *"CN là một peer, danh tính chung bền hơn
+nằm ở SAN"* là sự thật PKI phổ quát (SPIFFE/SPIRE làm đúng vậy), nên nó **không** kéo lại
+phụ thuộc khái niệm đã cố ý gỡ ở `0.7.1`.
+
+---
+
 ## [0.8.2] - 2026-08-26
 
 Báo cáo từ repo **ngoài**, đọc và xử lý 2026-08-22 và 2026-08-23. Nguyên văn:

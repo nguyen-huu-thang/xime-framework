@@ -610,7 +610,12 @@ Because `ContextVar` is async-safe, each concurrent request has its own isolated
 
 ### Peer identity (mTLS)
 
-For gRPC calls over verified mTLS, the framework reads the client certificate's Common Name into the request context and exposes it via a helper:
+For gRPC calls over verified mTLS, the framework reads the client certificate into the request context and exposes two helpers. They answer **two different questions**, so the first thing to settle is which identity you actually need:
+
+| Helper | Returns | Identifies |
+|---|---|---|
+| `current_caller()` | the Common Name, as a string | **one specific peer** - in practice one process, one certificate issuance |
+| `current_peer_sans()` | every Subject Alternative Name, as a tuple | whatever the deployment put there, commonly a **logical identity shared by several peers** |
 
 ```python
 from xime.core.security import current_caller
@@ -618,7 +623,36 @@ from xime.core.security import current_caller
 caller = current_caller()   # the verified CN, or None when there is no mTLS
 ```
 
-This is fail-soft: a plaintext or server-only-TLS call leaves `current_caller()` returning `None` and never breaks the request. The framework only provides the mechanism (who called); authorization - what that caller may do - stays in the application. The CN is raw: it may be a service id or an application identity, and the app decides how to interpret it.
+Both are fail-soft: a plaintext or server-only-TLS call leaves them returning `None` and never breaks the request. The framework only provides the mechanism (who called); authorization - what that caller may do - stays in the application. Neither value is interpreted: the framework reports what the certificate said, and nothing more. Both values also sit in the request context under the neutral keys `PEER_CN` and `PEER_SANS`, for code that reads the context directly; a key is **absent** when the certificate supplied nothing, never present-but-empty.
+
+#### ⛔ A CN names one PEER, not one service - decide before you write an allowlist
+
+A deployment that runs several processes behind one logical service usually issues **one certificate per process**, and carries the durable shared identity in a SAN instead. That is what SPIFFE IDs and other URI schemes are for.
+
+Pin an allowlist to the CN in such a deployment and it fails in **two opposite directions, both silent**:
+
+| | |
+|---|---|
+| A new process of an already-trusted service | **denied**, and `PERMISSION_DENIED` looks exactly like an attack |
+| The same CN re-issued to a different owner | **accepted**, because the list follows the certificate rather than the identity |
+
+Neither raises, neither logs, and both sides return a perfectly valid string. So: match the CN when you mean *this peer*; match a SAN entry when you mean *this service, whichever process is calling*.
+
+```python
+from xime.core.security import current_peer_sans
+
+LABEL, SCHEME = "URI:", "spiffe://"
+workload_id = None
+for entry in current_peer_sans() or ():
+    value = entry.removeprefix(LABEL)   # some tooling prefixes the SAN type
+    if value.startswith(SCHEME):        # anchor at the START, never `in`
+        workload_id = value
+        break
+```
+
+gRPC hands SANs over as a **flat, untagged list** - DNS names, IP addresses and URIs arrive mixed together with nothing marking which is which - so picking out the entry you care about is yours to do. Anchor the match at the start: an entry such as `https://example.com/?redirect=spiffe://attacker` contains your scheme without being an identity of that scheme, and a substring search would accept it.
+
+`current_peer_sans()` returns `None` when the certificate supplied no SANs, when the call did not arrive over mTLS, or when the transport cannot report them. Three situations, one value - and `current_caller()` is what tells them apart, because it answers whether the call arrived over mTLS at all.
 
 ---
 

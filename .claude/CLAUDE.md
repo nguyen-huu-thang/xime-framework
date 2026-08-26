@@ -6,18 +6,19 @@
 
 ## Trạng thái
 
-⏳ **`0.8.2` ĐÃ CHUẨN BỊ XONG, CHƯA PHÁT HÀNH** (2026-08-26). Gói đã dựng và kiểm;
-**commit, tag và đẩy PyPI thuộc chủ dự án**, chưa ai làm.
+✅ **`0.8.2` ĐÃ PHÁT HÀNH 2026-08-26** - bản thứ **16** trên PyPI, đẩy lên 00:51 UTC.
+Cả hai repo đã commit và tag, cây làm việc sạch.
 
 | | |
 |---|---|
-| PyPI | vẫn **`0.8.1`** - bản thứ **15**, đẩy lên 2026-08-22 07:32 UTC |
+| PyPI | **`0.8.2`** · wheel `5bfb1212…` (616.365 B) · sdist `8d713106…` (785.488 B) |
 | `pyproject` + `__init__` fallback | **`0.8.2`** |
-| Repo phát triển | HEAD còn ở `1754c64`, **38 file chưa commit** |
-| Repo phát hành | HEAD còn ở `4ac504f v0.8.1`, mã **đã đồng bộ** (292 file khớp từng byte), `dist/` đã có `0.8.2` |
+| Repo phát triển | `64ee5d4 v0.8.2`, sạch |
+| Repo phát hành | `fd9566e v0.8.2`, sạch |
+| ⭐ Đối chứng | **SHA256 gói trên PyPI khớp từng bit** với gói dựng ở máy này, cả `.whl` lẫn `.tar.gz` |
 | Nghiệm thu Windows | test **2625/24/0 = tổng 2649** · `ruff check xime/` sạch · `mypy` **49 trước và sau** · `twine check` **PASSED** · **0 rò rỉ** `.claude/`/`tests_temp/`/`pypi_token` · cài wheel vào venv trắng chạy được |
 
-⭐ So với `0.8.1` trên PyPI: **thêm đúng 1 file, bỏ 0** - `xime/core/bootstrap/_orphan.py`
+⭐ So với `0.8.1`: **thêm đúng 1 file, bỏ 0** - `xime/core/bootstrap/_orphan.py`
 (sdist 294 -> **295**, wheel 247 -> **248**).
 
 ⚠ **Định vị đã đổi ở bản này, và nó chạm metadata PyPI:** dòng *"Spring Boot-style developer
@@ -25,9 +26,6 @@ experience"* đã **bỏ** khỏi `description`, hai README và `CLAUDE.md`; ch�
 trong thân README ở một mục nói rõ **mượn gì / cố ý bỏ gì**. `keywords` 4 -> **13**,
 `classifiers` 9 -> **17** (đã đối chiếu với 895 classifier chính thức của PyPI - sai một chữ là
 bị từ chối lúc upload). Lý do: [`docs/ghi-chep/dac-tinh-python-va-vi-tri-framework.md`](docs/ghi-chep/dac-tinh-python-va-vi-tri-framework.md) mục 4.
-
-⭐ **Ba bước còn lại, theo đúng thứ tự:** `pip install -e .` → commit + tag `v0.8.2` ở **cả hai
-repo** → `python pypi_token.py --upload "D:/code/xime framework/upload/dist"`.
 
 ⛔ **Đừng chép đè `README.md` sang repo phát hành** - bản bên đó là **được sinh ra**
 (`python .claude/scripts/sinh_readme_phat_hanh.py`). Hướng dẫn bước 2 của `pypi_token.py --guide`
@@ -46,9 +44,23 @@ python -c "import urllib.request,json; print(json.load(urllib.request.urlopen('h
 cập nhật* - và chúng bắt người đọc làm hai việc ngược nhau. Lần này suýt đọc thành nghĩa
 thứ nhất.
 
-📌 **Chưa push lên GitHub, và đó là CỐ Ý** - 2 commit đang chờ. Luật workspace: 9 repo có
-remote mang tài liệu nội bộ trong `.claude/`, chủ dự án chốt không push, và việc lọc
-trước khi push (nếu có ngày push) thuộc thẩm quyền chủ dự án.
+⚠ **Nhưng lần đẩy `0.8.2` thì endpoint tổng KHÔNG trễ** - hỏi ngay sau khi đẩy đã thấy
+đủ 16 bản và `0.8.2`. Nên câu trên đọc là *cache CÓ THỂ trễ*, không phải *luôn trễ*;
+cách hỏi thẳng một bản vẫn đúng trong cả hai trường hợp.
+
+⛔⭐ **ĐÃ PUSH LÊN GITHUB 2026-08-26, và repo là CÔNG KHAI** - `origin/main` ở `64ee5d4`,
+đo bằng `git ls-remote`. Dòng cũ ghi *"chưa push, và đó là cố ý"* **đã lỗi thời**.
+Kéo theo **126 file `.claude/`** nay đọc được công khai, trong đó có
+`docs/kiem-toan/0.7-bao-mat.md` (1400 dòng, 24 phát hiện kèm **mức độ và vị trí** trên 31
+codebase, A1 còn thủng ở 19 app) và **12 PoC chạy được** ở `scripts/bao-mat/`.
+Không có secret nào (đã quét), và PoC chỉ trỏ `localhost:8171` nên hôm nay chưa cắn ai -
+nhưng đó đúng loại tài liệu mà tiêu chí của chính chủ dự án xếp là **không công bố**:
+*"mô tả CHỖ YẾU kèm mức độ và vị trí"*, khác với *"mô tả THIẾT KẾ"*.
+**Quyết định giữ hay lọc thuộc chủ dự án** - phiên nào cũng đừng tự xoá, tự lọc, hay tự
+đổi lịch sử repo công khai.
+
+⚠ **Tag thì CHƯA push** - `git ls-remote --tags origin` rỗng. `git push` không đẩy tag nếu
+không bảo nó, nên GitHub không có `v0.8.0`/`v0.8.1`/`v0.8.2` nào.
 
 **0.8.0 đã phát hành 2026-08-21**: kiểm toán sáu đợt, vá 28 mục, và **SHA256 gói trên
 PyPI khớp từng bit** với gói dựng ở máy này.
