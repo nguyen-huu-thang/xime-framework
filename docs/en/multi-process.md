@@ -878,7 +878,7 @@ stops existing.
 | **web** | parent holds the socket, hands it down | ✅ | ✅ (see note) |
 | **socket** (unix) | parent holds the socket | ✅ | - |
 | **grpc** | `SO_REUSEPORT` | ✅ | ⛔ **startup error** |
-| mqtt, modbus, opcua | **sharded kind** - lands in 0.8.1 | - | - |
+| mqtt, modbus, opcua | **sharded kind** - deferred to some 0.8.x | - | - |
 
 `grpc.aio` only accepts an address string, with no API for an externally
 supplied socket, so it cannot use the socket-passing route. Windows has no
@@ -908,7 +908,8 @@ These three **cannot be replicated by duplicating the connection**: two
 processes polling one PLC double the load on real hardware, and two MQTT clients
 with the same `client_id` make the broker kick the older session off. Each
 process must own a **different slice**, and the configuration shape for that
-lands in **0.8.1**. Until then, run applications that use them as a single
+is deferred to **some 0.8.x release**, not yet pinned. Until then, run
+applications that use them as a single
 process.
 
 ---
@@ -1025,7 +1026,7 @@ out of it on purpose: *do not write a load balancer*.
 | **Zero-downtime code upgrades** | The parent holds the sockets, so changing its code needs a parent restart, and restarting the parent drops connections. The way out is known (`exec` the new build inheriting the fds, the way nginx does it); not built yet |
 | **The parent speaking outward** | The parent logs, but it has no alerting channel and no cluster-wide `/healthz`. A warning like *"a child refused the primary role"* reaches journald today, **not a person** |
 | **Graceful shutdown** | A child in the middle of a request is still `terminate()`d once the grace period runs out |
-| **Load splitting for fieldbus and MQTT** | Signatures were settled in 0.8; the implementation lands in **0.8.1** |
+| **Load splitting for fieldbus and MQTT** | Signatures were settled in 0.8; the implementation is deferred to **some 0.8.x release**, not yet pinned |
 
 ⚠ The second row is the easiest one to misread: everything above **is** reported
 correctly into the parent's log, so `journalctl -u app` shows it all. What is

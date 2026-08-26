@@ -48,7 +48,7 @@ class OpcuaClient:
         nói *server*, Modbus nói *device*, và mỗi adapter giữ chữ của miền nó vì
         cái tên ở đây nói về **thứ thật ngoài kia**, không nói về framework.
 
-        ⏭ **0.8 mới khai chữ ký; phần dựng N kết nối làm ở 0.8.1.**
+        ⏭ **0.8 mới khai chữ ký; phần dựng N kết nối lùi sang một bản 0.8.x, chưa chốt.**
         """
         name = kind or self._default_server
         connection = opcua_registry.connection(name)

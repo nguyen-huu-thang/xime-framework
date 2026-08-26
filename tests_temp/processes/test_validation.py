@@ -365,12 +365,12 @@ class TestShardingRulesAreData:
 
     Hai phép kiểm phân mảnh **chưa thể nổ ở 0.8**: adapter hạng phân mảnh bị
     `_reject_sharded_under_share_load` chặn trước, vì việc chia tập thiết bị /
-    tập topic thi công ở **0.8.1**. Chúng được xây và canh từ bây giờ vì hình
+    tập topic lùi sang **một bản 0.8.x** chưa chốt. Chúng được xây và canh từ bây giờ vì hình
     dạng `unique_per_process` / `disjoint_per_process` là **API công khai** và
     0.8 là bản Alpha cuối - đổi tên sau khi ba adapter đã dùng là phải sửa cả ba.
 
     Gọi thẳng với `share_load=False` là cách kiểm chúng mà không phải gỡ cái
-    chốt 0.8.1 ra; ⭐ và `TestTheShardedGateIsClosedUntil081` ngay dưới canh
+    chốt ấy ra; ⭐ và `TestTheShardedGateIsStillClosed` ngay dưới canh
     chính cái chốt đó, để không ai gỡ nó mà bộ test vẫn xanh.
 
     Trước 0.8 lý do chống trùng nằm trong **docstring** của `MqttAdapter` -
@@ -463,8 +463,8 @@ class TestSingletonBelongsToPrimary:
         )
 
 
-class TestTheShardedGateIsClosedUntil081:
-    """Chốt 0.8.1: adapter hạng phân mảnh chưa chia tải được.
+class TestTheShardedGateIsStillClosed:
+    """Chốt: adapter hạng phân mảnh chưa chia tải được.
 
     ⚠ Chốt này ở **framework**, không ở adapter. Trước đó mỗi adapter tự ném
     trong `assign_slot()`, nhưng từ khi mọi adapter luôn nhận một ô thì cách đó
@@ -481,7 +481,10 @@ class TestTheShardedGateIsClosedUntil081:
 
         with pytest.raises(StartupException, match="Not Supported Yet") as exc:
             validate_against_adapters(topo, [self.FakeMqtt("m")], share_load=True)
-        assert "0.8.1" in str(exc.value)
+        # ⚠ KHÔNG neo vào một số hiệu bản. Câu cũ là `"0.8.1" in ...`, và nó
+        # đỏ ngay ngày việc đó bị lùi - tức test canh **lịch phát hành** thay vì
+        # canh **hành vi**. Neo vào đường lui mà thông báo phải chỉ ra.
+        assert "single process" in str(exc.value)
 
     def test_a_single_process_runs_it_fine(self):
         """Vế đối chứng, và là vế quan trọng hơn: chặn nhầm ở đây là **mọi app

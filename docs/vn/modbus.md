@@ -239,7 +239,7 @@ for dev in modbus.devices_of("bang-tai"):
 `device="BT-01"` là buộc code vào một nhà máy cụ thể; tên đến từ tham số handler, từ
 `devices_of(...)`, hoặc từ dữ liệu người dùng chọn.
 
-⏭ **0.8 mới khai chữ ký**; phần dựng nhiều kết nối cho một loại làm ở **0.8.1**. Hôm
+⏭ **0.8 mới khai chữ ký**; phần dựng nhiều kết nối cho một loại lùi sang **một bản 0.8.x**, chưa chốt bản nào. Hôm
 nay một adapter giữ đúng một thực thể trùng tên loại, nên code viết theo vòng lặp trên
 chạy đúng ở cả hai bản và không phải sửa gì.
 

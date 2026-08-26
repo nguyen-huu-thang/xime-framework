@@ -6,15 +6,32 @@
 
 ## Trạng thái
 
-**`0.8.1` ĐÃ PHÁT HÀNH 2026-08-22.** Commit, tag, và đẩy PyPI đều xong. **SHA256 gói
-trên PyPI khớp từng bit** với gói dựng ở máy này, và cài từ PyPI vào venv trắng chạy được.
+⏳ **`0.8.2` ĐÃ CHUẨN BỊ XONG, CHƯA PHÁT HÀNH** (2026-08-26). Gói đã dựng và kiểm;
+**commit, tag và đẩy PyPI thuộc chủ dự án**, chưa ai làm.
 
 | | |
 |---|---|
-| PyPI | **`0.8.1`** - bản thứ **15**, đẩy lên 2026-08-22 07:32 UTC |
-| `pyproject` tại chỗ | **`0.8.1`** |
-| Repo phát triển | **`d5b5806 v0.8.1`**, tag `v0.8.1`, cây làm việc **sạch** |
-| Repo phát hành | **`4ac504f v0.8.1`**, tag `v0.8.1`, cây làm việc **sạch** |
+| PyPI | vẫn **`0.8.1`** - bản thứ **15**, đẩy lên 2026-08-22 07:32 UTC |
+| `pyproject` + `__init__` fallback | **`0.8.2`** |
+| Repo phát triển | HEAD còn ở `1754c64`, **38 file chưa commit** |
+| Repo phát hành | HEAD còn ở `4ac504f v0.8.1`, mã **đã đồng bộ** (292 file khớp từng byte), `dist/` đã có `0.8.2` |
+| Nghiệm thu Windows | test **2625/24/0 = tổng 2649** · `ruff check xime/` sạch · `mypy` **49 trước và sau** · `twine check` **PASSED** · **0 rò rỉ** `.claude/`/`tests_temp/`/`pypi_token` · cài wheel vào venv trắng chạy được |
+
+⭐ So với `0.8.1` trên PyPI: **thêm đúng 1 file, bỏ 0** - `xime/core/bootstrap/_orphan.py`
+(sdist 294 -> **295**, wheel 247 -> **248**).
+
+⚠ **Định vị đã đổi ở bản này, và nó chạm metadata PyPI:** dòng *"Spring Boot-style developer
+experience"* đã **bỏ** khỏi `description`, hai README và `CLAUDE.md`; chữ Spring nay chỉ còn
+trong thân README ở một mục nói rõ **mượn gì / cố ý bỏ gì**. `keywords` 4 -> **13**,
+`classifiers` 9 -> **17** (đã đối chiếu với 895 classifier chính thức của PyPI - sai một chữ là
+bị từ chối lúc upload). Lý do: [`docs/ghi-chep/dac-tinh-python-va-vi-tri-framework.md`](docs/ghi-chep/dac-tinh-python-va-vi-tri-framework.md) mục 4.
+
+⭐ **Ba bước còn lại, theo đúng thứ tự:** `pip install -e .` → commit + tag `v0.8.2` ở **cả hai
+repo** → `python pypi_token.py --upload "D:/code/xime framework/upload/dist"`.
+
+⛔ **Đừng chép đè `README.md` sang repo phát hành** - bản bên đó là **được sinh ra**
+(`python .claude/scripts/sinh_readme_phat_hanh.py`). Hướng dẫn bước 2 của `pypi_token.py --guide`
+vẫn dạy `Copy-Item README.md`, **và nó sai** - xem mục 1 của file này.
 
 ⚠ **Endpoint tổng của PyPI trả về bản cũ trong nhiều giờ sau khi đẩy.**
 `https://pypi.org/pypi/xime/json` vẫn liệt kê 14 bản và `info.version = 0.8.0` trong khi
@@ -39,22 +56,31 @@ PyPI khớp từng bit** với gói dựng ở máy này.
 Vì `xime` cài **editable** nên mã ở đây có hiệu lực ngay với **31 app** trên máy này -
 chúng đã chạy `0.8.1` từ trước lúc phát hành.
 
-✅ **Hai chuyến Linux đã nhận về, cả hai đối chứng từng byte:**
+✅ **Ba chuyến Linux đã nhận về, cả ba đối chứng từng byte:**
 
 | Chuyến | Kết quả |
 |---|---|
 | Vá `0.8.0` (2026-08-21) | 80 file · **629/629 khớp**. [`docs/nhap/ban-giao-cho-phien-windows.md`](docs/nhap/ban-giao-cho-phien-windows.md) |
 | Đo uvloop `0.8.1` (2026-08-22) | 25 file mới + 5 sửa · **660/660 khớp**. [`docs/nhap/ban-giao-cho-phien-windows-0.8.1.md`](docs/nhap/ban-giao-cho-phien-windows-0.8.1.md) và [`docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](docs/kiem-toan/0.8.1-ket-qua-do-tren-linux.md) |
+| ⭐ Chạy thử `0.8.2` (2026-08-25) | **676/676 khớp** khi nhận. Tìm ra **một lỗi thật chưa ai thấy**: dòng log khởi động khai `0 HTTP route(s)` với **mọi** ứng dụng Xime - đã vá + 4 test canh. Kèm một lỗi trong chính bộ benchmark. ⚠ **4 test canh của bản vá đó xanh vô điều kiện trên máy này** - `fastapi 0.135.1` ở đây vẫn dùng hình dạng phẳng, nên đừng thử đối chứng *"gỡ bản vá -> 4 đỏ"* ở Windows (mục 12). [`docs/kiem-toan/0.8.2-ket-qua-do-tren-linux.md`](docs/kiem-toan/0.8.2-ket-qua-do-tren-linux.md) |
 
 
 ### Kỳ vọng bộ test - HAI con số, theo hệ điều hành
 
 | Nền tảng | `passed` | `skipped` | `failed` | **Tổng** |
 |---|---|---|---|---|
-| **Linux** | **2552** ✅ đo 2026-08-22 | 6 | 0 | **2558** |
-| **Windows** | **2534** ✅ đo 2026-08-22 | 24 | 0 | **2558** |
+| **Linux** | **2642** ✅ đo 2026-08-25 | 7 | 0 | **2649** |
+| **Windows** | **2625** ✅ đo 2026-08-26 | 24 | 0 | **2649** |
 
-⭐ **Cộng 24 kể từ 0.8.0** (tổng `2534` -> `2558`): **16** của
+⛔ **Con số `2552 / 2534 / tổng 2558` ở bản trước là của bản ĐÃ PHÁT HÀNH `0.8.1`,
+đừng dùng để nghiệm thu nữa** - nhánh chưa phát hành đã đi xa hơn 91 test. Bảng chạy
+dồn ở mục dưới mới là thứ theo kịp từng việc.
+
+✅ Con số Windows **trước đây là suy ra, nay ĐÃ ĐO** (2026-08-26): `2625 passed / 24 skipped /
+0 failed`, **khớp đúng dự đoán của chuyến Linux**. Đó là một suy luận đúng, nhưng nó chỉ
+thành phép đo sau khi có người chạy.
+
+📌 *Lịch sử:* **cộng 24 từ `0.8.0` lên `0.8.1`** (tổng `2534` -> `2558`): **16** của
 `tests_temp/bootstrap/test_event_loop.py` (uvloop) và **8** của
 `tests_temp/ws/test_ws_availability.py` (cảnh báo thiếu thư viện WebSocket).
 
@@ -150,11 +176,21 @@ một nhãn kiểu *"kỳ vọng 2534"* mang hai giá trị - đúng
 | `BaseModel` ra khỏi DI + `exclude_segments` | 2636 | 2612 |
 | tài liệu hướng dẫn khớp lại bản hiện tại (`cli_docs` tự sinh thêm 4) | 2640 | 2616 |
 | **export `public_health_paths`** | **2645** | **2621** |
+| **vá phép đếm route HTTP** (chuyến Linux 2026-08-25) | **2649** | **2625** |
 
 📌 Con số này lỗi thời mỗi lần thêm test, đúng như mọi con số khác trong file. Phép
 kiểm không lỗi thời vẫn là: **chạy trước, chạy sau, so trên CÙNG một máy.**
 
-Chênh 18 là **test bị chặn bởi nền tảng**, đã đếm từng cái - Windows bỏ qua, Linux chạy:
+⭐ **Chênh lệch nay đi HAI chiều, không còn một chiều như trước** (đo 2026-08-25):
+
+| Chiều | Số | |
+|---|---|---|
+| Windows bỏ qua, Linux chạy | **18** | bảng ngay dưới |
+| **Linux bỏ qua, Windows chạy** | **1** | `processes/test_orphan_guard.py:222` - *"chỉ đúng trên Windows"*, có từ `0.8.2` |
+
+Phép tính đúng vì vậy là `Windows + 18 - 1 = Linux`, không phải `+ 18`.
+
+Mười tám test Windows bỏ qua, đã đếm từng cái:
 
 | Tệp | Số | Lý do bỏ qua |
 |---|---|---|

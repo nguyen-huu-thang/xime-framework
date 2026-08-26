@@ -5,10 +5,52 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
-## [Chưa phát hành]
+## [0.8.2] - 2026-08-26
 
 Báo cáo từ repo **ngoài**, đọc và xử lý 2026-08-22 và 2026-08-23. Nguyên văn:
 [`.claude/docs/bao-cao-van-de-tu-repo-ngoai/`](.claude/docs/bao-cao-van-de-tu-repo-ngoai/README.md).
+
+Mục đầu tiên dưới đây thì **không** đến từ repo ngoài: nó do phiên Linux tìm ra khi chạy
+thử bản này trước lúc phát hành. Nhật ký:
+[`.claude/docs/kiem-toan/0.8.2-ket-qua-do-tren-linux.md`](.claude/docs/kiem-toan/0.8.2-ket-qua-do-tren-linux.md).
+
+### Sửa - dòng log khởi động đếm **0 HTTP route** với mọi ứng dụng Xime
+
+Tìm ra trên Linux ngày 2026-08-25 khi chạy một app thật, không phải bằng đọc code.
+App có `/ping` và `/pid`, gọi thật trả `200`, mà dòng log khai:
+
+```text
+web default: configure_jwt() not called - no middleware installed, 0 HTTP route(s)
+```
+
+Nguyên nhân: **`app.routes` không phải một danh sách phẳng.** Từ `fastapi 0.141`,
+`include_router()` nhét vào đúng **một object bọc** (`_IncludedRouter`) giữ router gốc,
+thay vì trải từng route ra như các bản trước. Object đó không có `methods`, không có
+`include_in_schema`, nên phép đếm phẳng bỏ qua nó và trả `0`.
+
+⚠ Mà **mọi controller của Xime đều đăng ký qua `include_router`**, nên con số này là `0`
+với **mọi ứng dụng** - kể cả ứng dụng đang phục vụ ba chục route. Ứng dụng duy nhất ra số
+khác `0` là ứng dụng gắn route thẳng vào `FastAPI`, tức đường không ai đi.
+
+⭐⭐ Chỗ đáng nhớ hơn bản vá: **dòng log này chính là bản vá A1**, và nó vừa qua hai vòng
+sửa vì cùng một loại lỗi. Vòng một in *"N route(s) open to anyone"* - một kết luận không
+có bằng chứng. Vòng hai sửa chữ. Vòng này thì **chữ đã đúng mà con số thì sai**, và nó sai
+theo hướng tệ nhất có thể: `0` là con số **duy nhất** khiến người đọc kết luận *"chưa có
+route nào, chưa cần lo"*.
+
+⭐ **14 test canh đã có đều xanh y nguyên khi lỗi còn nguyên** - chúng gắn route bằng
+`app.add_api_route()`, đường tiện cho test mà không ứng dụng nào đi. Đúng bài học số 1 của
+repo: *viết ít nhất một test đi đúng con đường tài liệu hướng dẫn*. Lớp
+`TestDemRouteDiXuyenQuaIncludeRouter` (4 test) là con đường đó, và nó canh **cả hai
+chiều** - đếm được route qua router lồng nhau, **và** không đếm bừa route hạ tầng.
+
+Phép đếm nay đi xuyên qua lớp bọc bằng **duck typing trên `original_router`**, không bắt
+theo tên lớp riêng tư: tên đổi thì con số về `0` **trong im lặng**, đúng thứ bản vá này
+sinh ra để xoá. Cả hai hình dạng đều đếm được, vì `pyproject` nhận `fastapi>=0.133.0` và
+khoảng đó có cả hai.
+
+Đối chứng hai chiều: gỡ bản vá -> **4 đỏ** (và 14 test cũ **xanh**, đúng như dự đoán) ·
+bản vá đếm bừa (mất phép lọc `include_in_schema`) -> **6 đỏ**.
 
 ### Thêm - `public_health_paths()` nay là API công khai của `xime.adapters.web`
 

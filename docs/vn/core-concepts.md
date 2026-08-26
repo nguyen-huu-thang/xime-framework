@@ -143,7 +143,7 @@ trong package được quét, kể cả khi mọi field đều có giá trị m�
 Không phải vì "nó thường là dữ liệu", mà vì nó **không thể** nhận dependency:
 
 ```python
-def __init__(self, **data: Any) -> None      # chu ky that cua BaseModel
+def __init__(self, **data: Any) -> None: ...   # chu ky that cua BaseModel
 ```
 
 Constructor injection khớp dependency **theo tên tham số**. `**data` không có tên tham số

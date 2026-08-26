@@ -2,8 +2,8 @@
 
 > | | |
 > |---|---|
-> | **Trạng thái** | **ĐANG DÙNG** - đo lần đầu 2026-08-22 |
-> | **Thuộc bản** | `0.8.1` (đợt uvloop), nhưng bộ đo không gắn với bản nào |
+> | **Trạng thái** | **ĐANG DÙNG** - đo lần đầu 2026-08-22, **đo lại 2026-08-25** (mục 9) |
+> | **Thuộc bản** | Bảng số ở mục 2-5b là của `0.8.1`; mục 9 là `0.8.2`. Bộ đo không gắn với bản nào |
 > | **Thay cái gì** | Không thay gì. Trước đây framework **không có** benchmark nào |
 > | **Bị thay bởi** | Chưa. Số liệu thì lỗi thời theo máy và theo bản; **cách đo** thì không |
 >
@@ -232,10 +232,69 @@ minh được nó chạy nhánh nào thì không có giá trị so sánh.
 **e. `wait` trần trong bash đợi luôn tiến trình server** (đã treo một lượt đo 10
 phút), và **`pkill -f <mẫu>` tự giết shell** vì mẫu nằm trong chính dòng lệnh.
 
-## 8. Liên quan
+**f. Cửa sổ đo phải trùng cửa sổ TẢI, không trùng một hằng số ai đó chọn cho
+tiện.** Thêm 2026-08-25 sau khi lỗi này lộ ra ở tầng 4 - xem mục 9.
+
+Cả ba tầng đều lấy mẫu CPU trong một thread song song, suốt một khoảng **cố
+định** (1,5s ở tầng 1, 2,0s ở tầng 2 và 4). Tải xong sớm hơn thì phần đuôi của
+cửa sổ đo một server **đang rỗi**, và con số tụt xuống **không một lời báo**:
+cùng một cụm 2 tiến trình, hai lượt cách nhau vài phút ra **195,0%** rồi
+**97,5%**.
+
+⭐⭐ Phần đáng nhớ không phải con số xấu, mà là **nó đổi NHÃN của cả dòng**.
+`xet_bao_hoa()` lấy CPU làm tín hiệu quyết định, nên CPU thiếu -> *"chưa kịch
+trần"* -> dán `CLIENT_BOUND` cho một cụm chạy hoàn hảo. Mà `CLIENT_BOUND` theo
+luật của chính bộ đo này nghĩa là **"vứt đi"**.
+
+> Một phép đo sai cửa sổ không chỉ hỏng chính nó - nó làm hỏng **kết luận** rút
+> ra từ nó, và kết luận sai đó trông y hệt một kết luận thận trọng.
+
+**g. Danh sách tiến trình phải lấy từ những cái ĐÃ TRẢ LỜI, không lấy từ mốc sẵn
+sàng.** Cùng đợt, cùng họ với (f): tầng 4 lấy pid bằng `pgrep -P` ngay khi log
+in `is serving` - nhưng dòng đó do tiến trình **đầu tiên** in, ba con còn lại có
+thể chưa sinh xong. Kết quả là cộng CPU của một tiến trình rồi chia cho trần của
+bốn. Nay bắn `/pid` tới khi thấy **đủ** số tiến trình khác nhau rồi mới đo.
+
+📌 Hai lỗi (f) và (g) đều **không làm sai con số rps** - thông lượng vẫn đúng.
+Chúng chỉ làm sai **phép kiểm tính hợp lệ**, tức đúng thứ bộ đo này sinh ra để
+làm. Một dụng cụ tự kiểm mà chỗ tự kiểm hỏng thì im lặng hơn cả không có.
+
+## 8. Đo lại trên `0.8.2` (2026-08-25) - mọi kết luận lặp lại
+
+Chạy đầy đủ sau khi vá hai lỗi (f) và (g) ở mục 7: **29 phép đo, 0 vứt đi, 0
+chưa kết luận được** - lần đầu bộ benchmark chạy sạch hoàn toàn. Trước khi vá,
+`CHUA_KET_LUAN_DUOC` xuất hiện ở 2/29 và **không lặp lại được**.
+
+| Kết luận | `0.8.1` (08-22) | `0.8.2` (08-25) |
+|---|---|---|
+| Xime so với ASGI trần | 41% | **42,3%** (4.211 / 9.966) |
+| Cụm mở rộng | 2,00x · 3,88x | **1,97x · 3,75x** (1/1, 2/2, 4/4 trả lời) |
+| `RefData.read()` so với `Store.get()` | ~60 lần | **64,5 lần** |
+| uvloop trên **REST** | 0,91x (lỗ) | **0,93x** (lỗ) |
+| uvloop trên **tin nhắn WebSocket** | 1,11x (lãi) | **1,11x** |
+| uvloop trên **bắt tay WebSocket** | 0,93x (lỗ) | **0,90x** |
+
+**Ranh giới ở mục 5b đứng nguyên:** việc kiểu xử lý request HTTP thì uvloop lỗ
+~8-9%; việc truyền trên kết nối đã mở thì lãi 11-38%.
+
+📌 **Một số mới đáng ghi, chưa kết luận được:** trên **loop trần API protocol**,
+uvloop và loop mặc định nay **bằng nhau** (105.177 so với 106.653 = 0,99x),
+trong khi ở API stream uvloop hơn **1,20x**. Nếu lặp lại được ở máy khác thì nó
+nói rằng phần lãi của uvloop ở tầng thấp nằm gần trọn trong lớp
+`StreamReader`/`StreamWriter`, **không** nằm ở bản thân vòng lặp. Một lần đo thì
+chưa đủ.
+
+⚠ Số tuyệt đối thấp hơn `0.8.1` vài phần trăm ở hầu hết dòng. Đừng đọc đó là hồi
+quy: hai buổi đo cách nhau ba ngày, cùng máy nhưng khác trạng thái nhiệt và khác
+tải nền. **Tỉ lệ giữa các dòng trong cùng một lượt** mới là thứ so được, và mọi
+tỉ lệ đều khớp.
+
+## 9. Liên quan
 
 - [`../../scripts/benchmark/README.md`](../../scripts/benchmark/README.md) - cách chạy, bốn nhãn, chỗ dễ vấp.
 - [`../kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](../kiem-toan/0.8.1-ket-qua-do-tren-linux.md) - đợt đo uvloop, bốn phép đo bắt buộc.
+- [`../kiem-toan/0.8.2-ket-qua-do-tren-linux.md`](../kiem-toan/0.8.2-ket-qua-do-tren-linux.md) - chuyến `0.8.2`, nơi hai lỗi (f) và (g) lộ ra.
 - [`../sap-toi/tang-toc-uvicorn-uvloop.md`](../sap-toi/tang-toc-uvicorn-uvloop.md) - thiết kế uvloop, mục 6.1 vì sao không có công tắc.
 - [`../thiet-ke/12-kho-refdata.md`](../thiet-ke/12-kho-refdata.md) và [`13-kho-store-lmdb.md`](../thiet-ke/13-kho-store-lmdb.md) - ranh giới *có nguồn bền vững hay không*, mà mục 4b cho thấy trùng với ranh giới hiệu năng.
 - [`../../rules/module-level-code.md`](../../rules/module-level-code.md) - vì sao chi phí import nhân với `N+1`.
+

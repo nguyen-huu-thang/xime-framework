@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterable
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from ssl import CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED
@@ -155,6 +155,50 @@ def _tls_kwargs(tls: ServerTlsConfig, server_id: str) -> dict[str, Any]:
     if tls.ciphers:
         kwargs["ssl_ciphers"] = tls.ciphers
     return kwargs
+
+
+def _count_http_routes(routes: Iterable[Any]) -> int:
+    """Count the application's own HTTP routes, through include_router wrappers.
+
+    ⚠⚠ `app.routes` is NOT a flat list. From fastapi 0.141, `include_router()`
+    appends ONE wrapper object holding the original router instead of splicing
+    each route in, the way earlier versions did. Every Xime controller is
+    registered through `include_router`, so a flat count returns **0 for every
+    Xime application** - including one serving thirty routes perfectly well.
+    ⚠⚠ `app.routes` KHÔNG phải danh sách phẳng. Từ fastapi 0.141,
+    `include_router()` nhét vào đúng MỘT object bọc giữ router gốc, thay vì trải
+    từng route ra như các bản trước. Mà mọi controller của Xime đều đăng ký qua
+    `include_router`, nên phép đếm phẳng trả **0 với mọi ứng dụng Xime** - kể cả
+    ứng dụng đang phục vụ ba chục route ngon lành.
+
+    Both shapes have to be counted: `pyproject` accepts `fastapi>=0.133.0`, and
+    that range contains both.
+    Cả hai hình dạng đều phải đếm được, vì `pyproject` nhận `fastapi>=0.133.0`
+    và khoảng đó có cả hai.
+
+    ⭐ Descends by duck typing on `original_router`, not by the private class
+    name: a name that moves would take the count back to 0 **silently**, which
+    is exactly the failure this function exists to end.
+    ⭐ Đi xuống bằng thuộc tính `original_router` chứ không bắt theo tên lớp
+    riêng tư: tên đổi thì phép đếm về 0 **trong im lặng**, đúng thứ hàm này sinh
+    ra để xoá.
+
+    Only routes with `include_in_schema=True` count - `/docs`, `/openapi.json`
+    and `/healthz` all declare False. They are open too, but a number the author
+    cannot map back to their own code tells them nothing.
+    Chỉ đếm route `include_in_schema=True` - `/docs`, `/openapi.json`, `/healthz`
+    đều khai False. Chúng cũng mở thật, nhưng một con số người viết không map
+    được về code của mình thì không nói cho họ điều gì.
+    """
+    total = 0
+    for route in routes:
+        inner = getattr(route, "original_router", None)
+        if inner is not None:
+            total += _count_http_routes(getattr(inner, "routes", ()))
+            continue
+        if getattr(route, "methods", None) and getattr(route, "include_in_schema", False):
+            total += 1
+    return total
 
 
 class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
@@ -522,12 +566,7 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         # cũng mở thật, nhưng một con số người viết không map được về code của
         # mình thì không nói cho họ điều gì - và câu hỏi "sao lại 11?" là chỗ một
         # dòng log bắt đầu bị bỏ qua.
-        http_routes = sum(
-            1
-            for route in app.routes
-            if getattr(route, "methods", None)
-            and getattr(route, "include_in_schema", False)
-        )
+        http_routes = _count_http_routes(app.routes)
 
         if jwt_config is None:
             # Số middleware do chính ứng dụng cài, KHÔNG kèm suy diễn nào. Zero

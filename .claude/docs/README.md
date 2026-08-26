@@ -13,6 +13,7 @@
 | Hôm nay đứng ở đâu, còn việc gì | [`../CLAUDE.md`](../CLAUDE.md) |
 | Luật code của repo này | [`../rules/`](../rules/) |
 | ✅ Đợt đo uvloop 0.8.1 trên Linux (**đã xong**) | [`kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md); đề bài gốc ở [`ban-giao-cho-phien-linux-0.8.1.md`](nhap/ban-giao-cho-phien-linux-0.8.1.md) |
+| ✅ Chạy thử `0.8.2` trên Linux (**đã xong** 2026-08-25) | [`kiem-toan/0.8.2-ket-qua-do-tren-linux.md`](kiem-toan/0.8.2-ket-qua-do-tren-linux.md) - 1 lỗi framework đã vá + 1 lỗi bộ benchmark đã vá |
 | **Framework nhanh chậm ra sao, uvloop lãi ở đâu** | [`ghi-chep/benchmark-hieu-nang.md`](ghi-chep/benchmark-hieu-nang.md) |
 
 ## Bảy loại tài liệu, và luật của từng loại
@@ -87,6 +88,7 @@ thuộc bản nào · thay cái gì · bị thay bởi cái gì*.
 | [`0.7-bao-mat-cho-quyet.md`](kiem-toan/0.7-bao-mat-cho-quyet.md) | Phần còn chờ chủ dự án quyết |
 | [`0.8-truoc-phat-hanh.md`](kiem-toan/0.8-truoc-phat-hanh.md) | Bảy phát hiện, ba chặn phát hành. **Cả ba nằm ở chỗ công cụ đo nói dối** |
 | [`0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md) | ⭐ **Đợt uvloop đo trên Linux.** Ba phép đo ĐẠT; phép thứ tư **kết luận rõ, và nó lật một giả định của chính bản 0.8.1** (uvloop làm REST chậm ~10%). Sửa hai test lỗi thời - **ca thứ ba của "lỗi máy phát triển không thể thấy"** |
+| [`0.8.2-ket-qua-do-tren-linux.md`](kiem-toan/0.8.2-ket-qua-do-tren-linux.md) | ⭐ **Chuyến chạy thử `0.8.2` trước phát hành.** Bộ test khớp tổng Windows; tìm ra **một lỗi thật chưa ai thấy** - dòng log khởi động khai `0 HTTP route(s)` với **mọi** ứng dụng Xime, vì `include_router()` của fastapi 0.141 không còn trải route ra `app.routes`. **14 test canh đã có đều xanh y nguyên** vì chúng đi đường tắt `add_api_route()`. Kèm một lỗi trong chính bộ benchmark |
 | [`backlog-sua-loi.md`](kiem-toan/backlog-sua-loi.md) | ⚠ **Không còn mục nào mở.** Đừng đọc để tìm việc |
 
 ## `ghi-chep/` - một ca, một bài học
@@ -98,6 +100,7 @@ thuộc bản nào · thay cái gì · bị thay bởi cái gì*.
 | [`phu-thuoc-bac-cau.md`](ghi-chep/phu-thuoc-bac-cau.md) | Ba phụ thuộc dùng mà không khai |
 | [`loi-dua-scheduler.md`](ghi-chep/loi-dua-scheduler.md) | `create_task` chưa chạy dòng nào. **Mock không mang ngữ nghĩa của thứ nó thay thế** |
 | [`yeu-cau-server-stream.md`](ghi-chep/yeu-cau-server-stream.md) | Yêu cầu từ data-service và user-service, đã làm ở 0.7.1 |
+| ⭐ [`dac-tinh-python-va-vi-tri-framework.md`](ghi-chep/dac-tinh-python-va-vi-tri-framework.md) | **Quy luật vượt biên C/Rust** (thư viện Rust chỉ có lãi khi vòng lặp nằm BÊN TRONG nó - Pydantic **793 ns/bản ghi** so với viết tay **230 ns**) · ước lượng so Java/Spring, tỉ lệ phụ thuộc **N** chứ không phụ thuộc cách viết code · **nguyên tắc "không phụ thuộc khái niệm ngoài" đo lại: 0 lần trong mã thực thi** · vị trí giữa framework cùng họ, và **Nameko chết từ 2021** |
 | [`lam-viec-voi-nhom.md`](ghi-chep/lam-viec-voi-nhom.md) | Repo này giao tiếp với nhóm chat thế nào |
 | [`benchmark-hieu-nang.md`](ghi-chep/benchmark-hieu-nang.md) | ⭐ **Benchmark đầu tiên của framework, bốn tầng.** uvloop lãi ở loop trần nhưng **làm chồng web chậm ~10%** · Xime = **41%** thông lượng của ASGI trần · cụm nhiều tiến trình mở rộng **gần tuyến tính (3.88x với 4)**. Mục 7 là bài học về **cách đo**, phần không lỗi thời theo máy |
 
@@ -139,4 +142,5 @@ liệu **tạm**: đúng trong một chuyến đo rồi hết vai, và kết lu�
 | | |
 |---|---|
 | [`wishlist-tinh-nang.md`](sap-toi/wishlist-tinh-nang.md) | Danh sách ý tưởng, **không phải cam kết** |
+| [`lo-hong-tai-lieu-nguoi-dung.md`](sap-toi/lo-hong-tai-lieu-nguoi-dung.md) | Sổ theo dõi lỗ hổng `docs/` (tài liệu **người dùng**). Đo được: **146/309 tên công khai không xuất hiện lấy một lần**, `core/exception` thiếu **18/19**, `docs/` **không có mục lục**. 21 mục chia bốn nhóm để chủ dự án chọn |
 | [`tang-toc-uvicorn-uvloop.md`](sap-toi/tang-toc-uvicorn-uvloop.md) | ⛔ **NGOẠI LỆ của thư mục này: đã CODE và đã ĐO XONG** (0.8.1, 2026-08-22) - còn nằm ở `sap-toi/` vì dời file là quyết định cấu trúc thuộc chủ dự án. Đọc **mục 5b** cho kết quả bốn phép đo. ⚠ Mục 4.3 và việc số 3 của bảng mục 10 **đã hết đúng** (0.8.0 hợp nhất còn một đường vào `asyncio.run`) |

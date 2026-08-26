@@ -145,7 +145,7 @@ package, even when every field has a default.**
 Not because "it is usually data", but because it **cannot** receive a dependency:
 
 ```python
-def __init__(self, **data: Any) -> None      # BaseModel's real signature
+def __init__(self, **data: Any) -> None: ...   # BaseModel's real signature
 ```
 
 Constructor injection matches dependencies **by parameter name**. `**data` has no parameter

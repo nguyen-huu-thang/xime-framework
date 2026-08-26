@@ -2,7 +2,7 @@
 
 # XIME Framework
 
-**Trải nghiệm phát triển kiểu Spring Boot cho Python - mà vẫn tôn trọng triết lý Python.**
+**Một bộ DI cho thiết bị, dịch vụ và người dùng.**
 
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://pypi.org/project/xime/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -16,6 +16,10 @@
 ---
 
 XIME là một tầng convention cho microservice Python. Nó nằm **phía trên** FastAPI, SQLAlchemy và gRPC - cung cấp dependency injection tự động, validation dependency graph ngay lúc startup và các guardrail kiến trúc để bạn tập trung vào nghiệp vụ thay vì dây nhợ cấu hình.
+
+Bảy cửa vào: **HTTP, WebSocket, gRPC, Unix socket, MQTT, Modbus TCP và OPC UA** - một ứng dụng, một dependency graph, một vòng đời. Nói chuyện với một con PLC và phục vụ một trình duyệt ở đây là cùng một loại việc.
+
+Và nó mở rộng được mà **không cần một trình quản lý tiến trình đứng trước**. Từ 0.8, `share_load()` cộng một dòng `count:` trong cấu hình là các tiến trình dùng chung một socket lắng nghe - không gunicorn, không supervisor, không nginx chia tải giữa nhiều cổng. Đo 2026-08-25: **thông lượng 1,97x với hai tiến trình, 3,75x với bốn**.
 
 ```python
 # Trước XIME - tự kết nối mọi thứ thủ công
@@ -50,6 +54,24 @@ Python có các thư viện xuất sắc cho HTTP, database và serialization. �
 - Cung cấp cấu trúc nhất quán cho các project theo Clean Architecture / DDD / Modular Monolith
 
 XIME lấp đầy khoảng trống đó. Nó không thay thế FastAPI hay SQLAlchemy - nó giúp chúng dễ dùng hơn ở quy mô lớn.
+
+### Mượn gì của Spring Boot, và cố ý bỏ gì
+
+Món nợ là có thật và đáng gọi tên: **starter**, và **hỏng ngay lúc khởi động thay vì hỏng
+trên máy thật**. Đòi một dependency không ai cấp được thì tiến trình **không chịu lên**, kèm
+tên class và tên tham số.
+
+Phần bỏ đi cũng có chủ đích đúng như vậy, vì đây là những thứ không sống sót qua chuyến đi
+sang Python:
+
+| Spring | XIME |
+|---|---|
+| `@Service`, `@Autowired` - DI chạy bằng annotation | Vị trí thư mục cộng type hint của constructor. **Không annotation nào được đọc cho DI** |
+| `@Transactional` - proxy AOP viết lại lời gọi của bạn | `async with self.transaction():` - ranh giới là một dòng code nhìn thấy được |
+| Scope prototype, request, session | Một scope duy nhất: singleton dựng eager. Đó **chính là lý do** kiểm được toàn bộ đồ thị lúc khởi động |
+
+Nên *"Spring Boot cho Python"* là cách nói tắt sai. Cách nói đúng là **một đồ thị phụ thuộc,
+nhiều cửa vào** - và một trong những cửa đó mở ra thiết bị công nghiệp.
 
 ---
 

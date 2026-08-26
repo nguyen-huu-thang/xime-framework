@@ -9,7 +9,7 @@ cấu hình biết). Hai hệ quả đụng vào API công khai, và cả hai ph
 2. Handler muốn biết mình đang xử lý máy nào thì khai một tham số **tên
    `device`**, khớp theo TÊN đúng như `topic` của `@subscribe`.
 
-⏭ Phần dựng N kết nối làm ở 0.8.1. Test ở đây đo **hợp đồng**, không đo số kết
+⏭ Phần dựng N kết nối lùi sang một bản 0.8.x, chưa chốt. Test ở đây đo **hợp đồng**, không đo số kết
 nối - và đó là thứ phải đúng ngay hôm nay, vì 0.8.x không được đổi API.
 """
 

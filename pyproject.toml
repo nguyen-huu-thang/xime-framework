@@ -11,8 +11,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.8.1"
-description = "A Python backend framework that brings a Spring Boot-style developer experience while respecting Python's philosophy."
+version = "0.8.2"
+description = "A Python backend framework with a built-in DI container: HTTP, WebSocket, gRPC, sockets, MQTT, Modbus TCP and OPC UA from one application, scaled across processes with no external process manager."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
@@ -20,7 +20,24 @@ license-files = ["LICENSE"]
 authors = [
     { name = "Nguyễn Hữu Thắng", email = "nguyen-huu-thang@outlook.com" },
 ]
-keywords = ["framework", "dependency-injection", "fastapi", "backend"]
+# Keywords: PyPI dung chung cho tim kiem. Bo cu ("framework, dependency-injection,
+# fastapi, backend") la cua thoi Xime = "DI + FastAPI"; nay adapter da phu ca
+# gRPC, MQTT, Modbus TCP, OPC UA - do la cho khac biet that, khong phai HTTP.
+keywords = [
+    "framework",
+    "dependency-injection",
+    "backend",
+    "asyncio",
+    "microservices",
+    "fastapi",
+    "grpc",
+    "websocket",
+    "mqtt",
+    "modbus",
+    "opc-ua",
+    "iot",
+    "multiprocessing",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -28,8 +45,18 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
     "Framework :: FastAPI",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Information Technology",
+    # Modbus TCP + OPC UA - khong framework Python cung ho nao noi chuyen duoc
+    # voi thiet bi cong nghiep, nen hai dong nay la cho Xime de tim thay nhat.
+    "Intended Audience :: Manufacturing",
+    "Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator",
+    "Topic :: System :: Networking",
+    "Topic :: Internet :: WWW/HTTP",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Operating System :: OS Independent",
     "Typing :: Typed",
 ]
 

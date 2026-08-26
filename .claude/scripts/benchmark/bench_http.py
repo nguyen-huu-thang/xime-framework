@@ -21,19 +21,18 @@ from __future__ import annotations
 import re
 import sys
 import tempfile
-import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _harness import (  # noqa: E402
     DAT,
+    DoCpu,
     KetQua,
     Server,
     chay_song_song,
     co_ab,
     cong_trong,
-    cpu_percent,
     in_bang,
     python_bin,
     xet_bao_hoa,
@@ -93,12 +92,9 @@ def do(tang: str, nhanh: str) -> KetQua:
             )
         loop_that = loop.group(1)
 
-        hop: list[float | None] = []
-        t = threading.Thread(target=lambda: hop.append(cpu_percent(sv.pid, 2.0)))
-        t.start()
-        mot = _rps(chay_song_song([_ab(port)])[0])
-        t.join()
-        cpu = hop[0] if hop else None
+        with DoCpu(sv.pid) as d:
+            mot = _rps(chay_song_song([_ab(port)])[0])
+        cpu = d.phan_tram
 
         # Đối chứng bão hoà: hai `ab` song song, mỗi cái nửa tải.
         hai = sum(_rps(o) for o in chay_song_song([_ab(port, N // 2, C // 2)] * 2))

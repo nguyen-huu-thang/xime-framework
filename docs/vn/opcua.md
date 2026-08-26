@@ -132,7 +132,7 @@ for srv in opcua.servers_of("tram-bom"):
 
 Khớp theo **tên**; tham số thứ hai mang tên khác là **lỗi khởi động**.
 
-⏭ **0.8 mới khai chữ ký**, phần dựng nhiều kết nối làm ở **0.8.1**.
+⏭ **0.8 mới khai chữ ký**, phần dựng nhiều kết nối lùi sang **một bản 0.8.x**, chưa chốt bản nào.
 ⛔ **`@on_node_change(..., server=...)` đã bị bỏ ở 0.8** - handler chạy cho mọi thực
 thể của loại nó.
 

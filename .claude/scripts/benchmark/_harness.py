@@ -45,6 +45,53 @@ def _jiffies(pid: int) -> float | None:
     return (int(tail[11]) + int(tail[12])) / CLOCK
 
 
+class DoCpu:
+    """%CPU của một hay nhiều tiến trình, đo trên ĐÚNG khoảng tải chạy.
+
+    ⚠⚠ Vì sao không dùng `cpu_percent(pid, <hằng số>)` trong một thread song
+    song với tải - cách cả ba tầng từng làm: cửa sổ đo là một **hằng số ai đó
+    chọn cho tiện**, còn tải thì dài ngắn tuỳ máy. Tải xong sớm hơn cửa sổ thì
+    phần đuôi đo một server **đang rỗi**, và con số tụt xuống **không một lời
+    báo**.
+
+    Đo được, không phải suy đoán (2026-08-25): cùng một cụm 2 tiến trình, hai
+    lượt cách nhau vài phút ra **195,0%** rồi **97,5%**.
+
+    ⭐⭐ Và nó không dừng ở một con số xấu - nó **đổi nhãn của cả dòng**.
+    `xet_bao_hoa()` lấy CPU làm tín hiệu quyết định, nên một cụm đã kịch trần
+    bị đọc thành *"chưa bão hoà"* rồi rơi xuống `CHUA_KET_LUAN_DUOC`. Một phép
+    đo sai cửa sổ làm hỏng cả **kết luận** rút ra từ nó, không chỉ hỏng chính
+    nó. Sau khi vá: 342,1% trên trần 340% -> `SERVER_BOUND`, đúng bốn lõi.
+
+        with DoCpu(sv.pid) as d:
+            so_do = chay_tai()
+        cpu = d.phan_tram
+    """
+
+    def __init__(self, *pids: int) -> None:
+        self._pids = [p for p in pids]
+        self._truoc: dict[int, float | None] = {}
+        self._t0 = 0.0
+        self.phan_tram: float | None = None
+
+    def __enter__(self) -> DoCpu:
+        self._truoc = {p: _jiffies(p) for p in self._pids}
+        self._t0 = time.perf_counter()
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        giay = time.perf_counter() - self._t0
+        if giay <= 0:
+            return
+        sau = {p: _jiffies(p) for p in self._pids}
+        co = [
+            sau[p] - t
+            for p, t in self._truoc.items()
+            if t is not None and sau.get(p) is not None
+        ]
+        self.phan_tram = sum(co) / giay * 100.0 if co else None
+
+
 def cpu_percent(pid: int, giay: float = 1.0) -> float | None:
     """%CPU trung bình của tiến trình trong `giay` giây (100 = trọn một lõi)."""
     a = _jiffies(pid)

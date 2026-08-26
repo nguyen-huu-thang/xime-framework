@@ -2,7 +2,7 @@
 
 # XIME Framework
 
-**Spring Boot-style developer experience for Python - without betraying Python's philosophy.**
+**One DI container for devices, services and people.**
 
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://pypi.org/project/xime/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -15,7 +15,11 @@
 
 ---
 
-XIME is a convention layer for Python microservices. It sits **on top of** FastAPI, SQLAlchemy, and gRPC - providing automatic dependency injection, startup-time graph validation, and architectural guardrails so you can focus on business logic instead of wiring.
+XIME is a convention layer for Python microservices. It sits **on top of** FastAPI, SQLAlchemy and gRPC - providing automatic dependency injection, startup-time graph validation, and architectural guardrails so you can focus on business logic instead of wiring.
+
+Seven ways in: **HTTP, WebSocket, gRPC, Unix sockets, MQTT, Modbus TCP and OPC UA** - one application, one dependency graph, one lifecycle. Talking to a PLC and serving a browser are the same kind of work here.
+
+And it scales **without a process manager in front of it**. Since 0.8, `share_load()` plus a `count:` in the config makes the processes share one listening socket - no gunicorn, no supervisor, no nginx balancing between ports. Measured 2026-08-25: **1.97x throughput on two processes, 3.75x on four**.
 
 ```python
 # Before XIME - wire everything manually
@@ -50,6 +54,24 @@ Python has excellent libraries for HTTP, databases, and serialization. What it l
 - Provides a consistent structure for Clean Architecture / DDD / Modular Monolith projects
 
 XIME fills that gap. It does not replace FastAPI or SQLAlchemy - it makes them easier to use at scale.
+
+### What it borrows from Spring Boot, and what it deliberately drops
+
+The debt is real and worth naming: **starters**, and **failing at startup rather than in
+production**. Ask for a dependency nothing can supply and the process refuses to boot,
+with the class and parameter named.
+
+What XIME drops is just as deliberate, because these are the parts that do not survive the
+trip into Python:
+
+| Spring | XIME |
+|---|---|
+| `@Service`, `@Autowired` - DI driven by annotations | Directory layout plus constructor type hints. No annotation is read for DI |
+| `@Transactional` - AOP proxies rewriting your call | `async with self.transaction():` - the boundary is a line of code you can see |
+| Prototype, request and session scopes | One scope: eager singleton. That is *why* the whole graph can be checked at startup |
+
+So "Spring Boot for Python" is the wrong shorthand. The right one is **one dependency
+graph, many front doors** - and one of those doors opens onto industrial hardware.
 
 ---
 

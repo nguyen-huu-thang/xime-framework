@@ -241,7 +241,7 @@ for dev in modbus.devices_of("conveyor"):
 parameter, from `devices_of(...)`, or from data the user picked.
 
 ⏭ **0.8 declares the signature only**; wiring several connections per kind lands
-in **0.8.1**. Today one adapter holds exactly one instance named after its kind,
+in **some 0.8.x release**, not yet pinned. Today one adapter holds exactly one instance named after its kind,
 so code written as the loop above works on both releases unchanged.
 
 ⛔ **`@poll(..., device=...)` and `@on_change(..., device=...)` are gone in 0.8.**

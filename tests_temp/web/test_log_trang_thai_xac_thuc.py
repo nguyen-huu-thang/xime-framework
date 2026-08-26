@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 
 import pytest
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 
 from xime.adapters.web._adapter import WebAdapter
 from xime.adapters.web._registry import registry
@@ -277,3 +277,91 @@ class TestChoNoiChuKhongChiLaHam:
             )
         finally:
             jwt_registry.reset()
+
+
+class TestDemRouteDiXuyenQuaIncludeRouter:
+    """⚠⚠ Mọi phép đếm ở trên gắn route bằng `app.add_api_route()` - con đường
+    mà **không ứng dụng Xime nào đi**. Ứng dụng thật đăng ký controller qua
+    `app.include_router()`, và từ fastapi 0.141 đường đó nhét vào **một object
+    bọc** thay vì trải từng route ra như các bản trước.
+
+    Hậu quả đo được trên Linux ngày 2026-08-25, fastapi 0.141.1: một app có
+    `/ping` và `/pid`, gọi thật trả 200, mà dòng log khai **`0 HTTP route(s)`**.
+    Không test nào đỏ, vì mọi test đếm đều đi đường tắt.
+
+    ⭐ Đây đúng bài học số 1 của repo: *viết ít nhất một test đi đúng con đường
+    TÀI LIỆU hướng dẫn, không phải con đường tiện nhất cho test*. Lớp này là
+    con đường đó.
+    """
+
+    @staticmethod
+    def _router(*duong: str, trong_schema: bool = True) -> APIRouter:
+        r = APIRouter()
+        for d in duong:
+            r.add_api_route(d, lambda: {"ok": True}, methods=["GET"],
+                            include_in_schema=trong_schema)
+        return r
+
+    def test_route_qua_include_router_van_dem_duoc(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        app = FastAPI()
+        app.include_router(self._router("/ping", "/pid"))
+
+        with caplog.at_level(logging.INFO):
+            WebAdapter._log_auth_state(app, None, "default")
+
+        assert "2 HTTP route(s)" in caplog.text, (
+            "route đăng ký qua include_router - đúng đường mọi controller Xime "
+            "đi - mà phép đếm không thấy"
+        )
+
+    def test_router_long_nhau_cung_dem_duoc(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        trong = self._router("/a", "/b")
+        ngoai = APIRouter()
+        ngoai.include_router(trong, prefix="/v1")
+        ngoai.add_api_route("/c", lambda: {"ok": True}, methods=["GET"])
+        app = FastAPI()
+        app.include_router(ngoai)
+
+        with caplog.at_level(logging.INFO):
+            WebAdapter._log_auth_state(app, None, "default")
+
+        assert "3 HTTP route(s)" in caplog.text
+
+    def test_hai_hinh_dang_CONG_lai_chu_khong_thay_the_nhau(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Đường phẳng phải sống sót qua bản vá.
+
+        `pyproject` nhận `fastapi>=0.133.0`, và khoảng đó có cả hai hình dạng.
+        Chỉ canh hình dạng mới thì một bản vá "chỉ đi xuống router" cũng qua -
+        mà thế là hỏng với mọi fastapi cũ hơn.
+        """
+        app = FastAPI()
+        app.add_api_route("/thang", lambda: {"ok": True}, methods=["GET"])
+        app.include_router(self._router("/qua-router"))
+
+        with caplog.at_level(logging.INFO):
+            WebAdapter._log_auth_state(app, None, "default")
+
+        assert "2 HTTP route(s)" in caplog.text
+
+    def test_route_ha_tang_trong_router_van_bi_LOAI(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Đi xuyên qua lớp bọc không được làm mất phép lọc.
+
+        Cặp với ba test trên: chúng canh *"đếm được nhiều hơn"*, test này canh
+        *"không đếm bừa"*. Thiếu nó thì một bản vá đếm mọi thứ cũng xanh.
+        """
+        app = FastAPI()
+        app.include_router(self._router("/ping"))
+        app.include_router(self._router("/metrics", trong_schema=False))
+
+        with caplog.at_level(logging.INFO):
+            WebAdapter._log_auth_state(app, None, "default")
+
+        assert "1 HTTP route(s)" in caplog.text

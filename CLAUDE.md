@@ -13,7 +13,9 @@ File này cung cấp hướng dẫn cho Claude Code khi làm việc với dự �
 
 ## Tổng quan dự án
 
-**XIME** là một Python backend framework mang lại trải nghiệm phát triển tương tự Spring Boot nhưng vẫn tôn trọng triết lý Python. Toàn bộ core, sáu adapter (web, gRPC, socket, MQTT, **Modbus TCP**, **OPC UA**) và các starter đều đã triển khai đầy đủ và có test - framework **không còn ở giai đoạn thiết kế**.
+**XIME** là một Python backend framework: **một đồ thị phụ thuộc, nhiều cửa vào** - HTTP, WebSocket, gRPC, Unix socket, MQTT, Modbus TCP và OPC UA cùng một ứng dụng, cùng một vòng đời.
+
+⚠ **Đừng gọi nó là "Spring Boot cho Python"** (câu cũ ở đây và ở hai README đã bỏ 2026-08-26). Nó mượn của Spring đúng hai thứ - **starter** và **fail-fast lúc khởi động** - rồi **cố ý bỏ** ba nét định danh còn lại: annotation cho DI, `@Transactional`/AOP, và mọi scope ngoài singleton eager. Câu nói tắt đó dựng kỳ vọng sai rồi trả giá bằng chính những lỗi mà `rules/coding.md` phải đi đính chính. Lý do đầy đủ + số liệu thị trường: [`.claude/docs/ghi-chep/dac-tinh-python-va-vi-tri-framework.md`](.claude/docs/ghi-chep/dac-tinh-python-va-vi-tri-framework.md) mục 4. Toàn bộ core, sáu adapter (web, gRPC, socket, MQTT, **Modbus TCP**, **OPC UA**) và các starter đều đã triển khai đầy đủ và có test - framework **không còn ở giai đoạn thiết kế**.
 
 Ba trụ của nó: **DI tự viết hoàn toàn** (quét package, phân giải type hint, dựng và kiểm tra dependency graph, fail fast lúc khởi động) · **transaction tường minh** bằng context manager thay vì `@transactional` · và **đa tiến trình** với kho, bus, cấu hình cùng hình dạng cho một hay nhiều tiến trình.
 

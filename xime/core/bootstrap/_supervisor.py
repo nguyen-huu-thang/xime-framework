@@ -255,7 +255,7 @@ def _reject_unsupported_sharing(
 
 
 def _reject_sharded_under_share_load(adapters: list[Adapter]) -> None:
-    """Adapter hạng phân mảnh chưa chia tải được ở 0.8 - thi công ở 0.8.1.
+    """Adapter hạng phân mảnh chưa chia tải được - thi công ở một bản 0.8.x, chưa chốt.
 
     ⚠ Phép kiểm này ở **framework**, không ở adapter. Trước đó mỗi adapter tự
     ném trong `assign_slot()`, nhưng từ khi mọi adapter luôn nhận một ô thì cách
@@ -273,7 +273,8 @@ def _reject_sharded_under_share_load(adapters: list[Adapter]) -> None:
         "Detail    : these adapters are sharded, not replicated - each process "
         "must own a different slice (a set of devices, a set of topics), and "
         "two processes driving one device double the load on real hardware. "
-        "That configuration shape is designed but lands in 0.8.1. Until then, "
+        "That configuration shape is designed but has not shipped yet. Until "
+        "then, "
         "run this application as a single process (no share_load()).",
     )
 

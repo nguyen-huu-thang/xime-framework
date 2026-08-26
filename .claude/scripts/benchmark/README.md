@@ -1,6 +1,7 @@
 # Benchmark của Xime Framework
 
-> Lập **2026-08-22**, trong đợt đo uvloop của 0.8.1. Kết quả đo và cách đọc:
+> Lập **2026-08-22** trong đợt uvloop `0.8.1`; vá cách đo CPU **2026-08-25**
+> (xem hai dòng cuối bảng *"chỗ dễ vấp"*). Kết quả đo và cách đọc:
 > [`../../docs/ghi-chep/benchmark-hieu-nang.md`](../../docs/ghi-chep/benchmark-hieu-nang.md).
 
 ```bash
@@ -81,6 +82,8 @@ mục 4b cấm, và repo này đã cắn nó một lần với `ShardValueGuard`
 | `wait` trần trong bash | Đợi luôn cả tiến trình server, treo vĩnh viễn. Dùng `chay_song_song()` của khung |
 | Lấy `max` của nhiều lượt | Đó là con số của lần máy tình cờ rảnh nhất. Bộ này lấy **trung vị** |
 | Máy không yên tĩnh | Trình duyệt đang mở chiếm >100% CPU. Đóng bớt trước khi đo, hoặc ghi rõ trong kết quả |
+| **Đo CPU bằng cửa sổ cố định** | ⛔ Đừng. Dùng `DoCpu` của khung - nó ôm **đúng** khoảng tải chạy. Cửa sổ cố định mà tải xong sớm hơn thì phần đuôi đo một server **đang rỗi**: cùng một cụm 2 tiến trình ra **195,0%** rồi **97,5%**, và nhãn đổi từ `SERVER_BOUND` sang `CLIENT_BOUND` |
+| **Lấy pid ngay khi thấy mốc sẵn sàng** | ⛔ Mốc đó do tiến trình **đầu tiên** in; con còn lại có thể chưa sinh. Lấy pid từ những cái **đã trả lời** (`_doi_du_tien_trinh` của `bench_scale`) |
 
 ## Thêm một phép đo mới
 

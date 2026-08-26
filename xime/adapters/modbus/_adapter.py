@@ -51,7 +51,8 @@ class ModbusAdapter(
         """Nhận ô cấu hình, và **hiện chưa dùng tới nó**.
 
         Adapter hạng phân mảnh đọc khối YAML của riêng mình như cũ; việc chia
-        tập thiết bị / tập topic theo tiến trình thi công ở **0.8.1**.
+        tập thiết bị / tập topic theo tiến trình thi công ở **một bản 0.8.x**,
+        chưa chốt bản nào.
 
         ⚠ Không ném ở đây. Từ 0.8 **mọi** adapter luôn nhận một ô, kể cả ở nhánh
         một tiến trình - nơi adapter này chạy hoàn toàn bình thường. Thứ phải

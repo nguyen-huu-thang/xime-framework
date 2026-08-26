@@ -132,7 +132,7 @@ for srv in opcua.servers_of("pump-station"):
 
 Matched **by name**; a second parameter under another name is a startup error.
 
-⏭ **0.8 declares the signature only**; several connections per kind land in **0.8.1**.
+⏭ **0.8 declares the signature only**; several connections per kind land in **some 0.8.x release**, not yet pinned.
 ⛔ **`@on_node_change(..., server=...)` is gone in 0.8** - a handler runs for every
 instance of its kind.
 

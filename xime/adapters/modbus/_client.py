@@ -118,11 +118,11 @@ class ModbusClient:
         vụ** (đường kia là dữ liệu người dùng chọn). Viết cứng
         `device="BT-01"` là buộc code vào một nhà máy cụ thể.
 
-        ⏭ **0.8 mới khai chữ ký; phần dựng N kết nối làm ở 0.8.1.** Hôm nay một
+        ⏭ **0.8 mới khai chữ ký; phần dựng N kết nối lùi sang một bản 0.8.x, chưa chốt.** Hôm nay một
         adapter giữ đúng một thực thể trùng tên loại - đúng dạng viết tắt mà
         thiết kế đã chốt (*"giá trị dưới tên loại là dict phẳng có `host` thì
         coi như một thực thể trùng tên loại"*), nên code viết theo vòng lặp này
-        **chạy đúng ở cả hai bản** và không phải sửa gì khi 0.8.1 tới.
+        **chạy đúng ở cả hai bản** và không phải sửa gì khi bản đó tới.
         """
         name = kind or self._default_device
         # Adapter nhận tên lúc `__init__` (mark_served) nên chỗ này trả lời được

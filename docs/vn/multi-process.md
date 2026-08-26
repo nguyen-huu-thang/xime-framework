@@ -845,7 +845,7 @@ Ba adapter phục vụ (`web`, `grpc`, `socket`) **bỏ hẳn** `host` / `port` 
 | **web** | cha giữ socket, truyền xuống con | ✅ | ✅ (xem ghi chú) |
 | **socket** (unix) | cha giữ socket | ✅ | - |
 | **grpc** | `SO_REUSEPORT` | ✅ | ⛔ **báo lỗi lúc khởi động** |
-| mqtt, modbus, opcua | **hạng phân mảnh** - làm ở 0.8.1 | - | - |
+| mqtt, modbus, opcua | **hạng phân mảnh** - lùi sang một bản 0.8.x | - | - |
 
 `grpc.aio` chỉ nhận địa chỉ dạng chuỗi, không có API nhận socket từ ngoài, nên nó
 không dùng được đường truyền socket. Windows không có `SO_REUSEPORT`, và framework
@@ -873,7 +873,7 @@ không có giới hạn này.
 Ba adapter này **không nhân bản được bằng cách nhân đôi kết nối**: hai tiến trình
 cùng poll một PLC là nhân đôi tải lên thiết bị thật, và hai client MQTT cùng
 `client_id` thì broker đá phiên cũ ra. Mỗi tiến trình phải giữ một **phần khác
-nhau**, và hình dạng cấu hình cho việc đó làm ở **0.8.1**. Tới lúc đó, ứng dụng
+nhau**, và hình dạng cấu hình cho việc đó lùi sang **một bản 0.8.x** chưa chốt. Tới lúc đó, ứng dụng
 dùng chúng thì chạy một tiến trình.
 
 ---
@@ -987,7 +987,7 @@ nginx, hay bất cứ thứ gì bạn đang dùng. Framework không đụng vào
 | **Nâng cấp code không downtime** | Cha giữ socket nên đổi code của cha đòi restart cha, và restart cha là đứt kết nối. Đường ra đã biết (`exec` bản mới kế thừa fd, như nginx), chưa làm |
 | **Cha nói ra ngoài** | Cha ghi log, nhưng nó chưa có một đường báo động hay một `/healthz` tổng cho cả cụm. Cảnh báo *"một con từ chối vai primary"* hôm nay tới được journald, **không tới được người** |
 | **Tắt êm** | Con đang xử lý dở một request thì vẫn bị `terminate()` sau thời gian ân hạn |
-| **Chia tải fieldbus và MQTT** | Chữ ký đã chốt ở 0.8, thi công ở **0.8.1** |
+| **Chia tải fieldbus và MQTT** | Chữ ký đã chốt ở 0.8, thi công lùi sang **một bản 0.8.x** chưa chốt |
 
 ⚠ Dòng thứ hai là chỗ dễ tin nhầm nhất: mọi thứ ở trên **đã báo đúng** vào log
 của cha, nên `journalctl -u app` thấy hết. Thứ chưa có là đường đẩy chúng tới một

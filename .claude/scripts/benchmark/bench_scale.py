@@ -15,7 +15,7 @@ import json
 import re
 import sys
 import tempfile
-import threading
+import time
 import urllib.request
 from pathlib import Path
 
@@ -23,12 +23,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from _harness import (  # noqa: E402
     CHUA,
+    DoCpu,
     KetQua,
     Server,
     chay_song_song,
     co_ab,
     cong_trong,
-    cpu_percent,
     in_bang,
     python_bin,
     xet_bao_hoa,
@@ -58,6 +58,26 @@ def _pids_tra_loi(port: int, lan: int = 150) -> set[int]:
     return thay
 
 
+def _doi_du_tien_trinh(port: int, mong_doi: int, han: float = 20.0) -> set[int]:
+    """Bắn `/pid` tới khi thấy đủ `mong_doi` tiến trình khác nhau, hoặc hết hạn.
+
+    Trả về tập pid thật sự trả lời. Thiếu thì trả tập đang có - bên gọi tự
+    quyết, và phép kiểm `len(tra_loi) < so_tien_trinh` ở cuối `do()` vẫn hạ
+    dòng đó xuống `CHUA_KET_LUAN_DUOC`.
+    """
+    thay: set[int] = set()
+    het = time.perf_counter() + han
+    while time.perf_counter() < het:
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/pid", timeout=2) as r:
+                thay.add(json.load(r)["pid"])
+        except Exception:
+            time.sleep(0.05)
+        if len(thay) >= mong_doi:
+            return thay
+    return thay
+
+
 def _yaml(port: int, so: int) -> str:
     if so == 1:
         return f"server:\n  host: 127.0.0.1\n  port: {port}\n"
@@ -80,21 +100,26 @@ def do(so_tien_trinh: int) -> KetQua:
     moc = "Uvicorn running" if so_tien_trinh == 1 else "is serving"
     sv = Server([python_bin(), "-m", kich], moc, cwd=str(tmp), env={"PYTHONPATH": str(HERE)})
     with sv:
-        cac_pid = [sv.pid] + sv.con_pids()
+        # ⚠⚠ Đợi ĐỦ tiến trình trả lời rồi mới đo, và lấy danh sách pid từ
+        # chính những cái ĐÃ TRẢ LỜI - không lấy từ `pgrep -P` ngay lúc thấy
+        # mốc sẵn sàng.
+        #
+        # Mốc `is serving` do tiến trình ĐẦU TIÊN in ra, nên lúc đó những con
+        # còn lại có thể chưa sinh xong. Đo được 2026-08-25: cùng một cụm 4
+        # tiến trình, hai lượt ra **342,1%** và **87,9%** - lượt sau đếm CPU
+        # của khoảng một tiến trình vì ba cái kia chưa có trong danh sách.
+        #
+        # ⭐ Và chỗ này hỏng theo kiểu tệ nhất: CPU thiếu -> `xet_bao_hoa()`
+        # thấy dưới trần -> dán nhãn **CLIENT_BOUND** cho một cụm đang chạy
+        # hoàn toàn khoẻ. Một cụm tốt bị khai là phép đo phải vứt đi.
+        tra_loi_truoc = _doi_du_tien_trinh(port, so_tien_trinh)
+        cac_pid = [sv.pid] + sorted(tra_loi_truoc)
 
-        hop: list[float | None] = []
-
-        def do_cpu() -> None:
-            # Cụm nhiều tiến trình: cộng CPU của TẤT CẢ, nếu không thì trần 85%
-            # đúng cho một tiến trình sẽ báo "chưa bão hoà" cho cả cụm đã kịch.
-            hop.append(sum(x for p in cac_pid if (x := cpu_percent(p, 0.0001) or 0) >= 0)
-                       if False else _tong_cpu(cac_pid))
-
-        t = threading.Thread(target=do_cpu)
-        t.start()
-        mot = _rps(chay_song_song([_ab(port)])[0])
-        t.join()
-        cpu = hop[0]
+        # Cụm nhiều tiến trình: cộng CPU của TẤT CẢ, nếu không thì trần 85%
+        # đúng cho một tiến trình sẽ báo "chưa bão hoà" cho cả cụm đã kịch.
+        with DoCpu(*cac_pid) as d:
+            mot = _rps(chay_song_song([_ab(port)])[0])
+        cpu = d.phan_tram
 
         hai = sum(_rps(o) for o in chay_song_song([_ab(port, N // 2, C // 2)] * 2))
         trang_thai, ghi_chu = xet_bao_hoa(mot, hai, cpu, tran_cpu=85.0 * so_tien_trinh)
@@ -117,15 +142,6 @@ def do(so_tien_trinh: int) -> KetQua:
         )
 
 
-def _tong_cpu(pids: list[int]) -> float | None:
-    import time
-
-    from _harness import _jiffies
-    a = {p: _jiffies(p) for p in pids}
-    time.sleep(2.0)
-    b = {p: _jiffies(p) for p in pids}
-    co = [(b[p] - a[p]) for p in pids if a.get(p) is not None and b.get(p) is not None]
-    return sum(co) / 2.0 * 100.0 if co else None
 
 
 def chay(cac: tuple[int, ...] = (1, 2, 4)) -> list[KetQua]:

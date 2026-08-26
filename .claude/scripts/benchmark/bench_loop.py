@@ -13,11 +13,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from _harness import (  # noqa: E402
     DAT,
+    DoCpu,
     KetQua,
     Server,
     chay_song_song,
     cong_trong,
-    cpu_percent,
     in_bang,
     python_bin,
     xet_bao_hoa,
@@ -39,15 +39,10 @@ def do_mot_nhanh(nhanh: str, so_client: int = 3, api: str = "stream") -> KetQua:
         loop_that = sv.log().split("loop=")[1].split()[0]
         lenh = [py, str(HERE / "_echo_client.py"), str(port), str(CONN), str(ROUNDS)]
 
-        import threading
-
-        # Lượt chính: N client, đo CPU server trong lúc đang bắn.
-        hop: list[float | None] = []
-        t = threading.Thread(target=lambda: hop.append(cpu_percent(sv.pid, 1.5)))
-        t.start()
-        chinh = _tong(chay_song_song([lenh] * so_client))
-        t.join()
-        cpu = hop[0] if hop else None
+        # Lượt chính: N client, đo CPU server trên ĐÚNG khoảng bắn.
+        with DoCpu(sv.pid) as d:
+            chinh = _tong(chay_song_song([lenh] * so_client))
+        cpu = d.phan_tram
 
         # Lượt đối chứng: GẤP ĐÔI client. Tổng có tăng không?
         gap_doi = _tong(chay_song_song([lenh] * (so_client * 2)))
