@@ -7,7 +7,11 @@
 ## Trạng thái
 
 ✅ **`0.8.2` ĐÃ PHÁT HÀNH 2026-08-26** - bản thứ **16** trên PyPI, đẩy lên 00:51 UTC.
-Cả hai repo đã commit và tag, cây làm việc sạch.
+
+⚠ **Nhánh đã đi XA HƠN `0.8.2` - repo phát triển KHÔNG còn ở đúng bản đã phát hành.**
+Có việc chưa phát hành, xem `## [Chưa phát hành]` trong `CHANGELOG.md` và mục
+*"Đã vá 2026-08-27"* bên dưới. Mốc nghiệm thu nay là **2658/24/0 = tổng 2682**, không
+phải con số `0.8.2` trong bảng dưới đây.
 
 | | |
 |---|---|
@@ -189,6 +193,7 @@ một nhãn kiểu *"kỳ vọng 2534"* mang hai giá trị - đúng
 | tài liệu hướng dẫn khớp lại bản hiện tại (`cli_docs` tự sinh thêm 4) | 2640 | 2616 |
 | **export `public_health_paths`** | **2645** | **2621** |
 | **vá phép đếm route HTTP** (chuyến Linux 2026-08-25) | **2649** | **2625** |
+| **công tắc `xime.dev`, A4** (2026-08-27) | **2682** | **2658** |
 
 📌 Con số này lỗi thời mỗi lần thêm test, đúng như mọi con số khác trong file. Phép
 kiểm không lỗi thời vẫn là: **chạy trước, chạy sau, so trên CÙNG một máy.**
@@ -814,6 +819,77 @@ thứ `rules/module-level-code.md` đã cấm.
 Chủ dự án nhắc 3 repo; đo ra **13 file `ghi-chu-framework.md` giống hệt nhau** (cùng md5).
 Tất cả nay mang khối **⛔ ĐÍNH CHÍNH - phiên `xime framework` ghi 2026-08-25** ở đầu, thân
 file giữ nguyên văn vì mỗi mục đều đúng vào lúc viết.
+
+### Đã vá 2026-08-27 - `xime.dev`, MỘT công tắc cho mọi bề mặt chỉ dành cho dev
+
+⚠ **ĐỔI HÀNH VI**, không phải thuần cộng thêm: `/docs`, `/redoc`, `/openapi.json` nay
+**mặc định TẮT**. Chỉ mở khi ứng dụng khai `xime: dev: true` trong `application.yml`.
+
+Chủ dự án hỏi *"mấy cái cho bản dev, lên prod thì phải tắt đi chứ nhỉ"*, rồi chốt hai
+điều khi tôi đưa phương án: **đổi luôn mặc định thành TẮT**, và **một công tắc cho tất
+cả** chứ không phải một cờ riêng cho OpenAPI.
+
+**Đo:** **2658 passed / 24 skipped / 0 failed = tổng 2682** (`2649 + 33` test mới) ·
+`ruff check xime/` sạch · `mypy` **49 trước và sau** · bốn trình kiểm tài liệu OK.
+
+| Thêm gì | |
+|---|---|
+| `xime/core/config/_dev.py` | `is_dev_mode()` + hằng `DEV_KEY` - **tên công khai mới** |
+| `xime.dev` trong sổ cấu hình | `xime check config` không tố oan (đúng lỗi **C8**), `xime config --print` in kèm giải thích |
+| `init_keys` cho `xime init` | dự án mới sinh ra có `dev: true` trong `application.yml` (gitignore), `.example` thì không |
+| Một dòng log khởi động | `API docs off - set xime.dev: true` / `API docs EXPOSED at ... (xime.dev is on)` |
+
+#### ⭐⭐ Vì sao là công tắc theo MÔI TRƯỜNG, không phải cờ trong `OpenApiConfig`
+
+Giấu `/docs` sau middleware JWT nghe như đường thay thế và **không dùng được**: Swagger
+UI là trang mở bằng trình duyệt, mà trình duyệt không gắn header `Authorization` khi gõ
+URL. Đo trên cấu hình thật của `gym`: giữ ba đường trong `public_paths` -> **200**, xoá
+-> **401**.
+
+> Lựa chọn thật chưa bao giờ là *"công khai hay sau đăng nhập"*, nó là *"dev hay
+> production"*. Và theo phép phân loại của `rules/config-discovery.md` thì đó là câu
+> **người vận hành** trả lời, nên nó thuộc YAML chứ không thuộc một hàm `configure_*`.
+
+⭐ Hệ quả kéo theo, đáng nhớ hơn bản vá: **24 repo đều mở `/docs` công khai không phải
+vì ai đó cẩu thả** - cách duy nhất để dùng được nó là mở nó ra. Một lỗ hổng mà mọi
+người đều rơi vào thì nguyên nhân nằm ở thứ họ được cho, không ở kỷ luật của họ.
+
+⛔ **Không suy ra từ tên profile.** `XIME_ENV` chọn *file* nào được nạp, còn tên profile
+do app tự đặt (`local`, `sandbox`, `qa`, `dev-mirror-of-prod`). Suy từ tên thì framework
+phải giữ một danh sách tên "được coi là dev", và danh sách đó sai với mọi người không
+dùng đúng từ vựng của nó - im lặng, theo cả hai chiều.
+
+⛔ **`is_dev_mode` fail-closed**: thứ gì không phải `RuntimeConfig` thật thì trả `False`.
+Giá trị không phải boolean nhận dạng được thì **nổ lúc khởi động** chứ không đoán.
+
+#### ⛔ `swagger_ui_title` từng mở lại được `/docs` sau lưng công tắc
+
+Nhánh tiêu đề riêng đọc `config.docs_url or "/docs"`. Chữ `or` đó **vô hại suốt thời
+gian tài liệu mặc định BẬT**, và thành lỗ hổng đúng vào ngày mặc định đổi thành TẮT -
+một trường **trang trí** vô hiệu hoá một lựa chọn bảo mật, trên máy production, trong im
+lặng. Nay bất biến ấy chở bằng một tuple để **mypy nhìn thấy được**, không phải một lời
+hứa trong chú thích.
+
+`configure_openapi` **chưa từng có một test nào** - đó là lý do chữ `or` sống được. Nay
+có 33 test, và **cả sáu mảnh của bản vá đều đã đối chứng**: gỡ công tắc -> 11 đỏ · gỡ
+phép kiểm tiêu đề riêng -> 2 · bỏ lời gọi log trong `lifespan` -> 1 · bỏ cảnh báo -> 1 ·
+bỏ luật `openapi_url=None` -> 2 · bỏ fail-closed -> 1.
+
+#### Phần NGOÀI repo này (đã làm, đã ghi tài liệu tại chỗ)
+
+Chủ dự án nhờ vá thẳng thay vì để từng repo tự làm. Không có gì trong repo framework,
+ghi ở đây để phiên sau biết chuyện gì đã xảy ra ở tầng ứng dụng:
+
+| Mục | Kết quả |
+|---|---|
+| **A4** | 24 `application.yml` được thêm công tắc, 24 `.example` được thêm dạng chú thích. ⛔ **Ba dòng `/docs` trong `public_paths` GIỮ NGUYÊN** - xoá là 401 |
+| **A1** | 10 app đổi từ fail-open sang **ném `StartupException`**; 24/24 `config/jwt.py` nay fail-closed, kiểm chứng lúc chạy |
+| **A2** | `dental` + `Base Platform/data`; nay **48 file có regex, 0 file lọt địa chỉ công cộng** |
+| **A3** | 6 app `Monolithic` nhận secret riêng (trước dùng chung một chuỗi) |
+| **A5** | ⬜ **không làm** - hơn 800 route phải phân loại, tức quyết định nghiệp vụ |
+| **Java** | 4 service Base phơi springdoc - **A4 chưa từng đếm chúng**, đã báo leader |
+
+26 repo có `.claude/docs/va-bao-mat-2026-08-27.md` + con trỏ trong `CLAUDE.md`.
 
 ### Đã code 2026-08-25, chờ commit - export `public_health_paths`
 

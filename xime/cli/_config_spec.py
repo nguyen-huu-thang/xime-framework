@@ -319,6 +319,11 @@ SPEC: tuple[Block, ...] = (
         doc="Switches belonging to the framework itself.",
         keys=(
             Key(
+                "dev",
+                default=False,
+                doc="On: this is a development environment. Serves the API docs.",
+            ),
+            Key(
                 "di",
                 children=(
                     Key(
@@ -331,6 +336,20 @@ SPEC: tuple[Block, ...] = (
         ),
         complete=True,
         see="docs/architecture.md",
+        init_keys=(
+            (
+                "dev",
+                "true",
+                "One switch for every development-only surface. Today it decides\n"
+                "whether /docs, /redoc and /openapi.json are served at all.\n"
+                "The framework default is false, so a deployment that never sets it\n"
+                "serves no API documentation. That is deliberate: a schema is a\n"
+                "complete map of the API and should not be readable by whoever can\n"
+                "reach the port.\n"
+                "This file is your own machine's (.gitignore keeps it out of git);\n"
+                "the copy you deploy from should leave this off."
+            ),
+        ),
     ),
     # ------------------------------------------------------------------
     # Khối do starter/adapter đọc, CHƯA liệt kê đủ khoá ở đây.

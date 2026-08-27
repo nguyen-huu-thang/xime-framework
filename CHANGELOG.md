@@ -7,6 +7,77 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 
 ## [Chưa phát hành]
 
+### ⚠ ĐỔI HÀNH VI - `/docs`, `/redoc`, `/openapi.json` mặc định TẮT, muốn thì phải bật lên
+
+Trước bản này ba đường đó **luôn được phục vụ**, ở mọi ứng dụng Xime, và **không có cách nào
+tắt bằng cấu hình** - chỉ có đường Python là dựng một `OpenApiConfig` rồi đặt cả ba
+`*_url = None`. Đo trong workspace: **24** file `application*.yml` khai chúng vào
+`public_paths`, **0** repo đặt `docs_url`, **2/31** repo gọi `configure_openapi` một lần nào.
+Đó là mục **A4** của kiểm toán bảo mật 2026-08-01, phạm vi *"toàn bộ app"*, và nó chưa từng
+được vá.
+
+Nay chúng chỉ được phục vụ khi ứng dụng khai:
+
+```yaml
+xime:
+  dev: true
+```
+
+**MỘT công tắc cho mọi bề mặt chỉ dành cho môi trường phát triển**, không phải một công tắc
+riêng của OpenAPI. Hôm nay nó có đúng một người tiêu thụ; bề mặt dev nào thêm về sau thì treo
+vào cùng khoá đó, nên người vận hành không bao giờ phải đi tìm và gạt từng cái.
+
+- `xime.core.config.is_dev_mode(config)` và hằng số `DEV_KEY` - **tên công khai mới**.
+- Khoá đã đăng ký trong sổ cấu hình, nên `xime check config` không tố oan nó (đúng lỗi **C8**
+  vừa vá ở `0.8.2`) và `xime config --print` in ra kèm giải thích.
+- `xime init` ghi sẵn `dev: true` vào `resources/application.yml` - file mà `.gitignore` nó
+  sinh ra đã giữ ngoài git. Bản `application.yml.example` đi theo git thì **không** có dòng đó.
+
+**Ai bị ảnh hưởng:** mọi ứng dụng đang mở `/docs` mà không khai `xime.dev`. Thêm một dòng vào
+`application.yml` của máy dev là xong; không phải sửa một dòng code nào, và **cùng một mã
+nguồn** từ nay có tài liệu ở máy người phát triển và không có gì trên máy chủ.
+
+⭐ **Vì sao là công tắc theo môi trường chứ không phải một cờ trong `OpenApiConfig`:** giấu
+`/docs` sau middleware JWT nghe như đường thay thế nhưng **không dùng được** - Swagger UI là
+trang mở bằng trình duyệt, mà trình duyệt không gắn header `Authorization` khi gõ URL, nên
+`/docs` nằm ngoài `public_paths` trả 401 cho đúng người muốn đọc nó. Lựa chọn thật chưa bao
+giờ là *"công khai hay sau đăng nhập"*, nó là *"dev hay production"* - và theo phép phân loại
+của `rules/config-discovery.md` thì đó là câu **người vận hành** trả lời, nên nó thuộc YAML.
+
+⛔ **Không suy ra từ tên profile.** `XIME_ENV`/`APP_ENV` chọn *file* nào được nạp, còn tên
+profile là do ứng dụng tự đặt (`local`, `sandbox`, `qa`, `dev-mirror-of-prod`...). Suy từ tên
+ra thì framework phải giữ một danh sách tên "được coi là dev", và danh sách đó sai với mọi
+người không dùng đúng từ vựng của nó - im lặng, và theo cả hai chiều.
+
+⛔ **`is_dev_mode` fail-closed:** thứ gì không phải `RuntimeConfig` thật thì trả `False`.
+*"Tôi không đọc được cấu hình"* không bao giờ được ra thành *"đang ở dev, cứ mở ra đi"*. Giá
+trị không phải boolean nhận dạng được thì **nổ lúc khởi động** chứ không đoán - `xime.dev:
+"false"` mà thành `True` là đúng thứ `get_bool` sinh ra để chặn.
+
+Kèm hai thứ nhỏ nhưng đáng biết:
+
+- **Một dòng log khởi động khai trạng thái**, cả hai chiều: `API docs off - set xime.dev: true
+  to serve them` và `API docs EXPOSED at ... (xime.dev is on)`. Không có nó thì một ứng dụng
+  nâng bản mất `/docs` mà không hiểu vì sao, còn dòng thứ hai xuất hiện trong log production
+  là dấu hiệu công tắc dev đã đi theo bản triển khai.
+- **`swagger_ui_title` không còn mở lại được `/docs` sau lưng công tắc.** Nhánh tiêu đề riêng
+  đọc `config.docs_url or "/docs"`; chữ `or` đó vô hại khi tài liệu mặc định BẬT và thành lỗ
+  hổng đúng vào ngày mặc định đổi thành TẮT - một trường **trang trí** vô hiệu hoá một lựa
+  chọn bảo mật, trên máy production, trong im lặng. Nay nhánh đó nhận URL đã phân giải sẵn,
+  và bất biến ấy được chở bằng một tuple để trình kiểm kiểu **nhìn thấy được**, không phải
+  một lời hứa trong chú thích.
+- **`openapi_url=None` tắt cả ba, kèm một WARNING nói lý do.** *"Tôi muốn trang, không muốn
+  JSON thô"* là nhầm lẫn rất tự nhiên, mà cả hai giao diện đều TẢI schema từ URL đó bằng
+  trình duyệt.
+
+`configure_openapi` **chưa từng có một test nào** - đó là lý do chữ `or` ở trên sống được.
+Nay có 33 test, và cả sáu mảnh của bản vá đều đã đối chứng: gỡ công tắc ra thì 11 đỏ, gỡ phép
+kiểm tiêu đề riêng thì 2 đỏ, bỏ lời gọi log trong `lifespan` thì 1 đỏ, bỏ cảnh báo thì 1 đỏ,
+bỏ luật `openapi_url=None` thì 2 đỏ, bỏ fail-closed thì 1 đỏ.
+
+📌 Phần còn lại của **A4** - 24 file `application.yml` và `saas-foundation/template` khai ba
+đường đó vào `public_paths` - nằm ở repo ứng dụng, không phải việc của framework.
+
 ### Tài liệu - `current_caller()` và `current_peer_sans()` trả lời HAI câu khác nhau
 
 Báo cáo từ phiên `Base Platform/data` ngày 2026-08-26. **Không có thay đổi hành vi nào** -

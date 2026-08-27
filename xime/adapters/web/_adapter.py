@@ -12,6 +12,7 @@ from fastapi import FastAPI
 
 from xime.core.bootstrap._slot import AdapterSlot
 from xime.core.bootstrap.adapter import SCALING_REPLICATED, Adapter
+from xime.core.config import is_dev_mode
 from xime.core.config.runtime import RuntimeConfig
 from xime.core.exception.framework import StartupException
 
@@ -199,6 +200,71 @@ def _count_http_routes(routes: Iterable[Any]) -> int:
         if getattr(route, "methods", None) and getattr(route, "include_in_schema", False):
             total += 1
     return total
+
+
+
+def _dev_mode(xime_app: Any) -> bool:
+    """Is `xime.dev` on? Anything we cannot read counts as **not** development.
+
+    Fail-closed on purpose: an unreadable configuration must never come out as
+    *"development, go ahead and expose things"*.
+    Fail-closed có chủ ý: một cấu hình không đọc được không bao giờ được ra thành
+    *"đang ở dev, cứ mở ra đi"*.
+    """
+    try:
+        runtime = xime_app.get(RuntimeConfig)
+    except Exception:  # DI chưa có RuntimeConfig - coi như production
+        return False
+    return is_dev_mode(runtime)
+
+
+def _resolve_doc_urls(
+    config: Any, dev: bool, server_id: str
+) -> tuple[str | None, str | None, str | None]:
+    """Which documentation paths this server actually serves: (docs, redoc, openapi).
+
+    ONE question decides it - `xime.dev` - and `configure_openapi()` only says
+    *where* the pages live, never *whether*. That split is why an application
+    needs no code change to be safe in production: the same source serves the
+    docs on a developer's machine and serves nothing on the server.
+    ĐÚNG MỘT câu hỏi quyết định chuyện này - `xime.dev` - còn `configure_openapi()`
+    chỉ nói trang nằm Ở ĐÂU chứ không bao giờ nói CÓ HAY KHÔNG. Chính chỗ tách đó
+    khiến ứng dụng không phải sửa một dòng code nào để an toàn ở production: cùng
+    một mã nguồn, ở máy người phát triển thì có tài liệu, trên máy chủ thì không.
+
+    ⭐ `openapi_url = None` turns all three off, and that is not an extra rule:
+    Swagger UI and ReDoc are pages that FETCH the schema from that URL in the
+    browser, so without it they render a permanently broken page. FastAPI guards
+    its own two routes the same way (`if self.openapi_url and self.docs_url`);
+    mirroring it here is what stops the custom-title branch from slipping past.
+    ⭐ `openapi_url = None` tắt cả ba, và đó không phải luật thêm: Swagger UI và
+    ReDoc là trang TẢI schema từ URL đó bằng trình duyệt, thiếu nó thì chúng hiện
+    một trang hỏng vĩnh viễn. FastAPI canh hai route của nó đúng như vậy.
+    """
+    if not dev:
+        return None, None, None
+    if config is None:
+        # Dev machine, no configure_openapi() call: serve FastAPI's usual three so
+        # that turning the switch on is the ONLY thing a developer has to do.
+        # Máy dev mà không gọi configure_openapi(): phục vụ đúng ba đường quen
+        # thuộc của FastAPI, để bật công tắc là việc DUY NHẤT phải làm.
+        return "/docs", "/redoc", "/openapi.json"
+    if config.openapi_url is None:
+        if config.docs_url or config.redoc_url:
+            # Asked for the UI and hid the schema it reads - a natural mistake
+            # ("I want the page, not the raw JSON") that would otherwise serve
+            # nothing at all and give no reason why.
+            # Vừa xin giao diện vừa giấu schema mà nó đọc - nhầm lẫn rất tự nhiên
+            # ("tôi muốn trang, không muốn JSON thô"), mà im lặng thì người viết
+            # nhận về số không kèm lý do.
+            _log.warning(
+                "web %s: openapi_url=None so nothing is served. Swagger UI and "
+                "ReDoc fetch the schema from openapi_url in the browser, so "
+                "hiding it hides them too.",
+                server_id,
+            )
+        return None, None, None
+    return config.docs_url, config.redoc_url, config.openapi_url
 
 
 class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
@@ -432,9 +498,25 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         build_app() is invoked so that the DI container is available.
         """
         openapi_config = registry.get_openapi(self.adapter_id)
-        has_custom_swagger_title = (
-            openapi_config is not None and openapi_config.swagger_ui_title is not None
+        docs_url, redoc_url, openapi_url = _resolve_doc_urls(
+            openapi_config, _dev_mode(xime_app), self.adapter_id
         )
+        # A custom page title only matters if there is a page at all. Carrying the
+        # three resolved values together, instead of a bool plus three optionals
+        # read back later, is what makes "a title never opens the docs by itself"
+        # a fact the type checker can see rather than a promise in a comment.
+        # Tiêu đề riêng chỉ có nghĩa khi thật sự có trang. Chở ba giá trị đã phân
+        # giải đi cùng nhau, thay vì một cờ bool rồi đọc lại ba optional sau đó,
+        # là thứ biến câu "tiêu đề không bao giờ tự mở tài liệu" thành một sự thật
+        # trình kiểm kiểu nhìn thấy được, chứ không phải một lời hứa trong chú thích.
+        custom_swagger: tuple[str, str, str] | None = None
+        if (
+            openapi_config is not None
+            and openapi_config.swagger_ui_title is not None
+            and docs_url is not None
+            and openapi_url is not None
+        ):
+            custom_swagger = (openapi_config.swagger_ui_title, docs_url, openapi_url)
 
         @asynccontextmanager
         async def lifespan(fastapi_app: FastAPI) -> AsyncGenerator[None, None]:
@@ -443,14 +525,15 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
             # Ở ĐÂY chứ không phải trong build_app: route được đăng ký ngay dòng
             # trên, nên đếm sớm hơn là báo một con số luôn bằng số route hạ tầng.
             self._log_auth_state(fastapi_app, jwt_effective, self.adapter_id)
+            self._log_docs_state(docs_url, redoc_url, openapi_url, self.adapter_id)
             yield
 
         fastapi_app = FastAPI(
             lifespan=lifespan,
             # Disable default Swagger UI when custom title is set - we add our own route below.
-            docs_url=None if has_custom_swagger_title else (openapi_config.docs_url if openapi_config else "/docs"),
-            redoc_url=openapi_config.redoc_url if openapi_config else "/redoc",
-            openapi_url=openapi_config.openapi_url if openapi_config else "/openapi.json",
+            docs_url=None if custom_swagger else docs_url,
+            redoc_url=redoc_url,
+            openapi_url=openapi_url,
         )
 
         # Middleware stack is addded in LIFO order (last added = outermost = runs first).
@@ -488,8 +571,8 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         if openapi_config is not None:
             fastapi_app.openapi = build_custom_openapi(fastapi_app, openapi_config)
 
-        if has_custom_swagger_title:
-            self._add_custom_swagger_ui(fastapi_app, openapi_config)
+        if custom_swagger is not None:
+            self._add_custom_swagger_ui(fastapi_app, *custom_swagger)
 
         return fastapi_app
 
@@ -498,16 +581,72 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _add_custom_swagger_ui(app: FastAPI, config) -> None:
-        from fastapi.openapi.docs import get_swagger_ui_html
+    def _add_custom_swagger_ui(
+        app: FastAPI, title: str, docs_url: str, openapi_url: str
+    ) -> None:
+        """Swagger UI carrying the application's own page title.
 
-        docs_url = config.docs_url or "/docs"
-        openapi_url = config.openapi_url or "/openapi.json"
-        title = config.swagger_ui_title
+        ⛔ Takes URLs that have already been resolved instead of re-deriving them
+        from the config. The previous version read `config.docs_url or "/docs"`,
+        and that `or` outlived its reason: now that documentation is off unless
+        `xime.dev` says otherwise, a config which merely set `swagger_ui_title`
+        would have re-opened `/docs` through this branch alone - the one switch
+        defeated by a cosmetic field, on the production machine, in silence.
+        ⛔ Nhận URL đã phân giải sẵn thay vì tự suy lại từ config. Bản trước đọc
+        `config.docs_url or "/docs"`, và chữ `or` đó sống lâu hơn lý do của nó:
+        nay tài liệu chỉ mở khi `xime.dev` cho phép, nên một config chỉ đặt
+        `swagger_ui_title` sẽ mở lại `/docs` qua đúng nhánh này - công tắc duy
+        nhất bị vô hiệu hoá bởi một trường trang trí, trên máy production, trong
+        im lặng.
+        """
+        from fastapi.openapi.docs import get_swagger_ui_html
 
         @app.get(docs_url, include_in_schema=False)
         async def _swagger_ui_html():
             return get_swagger_ui_html(openapi_url=openapi_url, title=title)
+
+    @staticmethod
+    def _log_docs_state(
+        docs_url: str | None,
+        redoc_url: str | None,
+        openapi_url: str | None,
+        server_id: str,
+    ) -> None:
+        """Say whether the API schema is being served, because the answer changed.
+
+        Xime keeps documentation off unless `xime.dev` is on, while FastAPI serves
+        it by default. An application upgrading into that loses `/docs` and
+        deserves to be told why rather than left to file a bug against the
+        framework. In the other direction, a served schema earns a line in a
+        production log: it is the whole API surface, readable by anyone who can
+        reach the port, and this is the line that says the development switch
+        travelled somewhere it should not have.
+        Xime giữ tài liệu ở trạng thái tắt trừ khi `xime.dev` bật, trong khi
+        FastAPI mặc định phục vụ. Một ứng dụng nâng bản sẽ mất `/docs` và xứng
+        đáng được nói lý do thay vì phải đi báo lỗi framework. Chiều ngược lại,
+        một schema đang được phục vụ đáng một dòng trong log production: đó là
+        toàn bộ bề mặt API, ai chạm được cổng thì đọc được, và đây chính là dòng
+        nói rằng công tắc dev đã đi tới chỗ nó không nên tới.
+
+        ⛔ INFO in both directions, and it reports PATHS rather than a verdict -
+        same rule as _log_auth_state. Whether a public schema is acceptable
+        depends on what the service is, and the framework does not know that.
+        ⛔ Là INFO ở cả hai chiều, và nó khai ĐƯỜNG DẪN chứ không phán xét - cùng
+        luật với _log_auth_state. Schema công khai có chấp nhận được hay không
+        còn tuỳ service là gì, mà framework không biết điều đó.
+        """
+        served = [u for u in (docs_url, redoc_url, openapi_url) if u]
+        if served:
+            _log.info(
+                "web %s: API docs EXPOSED at %s (xime.dev is on)",
+                server_id,
+                ", ".join(served),
+            )
+        else:
+            _log.info(
+                "web %s: API docs off - set xime.dev: true to serve them",
+                server_id,
+            )
 
 
     @staticmethod

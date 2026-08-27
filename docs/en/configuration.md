@@ -223,6 +223,76 @@ configure_openapi(OpenApiConfig(
 ))
 ```
 
+`configure_openapi()` says **where** the documentation lives. Whether it is served
+at all is decided by a different switch, below.
+
+---
+
+## `xime.dev` - one switch for everything development-only
+
+```yaml
+# resources/application-local.yml
+xime:
+  dev: true
+```
+
+**Off by default; turn it on if you want it.** Today it decides exactly one thing,
+and it is the thing most easily forgotten on the way to production:
+
+| | `xime.dev` off (default) | on |
+|---|---|---|
+| `/docs`, `/redoc`, `/openapi.json` | do not exist, 404 | served as usual |
+
+An OpenAPI schema is a complete map of the API: every path, every parameter, every
+field name, every error code. Served to anyone who can reach the port, it removes
+the reconnaissance step almost entirely, which is why it does not belong in
+production. FastAPI serves all three by default; **Xime does not, and that
+difference is deliberate.**
+
+The start-up log always states which side you are on, so you never have to guess:
+
+```text
+web default: API docs off - set xime.dev: true to serve them
+web default: API docs EXPOSED at /docs, /redoc, /openapi.json (xime.dev is on)
+```
+
+The second line appearing in a production log means the development switch
+travelled with the deployment to somewhere it should not have.
+
+> ### Hiding `/docs` behind authentication is NOT the alternative
+>
+> Swagger UI is a page opened in a **browser**, and a browser attaches no
+> `Authorization` header when you type a URL. Leaving `/docs` out of
+> `public_paths` returns 401 to the very person who wants to read it. The real
+> choice is not *"public or logged-in"* but **on in development, off in
+> production** - which is what this switch does.
+
+`xime init` writes `dev: true` into `resources/application.yml`, the file its
+generated `.gitignore` already keeps out of git. The `application.yml.example` that
+does go into git carries no such line.
+
+Code that needs to know whether it is running in development asks the same place
+rather than reading the key by hand - two places deciding one thing drift apart
+sooner or later:
+
+```python
+from xime.core.config import DEV_KEY, is_dev_mode
+
+if is_dev_mode(config):        # config: RuntimeConfig
+    ...
+print(DEV_KEY)                 # "xime.dev"
+```
+
+Anything that is not a real `RuntimeConfig` makes `is_dev_mode` return `False` -
+fail-closed on purpose, because *"I could not read a configuration"* must never come
+out as *"development, go ahead and expose things"*. A value that is not a
+recognisable boolean **fails at start-up** rather than being guessed at.
+
+⚠ The `docs_url`, `redoc_url` and `openapi_url` fields of `OpenApiConfig` are
+**paths**, not switches: they are read only once `xime.dev` has said yes. Setting
+`openapi_url=None` turns all three off, because both Swagger UI and ReDoc fetch the
+schema from it in the browser.
+
 ---
 
 ## Passing Config to Application

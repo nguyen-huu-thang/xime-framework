@@ -222,6 +222,73 @@ configure_openapi(OpenApiConfig(
 ))
 ```
 
+`configure_openapi()` nói tài liệu **nằm ở đâu**. Việc có phục vụ nó hay không thì
+do một công tắc khác quyết, xem ngay dưới.
+
+---
+
+## `xime.dev` - một công tắc cho mọi thứ chỉ dành cho môi trường phát triển
+
+```yaml
+# resources/application-local.yml
+xime:
+  dev: true
+```
+
+**Mặc định TẮT, muốn thì phải bật lên.** Hôm nay nó quyết định đúng một chuyện, và
+là chuyện hay bị quên nhất khi lên production:
+
+| | `xime.dev` tắt (mặc định) | bật |
+|---|---|---|
+| `/docs`, `/redoc`, `/openapi.json` | không tồn tại, trả 404 | phục vụ như thường |
+
+Schema OpenAPI là bản đồ đầy đủ của API: mọi đường dẫn, mọi tham số, mọi tên
+trường, mọi mã lỗi. Mở cho bất kỳ ai chạm được cổng là rút giai đoạn thăm dò xuống
+gần bằng không, nên nó không nên có mặt ở production. FastAPI mặc định phục vụ cả
+ba; **Xime thì không, và chỗ khác nhau đó là cố ý.**
+
+Dòng log khởi động luôn khai đang ở trạng thái nào, nên bạn không bao giờ phải đoán:
+
+```text
+web default: API docs off - set xime.dev: true to serve them
+web default: API docs EXPOSED at /docs, /redoc, /openapi.json (xime.dev is on)
+```
+
+Dòng thứ hai xuất hiện trong log production nghĩa là công tắc dev đã đi theo bản
+triển khai tới chỗ nó không nên tới.
+
+> ### Giấu `/docs` sau xác thực KHÔNG phải đường thay thế
+>
+> Swagger UI là một trang mở bằng **trình duyệt**, mà trình duyệt không gắn header
+> `Authorization` khi bạn gõ URL. Bỏ `/docs` ra khỏi `public_paths` là trả 401 cho
+> đúng người muốn đọc nó. Lựa chọn thật không phải *"công khai hay sau đăng nhập"*
+> mà là **bật ở dev, tắt ở production** - đúng việc công tắc này làm.
+
+`xime init` ghi sẵn `dev: true` vào `resources/application.yml`, file mà `.gitignore`
+nó sinh ra đã giữ lại ngoài git. Bản `application.yml.example` đi theo git thì không
+có dòng đó.
+
+Code của bạn cần biết mình đang ở dev hay không thì hỏi cùng một chỗ, đừng đọc khoá
+bằng tay - hai chỗ cùng quyết định một thứ thì sớm muộn lệch nhau:
+
+```python
+from xime.core.config import DEV_KEY, is_dev_mode
+
+if is_dev_mode(config):        # config: RuntimeConfig
+    ...
+print(DEV_KEY)                 # "xime.dev"
+```
+
+Thứ gì không phải một `RuntimeConfig` thật thì `is_dev_mode` trả `False` - fail-closed
+có chủ ý, vì *"tôi không đọc được cấu hình"* không bao giờ được ra thành *"đang ở dev,
+cứ mở ra đi"*. Giá trị không phải boolean nhận dạng được thì **nổ lúc khởi động** chứ
+không đoán.
+
+⚠ Ba trường `docs_url`, `redoc_url`, `openapi_url` của `OpenApiConfig` là **đường
+dẫn**, không phải công tắc: chúng chỉ được đọc sau khi `xime.dev` đã trả lời có.
+Đặt `openapi_url=None` là tắt cả ba, vì cả Swagger UI lẫn ReDoc đều tải schema từ
+đó bằng trình duyệt.
+
 ---
 
 ## Truyền Config vào Application

@@ -1,3 +1,4 @@
+from xime.core.config._dev import DEV_KEY, is_dev_mode
 from xime.core.config.binding import BindingConfig
 from xime.core.config.loader import YamlConfigLoader, detect_env
 from xime.core.config.runtime import LoggingConfig, RuntimeConfig
@@ -11,6 +12,8 @@ from xime.core.config.runtime import LoggingConfig, RuntimeConfig
 
 __all__ = [
     "BindingConfig",
+    "DEV_KEY",
+    "is_dev_mode",
     "YamlConfigLoader",
     "detect_env",
     "RuntimeConfig",
