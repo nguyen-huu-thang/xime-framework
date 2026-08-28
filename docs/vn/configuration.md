@@ -235,12 +235,13 @@ xime:
   dev: true
 ```
 
-**Mặc định TẮT, muốn thì phải bật lên.** Hôm nay nó quyết định đúng một chuyện, và
-là chuyện hay bị quên nhất khi lên production:
+**Mặc định TẮT, muốn thì phải bật lên.** Nó quyết định hai chuyện, và cả hai đều
+hay bị quên khi lên production:
 
 | | `xime.dev` tắt (mặc định) | bật |
 |---|---|---|
 | `/docs`, `/redoc`, `/openapi.json` | không tồn tại, trả 404 | phục vụ như thường |
+| access log của uvicorn (một dòng mỗi request) | không in | in như thường |
 
 Schema OpenAPI là bản đồ đầy đủ của API: mọi đường dẫn, mọi tham số, mọi tên
 trường, mọi mã lỗi. Mở cho bất kỳ ai chạm được cổng là rút giai đoạn thăm dò xuống
@@ -288,6 +289,39 @@ không đoán.
 dẫn**, không phải công tắc: chúng chỉ được đọc sau khi `xime.dev` đã trả lời có.
 Đặt `openapi_url=None` là tắt cả ba, vì cả Swagger UI lẫn ReDoc đều tải schema từ
 đó bằng trình duyệt.
+
+### Access log: vì sao nó cũng nằm sau công tắc này
+
+Một dòng `INFO: 127.0.0.1:52341 - "GET /api/v1/products" 200 OK` cho mỗi request là
+thứ quan trắc rẻ nhất khi đang phát triển. Nó cũng là chi phí trả trên **từng**
+request, và đo trên một máy dev thì nó không nhỏ như vẻ ngoài:
+
+| | µs mỗi dòng | phần của một request |
+|---|---|---|
+| tắt (chỉ một phép `if`) | 0,04 | ~0% |
+| ghi ra file, như dưới `systemd` hay `nohup` | 31 | **~14%** |
+| ghi ra terminal có màu, khi chạy tay | 34 | ~15% |
+
+Mốc so sánh là 227 µs cho trọn một request qua `WebAdapter` (4.396 req/s, đo ở bản
+0.8.1). Con số này của **máy này**, đĩa này, hệ điều hành này - đo lại trên máy của
+bạn thì khác, nhưng bậc độ lớn thì không.
+
+⚠ **Chỉ access log tắt. Log khởi động vẫn còn nguyên** - hai thứ đó đi qua hai logger
+khác nhau (`uvicorn.access` và `uvicorn.error`), nên bạn vẫn thấy đủ dòng adapter mở
+cổng ở đâu, xác thực cài chưa, tài liệu có phục vụ không.
+
+⚠ **Access log biến mất là hỏng im lặng** - không 404, không lỗi, chỉ là một màn hình
+trống mà người ta rất dễ đọc thành *"app không nhận được request nào"*. Vì vậy dòng
+khởi động tự nói ra nó:
+
+```text
+web default: process main serving on 0.0.0.0:8100 (HTTP) [access log off - set xime.dev: true]
+web default: process main serving on 0.0.0.0:8100 (HTTP) [access log on]
+```
+
+Cần access log ở production thật thì đặt một reverse proxy phía trước và lấy ở đó:
+nginx, Caddy hay Traefik đều ghi cùng thông tin đó bằng mã C, không tốn một phần chi
+phí nào của tiến trình Python.
 
 ---
 

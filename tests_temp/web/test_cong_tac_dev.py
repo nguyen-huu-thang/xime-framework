@@ -29,6 +29,8 @@ from fastapi.testclient import TestClient
 from xime.adapters.web._adapter import WebAdapter
 from xime.adapters.web._registry import registry
 from xime.adapters.web.openapi import OpenApiConfig, configure_openapi
+from xime.core.bootstrap._processes import EndpointSpec
+from xime.core.bootstrap._slot import AdapterSlot
 from xime.core.config import DEV_KEY, is_dev_mode
 from xime.core.config.runtime import RuntimeConfig
 from xime.core.exception.framework import StartupException
@@ -299,3 +301,154 @@ class TestChoNoiChuKhongChiLaHam:
             "app thật khởi động xong mà không dòng nào khai trạng thái tài liệu - "
             "hàm đúng nhưng không ai gọi nó"
         )
+
+
+# ---------------------------------------------------------------------------
+# Access log của uvicorn - một dòng mỗi request
+# ---------------------------------------------------------------------------
+
+def _slot_thu(port: int = 0) -> AdapterSlot:
+    spec = EndpointSpec(
+        kind="web", adapter_id="default", host="127.0.0.1", port=port,
+        path=None, shared=False, options={},
+    )
+    return AdapterSlot(process_id="main", primary=True, spec=spec, single=True)
+
+
+async def _khoi_dong(dev: bool | None) -> WebAdapter:
+    """Chạy `start()` THẬT trên một cổng tự cấp, trả adapter đã mở cổng.
+
+    Không mock `uvicorn.Config`: chỗ này đang canh việc giá trị đi đúng tới nó,
+    mà một `Config` giả thì nhận gì cũng nhận.
+    """
+    adapter = WebAdapter()
+    adapter.assign_slot(_slot_thu())
+    await adapter.start(_app_gia(dev))
+    return adapter
+
+
+class TestAccessLogTheoCongTac:
+    """`access_log` của uvicorn đi cùng `xime.dev`, không có công tắc riêng.
+
+    Một dòng mỗi request là thứ quan trắc rẻ nhất, và cũng là chi phí trả trên
+    **từng** request. Đo trên máy này: 31 µs mỗi dòng khi ghi ra file, so với
+    227 µs cho trọn một request Xime - tức khoảng 14%.
+    """
+
+    @pytest.mark.asyncio
+    async def test_khong_khai_gi_thi_TAT(self) -> None:
+        adapter = await _khoi_dong(None)
+        try:
+            assert adapter._server.config.access_log is False
+        finally:
+            await adapter.stop()
+
+    @pytest.mark.asyncio
+    async def test_dev_false_tuong_minh_cung_TAT(self) -> None:
+        adapter = await _khoi_dong(False)
+        try:
+            assert adapter._server.config.access_log is False
+        finally:
+            await adapter.stop()
+
+    @pytest.mark.asyncio
+    async def test_bat_dev_thi_CO(self) -> None:
+        adapter = await _khoi_dong(True)
+        try:
+            assert adapter._server.config.access_log is True
+        finally:
+            await adapter.stop()
+
+
+class TestCongTacPhaiToiDUOC_LOGGER:
+    """⚠ Ba test trên canh `config.access_log`, mà protocol KHÔNG đọc trường đó.
+
+    `h11_impl.py:56` và `httptools_impl.py:61` đều viết:
+
+        self.access_log = self.access_logger.hasHandlers()
+
+    Nghĩa là thứ quyết định có in hay không là **logger `uvicorn.access` còn
+    handler nào không**, và `Config.configure_logging()` mới là chỗ gỡ handler đi.
+    Canh mỗi `config.access_log` là canh một trường mà không ai hỏi tới; ngày
+    uvicorn đổi cách nối hai thứ đó, ba test trên vẫn xanh trong khi mọi request
+    lại in ra một dòng.
+    """
+
+    @pytest.mark.asyncio
+    async def test_tat_thi_logger_uvicorn_access_KHONG_con_handler(self) -> None:
+        adapter = await _khoi_dong(None)
+        try:
+            lg = logging.getLogger("uvicorn.access")
+            assert not lg.hasHandlers(), (
+                "logger uvicorn.access vẫn còn handler - protocol sẽ vẫn in một "
+                "dòng mỗi request dù access_log=False"
+            )
+        finally:
+            await adapter.stop()
+
+    @pytest.mark.asyncio
+    async def test_bat_thi_logger_CO_handler(self) -> None:
+        adapter = await _khoi_dong(True)
+        try:
+            assert logging.getLogger("uvicorn.access").hasHandlers()
+        finally:
+            await adapter.stop()
+
+
+class TestTatAccessLogKHONGDungToiLogKhoiDong:
+    """Ranh giới chủ dự án vạch ra: *"cái log request thôi, log khởi động là phải có"*.
+
+    Hai thứ đó đi qua hai logger khác nhau (`uvicorn.access` và `uvicorn.error`
+    /`xime.*`), nên tắt cái này không đụng cái kia. Test này khoá đúng điều đó -
+    nếu ngày nào có người "dọn cho gọn" bằng cách hạ mức log toàn cục, nó đỏ.
+    """
+
+    @pytest.mark.asyncio
+    async def test_dong_serving_on_van_con_khi_TAT(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.INFO, logger="xime.adapters.web._adapter"):
+            adapter = await _khoi_dong(None)
+        try:
+            assert "serving on" in caplog.text
+        finally:
+            await adapter.stop()
+
+    @pytest.mark.asyncio
+    async def test_uvicorn_error_van_con_handler_khi_TAT(self) -> None:
+        adapter = await _khoi_dong(None)
+        try:
+            assert logging.getLogger("uvicorn.error").hasHandlers(), (
+                "tắt access log đã kéo theo cả log khởi động của uvicorn"
+            )
+        finally:
+            await adapter.stop()
+
+
+class TestNhanTrongDongLog:
+    """Access log biến mất là hỏng **im lặng** - không 404, không lỗi, chỉ là một
+    màn hình trống mà người ta dễ đọc thành *"app không nhận được request"*.
+
+    `/docs` mất thì ít nhất còn một mã 404 để lần; chỗ này thì không có gì cả, nên
+    dòng khởi động phải tự nói ra.
+    """
+
+    @pytest.mark.asyncio
+    async def test_tat_thi_noi_CACH_BAT(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.INFO, logger="xime.adapters.web._adapter"):
+            adapter = await _khoi_dong(None)
+        try:
+            assert "access log off" in caplog.text
+            assert DEV_KEY.split(".")[-1] in caplog.text
+        finally:
+            await adapter.stop()
+
+    @pytest.mark.asyncio
+    async def test_bat_thi_khai_la_dang_bat(self, caplog: pytest.LogCaptureFixture) -> None:
+        with caplog.at_level(logging.INFO, logger="xime.adapters.web._adapter"):
+            adapter = await _khoi_dong(True)
+        try:
+            assert "access log on" in caplog.text
+            assert "access log off" not in caplog.text
+        finally:
+            await adapter.stop()

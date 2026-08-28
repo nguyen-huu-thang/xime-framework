@@ -10,7 +10,7 @@
 
 ⚠ **Nhánh đã đi XA HƠN `0.8.2` - repo phát triển KHÔNG còn ở đúng bản đã phát hành.**
 Có việc chưa phát hành, xem `## [Chưa phát hành]` trong `CHANGELOG.md` và mục
-*"Đã vá 2026-08-27"* bên dưới. Mốc nghiệm thu nay là **2658/24/0 = tổng 2682**, không
+*"Đã vá 2026-08-27"* bên dưới. Mốc nghiệm thu nay là **2667/24/0 = tổng 2691**, không
 phải con số `0.8.2` trong bảng dưới đây.
 
 | | |
@@ -193,7 +193,8 @@ một nhãn kiểu *"kỳ vọng 2534"* mang hai giá trị - đúng
 | tài liệu hướng dẫn khớp lại bản hiện tại (`cli_docs` tự sinh thêm 4) | 2640 | 2616 |
 | **export `public_health_paths`** | **2645** | **2621** |
 | **vá phép đếm route HTTP** (chuyến Linux 2026-08-25) | **2649** | **2625** |
-| **công tắc `xime.dev`, A4** (2026-08-27) | **2682** | **2658** |
+| công tắc `xime.dev`, A4 (2026-08-27) | 2682 | 2658 |
+| **access log theo `xime.dev`** (2026-08-28) | **2691** | **2667** |
 
 📌 Con số này lỗi thời mỗi lần thêm test, đúng như mọi con số khác trong file. Phép
 kiểm không lỗi thời vẫn là: **chạy trước, chạy sau, so trên CÙNG một máy.**
@@ -819,6 +820,73 @@ thứ `rules/module-level-code.md` đã cấm.
 Chủ dự án nhắc 3 repo; đo ra **13 file `ghi-chu-framework.md` giống hệt nhau** (cùng md5).
 Tất cả nay mang khối **⛔ ĐÍNH CHÍNH - phiên `xime framework` ghi 2026-08-25** ở đầu, thân
 file giữ nguyên văn vì mỗi mục đều đúng vào lúc viết.
+
+### Đã vá 2026-08-28 - access log của uvicorn treo vào `xime.dev`
+
+⚠ **ĐỔI HÀNH VI** thứ hai theo cùng một công tắc. Chủ dự án hỏi *"fastAPI có request là
+nó có log, cho lên prod thì phải tắt cái log này đi chứ nhỉ... nó cũng có làm gì đâu"*,
+rồi chốt hai điều: **tắt**, và **dùng biến đã có** thay vì đẻ khoá mới. Kèm một ranh
+giới: *"cái log request thôi, log khởi động là phải có"*.
+
+**Đo:** **2667 passed / 24 skipped / 0 failed = tổng 2691** (`2682 + 9` test mới) ·
+`ruff check xime/` sạch · `mypy` **49 trước và sau** · bốn trình kiểm tài liệu OK
+(`check_doc_coverage` giữ nguyên 143/311, đã so bằng `git stash`).
+
+| Đổi gì | |
+|---|---|
+| `uvicorn.Config(..., access_log=dev)` | `dev` lấy từ `_dev_mode(app)` sẵn có, không thêm khoá cấu hình nào |
+| Nhãn trong dòng `serving on` | `[access log on]` / `[access log off - set xime.dev: true]` |
+
+#### ⭐⭐ Chỗ dễ canh nhầm: protocol KHÔNG đọc `config.access_log`
+
+`h11_impl.py:56` và `httptools_impl.py:61` đều viết:
+
+```python
+self.access_log = self.access_logger.hasHandlers()
+```
+
+Thứ quyết định có in hay không là **logger `uvicorn.access` còn handler nào không**, và
+`Config.configure_logging()` mới là chỗ gỡ handler (`access_log is False` -> `handlers =
+[]` + `propagate = False`). Một bộ test chỉ canh `config.access_log` là canh **một
+trường mà không ai hỏi tới**: ngày uvicorn đổi cách nối hai thứ đó, test vẫn xanh trong
+khi mọi request lại in một dòng. Nên `TestCongTacPhaiToiDUOC_LOGGER` canh tầng dưới.
+
+Cùng họ với bài học đã trả giá ở đợt uvloop `0.8.1` và dòng log xác thực - **canh hàm
+không phải canh việc hàm có tác dụng**.
+
+#### ⚠ Access log biến mất là hỏng IM LẶNG, khác hẳn `/docs`
+
+`/docs` mất thì còn một mã **404** để lần. Access log mất thì không có gì cả: không lỗi,
+không mã, chỉ một màn hình trống mà người ta rất dễ đọc thành *"app không nhận được
+request nào"*. Đó là lý do dòng khởi động **phải** khai, và là lý do nhãn nằm ngay trong
+dòng `serving on` chứ không phải một dòng riêng dễ bị cuộn qua.
+
+`TestTatAccessLogKHONGDungToiLogKhoiDong` khoá đúng ranh giới chủ dự án vạch: hai thứ đi
+qua **hai logger khác nhau**, nên ngày nào có người "dọn cho gọn" bằng cách hạ mức log
+toàn cục thì nó đỏ.
+
+#### Con số, và giới hạn của chúng
+
+Đo bằng đúng `AccessFormatter` của uvicorn, không phải formatter tự chế:
+
+| | µs/dòng | phần của một request |
+|---|---|---|
+| tắt (một phép `if`) | 0,04 | ~0% |
+| format thuần, không ghi đi đâu | 20 | 9% |
+| ghi ra FILE (như `systemd`/`nohup`) | **31** | **~14%** |
+| ghi ra FILE, có màu | 34 | 15% |
+
+Mốc so sánh 227 µs/request lấy từ `bench_http` của `0.8.1` (4.396 req/s).
+
+⚠ **Phép đo micro này không phải phép đo đầu-cuối.** Nó đo đúng chi phí một lời gọi
+`logger.info` trên code path thật, và **giả định** phần còn lại của request không đổi -
+hợp lý vì cả hai nhánh chạy cùng một mã, nhưng nó không phải `ab` bắn vào server thật.
+Chủ dự án dừng phép đo đầu-cuối giữa chừng (*"không có phải đo. tôi muốn tắt nó"*), nên
+con số 14% đọc là **bậc độ lớn**, không phải một kết quả benchmark đã nghiệm thu.
+
+✅ Phần **đã** chạy thật là hành vi: app Xime thật, hai nhánh khác nhau đúng một biến
+`XIME_ENV` - nhánh prod ra **0 dòng** access log, nhánh dev ra 6 dòng cho 6 request, và
+log khởi động **giống hệt nhau ở cả hai**.
 
 ### Đã vá 2026-08-27 - `xime.dev`, MỘT công tắc cho mọi bề mặt chỉ dành cho dev
 

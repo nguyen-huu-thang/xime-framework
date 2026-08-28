@@ -78,6 +78,51 @@ bỏ luật `openapi_url=None` thì 2 đỏ, bỏ fail-closed thì 1 đỏ.
 📌 Phần còn lại của **A4** - 24 file `application.yml` và `saas-foundation/template` khai ba
 đường đó vào `public_paths` - nằm ở repo ứng dụng, không phải việc của framework.
 
+### ⚠ ĐỔI HÀNH VI - access log của uvicorn cũng đi theo `xime.dev`
+
+Một dòng `INFO: 127.0.0.1:52341 - "GET /api/v1/products" 200 OK` cho mỗi request là thứ quan
+trắc rẻ nhất khi đang phát triển, và cũng là chi phí trả trên **từng** request. Đo trên máy
+phát triển, dùng đúng `AccessFormatter` của uvicorn:
+
+| | µs mỗi dòng | phần của một request |
+|---|---|---|
+| tắt (chỉ một phép `if`) | 0,04 | ~0% |
+| ghi ra file, như dưới `systemd`/`nohup` | 31 | **~14%** |
+| ghi ra terminal có màu | 34 | ~15% |
+
+Mốc so sánh là 227 µs cho trọn một request qua `WebAdapter` (4.396 req/s, `bench_http` của
+`0.8.1`). Con số của một máy cụ thể, nhưng bậc độ lớn thì không đổi theo máy.
+
+Nay `access_log` của `uvicorn.Config` bằng đúng giá trị `xime.dev`. Không có khoá riêng: đây
+là bề mặt chỉ-dành-cho-dev thứ hai treo vào cùng một công tắc, đúng như lời hứa ở mục trên.
+
+⚠ **Chỉ access log tắt, log khởi động còn nguyên.** Hai thứ đi qua hai logger khác nhau
+(`uvicorn.access` và `uvicorn.error`), nên vẫn còn đủ dòng adapter mở cổng nào, xác thực cài
+chưa, tài liệu có phục vụ không.
+
+⭐ **Chỗ dễ canh nhầm:** protocol của uvicorn **không đọc** `config.access_log`. Cả
+`h11_impl.py:56` lẫn `httptools_impl.py:61` đều viết `self.access_log =
+self.access_logger.hasHandlers()` - thứ quyết định có in hay không là **logger `uvicorn.access`
+còn handler nào không**, mà `Config.configure_logging()` mới là chỗ gỡ handler đi. Một test
+chỉ canh `config.access_log` là canh một trường không ai hỏi tới; bộ test vì vậy canh cả hai
+tầng.
+
+⚠ **Access log biến mất là hỏng im lặng** - không 404, không lỗi, chỉ là một màn hình trống
+rất dễ đọc thành *"app không nhận được request nào"*. `/docs` mất thì còn một mã 404 để lần;
+chỗ này thì không có gì. Nên dòng khởi động tự khai:
+
+```text
+web default: process main serving on 0.0.0.0:8100 (HTTP) [access log off - set xime.dev: true]
+web default: process main serving on 0.0.0.0:8100 (HTTP) [access log on]
+```
+
+**Ai bị ảnh hưởng:** ứng dụng nào đang đọc access log trên máy chủ. Cần nó ở production thì
+lấy từ reverse proxy phía trước - nginx, Caddy, Traefik đều ghi cùng thông tin đó bằng mã C,
+không tốn phần nào của tiến trình Python.
+
+9 test mới, cả hai mảnh đều đã đối chứng: gỡ `access_log=dev` khỏi `uvicorn.Config` thì 3 đỏ,
+gỡ nhãn khỏi dòng log khởi động thì 3 đỏ.
+
 ### Tài liệu - `current_caller()` và `current_peer_sans()` trả lời HAI câu khác nhau
 
 Báo cáo từ phiên `Base Platform/data` ngày 2026-08-26. **Không có thay đổi hành vi nào** -

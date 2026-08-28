@@ -203,6 +203,18 @@ def _count_http_routes(routes: Iterable[Any]) -> int:
 
 
 
+# One line per request is the cheapest observability there is - and also a cost
+# paid on every single request. Whether it earns that cost is a deployment
+# question, so it rides the same switch as every other development-only surface.
+# Một dòng mỗi request là thứ quan trắc rẻ nhất - và cũng là chi phí trả trên
+# từng request. Nó có đáng hay không là câu hỏi của môi trường triển khai, nên
+# nó đi cùng công tắc với mọi bề mặt chỉ dành cho dev.
+_NHAN_ACCESS_LOG = {
+    True: "access log on",
+    False: "access log off - set xime.dev: true",
+}
+
+
 def _dev_mode(xime_app: Any) -> bool:
     """Is `xime.dev` on? Anything we cannot read counts as **not** development.
 
@@ -428,18 +440,21 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
             )
 
         tls = self.resolve_tls(slot, app.get(RuntimeConfig))  # type: ignore[arg-type]
+        dev = _dev_mode(app)
         fastapi_app = self.build_app(app)
         config = uvicorn.Config(
             fastapi_app,
             host=host,
             port=port if port is not None else 0,
+            access_log=dev,
             **_tls_kwargs(tls, self.adapter_id),
         )
         _log.info(
-            "web %s: process %s serving on %s:%s (%s)%s",
+            "web %s: process %s serving on %s:%s (%s)%s [%s]",
             self.adapter_id, slot.process_id, host, port,
             _che_do(tls),
             " (shared socket from supervisor)" if slot.sock is not None else "",
+            _NHAN_ACCESS_LOG[dev],
         )
         await self._bind(uvicorn, config, [slot.sock] if slot.sock else None)
 

@@ -236,12 +236,13 @@ xime:
   dev: true
 ```
 
-**Off by default; turn it on if you want it.** Today it decides exactly one thing,
-and it is the thing most easily forgotten on the way to production:
+**Off by default; turn it on if you want it.** It decides two things, and both are
+easily forgotten on the way to production:
 
 | | `xime.dev` off (default) | on |
 |---|---|---|
 | `/docs`, `/redoc`, `/openapi.json` | do not exist, 404 | served as usual |
+| uvicorn access log (one line per request) | not printed | printed as usual |
 
 An OpenAPI schema is a complete map of the API: every path, every parameter, every
 field name, every error code. Served to anyone who can reach the port, it removes
@@ -292,6 +293,42 @@ recognisable boolean **fails at start-up** rather than being guessed at.
 **paths**, not switches: they are read only once `xime.dev` has said yes. Setting
 `openapi_url=None` turns all three off, because both Swagger UI and ReDoc fetch the
 schema from it in the browser.
+
+### The access log, and why it sits behind this switch too
+
+A line reading `INFO: 127.0.0.1:52341 - "GET /api/v1/products" 200 OK` for every
+request is the cheapest observability there is while you are developing. It is also
+a cost paid on **every single** request, and measured on a development machine it is
+not as small as it looks:
+
+| | µs per line | share of one request |
+|---|---|---|
+| off (a single `if`) | 0.04 | ~0% |
+| written to a file, as under `systemd` or `nohup` | 31 | **~14%** |
+| written to a colour terminal, when run by hand | 34 | ~15% |
+
+The comparison point is 227 µs for a whole request through `WebAdapter` (4,396 req/s,
+measured in 0.8.1). Those numbers belong to **that machine**, that disk, that
+operating system - measure again on yours and they will differ, but the order of
+magnitude will not.
+
+⚠ **Only the access log goes quiet. Start-up logging is untouched** - the two travel
+through different loggers (`uvicorn.access` and `uvicorn.error`), so you still see
+which port each adapter opened, whether authentication was installed, and whether
+documentation is being served.
+
+⚠ **A missing access log fails silently** - no 404, no error, just an empty screen
+that reads very easily as *"the app is not receiving any requests"*. So the start-up
+line says so itself:
+
+```text
+web default: process main serving on 0.0.0.0:8100 (HTTP) [access log off - set xime.dev: true]
+web default: process main serving on 0.0.0.0:8100 (HTTP) [access log on]
+```
+
+If you do want an access log in production, put a reverse proxy in front and take it
+from there: nginx, Caddy and Traefik all record the same information in C, without
+spending any of the Python process's budget on it.
 
 ---
 
