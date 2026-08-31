@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI
 
+from xime.core.bootstrap._accept_lock import boc_khoa_accept
 from xime.core.bootstrap._slot import AdapterSlot
 from xime.core.bootstrap.adapter import SCALING_REPLICATED, Adapter
 from xime.core.config import is_dev_mode
@@ -456,7 +457,14 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
             " (shared socket from supervisor)" if slot.sock is not None else "",
             _NHAN_ACCESS_LOG[dev],
         )
-        await self._bind(uvicorn, config, [slot.sock] if slot.sock else None)
+        # ⭐ Windows: bọc khoá accept trước khi trao socket cho uvicorn. Nhiều
+        # tiến trình cùng accept một listener dùng chung trên Windows sẽ làm kẻ
+        # thua cuộc đua kẹt trong accept() suốt bằng độ kiên nhẫn của client, và
+        # kẹt đó đứng ngay trong callback nên cả event loop dừng. Xem
+        # `xime/core/bootstrap/_accept_lock.py`. Trên Linux hàm này trả lại
+        # chính socket, không tốn gì.
+        sock = boc_khoa_accept(slot.sock)
+        await self._bind(uvicorn, config, [sock] if sock else None)
 
     async def _bind(
         self, uvicorn: Any, config: Any, sockets: list[Any] | None = None

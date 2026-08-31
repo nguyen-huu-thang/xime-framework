@@ -22,7 +22,7 @@ from xime.core.bootstrap import _control
 from xime.core.bootstrap._processes import ProcessBlock, ProcessTopology
 from xime.core.bootstrap._shared import SharedMemoryOwner
 from xime.core.bootstrap._supervisor import Supervisor
-from xime.core.bootstrap._watchdog import Heartbeats
+from xime.core.bootstrap._watchdog import SILENCE_SECONDS, Heartbeats
 from xime.core.link import INTERNAL_CHANNEL, ChannelSpec, ProcessLink
 
 _IDS = ["main", "api-2", "api-3"]
@@ -108,12 +108,47 @@ class TestWhenToKill:
         # dùng đồng hồ đơn điệu (phát hiện T1). Vá nhầm `time.time` thì test
         # này XANH mà không kiểm gì cả - nó chỉ chứng minh rằng một hàm không
         # được gọi.
-        later = time.monotonic() + 30
+        # ⚠ Ngưỡng giết nâng từ 10 lên 60 giây (2026-08-31). Dịch quá ngưỡng
+        # đó, không phải quá con số cũ.
+        later = time.monotonic() + SILENCE_SECONDS + 5
         monkeypatch.setattr(
             "xime.core.bootstrap._supervisor.time.monotonic", lambda: later
         )
         node._reap_hung_children()
         assert all(c.killed for c in node._children.values())
+
+    def test_TRUOC_han_chot_thi_CANH_BAO_chu_KHONG_giet(
+        self, supervisor, monkeypatch, caplog
+    ) -> None:
+        """Trước bản này dòng log đầu tiên cũng chính là dòng báo tử.
+
+        Test đi thành cặp với test trên: chỉ canh *"quá hạn thì giết"* thì
+        cách sửa sai *"giết ngay từ giây đầu"* cũng qua được, và đó đúng là
+        hành vi cũ mà bản này sinh ra để bỏ.
+        """
+        node, _, beats = supervisor
+        for index in range(len(_IDS)):
+            beats.pat(index)
+        later = time.monotonic() + 30      # quá mức cảnh báo, CHƯA tới hạn chót
+        monkeypatch.setattr(
+            "xime.core.bootstrap._supervisor.time.monotonic", lambda: later
+        )
+        with caplog.at_level("WARNING", logger="xime.bootstrap"):
+            node._reap_hung_children()
+        assert not any(c.killed for c in node._children.values()), (
+            "chua toi han chot ma da giet"
+        )
+        keu = [r for r in caplog.records if "im 30.0s" in r.getMessage()]
+        assert len(keu) == len(_IDS), (
+            "phai keu dung mot tieng cho moi con truoc khi giet"
+        )
+        # Và kêu ĐÚNG MỘT LẦN cho mỗi mức: nếu thứ đang làm kẹt loop lại chính
+        # là ghi log, kêu mỗi vòng sẽ làm nặng thêm đúng cái đang hỏng.
+        caplog.clear()
+        node._reap_hung_children()
+        assert not [r for r in caplog.records if "im 30.0s" in r.getMessage()], (
+            "keu lai cung mot muc o vong sau"
+        )
 
     def test_dong_ho_TUONG_nhay_thi_KHONG_giet_ai(self, supervisor, monkeypatch) -> None:
         """Canh T1: NTP kéo giờ, người vận hành sửa giờ, máy ảo khôi phục ảnh.

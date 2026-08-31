@@ -89,6 +89,26 @@ SocketMap = dict[tuple[str, str], socket.socket]
 # Con chết ngay lập tức rồi được dựng lại ngay lập tức là một vòng lặp nóng đốt
 # trọn một nhân và ghi log không ai đọc kịp. Chặn domino thật (N lần trong T
 # giây thì dừng THĂNG CẤP) thuộc giai đoạn 6; đây chỉ là cái phanh tay.
+#: Thang cảnh báo trước hạn chót giết, theo giây im lặng.
+#:
+#: ⚠ Ngưỡng giết (`SILENCE_SECONDS`) nâng từ **10 lên 60 giây** ở bản này, theo
+#: quyết định của chủ dự án: kêu sớm và to dần thì người vận hành có cơ hội thấy
+#: và can thiệp, còn giết ngay ở giây thứ 10 thì mất luôn hiện trường.
+#:
+#: ⛔ **Ngoại lệ nằm ở phía CON, không ở đây**: một worker kẹt trong `accept()`
+#: là worker đang giữ khoá accept, và trong lúc đó **cả cụm không ai nhận được
+#: kết nối**. Ca đó có hạn chót riêng **10 giây** và tiến trình **tự kết thúc**
+#: chứ không chờ cha - xem `_stall_report.HAN_CHOT_ACCEPT`. Hai loại kẹt không
+#: cùng mức nguy hiểm nên không được dùng chung một hạn chót.
+_MUC_CANH_BAO: tuple[tuple[float, int], ...] = (
+    (10.0, logging.WARNING),
+    (25.0, logging.ERROR),
+    (45.0, logging.CRITICAL),
+)
+
+#: Dải phân cách cho những dòng phải đập vào mắt người vận hành.
+_BANG_BAO = " " + "=" * 60 + " "
+
 _RESPAWN_DELAY = 1.0
 
 # Hãm luỹ tiến khi một con chết đi chết lại. Không có nó thì một con chết ngay
@@ -833,6 +853,8 @@ class Supervisor:
         self._ctx = MP_CONTEXT
         self._children: dict[str, Any] = {}
         self._spawned_at: dict[str, float] = {}
+        # Mức cảnh báo cao nhất đã kêu cho mỗi con, trong đợt im hiện tại.
+        self._canh_bao_da_keu: dict[str, int] = {}
         # Vì sao CHÍNH TÔI giết con này. Trống = không phải tôi.
         self._killed_by_me: dict[str, str] = {}
         # Số lần một con chết LIÊN TIẾP mà không sống nổi _RESPAWN_RESET_AFTER.
@@ -1064,6 +1086,38 @@ class Supervisor:
             self._pump_control()
             time.sleep(0.05)
 
+    def _canh_bao_dan(
+        self, process_id: str, index: int, silent: float, so_nhip: int
+    ) -> None:
+        """Kêu **tăng dần** trước hạn chót, thay vì im rồi giết.
+
+        Trước bản này dòng log đầu tiên người vận hành nhìn thấy cũng chính là
+        dòng báo tử: `_reap_hung_children` ghi `CRITICAL` rồi giết trong cùng
+        một nhịp. Không có cách nào biết một cụm đang **sắp** có chuyện.
+
+        Mỗi mức kêu **một lần cho mỗi đợt**. Đây không phải chuyện gọn gàng: nếu
+        thứ đang làm kẹt loop lại chính là ghi log ra console (trên Windows đó
+        là I/O đồng bộ), thì kêu mỗi vòng sẽ làm nặng thêm đúng cái đang hỏng.
+        """
+        muc = sum(1 for nguong, _ in _MUC_CANH_BAO if silent >= nguong)
+        if muc == 0:
+            self._canh_bao_da_keu.pop(process_id, None)
+            return
+        if muc <= self._canh_bao_da_keu.get(process_id, 0):
+            return
+        self._canh_bao_da_keu[process_id] = muc
+        nguong, cap = _MUC_CANH_BAO[muc - 1]
+        _log.log(
+            cap,
+            "%ssupervisor: %s im %.1fs (o %d, so_nhip=%d). Con %.0fs nua thi "
+            "giet. Tien trinh do dang in stack cua chinh no - tim dong "
+            "'stall %s'.%s",
+            _BANG_BAO if cap >= logging.CRITICAL else "",
+            process_id, silent, index, so_nhip,
+            max(SILENCE_SECONDS - silent, 0.0), process_id,
+            _BANG_BAO if cap >= logging.CRITICAL else "",
+        )
+
     def _reap_hung_children(self) -> None:
         """Giết con đã im quá lâu. ⛔ **GIẾT, không phải thăng cấp.**
 
@@ -1087,32 +1141,34 @@ class Supervisor:
                 continue
             index = self._topology.ids.index(process_id)
             silent = beats.silent_for(index, now=now)
+            so_nhip = beats.so_nhip(index)
+            age = now - self._spawned_at.get(process_id, 0.0)
             if silent is None:
                 # Chưa vỗ lần nào: đang khởi động. Nhưng đang-khởi-động không
                 # phải một lời bào chữa vĩnh viễn - xem STARTUP_GRACE_SECONDS.
-                age = time.monotonic() - self._spawned_at.get(process_id, 0.0)
                 if age <= STARTUP_GRACE_SECONDS:
                     continue
                 _log.critical(
-                    "supervisor: %s never sent a heartbeat in %.0fs - killing it",
-                    process_id,
-                    age,
+                    "supervisor: %s KHONG vo nhip lan nao (o %d, so_nhip=0) "
+                    "trong %.0fs ke tu luc sinh - killing it",
+                    process_id, index, age,
                 )
                 self._killed_by_me[process_id] = (
-                    f"my watchdog killed it: no heartbeat in {age:.0f}s"
+                    f"my watchdog killed it: no heartbeat at all in {age:.0f}s"
                 )
             elif silent > SILENCE_SECONDS:
                 _log.critical(
-                    "supervisor: %s has been silent for %.1fs (its event loop is "
-                    "blocked) - killing it",
-                    process_id,
-                    silent,
+                    "supervisor: %s im %.1fs (o %d, so_nhip=%d, tuoi %.0fs) - "
+                    "killing it. Xem dong 'stall %s' ngay tren de biet no ket o dau.",
+                    process_id, silent, index, so_nhip, age, process_id,
                 )
                 self._killed_by_me[process_id] = (
                     f"my watchdog killed it: event loop blocked for {silent:.1f}s"
                 )
             else:
+                self._canh_bao_dan(process_id, index, silent, so_nhip)
                 continue
+            self._canh_bao_da_keu.pop(process_id, None)
             proc.kill()
 
     # ------------------------------------------------------------------

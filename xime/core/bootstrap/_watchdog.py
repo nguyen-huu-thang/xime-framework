@@ -78,12 +78,28 @@ from xime.core._mp import view_of
 _log = logging.getLogger("xime.bootstrap")
 
 MAGIC: Final[bytes] = b"XBET"
-VERSION: Final[int] = 1
+VERSION: Final[int] = 2
 
 # magic 4B · version 2B · so_o 2B  ->  căn 8 cho phần mốc phía sau
 _HEADER = struct.Struct("<4sHH")
 HEADER_BYTES: Final[int] = 8
-_BEAT = struct.Struct("<d")
+# ⭐ MỖI Ô HAI GIÁ TRỊ, không phải một: mốc nhịp **và** số lần đã vỗ.
+#
+# Bản 1 chỉ có mốc, và `NEVER = 0.0` phải gánh **ba** nghĩa cùng lúc:
+#   1. chưa bao giờ vỗ (tiến trình đang khởi động)
+#   2. vừa bị `reset()` vì cha sắp sinh con mới
+#   3. vùng nhớ vừa cấp phát, hoặc một lần ghi dở dang
+#
+# Ba tình huống đó bắt người đọc làm ba việc khác nhau, nên gộp vào một giá trị
+# là vi phạm luật 03 ngay trong định dạng dữ liệu. Và nó đã trả giá thật: đợt
+# 2026-08-31 có worker bị giết kèm *"never sent a heartbeat in 1323s"* trong khi
+# log chứng minh nó **đã** vỗ nhịp bình thường - mà không ai phân biệt nổi, vì
+# bằng chứng không tồn tại trong định dạng.
+#
+# Với bộ đếm: `so_nhip > 0` **chứng minh** tiến trình đã từng vỗ. Câu hỏi
+# *"nó có bao giờ vỗ không"* từ chỗ không trả lời được thành trả lời được bằng
+# một phép so sánh.
+_BEAT = struct.Struct("<dQ")
 BEAT_BYTES: Final[int] = _BEAT.size
 
 #: Con vỗ mỗi ngần này giây.
@@ -95,7 +111,16 @@ PAT_SECONDS: Final[float] = 1.0
 #: pause tệ nhất cộng biên). Giết oan thì cha dựng lại, mất vài trăm mili giây;
 #: không giết thì treo mãi. Hai hậu quả không cùng cỡ nên nghiêng về giết, nhưng
 #: ngưỡng vẫn rộng rãi.
-SILENCE_SECONDS: Final[float] = 10.0
+SILENCE_SECONDS: Final[float] = 60.0
+#: ⚠ Nâng từ 10 lên 60 giây (2026-08-31, chủ dự án chốt). Mười giây là **hạn chót
+#: giết mà không có một lời cảnh báo nào trước đó** - dòng log đầu tiên người vận
+#: hành nhìn thấy cũng chính là dòng báo tử. Nay có thang cảnh báo tăng dần ở
+#: `_supervisor._MUC_CANH_BAO` (10 → 25 → 45 giây) và tiến trình tự in stack của
+#: chính nó (`_stall_report`), nên kéo dài hạn chót là để **giữ hiện trường**,
+#: không phải để khoan dung với lỗi.
+#:
+#: ⛔ Ca kẹt trong `accept()` KHÔNG dùng ngưỡng này: nó giữ khoá accept nên hại
+#: cả cụm, và có hạn chót riêng 10 giây ở `_stall_report.HAN_CHOT_ACCEPT`.
 
 #: Con chưa vỗ lần nào thì cha chờ ngần này giây rồi mới coi là treo.
 #:
@@ -153,7 +178,9 @@ class Heartbeats:
         )
         _HEADER.pack_into(view_of(block), 0, MAGIC, VERSION, slots)
         for index in range(slots):
-            _BEAT.pack_into(view_of(block), HEADER_BYTES + BEAT_BYTES * index, NEVER)
+            _BEAT.pack_into(
+                view_of(block), HEADER_BYTES + BEAT_BYTES * index, NEVER, 0
+            )
         return cls(block, slots, owner=True)
 
     @classmethod
@@ -196,14 +223,23 @@ class Heartbeats:
         # CLOCK_MONOTONIC theo hệ thống, không theo tiến trình), và `core/link`
         # cùng `core/refdata` đã dùng `monotonic_ns` cho đúng lý do đó - hai
         # nhánh của cùng một hàm ở đây lại dùng hai đồng hồ khác nhau.
+        _, so = self.read(index)
         _BEAT.pack_into(
-            self._view, HEADER_BYTES + BEAT_BYTES * index, time.monotonic()
+            self._view, HEADER_BYTES + BEAT_BYTES * index, time.monotonic(), so + 1
         )
 
-    def read(self, index: int) -> float:
-        return float(
-            _BEAT.unpack_from(self._view, HEADER_BYTES + BEAT_BYTES * index)[0]
-        )
+    def read(self, index: int) -> tuple[float, int]:
+        """Trả về `(mốc nhịp, số lần đã vỗ)`.
+
+        Số lần vỗ là thứ phân biệt *"chưa bao giờ vỗ"* với *"đã vỗ rồi mà ô lại
+        về không"* - vế sau là hỏng, và trước bản này không ai thấy được nó.
+        """
+        moc, so = _BEAT.unpack_from(self._view, HEADER_BYTES + BEAT_BYTES * index)
+        return float(moc), int(so)
+
+    def so_nhip(self, index: int) -> int:
+        """Số lần tiến trình ở ô này đã vỗ. `0` nghĩa là **chưa bao giờ**."""
+        return self.read(index)[1]
 
     def reset(self, index: int) -> None:
         """Xoá ô về *chưa bao giờ vỗ*. Cha gọi khi sinh lại một con.
@@ -212,7 +248,7 @@ class Heartbeats:
         đã cũ hơn ngưỡng thì cha **giết con mới ngay khi nó vừa sinh ra** - một
         vòng lặp sinh-giết không lý do, và triệu chứng duy nhất là log.
         """
-        _BEAT.pack_into(self._view, HEADER_BYTES + BEAT_BYTES * index, NEVER)
+        _BEAT.pack_into(self._view, HEADER_BYTES + BEAT_BYTES * index, NEVER, 0)
 
     def silent_for(self, index: int, *, now: float | None = None) -> float | None:
         """Số giây kể từ nhịp cuối, hoặc `None` khi **chưa bao giờ vỗ**.
@@ -222,9 +258,20 @@ class Heartbeats:
         **đang treo** (giết). Gộp chúng thành một con số lớn là giết mọi con
         trong mười giây đầu đời của cụm.
         """
-        beat = self.read(index)
-        if beat == NEVER:
+        beat, so = self.read(index)
+        if so == 0:
+            # Chưa bao giờ vỗ. ⚠ Xét theo BỘ ĐẾM, không theo mốc: một ô có
+            # `so > 0` mà mốc bằng 0 là ô **hỏng**, không phải ô đang khởi động,
+            # và gọi nó là "đang khởi động" sẽ che đúng thứ cần thấy.
             return None
+        if beat == NEVER:
+            _log.error(
+                "watchdog: o nhip %d co so_nhip=%d nhung moc=0. Day la trang "
+                "thai KHONG THE xay ra hop le - o da tung duoc vo roi bi dua ve "
+                "khong ma bo dem khong bi xoa theo. Coi nhu treo.",
+                index, so,
+            )
+            return float("inf")
         return (now if now is not None else time.monotonic()) - beat
 
 

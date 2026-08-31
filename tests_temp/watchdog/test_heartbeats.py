@@ -35,7 +35,10 @@ class TestTheLayout:
         assert total_bytes(4) == HEADER_BYTES + BEAT_BYTES * 4
 
     def test_every_slot_starts_at_never(self, table: Heartbeats) -> None:
-        assert [table.read(i) for i in range(3)] == [NEVER, NEVER, NEVER]
+        # Mỗi ô mang HAI giá trị: mốc nhịp và số lần đã vỗ. Số lần vỗ mới là
+        # thứ trả lời được câu *"nó có bao giờ vỗ không"* - xem `_watchdog`.
+        assert [table.read(i) for i in range(3)] == [(NEVER, 0)] * 3
+        assert [table.so_nhip(i) for i in range(3)] == [0, 0, 0]
 
     def test_a_second_process_reads_what_the_first_wrote(self) -> None:
         run_id = f"test-{secrets.token_hex(4)}"
@@ -43,8 +46,9 @@ class TestTheLayout:
         reader = Heartbeats.attach(run_id, 2)
         try:
             owner.pat(1)
-            assert reader.read(1) > 0
-            assert reader.read(0) == NEVER
+            moc, so = reader.read(1)
+            assert moc > 0 and so == 1
+            assert reader.read(0) == (NEVER, 0)
         finally:
             reader.close()
             owner.close()

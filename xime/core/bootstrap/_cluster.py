@@ -45,6 +45,7 @@ from xime.core.link._decorators import ANNOUNCE
 
 from . import _control
 from ._orphan import OrphanGuard
+from ._stall_report import StallReporter
 from ._watchdog import Heartbeats, Watchdog
 
 if TYPE_CHECKING:
@@ -64,6 +65,7 @@ class ClusterMember:
         self._share_load = share_load
         self._link: ProcessLink | None = None
         self._beats: Heartbeats | None = None
+        self._stall: StallReporter | None = None
         self._watchdog: Watchdog | None = None
         self._orphan: OrphanGuard | None = None
         self._index = handle.index if handle is not None else 0
@@ -179,6 +181,12 @@ class ClusterMember:
         if self._beats is not None:
             self._watchdog = Watchdog(self._beats, self._index)
             await self._watchdog.start()
+            # ⭐ Bộ khoanh vùng đọc lại CHÍNH ô nhịp mà `Watchdog` vừa vỗ, từ
+            # một thread riêng - vì khi loop kẹt thì mọi task trên loop cũng
+            # kẹt, chỉ người đứng ngoài mới kể lại được chỗ kẹt. Chi phí đo
+            # được là -0,22% (nhiễu), nên nó bật mặc định. Xem `_stall_report`.
+            self._stall = StallReporter(self._beats, self._index)
+            self._stall.start()
 
     async def quiesce(self) -> None:
         """Dừng vòng đọc và nhịp vỗ. Gọi trước khi dọn DI."""
@@ -187,6 +195,9 @@ class ClusterMember:
         if self._orphan is not None:
             self._orphan.stop()
             self._orphan = None
+        if self._stall is not None:
+            self._stall.stop()
+            self._stall = None
         if self._watchdog is not None:
             await self._watchdog.stop()
             self._watchdog = None
