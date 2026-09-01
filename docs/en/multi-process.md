@@ -576,16 +576,49 @@ quietly loses a process.
 | | Health check | **Watchdog** |
 |---|---|---|
 | Direction | Parent **asks**, child **answers** | Child **proves itself**, parent just reads |
-| What the parent needs | A client, timeouts, retries | **Nothing** - it reads 8 bytes |
+| What the parent needs | A client, timeouts, retries | **Nothing** - it reads 16 bytes |
 | A busy child | Cannot answer **even though it is fine** | Still pats, as long as the loop turns |
 
-The child writes a timestamp every **1 second**; silence for more than **10
-seconds** and the parent **kills it**, so its sentinel fires on the next pass and
-promotion still goes through `waitpid`.
+The child writes a timestamp every **1 second**. The parent does **not** stay
+silent and then kill - it escalates, and every step carries the **stack of the
+stuck child**, so you learn *where* it is stuck:
+
+| Stuck for | Level | What happens |
+|---|---|---|
+| 5 seconds | `WARNING` | reported, with a stack |
+| 15 seconds | `ERROR` | reported again, with a **fresh** stack - has it moved, or is it in the same place? |
+| 30 seconds | `CRITICAL` | loud, and it says the parent is about to kill |
+| 60 seconds | - | the parent **kills it**, so its sentinel fires on the next pass and promotion still goes through `waitpid` |
+
+Each level prints **once per stall**, not once per loop - because if the thing
+blocking the loop *is* writing to the console (on Windows that is synchronous
+I/O), printing every round would **make the exact problem worse**.
+
+⛔ **Exception: a stall inside `accept()` has a 10-second deadline, not 60.** On
+Windows a worker stuck inside `accept()` is the worker **holding the accept
+lock**, and while it is stuck **nobody in the cluster accepts a connection** -
+see the [accept lock](#-windows-the-accept-lock)
+below. Past that short deadline the process **exits itself**, because that is the
+fastest way to give the lock back.
+
+⭐ The ladder is **on by default**, not a dev-only feature: it adds nothing to the
+request path - it is one thread re-reading **the same heartbeat the child already
+writes**. Measured: throughput differs by **-0.22%** (inside the noise), one stack
+snapshot costs **0.11 ms**, and only once something is already stuck. The
+incidents worth knowing about happen in production, where nobody has a debug flag
+turned on.
 
 ⚠ A child that has **never patted** is *starting up*, not *hung* - the parent
 gives it 60 seconds. Collapsing those two meanings kills every child the moment
 it is born.
+
+⭐ Each heartbeat slot carries **two** values: a timestamp **and a pat count**.
+Thanks to the second one, *"has this child ever patted?"* is something the parent
+can **prove** with one comparison, rather than infer from a timestamp of zero -
+and zero is also what a freshly allocated slot and a half-finished write look
+like. Before the counter existed those three situations were indistinguishable,
+and a worker was once killed with *"never sent a heartbeat"* while the log proved
+it had been patting normally.
 
 ⛔ **The timestamp uses a MONOTONIC clock, not wall time.** Wall time jumps: NTP
 steps the clock, an operator corrects it, a virtual machine restores a snapshot.
@@ -901,6 +934,49 @@ unaffected.
 The cost: `select()` on Windows is limited to 512 sockets, and that loop cannot
 run subprocesses. Acceptable because Windows is a development machine;
 production runs on Linux, where `epoll` has no such limit.
+
+### ⛔ Windows: the accept lock
+
+Same root cause as the note above, and its second consequence. Because Windows is
+forced down to the selector loop, `accept()` runs **directly inside an event loop
+callback** - and there it hits an operating-system bug.
+
+When several processes call `accept()` on one shared listening socket, the process
+that **loses the race** is held by the kernel **inside `accept()`** until the
+client on the other end gives up, even though the socket is correctly
+non-blocking and `select()` has just reported it ready. That process's entire
+event loop stands still for the whole time.
+
+⭐ **The stall tracks the CLIENT's timeout, not anything you can tune**: a client
+waiting 5 seconds produces a 5.4-second stall, one waiting 40 seconds produces
+40.5. And **a new connection does not rescue it**.
+
+The framework wraps the shared socket in a **Win32 named mutex**: exactly one
+process may sit in `accept()` at a time. This is nginx's `accept_mutex` and
+Apache's `AcceptMutex`.
+
+| Measured on a 3-process cluster | |
+|---|---|
+| Stalls | **15 → 0** |
+| Load spread | still even across processes |
+| Cost | **2.5%** throughput |
+
+⭐ **The lock does not touch the network port.** The port stays `LISTEN`, the
+kernel still completes TCP handshakes and still queues connections. The lock only
+decides *who may call `accept()` right now*, and it is held **around that one call
+only** - reading the request, running your logic, querying the database and
+writing the response all happen without it, so the parallelism you actually came
+for is untouched.
+
+**You do not have to do anything**: no API, no configuration, and **off Windows
+the wrapper returns the original socket** unchanged. Measured on Linux: the
+underlying bug does not reproduce across 49,600 requests (epoll, uvloop, uvicorn
+with 1-4 workers, 6 processes).
+
+⚠ This is why the escalation ladder under [Watchdog](#watchdog---catching-a-hung-child)
+gives a stall inside `accept()` a **10-second** deadline instead of 60: a worker
+stuck there is the worker holding the lock, so it does not merely harm itself -
+it **blocks the whole cluster**.
 
 ### Sharded adapters (mqtt, modbus, opcua)
 

@@ -157,6 +157,168 @@ Câu chữ giữ **trung lập**, không nhắc scheme nào - *"CN là một pee
 nằm ở SAN"* là sự thật PKI phổ quát (SPIFFE/SPIRE làm đúng vậy), nên nó **không** kéo lại
 phụ thuộc khái niệm đã cố ý gỡ ở `0.7.1`.
 
+### Sửa lỗi - Windows: nhiều tiến trình chia chung một cổng thì có tiến trình kẹt trong `accept()`
+
+Trên Windows, khi nhiều tiến trình cùng `accept()` trên một socket lắng nghe dùng chung,
+tiến trình **thua cuộc đua** bị nhân giữ lại **bên trong `accept()`** cho tới khi client
+kia bỏ cuộc - dù socket đã đặt non-blocking đúng chuẩn và `select()` vừa báo sẵn sàng. Vì
+`accept()` chạy ngay trong callback của event loop, cả loop của tiến trình đó đứng im.
+
+⭐ **Thời gian kẹt bám đúng theo timeout của CLIENT** (client chờ 5 giây thì kẹt 5,4 giây;
+chờ 40 giây thì kẹt 40,5 giây), và **kết nối mới không cứu được nó**. Nên con số *"im 10
+giây"* mà watchdog báo chỉ là lúc nó hết kiên nhẫn, không phải mức nghiêm trọng thật.
+
+Tái hiện được bằng **CPython thuần, 108 module** - không uvicorn, không fastapi, không
+xime. Node `cluster` cùng máy cùng mô hình chạy 3.600 request **0 lần treo**, vì libuv
+dùng IOCP/`AcceptEx`. Mà CPython **không nhận nổi socket kế thừa vào IOCP**
+(`WinError 87` ở `CreateIoCompletionPort`), nên trên Windows Python bị dồn vào đúng một
+đường và đường đó có lỗi. **Không có mẹo vá ở tầng Python.**
+
+Nay `WebAdapter` bọc socket dùng chung bằng một **mutex có tên của Win32**
+(`xime/core/bootstrap/_accept_lock.py`): đúng một tiến trình được nằm trong `accept()` tại
+một thời điểm. Đây là `accept_mutex` của nginx và `AcceptMutex` của Apache, chỉ khác chỗ
+đặt.
+
+| Đo | |
+|---|---|
+| Cụm 3 tiến trình, tải tổng hợp | **15 lần treo → 0** |
+| 5 app thật, bấm tay qua giao diện | **2839 request · 0 treo · chậm nhất 0,22 giây** |
+| Chia tải | cả 3 tiến trình đều nhận việc, kẻ thắng ngẫu nhiên theo app |
+| Giá phải trả | **2,5%** thông lượng |
+
+⭐ **Khoá không đụng gì tới cổng mạng.** Cổng vẫn `LISTEN`, nhân vẫn bắt tay TCP và vẫn xếp
+kết nối vào hàng đợi. Khoá chỉ quyết định *ai được gọi `accept()` ngay lúc này*, và chỉ giữ
+**quanh đúng lời gọi đó** - đọc request, chạy nghiệp vụ, truy vấn database, ghi phản hồi
+đều không giữ khoá. Đừng nới cửa sổ ấy ra.
+
+⛔ **Vì sao là mutex có tên chứ không phải `multiprocessing.Lock`:** trong Xime, watchdog
+**giết** worker, nên câu phải hỏi là *worker bị giết đúng lúc đang giữ khoá thì sao?*
+`multiprocessing.Lock` trên Windows hiện thực bằng **semaphore**, mà semaphore không có
+khái niệm chủ sở hữu nên **không thả** - cả cụm ngừng nhận kết nối vĩnh viễn. Mutex thì có
+chủ, và Windows trao quyền cho người đợi kế tiếp bằng `WAIT_ABANDONED` sau **0,00 giây**.
+
+📌 Đây đúng là mối nguy nginx viện dẫn để **tắt** `accept_mutex` trên Win32 (*"may cause
+deadlock if grabbed by a process which can't accept connections"*). Họ nói đúng **về chính
+họ** - `ngx_shmtx` là phép so-và-đổi nguyên tử, không có ngữ nghĩa chủ sở hữu ở tầng hệ
+điều hành. Thứ họ sợ lại là thứ Windows giải sẵn.
+
+**Ngoài Windows hàm này trả lại chính socket gốc, không bọc gì.** Đã đo trên Linux
+2026-09-01: lỗi gốc **không tái hiện** qua 49.600 request (epoll, uvloop, uvicorn 1-4
+worker, 6 tiến trình), và cụm 3 tiến trình thật sinh **0 dòng** `accept lock:`.
+
+### Thêm - thang cảnh báo khi event loop kẹt, và nó nói KẸT Ở ĐÂU
+
+`Watchdog` phát hiện được loop đứng nhưng **không nói được đứng ở đâu** - vì chính nó là
+một task trên loop đó, nên loop kẹt thì nó cũng kẹt. Cha chỉ thấy một ô nhịp ôi và kết
+luận *"event loop is blocked"*, không hơn. Đợt điều tra 2026-08-31 cho thấy chỗ thiếu đó
+tốn bao nhiêu: thứ duy nhất tách được *"mã ứng dụng gọi một hàm đồng bộ"* khỏi *"lỗi của
+hệ điều hành"* là **một dòng stack**.
+
+Trước bản này, dòng log đầu tiên người ta nhìn thấy **cũng là dòng báo tử** - cha ghi
+`CRITICAL` rồi giết trong cùng một nhịp. Nay (`xime/core/bootstrap/_stall_report.py`):
+
+| Kẹt được | Mức | Làm gì |
+|---|---|---|
+| 5 s | `WARNING` | báo, kèm stack |
+| 15 s | `ERROR` | báo lại, kèm stack **mới** - nó đã đi tiếp hay đứng yên chỗ cũ? |
+| 30 s | `CRITICAL` | loa to, khai rõ cha sắp giết |
+| 60 s | - | cha giết |
+
+Mỗi mức in **một lần cho mỗi đợt kẹt**, không in lặp. Đây không phải chuyện gọn gàng: nếu
+thứ đang làm kẹt loop lại chính là ghi log ra console (trên Windows đó là I/O đồng bộ) thì
+in mỗi vòng sẽ **làm nặng thêm đúng cái đang hỏng**.
+
+⛔ **Ngoại lệ: kẹt trong `accept()` thì hạn chót là 10 giây, không phải 60.** Từ khi có
+khoá accept, một worker kẹt bên trong `accept()` là worker **đang giữ khoá**, và trong lúc
+đó **cả cụm không ai nhận được kết nối**. Quá hạn ngắn thì tiến trình **tự kết thúc** - đó
+là cách nhanh nhất trả khoá lại, vì Windows thấy chủ mutex chết và trao quyền ngay.
+
+**Bật mặc định.** Nó không thêm một dòng nào vào đường xử lý request - chỉ là một thread
+đọc lại **chính mốc nhịp mà `Watchdog` đã ghi sẵn**. Thông lượng khi rảnh chênh **-0,22%**
+(nằm trong nhiễu), một lần chụp stack tốn **0,11 ms** và chỉ xảy ra khi đã kẹt. Sự cố đáng
+biết nhất xảy ra ở production, nơi không ai đang bật cờ debug; một tính năng chi phí 0 mà
+chỉ chạy ở chỗ không có sự cố thì gần như vô dụng. `xime.dev` chỉnh **ngưỡng và độ dài**,
+không chỉnh *có bật hay không*.
+
+### ⚠ Bảng nhịp watchdog lên bản 2 - mỗi ô mang HAI giá trị
+
+Bản 1 mỗi ô chỉ có mốc thời gian, và `NEVER = 0.0` phải gánh **ba** nghĩa cùng lúc: *chưa
+bao giờ vỗ* · *vừa bị `reset()` vì cha sắp sinh con mới* · *vùng nhớ vừa cấp phát hoặc một
+lần ghi dở dang*. Ba tình huống đó bắt người đọc làm ba việc khác nhau, nên gộp vào một giá
+trị là vi phạm luật 03 **ngay trong định dạng dữ liệu**.
+
+Nó đã trả giá thật: đợt 2026-08-31 có worker bị giết kèm *"never sent a heartbeat in
+1323s"* trong khi log chứng minh nó **đã** vỗ nhịp bình thường - mà không ai phân biệt nổi,
+vì bằng chứng không tồn tại trong định dạng.
+
+Nay mỗi ô là `(mốc, số_lần_vỗ)`, nên `so_nhip > 0` **chứng minh** tiến trình đã từng vỗ.
+Câu hỏi *"nó có bao giờ vỗ không"* từ chỗ không trả lời được thành trả lời được bằng một
+phép so sánh.
+
+Bộ đếm chỉ tăng và **không tràn được**: `Q` là 64 bit không dấu, trần 1,8·10¹⁹, tức
+**5,8·10¹¹ năm** ở nhịp thật và **1,7·10⁵ năm** khi chạy hết tốc lực. Và nếu bằng cách nào
+đó vẫn tràn thì `struct.pack` **ném `struct.error`**, nó không âm thầm quấn về 0 - đừng
+"sửa" thành quấn vòng, vì `so_nhip == 0` nghĩa là *"chưa bao giờ vỗ"* nên một bộ đếm quấn
+về 0 là dựng lại đúng lỗi vừa vá.
+
+⚠ **`VERSION` lên `2`, và `Heartbeats.attach()` từ chối bảng khác bản.** Trong một cụm bình
+thường thì mọi tiến trình sinh ra từ cùng một mã nên không ai gặp chuyện này; nó là lưới an
+toàn cho đúng một tình huống - một khối bộ nhớ chung **còn sót lại** từ cụm bản cũ đã chết
+bất thường. Ở đó nó **nổ ồn ào lúc khởi động** thay vì đọc nhầm bảng, và đó là chủ ý.
+
+### ⭐⭐ Sửa lỗi - `struct.pack_into` xoá vùng đích về 0 trước khi ghi
+
+`struct.pack_into` **memset vùng đích về 0 rồi mới ghi**, để bảo đảm byte đệm bằng 0. Đó là
+mã C chung của CPython, không có nhánh theo hệ điều hành. Trong một tiến trình thì GIL che
+mất cửa sổ ấy; **giữa hai tiến trình thì không có gì che**.
+
+Mà số `0` là giá trị **mang nghĩa riêng** ở cả ba hệ thống con đa tiến trình, và nghĩa đó
+là *"chưa có gì"*:
+
+| Chỗ ghi | `0` ở đó nghĩa là gì | Hậu quả khi đọc trúng cửa sổ |
+|---|---|---|
+| `_watchdog.pat` | `NEVER` - chưa vỗ lần nào | cha **giết một tiến trình đang khoẻ** |
+| ⭐ `refdata.write_generation` | `NEVER_PUBLISHED` - bảng chưa ai publish | `read()` trả `None`. Với bảng `jwt-keys` đó là **một request hợp lệ nhận 401**, im lặng |
+| `refdata.write_segments` | `segments == 0` | ném `RefDataTornError` |
+| `link.next_sequence` | số thứ tự quay về 0 | hai bản ghi cùng số |
+
+Đo giữa hai tiến trình, 34,6 triệu lượt đọc: `pack_into` cho **1.658.361** lượt thấy toàn
+số 0 (**4,79%**), gán slice cho **0**. Đây là nguyên nhân của bảy ca worker bị giết oan
+ngày 30-31/8.
+
+Vá bằng **một chỗ quyết định**: `xime.core.shared.ghi_o`, chép đè mà không xoá trước. Giữ
+nguyên `pack_into` ở ba hàm **dựng** vùng nhớ (`Heartbeats.create`, `link.write_header`,
+`refdata.write_header`) - lúc đó chưa tiến trình nào attach, không có ai để mà đọc dở.
+
+⭐ **Đã đo trên Linux 2026-09-01, và nó CÓ dính ở đó:** bốn lần chạy cho **0,0088% -
+0,0267%** lượt đọc sai, hẹp hơn Windows khoảng 30-100 lần **nhưng khác 0**. Hẹp hơn không
+có nghĩa là an toàn hơn - cửa sổ vẫn mở, chỉ là ít bị trúng hơn. Vì production chạy Linux
+và `RefData` chạy thật ở đó, lỗ hổng *"một request hợp lệ nhận 401"* **không phải một khả
+năng lý thuyết**.
+
+⭐ **Vì sao nó sống lâu:** cùng phép đo giữa hai **thread** cho 0/10,5 triệu - GIL biến mỗi
+lời gọi vào module C thành nguyên tử đối với thread khác. Đây là ca thứ tư của khuôn *"lỗi
+mà phép đo hiện tại không thể thấy"*, và là ca đầu tiên lệch theo trục **ranh giới tiến
+trình** thay vì trục hệ điều hành.
+
+📌 **Bài học mang đi được:** chọn `0` làm sentinel là chọn đúng giá trị mà **mọi phép ghi dở
+dang, mọi vùng mới cấp phát và mọi lần memset đều đi qua**. Câu để hỏi khi thiết kế một bố
+cục nhị phân mới: *"trạng thái này có phân biệt được với vùng nhớ chưa ai đụng tới không?"*
+
+Kèm test canh đi thành cặp, trong đó có một **đối chứng ngược** khẳng định `pack_into`
+**có** xoá - ngày CPython bỏ bước memset thì nó đỏ để báo *tiền đề của bản vá đã đổi*, chứ
+không phải để đi sửa test cho xanh - và một phép quét AST khoá danh sách ba hàm còn được
+dùng `pack_into`.
+
+### Nội bộ - `xime/core/_mp.py` thành gói `xime/core/shared/`
+
+Nó là **tệp lẻ duy nhất** trong `xime/core/` trong khi mọi thứ khác đều là gói, và một tệp
+để ngoài như vậy là chỗ mọi món không biết để đâu sẽ trôi vào. Gói mới mang **luật chống
+bãi rác ngay trong `__init__.py`**: một thứ chỉ vào được khi thoả **cả hai** - ít nhất
+**hai** hệ thống con cần nó, **và** nó không import gì ngoài thư viện chuẩn. Vế sau đã có
+test canh từ trước, nay soi cả gói thay vì riêng một tệp.
+
+Module riêng tư, không nằm trong API công khai, nên **không phá ứng dụng nào**.
 ---
 
 ## [0.8.2] - 2026-08-26

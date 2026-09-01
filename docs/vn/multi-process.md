@@ -559,14 +559,45 @@ sống theo kernel, và cụm âm thầm mất một tiến trình.
 | | Health check | **Watchdog** |
 |---|---|---|
 | Chiều | Cha **hỏi**, con **trả lời** | Con **tự chứng minh**, cha chỉ đọc |
-| Cha phải dựng gì | Client, timeout, retry | **Không gì** - đọc 8 byte |
+| Cha phải dựng gì | Client, timeout, retry | **Không gì** - đọc 16 byte |
 | Con bận | Không trả lời được **dù vẫn khoẻ** | Vẫn vỗ được nếu loop còn quay |
 
-Con ghi một mốc thời gian mỗi **1 giây**; im quá **10 giây** thì cha **giết**, và
-sentinel của nó nổ ở vòng sau nên đường thăng cấp vẫn đi qua `waitpid`.
+Con ghi một mốc thời gian mỗi **1 giây**. Cha **không im rồi giết** - nó kêu tăng
+dần, và mỗi mức kèm **stack của con đang kẹt** nên bạn biết nó kẹt **ở đâu**:
+
+| Kẹt được | Mức | Làm gì |
+|---|---|---|
+| 5 giây | `WARNING` | báo, kèm stack |
+| 15 giây | `ERROR` | báo lại, kèm stack **mới** - nó đã đi tiếp hay đứng yên chỗ cũ? |
+| 30 giây | `CRITICAL` | loa to, khai rõ cha sắp giết |
+| 60 giây | - | cha **giết**, sentinel nổ ở vòng sau nên đường thăng cấp vẫn đi qua `waitpid` |
+
+Mỗi mức in **một lần cho mỗi đợt kẹt**, không in lặp - vì nếu thứ đang làm kẹt
+loop lại chính là ghi log ra console (trên Windows đó là I/O đồng bộ) thì in mỗi
+vòng sẽ **làm nặng thêm đúng cái đang hỏng**.
+
+⛔ **Ngoại lệ: kẹt trong `accept()` thì hạn chót là 10 giây, không phải 60.** Một
+worker kẹt bên trong `accept()` trên Windows là worker **đang giữ khoá accept**,
+và trong lúc đó **cả cụm không ai nhận được kết nối** - xem
+[khoá accept](#-windows-khoá-accept) phía dưới.
+Quá hạn ngắn thì tiến trình **tự kết thúc**, vì đó là cách nhanh nhất trả khoá
+lại.
+
+⭐ Thang này **bật mặc định**, không phải thứ chỉ có ở bản dev: nó không thêm dòng
+nào vào đường xử lý request - chỉ là một thread đọc lại **chính mốc nhịp con đã
+ghi sẵn**. Đo được: thông lượng chênh **-0,22%** (trong nhiễu), một lần chụp stack
+tốn **0,11 ms** và chỉ xảy ra khi đã kẹt. Sự cố đáng biết nhất xảy ra ở
+production, nơi không ai đang bật cờ debug.
 
 ⚠ Con **chưa vỗ lần nào** là *đang khởi động*, không phải *treo* - cha cho nó 60
 giây. Gộp hai nghĩa đó là giết mọi con ngay lúc chúng vừa sinh ra.
+
+⭐ Mỗi ô nhịp mang **hai** giá trị: mốc thời gian **và số lần đã vỗ**. Nhờ vế thứ
+hai, câu *"con này có bao giờ vỗ không"* là thứ cha **chứng minh được** bằng một
+phép so sánh, chứ không phải suy ra từ một mốc bằng 0 - mà số 0 thì còn là giá
+trị của một ô vừa cấp phát và của một lần ghi dở dang. Trước khi có bộ đếm, ba
+tình huống đó trông giống hệt nhau, và đã có worker bị giết kèm *"never sent a
+heartbeat"* trong khi log chứng minh nó vỗ nhịp bình thường.
 
 ⛔ **Mốc thời gian dùng đồng hồ ĐƠN ĐIỆU (`monotonic`), không phải giờ tường.**
 Giờ tường nhảy được: NTP kéo giờ, người vận hành sửa giờ, máy ảo khôi phục ảnh
@@ -867,6 +898,45 @@ kết nối nào**. Selector loop `accept()` thẳng nên không vướng.
 Cái giá: `select()` trên Windows giới hạn 512 socket, và loop đó không chạy được
 subprocess. Chấp nhận được vì Windows là máy dev; prod chạy Linux, nơi `epoll`
 không có giới hạn này.
+
+### ⛔ Windows: khoá accept
+
+Cùng gốc với mục trên, và là hệ quả thứ hai của nó. Vì Windows bị dồn xuống
+selector loop, `accept()` chạy **thẳng trong callback của event loop** - và ở đó
+có một lỗi của hệ điều hành.
+
+Khi nhiều tiến trình cùng `accept()` trên một socket lắng nghe dùng chung, tiến
+trình **thua cuộc đua** bị nhân giữ lại **bên trong `accept()`** cho tới khi
+client kia bỏ cuộc, dù socket đã đặt non-blocking đúng chuẩn và `select()` vừa
+báo sẵn sàng. Cả event loop của tiến trình đó đứng im suốt thời gian ấy.
+
+⭐ **Thời gian kẹt bám theo timeout của CLIENT, không theo bất cứ thứ gì bạn
+chỉnh được**: client chờ 5 giây thì kẹt 5,4 giây, chờ 40 giây thì kẹt 40,5 giây.
+Và **kết nối mới không cứu được nó**.
+
+Framework tự bọc socket dùng chung bằng một **mutex có tên của Win32**: đúng một
+tiến trình được nằm trong `accept()` tại một thời điểm. Đây là `accept_mutex` của
+nginx và `AcceptMutex` của Apache.
+
+| Đo trên cụm 3 tiến trình | |
+|---|---|
+| Số lần treo | **15 → 0** |
+| Chia tải | vẫn đều giữa các tiến trình |
+| Giá phải trả | **2,5%** thông lượng |
+
+⭐ **Khoá không đụng gì tới cổng mạng.** Cổng vẫn `LISTEN`, nhân vẫn bắt tay TCP
+và vẫn xếp kết nối vào hàng đợi. Khoá chỉ quyết định *ai được gọi `accept()` ngay
+lúc này*, và chỉ giữ **quanh đúng lời gọi đó** - đọc request, chạy nghiệp vụ,
+truy vấn database, ghi phản hồi đều không giữ khoá, nên phần song song thật sự
+không bị đụng tới.
+
+**Bạn không phải làm gì cả**: không API, không cấu hình, và **ngoài Windows hàm
+này trả lại chính socket gốc**, không bọc gì. Đã đo trên Linux: lỗi gốc không tái
+hiện qua 49.600 request (epoll, uvloop, uvicorn 1-4 worker, 6 tiến trình).
+
+⚠ Đây là lý do thang cảnh báo ở mục [Watchdog](#watchdog---phát-hiện-con-treo) cho
+kẹt-trong-`accept()` một hạn chót **10 giây** thay vì 60: worker kẹt ở đó là
+worker đang giữ khoá, nên nó không chỉ hại chính nó mà **chặn cả cụm**.
 
 ### Adapter phân mảnh (mqtt, modbus, opcua)
 
