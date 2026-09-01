@@ -24,8 +24,14 @@ lại **chính mốc nhịp mà `Watchdog` đã ghi sẵn**.
 
 Vì vậy nó **bật mặc định**, không phải thứ chỉ có ở bản dev. Sự cố đáng biết nhất
 xảy ra ở production, nơi không ai đang bật cờ debug; một tính năng chi phí 0 mà
-chỉ chạy ở chỗ không có sự cố thì gần như vô dụng. `xime.dev` chỉnh **ngưỡng và
-độ dài**, không chỉnh *có bật hay không*.
+chỉ chạy ở chỗ không có sự cố thì gần như vô dụng.
+
+⛔ **Bộ này KHÔNG đọc `xime.dev`, và không đọc khoá cấu hình nào.** Ngưỡng nằm ở
+`MUC_CANH_BAO` và `HAN_CHOT_ACCEPT` ngay dưới, là hằng số. Bản đầu của docstring
+này viết *"`xime.dev` chỉnh ngưỡng và độ dài"* - **câu đó sai**, chưa bao giờ có
+dòng code nào làm việc ấy (sửa 2026-09-01). Muốn cho chỉnh được thì đó là **thêm
+một khoá cấu hình mới**, tức thêm bề mặt API ở bản alpha cuối, nên phải cân nhắc
+chứ không phải sửa cho khớp câu văn.
 
 ## Kêu tăng dần, không im rồi giết
 

@@ -11,7 +11,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.8.2"
+version = "0.8.3"
 description = "A Python backend framework with a built-in DI container: HTTP, WebSocket, gRPC, sockets, MQTT, Modbus TCP and OPC UA from one application, scaled across processes with no external process manager."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -295,7 +295,11 @@ mqtt = [
 mail = [
     # Floor 3.0 -> 5.1.1 (2026-08-18): PYSEC-2026-2338, va o 5.1.1. Day la
     # buoc qua HAI ban lon (3.x -> 5.x); da chay het bo test tren 5.1.x.
-    "aiosmtplib>=5.1.1",
+    # Floor 5.1.1 -> 5.1.2 (2026-09-01): CVE-2026-55558 / GHSA-vxj7-4xrp-5vr4,
+    # STARTTLS response injection. TRUNG duong Xime dung: `_send_kwargs()` dat
+    # `start_tls=True` cho cong 587 va 25, tuc ca hai cong SMTP pho bien nhat.
+    # Ban va o 5.1.2, cung nhanh patch.
+    "aiosmtplib>=5.1.2",
 ]
 # Fieldbus công nghiệp (0.7). Floor đặt ở 3.14 vì API decode đã đổi hẳn trong
 # nhánh 3.x: `pymodbus.payload.BinaryPayloadDecoder` bị xóa, thay bằng

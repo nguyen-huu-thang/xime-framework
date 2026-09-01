@@ -804,7 +804,8 @@ Adapter hạng đơn nhất đang chờ ở con phụ nằm ở trạng thái `s
 
 ⭐ **Job nền của cụm chỉ chạy ở primary, và đó là thiết kế** - không có khoá cấu hình nào
 đổi được. Cần một vòng lặp định kỳ ở **mọi** tiến trình thì đó không phải việc của
-scheduler mà là một adapter `scaling="replicated"`; lý do đầy đủ và ví dụ chép được nằm ở
+scheduler mà là việc của một adapter, và **viết adapter không phải điểm mở rộng công
+khai** - hai loại việc thật sự cần nó đều đã có lời giải sẵn. Lý do đầy đủ nằm ở
 [`starters.md`](starters.md) mục *"Job chạy MỘT LẦN cho cả cụm"*.
 
 ### ⛔ Hai đường dẫn này KHÔNG xác thực
@@ -1065,28 +1066,29 @@ hệ thống giám sát.
 
 ---
 
-## Viết adapter của riêng bạn
+## Hợp đồng Adapter
 
-Hợp đồng đổi ở 0.8, và `app.use(...)` **kiểm ngay tại dòng đó**:
+> ⛔ **Adapter không phải điểm mở rộng công khai.** Sáu adapter đi kèm framework
+> (web, gRPC, socket, MQTT, Modbus TCP, OPC UA) là sáu cái có, và việc thêm một
+> cái mới thuộc về framework chứ không thuộc về ứng dụng. `xime.core.bootstrap.adapter`
+> cùng mọi thứ quanh nó (`AdapterSlot`, `assign_slot()`, `adapter_kind`,
+> `share_port_by`) là **chi tiết nội bộ**, có thể đổi ở bất kỳ bản nào mà không
+> báo trước.
+>
+> Mục này ở đây vì hợp đồng đó **giải thích hành vi bạn quan sát được**: vì sao
+> `/readyz` chuyển xanh vào đúng lúc đó, vì sao log khởi động xếp theo thứ tự đó,
+> và vì sao adapter này chạy ở mọi tiến trình còn adapter kia chỉ chạy ở primary.
+> Cần một giao thức chưa có thì **báo cho nhóm giữ framework**, đừng tự dựng một
+> adapter bên ngoài - nó sẽ vỡ vào lần nâng bản kế tiếp và vỡ im lặng.
 
-```python
-from xime.core.bootstrap.adapter import Adapter
+Vòng đời của một adapter có **ba** bước, không phải hai, và `app.use(...)` kiểm
+hợp đồng ngay tại dòng đó:
 
-class MyAdapter(Adapter, scaling="replicated"):
-    adapter_kind = "my"                      # khoá tầng hai trong processes:
-
-    def __init__(self, server_id: str = "default") -> None:
-        self.adapter_id = server_id
-
-    async def start(self, app) -> None:      # chiếm tài nguyên, TRẢ VỀ khi xong
-        ...
-
-    async def serve(self) -> None:           # phục vụ, CHẶN tới khi bị dừng
-        ...
-
-    async def stop(self) -> None:            # phải idempotent
-        ...
-```
+| Bước | Nghĩa |
+|---|---|
+| `start()` | **Chiếm tài nguyên rồi TRẢ VỀ** - mở cổng, nối broker, dựng session |
+| `serve()` | **Phục vụ và CHẶN** tới khi bị dừng |
+| `stop()` | Dừng. Phải **idempotent** - nó bị gọi cả ở đường tắt êm lẫn đường watchdog |
 
 ### Vì sao tách `start()` khỏi `serve()`
 
@@ -1119,7 +1121,9 @@ Không có mặc định. Mặc định `replicated` là **nguy** - một adapte
 tới nhân bản bị nhân bản, và nó hỏng **im lặng**; mặc định `singleton` thì app
 chậm mà không ai biết vì sao. ⭐ Lớp con của một adapter đã khai thì **kế thừa**.
 
-Hạng phân mảnh khai thêm *điều kiện gì phải khác nhau giữa các tiến trình*:
+Hạng phân mảnh khai thêm *điều kiện gì phải khác nhau giữa các tiến trình*. Đây là cách
+adapter MQTT **đi kèm framework** tự khai, chép lại để thấy hình dạng chứ không phải để
+làm mẫu:
 
 ```python
 class MqttAdapter(

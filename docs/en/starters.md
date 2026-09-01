@@ -259,7 +259,59 @@ class TokenUseCase:
         )
 ```
 
-An expired token, a bad signature, a mismatched `aud`/`iss`, a missing required claim or an algorithm outside `algorithms` all raise `AuthenticationException`. `verify()` also takes `algorithms=`, `leeway=` and `require=`, with the same meanings as in `JwtMiddlewareConfig`.
+A bad signature, a mismatched `aud`/`iss`, a missing required claim or an algorithm outside `algorithms` all raise `AuthenticationException`. An **expired token** raises `TokenExpiredException`, a subclass of it. `verify()` also takes `algorithms=`, `leeway=` and `require=`, with the same meanings as in `JwtMiddlewareConfig`.
+
+#### Expiry is its own type, because it sends the client down a different road
+
+| What you caught | What the client must do |
+|---|---|
+| `TokenExpiredException` | **go refresh the token** and retry |
+| `AuthenticationException` (everything else) | **make them log in again** |
+
+```python
+from xime.core.exception.framework import AuthenticationException, TokenExpiredException
+
+try:
+    claims = self._verifier.verify(token, self._key)
+except TokenExpiredException:
+    return self.error("E007003", "Your session has expired")
+except AuthenticationException:
+    return self.error("E007002", "Not authenticated")
+```
+
+`TokenExpiredException` is **purely additive**: an `except AuthenticationException` written before it existed still catches it, so nobody had to change anything on upgrade.
+
+⚠ Do not classify by matching on `.message`. That sentence is written for humans, and whoever rewords it has no way to know they broke someone. If you need the original PyJWT error, read `__cause__` - the framework chains it with `raise ... from exc`, which PEP 3134 makes an explicit promise.
+
+⛔ The remaining failures are **deliberately not split any further**: all of them lead to exactly one action. The test is *"does the caller do two different things"*, not *"are these two situations different"*.
+
+### Using the verify half without the middleware - `JwtAuthenticator`
+
+Some services cannot put a blanket check at the transport layer: anonymous endpoints, share links where the token in the URL *is* the grant, upload tickets, or internal gRPC authenticated by an mTLS certificate alone. A middleware sitting in front of all of them would answer 401.
+
+`JwtAuthenticator` is **the verify half, lifted out of the middleware**: it turns a raw token into verified claims and knows nothing about HTTP or WebSocket, so each transport keeps its own way of saying no.
+
+```python
+from xime.starters.jwt import JwtAuthenticator, JwtMiddlewareConfig
+
+class MyAuthentication:
+    def __init__(self, key_provider: JwtKeyProvider) -> None:
+        self._auth = JwtAuthenticator(
+            JwtMiddlewareConfig(audience="data-service", issuer="https://identity.internal"),
+            key_provider=key_provider,
+        )
+
+    def claims(self, token: str) -> dict:
+        return self._auth.verify(token)          # tries every key matching the token's `kid`
+
+    def kid(self, token: str) -> str | None:
+        return JwtAuthenticator.read_kid(token)  # read `kid` without a key
+```
+
+Use it instead of rewriting the `kid` reading yourself: `read_kid()` refuses any `kid` that is not a string, because `JwtKeyProvider.keys()` is annotated `str | None` and a promise should be kept by the code that makes it. Two copies of "what counts as a valid `kid`" are two places to change when a knob is added, and the one nobody remembers is the one that rots.
+
+⭐ `verify()` tries **every** candidate key, because while an issuer rotates its keys both the old and the new one are valid. If any key reports *expired*, the result is expired no matter where that key sat in the list: only the key that actually signed the token can produce that verdict, whereas "bad signature" only says we happened to try the wrong key.
+
 
 ### JWT middleware
 
@@ -425,36 +477,23 @@ Auditing what is left, exactly two kinds of work genuinely have to run per proce
 | **Sampling this process's own metrics** (RSS, requests served, queue depth) | The primary cannot see another process's counters. But the cluster shares **one socket**, so a scrape lands on a random process - **without aggregation the number is meaningless no matter how many schedulers you run**. The answer is to collect through [`ProcessLink`](process-link.md) and push once, not to duplicate the job |
 | **A device one process exclusively holds** (Modbus, OPC UA, a subset of MQTT topics) | This is genuine business logic, but it belongs to a `sharded` adapter and has its own mechanism (`@poll`, `@on_change` run once **per entity**). It does not go through the scheduler |
 
-And if you really do need a periodic loop on every process - sampling your own resources, say - **do not wait for the framework to unlock anything**. That shape is already writable today and costs nothing:
+Both kinds **already have an answer inside the framework**, and neither asks you
+to add anything at the lifecycle layer: metrics are collected through
+[`ProcessLink`](process-link.md), and devices already live in the `sharded`
+adapters that ship with the framework.
 
-```python
-import asyncio
-import contextlib
+> ⛔ **Writing an adapter is not a public extension point.** The six adapters that
+> ship with the framework are the six there are; `xime.core.bootstrap.adapter` and
+> everything around it are **internal details** and may change in any release
+> without notice. If you have a genuine third kind of work that must run per
+> process, **tell the team that maintains the framework** - that is a gap in the
+> framework, not something to work around in application code.
 
-from xime.core.bootstrap.adapter import Adapter
-
-class ResourceSampler(Adapter, scaling="replicated"):
-    adapter_kind = "sampler"
-
-    def __init__(self) -> None:
-        self.adapter_id = "default"
-        self._stopped = asyncio.Event()
-
-    async def start(self, app) -> None: ...
-
-    async def serve(self) -> None:
-        while not self._stopped.is_set():
-            await self._sample()          # touches only this process's counters
-            with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(self._stopped.wait(), timeout=15)
-
-    async def stop(self) -> None:
-        self._stopped.set()
-
-app.use(ResourceSampler())
-```
-
-That is exactly what `SchedulerAdapter` already is, differing by one `scaling` argument and by where it lives.
+⚠ And before you report it, run the question at the top of this section once
+more. In every case audited so far, an answer of *"only this process has it"* has
+pointed at business state **sitting in the wrong place** - and the fix is to move
+it out to [`RefData`](refdata.md) or [`Store`](store.md), not to replicate a loop
+so it can follow the state around.
 
 ---
 

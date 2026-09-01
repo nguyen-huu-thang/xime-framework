@@ -96,10 +96,15 @@ class SlotAware(Protocol):
 def adapter_kind_of(adapter: object) -> str:
     """Loại của một adapter - khoá tầng hai trong khối `processes:`.
 
-    Khai bằng thuộc tính class chứ không suy từ tên class: suy được cho cả sáu
-    adapter trong nhà (`WebAdapter` -> `web`), nhưng adapter người dùng tự viết
-    thì không, và một quy ước chỉ đúng với code của chính mình là quy ước sẽ
-    hỏng im lặng ở tay người khác.
+    Khai bằng thuộc tính class chứ không suy từ tên class. Suy từ tên thì đúng
+    cho cả sáu adapter hiện có (`WebAdapter` -> `web`), nhưng nó khoá tên khoá
+    YAML vào tên class, nên đổi tên class là đổi cấu hình của mọi người dùng -
+    một ràng buộc không ai khai và không gì canh.
+
+    ⛔ Bản đầu của docstring này ghi lý do là *"adapter người dùng tự viết thì
+    không suy được"*. **Câu đó sai kể từ 2026-09-01**: chủ dự án chốt viết adapter
+    KHÔNG phải điểm mở rộng công khai - sáu adapter đi kèm framework là sáu cái
+    có, và thêm cái mới là việc của framework. Tài liệu ở `docs/` đã sửa theo.
     """
     kind = getattr(adapter, "adapter_kind", None)
     if isinstance(kind, str) and kind:

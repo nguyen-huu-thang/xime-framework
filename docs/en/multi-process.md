@@ -836,8 +836,9 @@ primary* is still visible - in the `primary` field of that same response.
 
 ⭐ **Cluster background jobs run on the primary only, and that is the design** - no
 configuration key changes it. If you need a periodic loop on **every** process, that is not
-a scheduler job but an adapter with `scaling="replicated"`; the full reasoning and a
-copyable example live in [`starters.md`](starters.md) under *"A job runs ONCE for the whole
+a scheduler job but an adapter's, and **writing an adapter is not a public extension
+point** - both kinds of work that genuinely need one already have an answer. The full
+reasoning lives in [`starters.md`](starters.md) under *"A job runs ONCE for the whole
 cluster"*.
 
 ### ⛔ Neither path is authenticated
@@ -1110,28 +1111,30 @@ missing is the path that pushes it to a monitoring system.
 
 ---
 
-## Writing your own adapter
+## The adapter contract
 
-The contract changed in 0.8, and `app.use(...)` **checks it right there**:
+> ⛔ **Adapters are not a public extension point.** The six that ship with the
+> framework (web, gRPC, socket, MQTT, Modbus TCP, OPC UA) are the six there are,
+> and adding another one is the framework's job, not the application's.
+> `xime.core.bootstrap.adapter` and everything around it (`AdapterSlot`,
+> `assign_slot()`, `adapter_kind`, `share_port_by`) are **internal details** and
+> may change in any release without notice.
+>
+> This section exists because that contract **explains behaviour you can
+> observe**: why `/readyz` turns green exactly when it does, why the startup log
+> is ordered the way it is, and why one adapter runs in every process while
+> another runs only on the primary. If you need a protocol that is not here,
+> **tell the team that maintains the framework** - do not build an adapter
+> outside it, because it will break on the next upgrade, and break silently.
 
-```python
-from xime.core.bootstrap.adapter import Adapter
+An adapter's lifecycle has **three** steps, not two, and `app.use(...)` checks
+the contract right at that line:
 
-class MyAdapter(Adapter, scaling="replicated"):
-    adapter_kind = "my"                      # second key level in processes:
-
-    def __init__(self, server_id: str = "default") -> None:
-        self.adapter_id = server_id
-
-    async def start(self, app) -> None:      # take resources, then RETURN
-        ...
-
-    async def serve(self) -> None:           # serve, BLOCK until stopped
-        ...
-
-    async def stop(self) -> None:            # must be idempotent
-        ...
-```
+| Step | Meaning |
+|---|---|
+| `start()` | **Acquire resources and RETURN** - open the port, connect the broker, build the session |
+| `serve()` | **Serve and BLOCK** until stopped |
+| `stop()` | Stop. Must be **idempotent** - it is called both on the graceful path and by the watchdog |
 
 ### Why `start()` and `serve()` are separate
 
@@ -1166,7 +1169,9 @@ that never considered replication gets replicated, and it fails **silently**;
 defaulting to `singleton` makes the app slow with nobody knowing why. ⭐ A
 subclass of an adapter that already declared one **inherits** it.
 
-A sharded adapter also declares *what must differ between processes*:
+A sharded adapter also declares *what must differ between processes*. This is how the
+MQTT adapter **that ships with the framework** declares itself, quoted to show the shape
+rather than as a template:
 
 ```python
 class MqttAdapter(

@@ -5,7 +5,143 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
-## [Chưa phát hành]
+## [0.8.3] - 2026-09-01
+
+Bản này có **hai đổi hành vi** và **hai lỗi im lặng** đáng đọc trước khi nâng.
+
+⚠ **Đổi hành vi, đọc trước khi triển khai:** `/docs`, `/redoc`, `/openapi.json` nay **mặc
+định TẮT**, và **access log của uvicorn cũng vậy**. Cả hai bật lại bằng đúng một khoá -
+`xime.dev: true` trong `application.yml`.
+
+⭐ **Hai lỗi im lặng đã vá, cả hai chỉ nổ khi chạy NHIỀU TIẾN TRÌNH**, và cả hai đều không
+có triệu chứng nào ngoài kết quả sai:
+
+| | |
+|---|---|
+| `struct.pack_into` **xoá vùng đích về 0 trước khi ghi** | Giữa hai tiến trình cửa sổ đó nhìn thấy được, mà `0` lại là sentinel *"chưa có gì"*. Hậu quả nặng nhất **không** nằm ở watchdog: `RefData` đọc trúng cửa sổ ấy trả `None`, và với bảng khoá JWT thì đó là **một request hợp lệ nhận 401**. Đo được trên cả Linux lẫn Windows |
+| Windows: tiến trình thua cuộc đua `accept()` **bị nhân giữ lại** | Cả event loop đứng, thời gian kẹt bám theo timeout của **client**. Đã vá bằng mutex có tên. Linux không dính |
+
+Nguồn báo cáo từ repo **ngoài**:
+[`.claude/docs/bao-cao-van-de-tu-repo-ngoai/`](.claude/docs/bao-cao-van-de-tu-repo-ngoai/README.md).
+Nhật ký đo trên Linux:
+[`.claude/docs/kiem-toan/ket-qua-do-tren-linux-2026-09-01.md`](.claude/docs/kiem-toan/ket-qua-do-tren-linux-2026-09-01.md).
+
+### Bảo mật - nâng sàn `aiosmtplib` lên `5.1.2` (extra `xime[mail]`)
+
+`CVE-2026-55558` / `GHSA-vxj7-4xrp-5vr4` - **STARTTLS response injection**. Khi nâng cấp
+kết nối bằng STARTTLS, `aiosmtplib` đọc câu trả lời `220` rồi bắt tay TLS ngay mà **không
+vứt phần còn lại trong bộ đệm nhận**. Byte đọc được từ socket **chưa mã hoá** sống sót qua
+ranh giới plaintext -> TLS và sau đó được phân tích như thể chúng đến từ bên trong phiên
+TLS. Kẻ đứng giữa gửi kèm vài dòng phản hồi của riêng hắn ngay sau lệnh `STARTTLS` là chèn
+được nội dung vào phiên đã mã hoá.
+
+⚠ **Trúng đúng đường Xime dùng, không phải một nhánh hiếm:** `SmtpMailService._send_kwargs()`
+đặt `start_tls=True` cho cổng **587** và **25** - tức cả hai cổng SMTP phổ biến nhất. Chỉ
+cổng 465 (implicit TLS) là không dính.
+
+Sàn cũ `>=5.1.1` chính là bản dính. Đã nâng lên `>=5.1.2` và **chạy lại toàn bộ bộ test
+trên sàn mới**: 2718 qua / 25 bỏ qua / 0 lỗi.
+
+### Xác thực JWT: hai chỗ hụt cho bên chỉ mượn phần verify
+
+Báo cáo từ phiên `Base Platform/data` ngày 2026-09-01. Không có lỗi hành vi nào - cả hai
+mục là chuyện **bề mặt công khai** và **hợp đồng lỗi**, và chúng cùng phục vụ một hạng
+người dùng mà `configure_jwt()` không với tới: service **không đặt được phép chặn ở tầng
+vận chuyển**. Endpoint vô danh, link chia sẻ mà token trong URL chính là giấy phép, vé
+upload, gRPC nội bộ chỉ xác thực bằng cert - một middleware đứng trước tất cả sẽ trả 401
+cho chúng.
+
+#### `JwtAuthenticator` nay export được từ `xime.starters.jwt`
+
+- **`JwtAuthenticator`** - CHANGELOG của `0.7.2` đã công bố tên này, nhưng
+  `xime/starters/jwt/__init__.py` không có dòng nào cho nó, nên đường duy nhất lấy được
+  là `from xime.starters.jwt._authenticator import ...`. Repo ngoài chọn không thò tay
+  vào ruột framework và **chép lại logic đọc `kid`** - đúng bản sao thứ hai mà lớp này
+  sinh ra để không có. Cùng khuôn với `JWT_CLAIMS` ở `0.7.2` và `public_health_paths` ở
+  `0.8.2`. Giữ ngoài `__all__` như `KeyContext`: DI scanner không dựng được nó.
+
+#### `TokenExpiredException` - hết hạn tách khỏi không hợp lệ
+
+- **`TokenExpiredException`** ở `xime.core.exception.framework`, **tên công khai mới**.
+  `PyJwtTokenVerifier` trước đây gộp mọi lỗi PyJWT về một `AuthenticationException` mang
+  mỗi `message`, nên bên tự dựng catalog mã lỗi không có cách có cấu trúc nào để tách
+  *token hết hạn* (đi làm tươi token) khỏi *chữ ký sai* (bắt đăng nhập lại). Đúng luật 03
+  ở tầng hợp đồng thư viện.
+  **Thuần cộng thêm**: nó là lớp con của `AuthenticationException`, nên mọi `except` viết
+  trước đó vẫn bắt được - đo trên toàn bộ bộ test, không một test cũ nào phải sửa.
+- Bốn lỗi còn lại (chữ ký, `aud`, `iss`, token rác) **cố ý không tách thêm**: cả bốn dẫn
+  tới đúng một việc. Phanh của luật 03 mục 4e - phép kiểm là *"người gọi có làm hai việc
+  khác nhau không"*, không phải *"hai tình huống có khác nhau không"*.
+- `PyJwtTokenVerifier.verify()` nay nối lỗi PyJWT gốc bằng `raise ... from exc`. PEP 3134
+  biến `__cause__` thành lời hứa tường minh, khác `__context__` mà Python tự gắn trong
+  khối `except` và chưa ai hứa gì. Chính package này đã viết `raise ... from None` ở hai
+  chỗ khác, nên một lượt dọn cho đồng bộ có thể lặng lẽ xoá chuỗi ngầm đó.
+
+#### ⛔ Sửa kèm: token hết hạn từng bị báo là SAI CHỮ KÝ trong lúc xoay khoá
+
+Không nằm trong báo cáo, tìm ra khi đo ca biên của bản vá trên.
+
+`JwtAuthenticator.verify()` thử mọi khoá ứng viên rồi báo **lỗi đầu tiên**. Nhưng PyJWT
+kiểm chữ ký **trước** `exp`, nên chỉ khoá thật sự ký được token mới sinh nổi verdict *hết
+hạn*; *"sai chữ ký"* chỉ nói lên rằng ta vừa thử nhầm khoá. Đo trên khoá A và B, token hết
+hạn ký bằng B:
+
+```text
+truoc:  candidates [B, A] -> "Token has expired"
+        candidates [A, B] -> "Signature verification failed"   <- sai
+sau:    ca hai            -> TokenExpiredException
+```
+
+Verdict *hết hạn* nay thắng mọi verdict khác bất kể thứ tự khoá. Chính sách *"báo lỗi đầu
+tiên"* giữ nguyên cho các lỗi ngang hàng. Không sửa thì `TokenExpiredException` là một lời
+hứa code không giữ được: bên gọi **đăng xuất người dùng thay vì làm tươi token**, hiếm,
+ngắt quãng, và chỉ trong cửa sổ xoay khoá.
+
+#### Chốt canh: tên `CHANGELOG` công bố phải import được
+
+`tests_temp/api_surface/test_changelog_names_import.py`, 7 test.
+
+Chỗ mù có tính cấu trúc: `check_doc_imports.py` canh *"tên nào tài liệu nhắc thì phải
+import được"* nhưng chỉ soi `docs/`, trong khi **`CHANGELOG.md` cũng nằm trong danh sách
+trắng sdist**, tức tới tay mọi người cài từ PyPI y như `docs/`. `JwtAuthenticator` lọt
+đúng qua khe đó: **được công bố** ở changelog mà **chưa bao giờ được nhắc** trong `docs/`.
+
+Chốt canh mới soi tên in đậm trong bullet CHANGELOG, giữ lại cái nào là class/def định
+nghĩa ở module riêng tư, rồi đòi package của nó export. Ba kết cục chứ không hai: ngữ liệu
+rỗng là *chưa kết luận được*, không phải *sạch*. Kèm đối chứng dương (phép dò có biết kêu
+không) và đối chứng ngược (có kêu oan không).
+
+⏳ Nó tìm ra thêm **hai** tên cùng hình dạng - `AdapterSlot` và `SchedulerAdapter` - đang
+**cố ý giữ riêng tư**, theo quyết định ngay dưới. Có một test riêng bắt danh sách đó co lại
+khi ai export một trong hai - vì lúc đó chính sách đã đổi, chứ không phải danh sách sai.
+
+#### ⛔ Chủ dự án chốt 2026-09-01: viết adapter KHÔNG phải điểm mở rộng công khai
+
+Nguyên văn: *"người ngoài không được viết adapter, chỉ tôi/chúng tôi được viết."* Sáu adapter
+đi kèm framework là sáu cái có; thêm một cái mới là việc của framework.
+`xime.core.bootstrap.adapter` cùng `AdapterSlot`, `SlotAware`, `assign_slot()`,
+`adapter_kind`, `share_port_by` là **chi tiết nội bộ**, đổi được ở bất kỳ bản nào.
+
+Tài liệu đi theo gói **đang nói ngược lại**, nên đã sửa:
+
+- `docs/{vn,en}/multi-process.md`: mục **"Viết adapter của riêng bạn"** -> **"Hợp đồng
+  Adapter"**, bỏ công thức `MyAdapter`, mở đầu bằng lời khai rõ đây không phải điểm mở
+  rộng. Giữ phần giải thích `start()`/`serve()` và bảng `scaling` vì chúng giải thích
+  **hành vi quan sát được** (`/readyz`, thứ tự log, adapter nào chạy ở đâu).
+- `docs/{vn,en}/starters.md`: bỏ ví dụ `ResourceSampler` - hai loại việc thật sự cần chạy
+  theo tiến trình đều đã có lời giải sẵn (`ProcessLink`, adapter `sharded` dựng sẵn).
+- Sửa một tham chiếu **gãy theo**: `multi-process.md` trỏ tới *"ví dụ chép được"* vừa bị bỏ.
+- `adapter_kind_of()` trong `_slot.py`: docstring khai lý do là *"adapter người dùng tự
+  viết"* - **câu đó nay sai**, đã thay bằng lý do thật (đừng khoá tên khoá YAML vào tên
+  class) kèm ghi chú vì sao câu cũ bị bỏ.
+
+#### Tài liệu
+
+- `docs/{vn,en}/starters.md`: mục **"Hết hạn tách riêng, vì nó dẫn client đi đường khác"**
+  và mục **"Dùng phần verify mà KHÔNG dùng middleware"**. Cả hai tên trước đây **chưa từng
+  xuất hiện một lần nào** trong tài liệu người dùng.
+- Sửa một câu lỗi thời tại chỗ: *"Token hết hạn ... đều ném `AuthenticationException`"*.
+
 
 ### ⚠ ĐỔI HÀNH VI - `/docs`, `/redoc`, `/openapi.json` mặc định TẮT, muốn thì phải bật lên
 

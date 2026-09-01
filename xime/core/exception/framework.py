@@ -195,6 +195,30 @@ class AuthenticationException(SecurityException):
         super().__init__(f"\nAuthentication Failed\n  {message}")
 
 
+class TokenExpiredException(AuthenticationException):
+    """Raised when a credential was valid but its lifetime has run out.
+
+    A subclass rather than a message, because the two outcomes send the caller
+    down two different roads: an expired token means "go refresh and retry",
+    while every other verification failure means "make them log in again".
+    Telling them apart by reading `.message` turns a sentence written for humans
+    into a machine-readable contract, and whoever rewords that sentence has no
+    way to know they broke someone.
+    Là một lớp con chứ không phải một câu chữ, vì hai kết cục dẫn người gọi đi
+    hai đường khác nhau: hết hạn thì ĐI LÀM TƯƠI TOKEN rồi thử lại, còn mọi lỗi
+    verify khác thì BẮT ĐĂNG NHẬP LẠI. Phân biệt bằng cách đọc `.message` là
+    biến một câu dành cho người đọc thành hợp đồng máy đọc, và người sửa câu đó
+    không có cách nào biết mình vừa làm hỏng của ai.
+
+    Purely additive: existing `except AuthenticationException` still catches it,
+    so no caller had to change when this arrived.
+    Thuần cộng thêm: `except AuthenticationException` sẵn có vẫn bắt được nó.
+    """
+
+    def __init__(self, message: str = "Token has expired"):
+        super().__init__(message)
+
+
 class AuthorizationException(SecurityException):
     """
     Raised when the current identity lacks a required permission.

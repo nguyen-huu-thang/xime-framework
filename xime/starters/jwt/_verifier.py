@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from xime.core.exception.framework import AuthenticationException
+from xime.core.exception.framework import AuthenticationException, TokenExpiredException
 
 from ._key_context import KeyContext
 from ._pyjwt import pyjwt
@@ -128,10 +128,22 @@ class PyJwtTokenVerifier:
                 leeway=leeway,
                 options=options,
             )
-        except jwt.ExpiredSignatureError:
-            raise AuthenticationException("Token has expired")
+        # `from exc` on purpose, and it is load-bearing rather than tidy: PEP 3134
+        # makes __cause__ an explicit promise, while the __context__ Python sets
+        # by itself inside an `except` block is a side effect nobody owes anyone.
+        # This same package already writes `raise ... from None` in two places, so
+        # a later pass tidying for consistency could silently erase the implicit
+        # chain - and a caller reading it would then see every failure collapse
+        # into one, with no test of ours turning red.
+        # `from exc` là cố ý, và nó chịu lực chứ không phải cho gọn: PEP 3134 biến
+        # __cause__ thành một lời hứa tường minh, còn __context__ mà Python tự gắn
+        # trong khối `except` chỉ là tác dụng phụ không ai nợ ai. Chính package
+        # này đã viết `raise ... from None` ở hai chỗ, nên một lượt dọn cho đồng
+        # bộ có thể lặng lẽ xoá chuỗi ngầm đó.
+        except jwt.ExpiredSignatureError as exc:
+            raise TokenExpiredException("Token has expired") from exc
         except jwt.InvalidTokenError as exc:
-            raise AuthenticationException(f"Invalid token: {exc}")
+            raise AuthenticationException(f"Invalid token: {exc}") from exc
 
     def _resolve_verify_key(self, key_context: KeyContext) -> str | bytes:
         if key_context.algorithm.upper().startswith("HS"):

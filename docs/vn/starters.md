@@ -259,7 +259,59 @@ class TokenUseCase:
         )
 ```
 
-Token hết hạn, sai chữ ký, lệch `aud`/`iss`, thiếu claim bắt buộc, hoặc thuật toán nằm ngoài `algorithms` đều ném `AuthenticationException`. `verify()` cũng nhận `algorithms=`, `leeway=` và `require=`, nghĩa giống hệt trong `JwtMiddlewareConfig`.
+Sai chữ ký, lệch `aud`/`iss`, thiếu claim bắt buộc, hoặc thuật toán nằm ngoài `algorithms` đều ném `AuthenticationException`. Riêng **token hết hạn** ném `TokenExpiredException`, một lớp con của nó. `verify()` cũng nhận `algorithms=`, `leeway=` và `require=`, nghĩa giống hệt trong `JwtMiddlewareConfig`.
+
+#### Hết hạn tách riêng, vì nó dẫn client đi đường khác
+
+| Bắt được gì | Client phải làm |
+|---|---|
+| `TokenExpiredException` | **đi làm tươi token** rồi thử lại |
+| `AuthenticationException` (mọi lỗi còn lại) | **bắt đăng nhập lại** |
+
+```python
+from xime.core.exception.framework import AuthenticationException, TokenExpiredException
+
+try:
+    claims = self._verifier.verify(token, self._key)
+except TokenExpiredException:
+    return self.loi("E007003", "Phiên làm việc đã hết hạn")
+except AuthenticationException:
+    return self.loi("E007002", "Chưa xác thực")
+```
+
+`TokenExpiredException` là **thuần cộng thêm**: `except AuthenticationException` viết trước đó vẫn bắt được nó, nên không ai phải sửa gì khi nâng bản.
+
+⚠ Đừng phân loại bằng cách so chuỗi `.message`. Đó là câu viết cho người đọc, và người sửa câu chữ không có cách nào biết mình vừa làm hỏng của ai. Cần lỗi PyJWT gốc thì đọc `__cause__` - framework nối nó bằng `raise ... from exc`, tức một lời hứa tường minh theo PEP 3134.
+
+⛔ Bốn lỗi còn lại **cố ý không tách thêm**: cả bốn đều dẫn tới đúng một việc. Phép kiểm là *"người gọi có làm hai việc khác nhau không"*, không phải *"hai tình huống có khác nhau không"*.
+
+### Dùng phần verify mà KHÔNG dùng middleware - `JwtAuthenticator`
+
+Có những service không đặt được phép chặn ở tầng vận chuyển: endpoint vô danh, link chia sẻ mà bản thân token trong URL chính là giấy phép, vé upload, hay gRPC nội bộ chỉ xác thực bằng cert mTLS. Một middleware đứng trước tất cả sẽ trả 401 cho chúng.
+
+`JwtAuthenticator` là **nửa verify tách khỏi middleware**: nó biến một chuỗi token thành claim đã kiểm, và không biết gì về HTTP hay WebSocket - nên mỗi bên giữ cách từ chối của riêng mình.
+
+```python
+from xime.starters.jwt import JwtAuthenticator, JwtMiddlewareConfig
+
+class XacThucCuaToi:
+    def __init__(self, key_provider: JwtKeyProvider) -> None:
+        self._auth = JwtAuthenticator(
+            JwtMiddlewareConfig(audience="data-service", issuer="https://identity.internal"),
+            key_provider=key_provider,
+        )
+
+    def claims(self, token: str) -> dict:
+        return self._auth.verify(token)          # thử mọi khoá khớp `kid` của token
+
+    def kid(self, token: str) -> str | None:
+        return JwtAuthenticator.read_kid(token)  # đọc `kid` mà không cần khoá
+```
+
+Dùng nó thay vì tự viết lại phần đọc `kid`: `read_kid()` từ chối mọi `kid` không phải chuỗi, vì `JwtKeyProvider.keys()` khai kiểu `str | None` và một lời hứa nên do chính chỗ hứa giữ. Hai bản của câu *"thế nào là một `kid` hợp lệ"* là hai chỗ phải sửa khi thêm knob, và cái không ai nhớ sẽ mục.
+
+⭐ `verify()` thử **mọi** khoá ứng viên, vì trong lúc issuer xoay khoá thì khoá cũ và khoá mới đều hợp lệ. Nếu bất kỳ khoá nào nói *hết hạn* thì kết quả là hết hạn, bất kể nó đứng thứ mấy: chỉ khoá thật sự ký được token mới sinh nổi verdict đó, còn *"sai chữ ký"* chỉ nói lên rằng ta vừa thử nhầm khoá.
+
 
 ### JWT Middleware
 
@@ -422,36 +474,22 @@ Rà lại thì chỉ còn đúng hai loại việc thật sự phải chạy the
 | **Quan trắc số đo của chính tiến trình** (RSS, số request đã phục vụ, độ dài hàng đợi) | Primary không nhìn thấy bộ đếm của tiến trình khác. Nhưng cụm dùng **chung một socket**, nên một lượt scrape rơi ngẫu nhiên vào một tiến trình - **không gộp thì con số vô nghĩa dù có bao nhiêu scheduler**. Lời giải là gom về một chỗ qua [`ProcessLink`](process-link.md) rồi đẩy một lần, không phải nhân bản job |
 | **Thiết bị mà một tiến trình độc quyền giữ** (Modbus, OPC UA, một tập topic MQTT) | Đây là nghiệp vụ thật, nhưng nó thuộc adapter hạng `sharded` và có cơ chế riêng (`@poll`, `@on_change` chạy một lần **mỗi thực thể**). Không đi qua scheduler |
 
-Còn nếu thật sự cần một vòng lặp định kỳ ở mọi tiến trình - ví dụ tự lấy mẫu tài nguyên của chính mình - thì **đừng chờ framework mở khoá**, hình dạng đó viết được ngay hôm nay và không tốn gì:
+Hai loại đó **đều đã có lời giải trong framework**, và không loại nào đòi bạn viết
+thêm gì ở tầng vòng đời: số đo thì gom qua [`ProcessLink`](process-link.md), thiết
+bị thì đã nằm trong adapter `sharded` đi kèm framework.
 
-```python
-import asyncio
-import contextlib
+> ⛔ **Viết adapter không phải điểm mở rộng công khai.** Sáu adapter đi kèm
+> framework là sáu cái có; `xime.core.bootstrap.adapter` và mọi thứ quanh nó là
+> **chi tiết nội bộ**, đổi được ở bất kỳ bản nào mà không báo trước. Nếu bạn có
+> một loại việc thứ ba thật sự phải chạy theo tiến trình thì **báo cho nhóm giữ
+> framework** - đó là một lỗ hổng của framework, không phải một thứ để lách ở
+> tầng ứng dụng.
 
-from xime.core.bootstrap.adapter import Adapter
-
-class ResourceSampler(Adapter, scaling="replicated"):
-    adapter_kind = "sampler"
-
-    def __init__(self) -> None:
-        self.adapter_id = "default"
-        self._stopped = asyncio.Event()
-
-    async def start(self, app) -> None: ...
-
-    async def serve(self) -> None:
-        while not self._stopped.is_set():
-            await self._sample()          # chỉ chạm số đo của chính tiến trình này
-            with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(self._stopped.wait(), timeout=15)
-
-    async def stop(self) -> None:
-        self._stopped.set()
-
-app.use(ResourceSampler())
-```
-
-Đó chính là thứ `SchedulerAdapter` đang là, chỉ khác một chữ `scaling` và khác chỗ nó nằm.
+⚠ Và trước khi báo, hãy kiểm lại một lần nữa bằng đúng câu ở đầu mục này. Trong
+mọi ca đã rà tính tới nay, câu trả lời *"chỉ tiến trình này có"* đều chỉ về một
+trạng thái nghiệp vụ **đang nằm nhầm chỗ** - và chỗ phải sửa là đưa nó ra
+[`RefData`](refdata.md) hoặc [`Store`](store.md), chứ không phải nhân bản một
+vòng lặp lên để đi theo nó.
 
 ---
 

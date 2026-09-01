@@ -1,3 +1,4 @@
+from ._authenticator import JwtAuthenticator as JwtAuthenticator
 from ._config import JwtMiddlewareConfig as JwtMiddlewareConfig
 from ._config import configure_jwt as configure_jwt
 from ._key_context import KeyContext as KeyContext
@@ -35,6 +36,31 @@ from ._verifier import PyJwtTokenVerifier as PyJwtTokenVerifier
 # JWT_CLAIMS: key trong request_context chứa claim đã verify. Export ở 0.7.2
 # vì code ứng dụng thật sự cần - chỉ người ta vào một module có tên bắt đầu
 # bằng dấu gạch dưới là bảo họ thò tay vào ruột của mình.
+#
+# JwtAuthenticator: exported in 0.8.x for the same reason as JWT_CLAIMS, and for
+# one more. Services that cannot put a blanket check at the transport layer -
+# anonymous endpoints, signed share links, upload tickets, mTLS-only gRPC - can
+# use configure_jwt() for none of it, so they borrow the verify half and keep
+# their own way of saying no. The 0.7.2 changelog announced this class as the
+# name for exactly that, and CHANGELOG.md ships inside the sdist, so it is a
+# promise made to everyone who installs from PyPI. The framework itself already
+# reaches for it across a package boundary (adapters/web/_adapter.py), which is
+# the clearest sign it was never internal to this package.
+# JwtAuthenticator: export ở 0.8.x vì cùng lý do với JWT_CLAIMS, cộng một lý do
+# nữa. Service không đặt được phép chặn ở tầng vận chuyển (endpoint vô danh, link
+# chia sẻ ký sẵn, vé upload, gRPC chỉ mTLS) thì không dùng configure_jwt() cho
+# phần nào cả, nên họ mượn nửa verify và giữ cách từ chối của riêng mình.
+# CHANGELOG của 0.7.2 đã công bố lớp này đúng cho việc đó, mà CHANGELOG.md nằm
+# trong sdist, nên đó là lời hứa với mọi người cài từ PyPI. Chính framework cũng
+# đã với qua ranh giới package để lấy nó (adapters/web/_adapter.py) - dấu hiệu rõ
+# nhất rằng nó chưa bao giờ là chuyện nội bộ của package này.
+#
+# It stays OUT of __all__ like KeyContext and JwtMiddlewareConfig: it takes
+# `config` plus an optional key_provider, so the DI scanner cannot build it and
+# it is not a singleton.
+# Nó nằm NGOÀI __all__ như KeyContext và JwtMiddlewareConfig: nó nhận `config`
+# cộng key_provider tuỳ chọn, nên DI scanner không dựng được, và nó không phải
+# singleton.
 __all__ = [
     "PyJwtTokenSigner",
     "PyJwtTokenVerifier",

@@ -4,7 +4,7 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from xime.core.exception.framework import AuthenticationException
+from xime.core.exception.framework import AuthenticationException, TokenExpiredException
 
 from ._config import JwtMiddlewareConfig
 from ._key_context import KeyContext
@@ -62,6 +62,7 @@ class JwtAuthenticator:
         Nhiều hơn một khoá ứng viên là bình thường trong lúc issuer xoay khoá.
         """
         first_error: AuthenticationException | None = None
+        expired: TokenExpiredException | None = None
         for key in self.candidate_keys(token):
             try:
                 return self._verifier.verify(
@@ -73,16 +74,38 @@ class JwtAuthenticator:
                     leeway=self._config.leeway,
                     require=self._config.require,
                 )
+            except TokenExpiredException as exc:
+                # An expiry verdict outranks every other one, whichever key it
+                # came from. Only the key that actually signed the token can
+                # produce it - the signature is checked BEFORE `exp` - so
+                # "expired" is a fact about the token, while "bad signature" is
+                # only a fact about the key we happened to try. Ranking them by
+                # position instead would make an expired token look invalid
+                # whenever the signing key is not first in the candidate list,
+                # and the caller would log the user out instead of refreshing:
+                # rare, intermittent, and only during a rotation window.
+                # Verdict HẾT HẠN thắng mọi verdict khác, bất kể nó đến từ khoá
+                # nào. Chỉ khoá thật sự ký được token mới sinh nổi nó (chữ ký
+                # kiểm TRƯỚC `exp`), nên "hết hạn" là sự thật về TOKEN, còn "sai
+                # chữ ký" chỉ là sự thật về KHOÁ ta vừa thử. Xếp hạng theo vị trí
+                # sẽ làm token hết hạn trông như không hợp lệ mỗi khi khoá ký
+                # không đứng đầu danh sách, và bên gọi sẽ ĐĂNG XUẤT người dùng
+                # thay vì làm tươi token - hiếm, ngắt quãng, chỉ trong cửa sổ
+                # xoay khoá.
+                if expired is None:
+                    expired = exc
             except AuthenticationException as exc:
-                # Report the FIRST failure, not the last: keys() returns
-                # candidates in the order they should be tried, so the first is
-                # the one the provider considers most likely to be right, and its
-                # reason is the most useful thing to tell the caller.
-                # Báo lỗi ĐẦU TIÊN chứ không phải cuối: keys() trả khoá theo thứ
-                # tự nên thử, nên cái đầu là cái provider cho là khả dĩ nhất.
+                # Among equals, report the FIRST failure, not the last: keys()
+                # returns candidates in the order they should be tried, so the
+                # first is the one the provider considers most likely to be
+                # right, and its reason is the most useful thing to tell the
+                # caller.
+                # Trong số ngang hàng thì báo lỗi ĐẦU TIÊN chứ không phải cuối:
+                # keys() trả khoá theo thứ tự nên thử, nên cái đầu là cái
+                # provider cho là khả dĩ nhất.
                 if first_error is None:
                     first_error = exc
-        raise first_error or AuthenticationException("Unknown signing key")
+        raise expired or first_error or AuthenticationException("Unknown signing key")
 
     def candidate_keys(self, token: str) -> Sequence[KeyContext]:
         if self._provider is None:

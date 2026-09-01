@@ -1,0 +1,44 @@
+v0.8.3
+
+Xac thuc JWT: hai cho hut cho ben chi muon phan verify, do phien
+Base Platform/data bao ve. Khong loi hanh vi nao - ca hai la chuyen be mat
+cong khai va hop dong loi.
+
+  - JwtAuthenticator nay export duoc tu xime.starters.jwt. CHANGELOG cua
+    0.7.2 da cong bo ten nay ma __init__.py khong co dong nao, nen repo
+    ngoai phai chep tay logic doc kid. Chinh framework cung phai voi qua
+    ranh gioi package de lay no (adapters/web/_adapter.py).
+  - TokenExpiredException tach "het han" khoi "khong hop le". Hai tinh
+    huong bat client lam hai viec nguoc nhau: lam tuoi token, hay bat dang
+    nhap lai. Thuan cong them - except AuthenticationException van bat duoc.
+  - PyJwtTokenVerifier noi loi PyJWT goc bang `raise ... from exc`.
+  - Chi tach MOT loai. Bon loi con lai giu nguyen AuthenticationException
+    tran, co test khoa lai.
+
+Sua kem mot loi khong ai bao, tim ra khi do ca bien: PyJWT kiem chu ky
+TRUOC exp, nen chi khoa that su ky duoc token moi sinh noi verdict "het
+han". verify() bao loi dau tien, nen token het han bi bao la "sai chu ky"
+moi khi khoa ky khong dung dau danh sach ung vien - tuc trong cua so xoay
+khoa, ben goi dang xuat nguoi dung thay vi lam tuoi token.
+
+Chot canh moi: ten CHANGELOG cong bo phai import duoc. CHANGELOG.md nam
+trong danh sach trang sdist nen no toi tay moi nguoi cai tu PyPI y nhu
+docs/, ma check_doc_imports.py chi soi docs/. Hai huong hien nhien deu do
+roi loai: tro checker cu vao CHANGELOG la vo dung (0 cau lenh import), va
+canh moi import rieng tu lien-package ra 37 hit nen keu oan.
+
+Chinh sach: viet adapter KHONG phai diem mo rong cong khai. docs/ da bo
+muc "Viet adapter cua rieng ban" va vi du ResourceSampler; adapter_kind_of
+sua docstring khai sai. Giu phan giai thich start()/serve() va bang scaling
+vi chung giai thich hanh vi quan sat duoc.
+
+Bao mat: nang san aiosmtplib 5.1.1 -> 5.1.2. CVE-2026-55558, STARTTLS
+response injection, trung dung duong Xime dung (start_tls=True cho cong
+587 va 25). Da chay lai toan bo test tren san moi.
+
+Do: 2718 passed / 25 skipped / 0 failed = tong 2743 (2723 + 20 test moi,
+0 test cu phai sua). ruff sach; mypy 49 truoc va sau; bon trinh kiem tai
+lieu OK; check_dep_advisories SACH.
+
+Doi chung: go TokenExpiredException -> 3 do; go `from exc` -> 2 do; go
+chinh sach "het han thang" -> 2 do; go export -> guard do kem cau chi duong.
