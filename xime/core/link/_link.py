@@ -8,7 +8,7 @@ import time
 from multiprocessing import synchronize
 from multiprocessing.shared_memory import SharedMemory
 
-from xime.core._mp import MP_CONTEXT, view_of
+from xime.core.shared import MP_CONTEXT, view_of
 
 from ._config import INTERNAL_CHANNEL, ChannelSpec, validate_process_count
 from ._decorators import ANNOUNCE, REQUEST, BoundHandler

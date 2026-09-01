@@ -34,6 +34,8 @@ from __future__ import annotations
 import struct
 from typing import Final
 
+from xime.core.shared import ghi_o
+
 from ._errors import LinkLayoutMismatch
 
 # ---------------------------------------------------------------------------
@@ -215,11 +217,11 @@ class ChannelLayout:
         """
         offset = self.missed_offset(index)
         current = _MISSED.unpack_from(buf, offset)[0]
-        _MISSED.pack_into(buf, offset, current + 1)
+        ghi_o(buf, offset, _MISSED, current + 1)
 
     def next_sequence(self, buf: memoryview) -> int:
         current = _SEQ.unpack_from(buf, SEQ_OFFSET)[0] + 1
-        _SEQ.pack_into(buf, SEQ_OFFSET, current)
+        ghi_o(buf, SEQ_OFFSET, _SEQ, current)
         return int(current)
 
     # -- bitmap ------------------------------------------------------------
@@ -281,7 +283,7 @@ class ChannelLayout:
         return int(_U64.unpack_from(buf, self.row_offset(row) + field)[0])
 
     def write_u64(self, buf: memoryview, row: int, field: int, value: int) -> None:
-        _U64.pack_into(buf, self.row_offset(row) + field, value)
+        ghi_o(buf, self.row_offset(row) + field, _U64, value)
 
     def read_u8(self, buf: memoryview, row: int, field: int) -> int:
         return buf[self.row_offset(row) + field]
@@ -293,7 +295,7 @@ class ChannelLayout:
         return int(_U32.unpack_from(buf, self.row_offset(row) + ROW_LENGTH)[0])
 
     def write_length(self, buf: memoryview, row: int, value: int) -> None:
-        _U32.pack_into(buf, self.row_offset(row) + ROW_LENGTH, value)
+        ghi_o(buf, self.row_offset(row) + ROW_LENGTH, _U32, value)
 
     def read_key(self, buf: memoryview, row: int) -> str:
         start = self.row_offset(row) + ROW_KEY

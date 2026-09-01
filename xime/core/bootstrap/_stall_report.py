@@ -37,7 +37,7 @@ Trước bản này, dòng log đầu tiên người ta nhìn thấy **cũng là
 | 5 s | `WARNING` | báo, kèm stack |
 | 15 s | `ERROR` | báo lại, kèm stack mới - nó đã đi tiếp hay đứng yên chỗ cũ? |
 | 30 s | `CRITICAL` | loa to, khai rõ cha sắp giết |
-| 60 s | - | cha giết (`STARTUP_GRACE_SECONDS` bên `_watchdog.py`) |
+| 60 s | - | cha giết (`SILENCE_SECONDS` bên `_watchdog.py`) |
 
 Mỗi mức in **một lần cho mỗi đợt kẹt**, không in lặp. Đây không phải chuyện gọn
 gàng: nếu thứ đang làm kẹt loop lại chính là ghi log ra console (trên Windows đó
@@ -77,6 +77,8 @@ import time
 import traceback
 from typing import TYPE_CHECKING
 
+from ._watchdog import SILENCE_SECONDS
+
 if TYPE_CHECKING:
     from ._watchdog import Heartbeats
 
@@ -110,7 +112,10 @@ def _stack_cua_luong_chinh() -> list[str]:
     Đây là toàn bộ lý do bộ này là một thread chứ không phải một task: khi loop
     kẹt, mọi task trên nó cũng kẹt, nên chỉ người đứng ngoài mới kể lại được.
     """
-    khung = sys._current_frames().get(threading.main_thread().ident)
+    ident = threading.main_thread().ident
+    if ident is None:
+        return ["  (khong doc duoc stack cua luong chinh)"]
+    khung = sys._current_frames().get(ident)
     if khung is None:
         return ["  (khong doc duoc stack cua luong chinh)"]
     return [
@@ -186,7 +191,7 @@ class StallReporter:
             "dung. Cha se giet no o giay thu %.0f.\nNo dang ket o day:\n%s\n%s",
             "=" * 72 if muc >= logging.CRITICAL else "",
             self._ten, ket, os.getpid(),
-            60.0,
+            SILENCE_SECONDS,
             "\n".join(dong),
             "=" * 72 if muc >= logging.CRITICAL else "",
         )

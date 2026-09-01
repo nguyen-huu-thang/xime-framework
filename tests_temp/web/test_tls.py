@@ -27,14 +27,12 @@ import pytest
 import uvicorn
 from fastapi import FastAPI
 
-from xime.adapters.web import ServerTlsConfig, WebAdapter
+from xime.adapters.web import ServerTlsConfig, WebAdapter, WebServerConfig
 from xime.adapters.web._adapter import _tls_kwargs
-from xime.core.config import RuntimeConfig
-from xime.core.exception import StartupException
-from xime.adapters.web import WebServerConfig
 from xime.core.bootstrap._processes import EndpointSpec
 from xime.core.bootstrap._slot import AdapterSlot
-
+from xime.core.config import RuntimeConfig
+from xime.core.exception import StartupException
 
 # ---------------------------------------------------------------------------
 # Fixtures - cert tự ký, không cần CA thật
@@ -51,7 +49,7 @@ def cert_pair(tmp_path_factory):
     directory = tmp_path_factory.mktemp("tls")
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.UTC)
     cert = (
         x509.CertificateBuilder()
         .subject_name(name)

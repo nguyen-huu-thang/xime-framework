@@ -25,14 +25,16 @@ from pathlib import Path
 
 import pytest
 
+from xime.core.bootstrap._watchdog import SILENCE_SECONDS
+
 _HERE = Path(__file__).parent
 _REPO = _HERE.parent.parent
 
 _BOOT_TIMEOUT = 60.0
 
-# Ngưỡng im lặng của watchdog là 10 giây (hằng số của thiết kế), cộng một vòng
-# giám sát, cộng thời gian dựng lại con. Đo thật thì phải chờ thật.
+# StallReporter phải kêu trước hạn giết; 45 giây dư cho mức CRITICAL ở giây 30.
 _WATCHDOG_TIMEOUT = 45.0
+_STALL_MARKER = "EVENT LOOP DUNG YEN"
 
 
 def _free_port() -> int:
@@ -565,16 +567,16 @@ class TestWatchdogCatchesAHungProcess:
 
         deadline = time.monotonic() + _WATCHDOG_TIMEOUT
         while time.monotonic() < deadline:
-            if "its event loop is blocked" in cluster.output():
+            if _STALL_MARKER in cluster.output():
                 break
             time.sleep(0.5)
-        assert "its event loop is blocked" in cluster.output(), (
+        assert _STALL_MARKER in cluster.output(), (
             "cha không phát hiện con treo - watchdog là thứ duy nhất nhìn thấy "
             "cách hỏng này"
         )
 
-        # Và cụm phải phục hồi: một pid MỚI trả lời sau đó.
-        deadline = time.monotonic() + _BOOT_TIMEOUT
+        # Cha chỉ giết sau SILENCE_SECONDS; chừa thêm cả thời gian dựng con mới.
+        deadline = time.monotonic() + SILENCE_SECONDS + _BOOT_TIMEOUT
         after: set[int] = set()
         while time.monotonic() < deadline and not (after - before):
             after |= cluster.pids()

@@ -42,6 +42,8 @@ from __future__ import annotations
 import struct
 from typing import Final
 
+from xime.core.shared import ghi_o
+
 from ._errors import RefDataLayoutMismatch
 
 MAGIC: Final[bytes] = b"XREF"
@@ -160,13 +162,17 @@ class RefDataLayout:
         return int(_GENERATION.unpack_from(buf, GENERATION_OFFSET)[0])
 
     def write_generation(self, buf: memoryview, value: int) -> None:
-        _GENERATION.pack_into(buf, GENERATION_OFFSET, value)
+        # ⛔ `ghi_o`, KHÔNG phải `pack_into` - xem docstring của `ghi_o`.
+        # `pack_into` xoá vùng về 0 trước khi ghi, mà `NEVER_PUBLISHED` cũng là
+        # `0`. Người đọc rơi vào cửa sổ đó nhận `None` = *"bảng chưa ai
+        # publish"*, và với bảng `jwt-keys` thì đó là một request hợp lệ bị 401.
+        ghi_o(buf, GENERATION_OFFSET, _GENERATION, value)
 
     def read_written_at(self, buf: memoryview) -> int:
         return int(_WRITTEN_AT.unpack_from(buf, WRITTEN_AT_OFFSET)[0])
 
     def write_written_at(self, buf: memoryview, value: int) -> None:
-        _WRITTEN_AT.pack_into(buf, WRITTEN_AT_OFFSET, value)
+        ghi_o(buf, WRITTEN_AT_OFFSET, _WRITTEN_AT, value)
 
     def read_pointer(self, buf: memoryview) -> int:
         return buf[POINTER_OFFSET]
@@ -178,7 +184,11 @@ class RefDataLayout:
         return int(_SEGMENTS.unpack_from(buf, SEGMENTS_OFFSET)[0])
 
     def write_segments(self, buf: memoryview, value: int) -> None:
-        _SEGMENTS.pack_into(buf, SEGMENTS_OFFSET, value)
+        # ⛔ `ghi_o`: cửa sổ số 0 ở đây không im lặng như `generation` - người
+        # đọc thấy `segments == 0` sẽ **ném `RefDataTornError`**. Đó chính là
+        # "một exception msgpack ngẫu nhiên vài tháng một lần" mà `_refdata.py`
+        # đã lo trong chú thích của nó.
+        ghi_o(buf, SEGMENTS_OFFSET, _SEGMENTS, value)
 
     def read_writer(self, buf: memoryview) -> int:
         return buf[WRITER_OFFSET]
@@ -195,7 +205,7 @@ class RefDataLayout:
         return int(_LENGTH.unpack_from(buf, self._length_offset(slot))[0])
 
     def write_length(self, buf: memoryview, slot: int, value: int) -> None:
-        _LENGTH.pack_into(buf, self._length_offset(slot), value)
+        ghi_o(buf, self._length_offset(slot), _LENGTH, value)
 
     def read_flags(self, buf: memoryview) -> int:
         return int(_FLAGS.unpack_from(buf, FLAGS_OFFSET)[0])
@@ -210,7 +220,7 @@ class RefDataLayout:
         hien = self.read_flags(buf)
         moi = (hien | flag) if value else (hien & ~flag)
         if moi != hien:
-            _FLAGS.pack_into(buf, FLAGS_OFFSET, moi)
+            ghi_o(buf, FLAGS_OFFSET, _FLAGS, moi)
 
     def slot_offset(self, slot: int) -> int:
         return self.slot_a_offset if slot == 0 else self.slot_b_offset

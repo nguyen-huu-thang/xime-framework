@@ -73,7 +73,7 @@ import time
 from multiprocessing.shared_memory import SharedMemory
 from typing import Final
 
-from xime.core._mp import view_of
+from xime.core.shared import ghi_o, view_of
 
 _log = logging.getLogger("xime.bootstrap")
 
@@ -99,6 +99,18 @@ HEADER_BYTES: Final[int] = 8
 # Với bộ đếm: `so_nhip > 0` **chứng minh** tiến trình đã từng vỗ. Câu hỏi
 # *"nó có bao giờ vỗ không"* từ chỗ không trả lời được thành trả lời được bằng
 # một phép so sánh.
+#
+# ⭐ Bộ đếm chỉ tăng, không bao giờ reset trong đời một tiến trình - **và nó
+# không tràn được**. `Q` là 64 bit không dấu, trần 1,8·10¹⁹:
+#
+#   nhịp thật (1 lần/giây)              ->  5,8·10¹¹ năm
+#   chạy hết tốc lực (3,4 triệu/giây)   ->  1,7·10⁵ năm
+#
+# ⛔ Và nếu bằng cách nào đó vẫn tràn thì `struct.pack` **ném `struct.error`**,
+# nó KHÔNG âm thầm quấn về 0. Đó là hành vi đúng ở đây, đừng "sửa" thành quấn
+# vòng: `so_nhip == 0` nghĩa là *"chưa bao giờ vỗ"*, nên một bộ đếm quấn về 0 là
+# dựng lại đúng lỗi đã cắn 7 lần ngày 30-31/8. Một tiếng nổ ồn ào sau 170 nghìn
+# năm tốt hơn một lần giết nhầm im lặng.
 _BEAT = struct.Struct("<dQ")
 BEAT_BYTES: Final[int] = _BEAT.size
 
@@ -223,9 +235,17 @@ class Heartbeats:
         # CLOCK_MONOTONIC theo hệ thống, không theo tiến trình), và `core/link`
         # cùng `core/refdata` đã dùng `monotonic_ns` cho đúng lý do đó - hai
         # nhánh của cùng một hàm ở đây lại dùng hai đồng hồ khác nhau.
+        # ⛔⭐ `ghi_o`, KHÔNG PHẢI `pack_into` - đây là bản vá của một lỗi thật,
+        # không phải chuyện phong cách. `pack_into` xoá vùng về 0 trước khi ghi,
+        # mà `NEVER` chính là `0.0`, nên cha đọc trúng cửa sổ đó kết luận *"con
+        # này chưa bao giờ vỗ nhịp"* và **giết một tiến trình đang khoẻ** - đúng
+        # lỗi đã cắn 7 lần trong hai ngày 30 và 31/8. Số đo và lý do đầy đủ ở
+        # docstring của `ghi_o`; hồ sơ điều tra ở
+        # `.claude/docs/ghi-chep/loi-nhip-tim-o-quay-ve-khong-2026-08-31.md`.
         _, so = self.read(index)
-        _BEAT.pack_into(
-            self._view, HEADER_BYTES + BEAT_BYTES * index, time.monotonic(), so + 1
+        ghi_o(
+            self._view, HEADER_BYTES + BEAT_BYTES * index, _BEAT,
+            time.monotonic(), so + 1,
         )
 
     def read(self, index: int) -> tuple[float, int]:
@@ -248,7 +268,7 @@ class Heartbeats:
         đã cũ hơn ngưỡng thì cha **giết con mới ngay khi nó vừa sinh ra** - một
         vòng lặp sinh-giết không lý do, và triệu chứng duy nhất là log.
         """
-        _BEAT.pack_into(self._view, HEADER_BYTES + BEAT_BYTES * index, NEVER, 0)
+        ghi_o(self._view, HEADER_BYTES + BEAT_BYTES * index, _BEAT, NEVER, 0)
 
     def silent_for(self, index: int, *, now: float | None = None) -> float | None:
         """Số giây kể từ nhịp cuối, hoặc `None` khi **chưa bao giờ vỗ**.

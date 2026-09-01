@@ -10,7 +10,7 @@ dòng. `ruff` không thấy, `mypy` không thấy, 2500 test không thấy: mọ
 ⭐ Ranh giới ở đây **không phải quy ước cho đẹp**. `core/link` (bus) và
 `core/refdata` (kho tham chiếu) giải hai bài toán khác nhau và có thể dùng riêng;
 buộc một cái kéo theo cái kia là buộc người đọc mã phải hiểu cả hai để hiểu một.
-Chỗ chung của chúng là `core/_mp.py` - module chỉ phụ thuộc thư viện chuẩn.
+Chỗ chung của chúng là `core/shared/_mp.py` - module chỉ phụ thuộc thư viện chuẩn.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ class TestHaiHeThongConDocLap:
         pham = sorted(m for m in _import_cua(a) if m.startswith(f"xime.core.{b}"))
         assert not pham, (
             f"core/{a} import từ core/{b}: {pham}. Hai hệ thống con này cố ý độc "
-            f"lập. Thứ cả hai cần thì đặt ở core/_mp.py (chỉ phụ thuộc thư viện "
+            f"lập. Thứ cả hai cần thì đặt ở core/shared/_mp.py (chỉ phụ thuộc thư viện "
             f"chuẩn), đừng để một bên kéo theo bên kia."
         )
 
@@ -57,14 +57,39 @@ class TestHaiHeThongConDocLap:
             "core/bootstrap phải có import nội bộ xime.core.* - nó là tầng điều phối"
         )
 
-    def test_mp_khong_phu_thuoc_gi_cua_xime(self) -> None:
-        """`core/_mp.py` là chỗ chung, nên nó không được kéo theo ai cả."""
-        nguon = (_CORE / "_mp.py").read_text(encoding="utf-8")
-        pham = [
-            n.module for n in ast.walk(ast.parse(nguon))
-            if isinstance(n, ast.ImportFrom) and n.module and n.module.startswith("xime")
-        ]
-        assert not pham, (
-            f"core/_mp.py import {pham}. Nó là nơi ba hệ thống con gặp nhau, nên "
-            f"nó phải là điểm thấp nhất - chỉ thư viện chuẩn."
+    def test_goi_shared_khong_phu_thuoc_gi_cua_xime(self) -> None:
+        """`core/shared/` là chỗ chung, nên nó không được kéo theo ai cả.
+
+        ⚠ Soi **cả gói**, không riêng `_mp.py`: từ 2026-09-01 đây là một gói chứ
+        không còn là một tệp lẻ, và một tệp thứ hai đặt vào đó ngày mai cũng phải
+        chịu đúng ràng buộc này. Soi một tệp thì phép canh chỉ đúng cho tới lần
+        thêm tệp kế tiếp - mà lần đó không ai nhớ để sửa test.
+        """
+        vi_pham: dict[str, list[str]] = {}
+        for tep in sorted((_CORE / "shared").glob("*.py")):
+            nguon = tep.read_text(encoding="utf-8")
+            ngoai = [
+                n.module for n in ast.walk(ast.parse(nguon))
+                if isinstance(n, ast.ImportFrom)
+                and n.module
+                and n.module.startswith("xime")
+                and not n.module.startswith("xime.core.shared")
+            ]
+            if ngoai:
+                vi_pham[tep.name] = ngoai
+
+        assert not vi_pham, (
+            f"core/shared/ import {vi_pham}. Đây là nơi ba hệ thống con gặp nhau, "
+            f"nên nó phải là điểm thấp nhất - chỉ thư viện chuẩn."
+        )
+
+    def test_goi_shared_co_that_va_khong_rong(self) -> None:
+        """Đối chứng cho test trên: rỗng thì nó xanh vì không có gì để soi.
+
+        Đúng [luật 03] ở tầng đầu ra của chốt kiểm - *"sạch"* và *"không có dữ
+        liệu để kết luận"* là hai chuyện khác nhau.
+        """
+        tep = sorted(p.name for p in (_CORE / "shared").glob("*.py"))
+        assert "_mp.py" in tep and "__init__.py" in tep, (
+            f"core/shared/ chứa {tep} - phép canh ở trên không soi được gì."
         )

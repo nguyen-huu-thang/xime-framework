@@ -6,7 +6,7 @@ Trước khi vá, hai middleware kế thừa BaseHTTPMiddleware (chạy downstre
 anyio riêng) nên việc clear không cùng context với nơi set -> identity có thể rò
 giữa các request trên cùng worker.
 """
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt as pyjwt
 import pytest
@@ -24,7 +24,6 @@ from xime.starters.jwt._config import JwtMiddlewareConfig
 from xime.starters.jwt._key_context import KeyContext
 from xime.starters.jwt._middleware import JwtAuthMiddleware
 
-UTC = timezone.utc
 SECRET = "regression-secret-long-enough-for-hs256-32bytes"
 
 

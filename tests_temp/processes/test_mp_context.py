@@ -86,7 +86,7 @@ class TestMotNguonSuThat:
         assert not pham, (
             "Nguyên thủy multiprocessing tạo bằng ngữ cảnh MẶC ĐỊNH. Trên Linux "
             "ngữ cảnh mặc định là fork/forkserver, không qua nổi ranh giới sang "
-            "tiến trình spawn. Dùng MP_CONTEXT của xime.core._mp:\n  "
+            "tiến trình spawn. Dùng MP_CONTEXT của xime.core.shared:\n  "
             + "\n  ".join(pham)
         )
 
@@ -97,14 +97,14 @@ class TestMotNguonSuThat:
             cho += [f"{f.relative_to(_XIME)} {x}" for x in get_ctx]
         assert len(cho) == 1, (
             "Phải có đúng MỘT lời gọi get_context trong toàn bộ xime/, và nó ở "
-            f"core/_mp.py. Tìm thấy {len(cho)}:\n  " + "\n  ".join(cho)
+            f"core/shared/_mp.py. Tìm thấy {len(cho)}:\n  " + "\n  ".join(cho)
         )
-        assert "core/_mp.py" in cho[0].replace("\\", "/"), (
-            f"Lời gọi get_context duy nhất phải nằm ở core/_mp.py, không phải {cho[0]}"
+        assert "core/shared/_mp.py" in cho[0].replace("\\", "/"), (
+            f"Lời gọi get_context duy nhất phải nằm ở core/shared/_mp.py, không phải {cho[0]}"
         )
 
     def test_MP_CONTEXT_that_su_la_spawn(self) -> None:
-        from xime.core._mp import MP_CONTEXT
+        from xime.core.shared import MP_CONTEXT
 
         assert MP_CONTEXT.get_start_method() == "spawn"
 
@@ -125,7 +125,7 @@ class TestPhepDoBietKeu:
         assert nguyen_thuy, f"trình quét KHÔNG bắt được vi phạm trong:\n{nguon}"
 
     @pytest.mark.parametrize("nguon", [
-        "from xime.core._mp import MP_CONTEXT\nx = MP_CONTEXT.Semaphore(0)\n",
+        "from xime.core.shared import MP_CONTEXT\nx = MP_CONTEXT.Semaphore(0)\n",
         "import asyncio\nx = asyncio.Semaphore(4)\n",
         "import threading\nx = threading.Lock()\n",
         "from multiprocessing import synchronize\ndef f(s: synchronize.Semaphore): ...\n",

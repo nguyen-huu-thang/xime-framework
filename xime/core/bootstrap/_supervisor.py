@@ -40,7 +40,6 @@ from collections.abc import Iterable, Mapping
 from multiprocessing import connection as mp_connection
 from typing import TYPE_CHECKING, Any
 
-from xime.core._mp import MP_CONTEXT
 from xime.core.bootstrap import _control
 from xime.core.bootstrap._loop import uvloop_factory
 from xime.core.bootstrap._processes import (
@@ -70,6 +69,7 @@ from xime.core.bootstrap._watchdog import (
     STARTUP_GRACE_SECONDS,
 )
 from xime.core.link import INTERNAL_CHANNEL, sweep_orphans
+from xime.core.shared import MP_CONTEXT
 
 if TYPE_CHECKING:
     from xime.core.bootstrap.adapter import Adapter

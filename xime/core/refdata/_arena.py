@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from multiprocessing.shared_memory import SharedMemory
 from typing import TYPE_CHECKING, Any
 
-from xime.core._mp import view_of
+from xime.core.shared import view_of
 
 from ._layout import RefDataLayout
 
