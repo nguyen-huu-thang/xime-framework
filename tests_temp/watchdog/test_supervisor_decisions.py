@@ -247,6 +247,28 @@ class TestPromotion:
         assert self._messages(child) == []
         assert node._primary_id is None
 
+    def test_only_worker_is_reserved_as_primary_when_it_is_restarted(self, supervisor) -> None:
+        node, child, _ = supervisor
+        node._children = {"main": FakeChild(alive=False)}
+        node._primary_id = "main"
+
+        node._promote_someone(exclude="main", restart_as_primary="main")
+
+        assert node._primary_id == "main"
+        assert self._messages(child) == []  # startup receives the role in its handle
+        assert len(node._promotions) == 1
+
+    def test_sole_worker_restart_obeys_the_promotion_limit(self, supervisor) -> None:
+        node, child, _ = supervisor
+        node._children = {"main": FakeChild(alive=False)}
+        node._primary_id = "main"
+        for _ in range(4):
+            node._promote_someone(exclude="main", restart_as_primary="main")
+
+        assert node._promotion_stopped is True
+        assert node._primary_id is None
+        assert self._messages(child) == []
+
 
 class TestAntiDomino:
     """Primary chết **vì chính job của nó** -> thăng cấp B -> B chạy job đó -> B

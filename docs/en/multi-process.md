@@ -268,7 +268,7 @@ share, and change `run()` to `share_load().run()`. **Nothing inside changes.**
 | `host` | web, grpc | Omit to keep the adapter default |
 | `port` | web, grpc | |
 | `path` | socket | Replaces `host`/`port`; omit to derive `<socket.dir>/<id>.sock` |
-| `ssl` / `tls` | web / grpc | Omit and the cell **inherits the shared block** (`server.ssl` / `grpc.tls`) - see below |
+| `ssl` / `tls` | web / grpc | Omit and the cell **inherits the shared block** (`webserver.ssl` / `grpc.tls`) - see below |
 | `shared` | web, grpc, socket | **Only under `processes:`** - see below |
 
 Process-level keys: `primary` (exactly **one** block declares it) and `count`.
@@ -294,7 +294,7 @@ with **half the requests going to a process nobody meant to send them to**.
 ### TLS: the cell first, the shared block second
 
 A cell without `ssl` / `tls` **inherits the shared block** - web takes
-`server.ssl`, gRPC takes `grpc.tls`. That is a security property rather than a
+`webserver.ssl`, gRPC takes `grpc.tls`. That is a security property rather than a
 convenience: a secondary server **quietly serving HTTP** while the main one
 serves HTTPS is a hole nobody notices, because it still answers 200. On gRPC it
 costs even more - an endpoint that drops to plaintext **still accepts clients
@@ -306,7 +306,7 @@ To opt an endpoint out deliberately, declare it empty:
 ```yaml
 process:
   web:
-    public:   { port: 8086 }                # inherits server.ssl
+    public:   { port: 8086 }                # inherits webserver.ssl
     internal: { port: 8082, ssl: {} }       # deliberately plain HTTP
   grpc:
     internal: { port: 9095 }                # inherits grpc.tls
@@ -325,14 +325,42 @@ cell declares is what runs; the shared block only speaks when the cell is silent
 ### The old flat keys still work
 
 ```yaml
-server:
+webserver:
   port: 8086
   ssl: { certfile: ..., keyfile: ... }
 ```
 
 This is a **translation** into `process.web.default`, not a second code path -
-once translated, only one path remains. A single-port application changes
+once translated, only one path remains. The old `server:` block remains a
+compatibility alias when `webserver:` is absent. A single-port application changes
 nothing. Want a second port? Write `process:`.
+
+### The management port follows the primary
+
+Declare management once outside `processes:`; the framework adds an internal
+singleton listener to the current primary's derived topology. When the primary
+dies, the promoted worker binds the same loopback port. The application's
+`processes:` block does not change:
+
+```yaml
+webserver:
+  management:
+    enabled: true
+    host: 127.0.0.1
+    port: 9180
+
+processes:
+  main:
+    primary: true
+    web: { default: { host: 0.0.0.0, port: 8086, shared: true } }
+  worker:
+    web: { default: { host: 0.0.0.0, port: 8086, shared: true } }
+```
+
+Management does not use the public socket held by the supervisor. A non-primary
+worker keeps it in `standby`; after promotion it binds the loopback address. If
+binding fails, singleton listeners already started during that promotion are
+stopped before the worker refuses the primary role.
 
 ### Writing N identical processes
 
@@ -819,8 +847,16 @@ way and the load balancer pulls out every process, killing the cluster entirely
 over one background job that is not running.
 
 A singleton adapter waiting on a non-primary process sits in the `standby` state,
-and `standby` does **not** turn `ready` red. The fact that *the cluster has no
-primary* is still visible - in the `primary` field of that same response.
+and `standby` does **not** turn `ready` red. If enabled, the loopback management
+report exposes whether this process is primary.
+
+```json
+{"status": "ok"}
+```
+
+That is the public response body for either probe: status only, without primary
+role or per-adapter state. When `webserver.management` is enabled, the same paths
+on the loopback listener return the detailed report:
 
 ```json
 {
@@ -845,11 +881,12 @@ cluster"*.
 
 Deliberately. They have to answer **when everything else is broken**, including
 when no verification key could be fetched - a `/healthz` that demands a token is a
-`/healthz` that goes silent exactly when you need it. In exchange, the body
-carries nothing sensitive: no host, no port, no version, no error message.
+`/healthz` that goes silent exactly when you need it. The public body only says
+`status: ok` or `status: unavailable`.
 
-⭐ The safest shape in production: put them on a **secondary server bound to
-`127.0.0.1`**. Operators and systemd can reach them; the internet cannot.
+⭐ For detailed status, enable `webserver.management` on a listener bound to
+`127.0.0.1`. Operators and systemd can reach it; the internet cannot reach this
+bound address.
 
 ### Middleware you wrote yourself: ask `public_health_paths()`
 

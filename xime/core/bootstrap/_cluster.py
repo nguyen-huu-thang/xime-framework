@@ -30,8 +30,11 @@ nghe, và một vòng đọc ở đó là một thread đỗ vĩnh viễn để 
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import secrets
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from xime.core.link import (
@@ -55,6 +58,18 @@ _log = logging.getLogger("xime.bootstrap")
 
 #: Cha gọi con làm primary; con trả lời bằng `PROMOTED` hoặc `PROMOTE_FAILED`.
 PromoteHandler = Callable[[bool], Awaitable[None]]
+AdapterCommandHandler = Callable[[bytes], Awaitable[bytes]]
+
+
+async def _unhandled_adapter_command(_payload: bytes) -> bytes:
+    return b"unhandled"
+
+
+@dataclass
+class _CommandWaiter:
+    expected: frozenset[int]
+    acknowledgements: dict[int, bytes] = field(default_factory=dict)
+    changed: asyncio.Event = field(default_factory=asyncio.Event)
 
 
 class ClusterMember:
@@ -71,6 +86,9 @@ class ClusterMember:
         self._index = handle.index if handle is not None else 0
         self._slots = handle.slots if handle is not None else 1
         self._on_promote: PromoteHandler | None = None
+        self._on_adapter_command: AdapterCommandHandler | None = None
+        self._command_waiters: dict[bytes, _CommandWaiter] = {}
+        self._adapter_tasks: set[asyncio.Task[None]] = set()
 
     # ------------------------------------------------------------------
     # Thuộc tính
@@ -152,7 +170,10 @@ class ClusterMember:
     # ------------------------------------------------------------------
 
     async def listen(
-        self, handlers: dict[str, BoundHandler], on_promote: PromoteHandler
+        self,
+        handlers: dict[str, BoundHandler],
+        on_promote: PromoteHandler,
+        on_adapter_command: AdapterCommandHandler | None = None,
     ) -> None:
         """Gắn handler của ứng dụng, cắm handler nội bộ, rồi chạy.
 
@@ -168,6 +189,7 @@ class ClusterMember:
         if self._link is None:
             return
         self._on_promote = on_promote
+        self._on_adapter_command = on_adapter_command or _unhandled_adapter_command
         merged = dict(handlers)
         merged[INTERNAL_CHANNEL] = BoundHandler(
             channel=INTERNAL_CHANNEL,
@@ -203,9 +225,38 @@ class ClusterMember:
             self._watchdog = None
         if self._link is not None:
             await self._link.stop()
+        for task in tuple(self._adapter_tasks):
+            task.cancel()
+        for task in tuple(self._adapter_tasks):
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._adapter_tasks.clear()
+        for waiter in self._command_waiters.values():
+            waiter.changed.set()
 
     async def _on_control(self, key: str, payload: bytes) -> None:
         """Handler của kênh nội bộ. Lọc bằng chỉ số, **không bằng tên**."""
+        if key == _control.ADAPTER_COMMAND_BROADCAST:
+            command = _control.unpack_adapter_command(payload)
+            if command is None:
+                return
+            request_id, targets, _opaque = command
+            if self._index not in targets or self._on_adapter_command is None:
+                return
+            task = asyncio.create_task(
+                self._execute_adapter_command(request_id, payload),
+                name="xime-adapter-command",
+            )
+            self._adapter_tasks.add(task)
+            task.add_done_callback(self._adapter_tasks.discard)
+            return
+        if key == _control.ADAPTER_COMMAND_ACK:
+            ack = _control.unpack_adapter_ack(payload)
+            if ack is not None:
+                self._record_adapter_ack(*ack)
+            return
         if key != _control.PROMOTE:
             return
         target, flag, _ = _control.unpack(payload)
@@ -214,6 +265,81 @@ class ClusterMember:
         if self._on_promote is None:
             return
         await self._on_promote(bool(flag))
+
+    async def request_adapter_command(
+        self,
+        command: bytes,
+        *,
+        targets: tuple[int, ...],
+        timeout: float = 20.0,
+    ) -> tuple[dict[int, bytes], tuple[int, ...]]:
+        """Ask the supervisor to relay a command and await each target ACK."""
+        if self._link is None or not self.clustered:
+            raise RuntimeError("adapter commands require a clustered ProcessLink")
+        expected = frozenset(targets)
+        if not expected:
+            raise ValueError("adapter command needs at least one target worker")
+
+        request_id = secrets.token_bytes(16)
+        waiter = _CommandWaiter(expected=expected)
+        self._command_waiters[request_id] = waiter
+        try:
+            payload = _control.pack_adapter_command(
+                request_id, tuple(sorted(expected)), command
+            )
+            self._link.announce_sync(
+                INTERNAL_CHANNEL,
+                payload,
+                key=_control.ADAPTER_COMMAND_REQUEST,
+            )
+
+            async def wait_for_all() -> None:
+                while not expected.issubset(waiter.acknowledgements):
+                    waiter.changed.clear()
+                    if expected.issubset(waiter.acknowledgements):
+                        return
+                    await waiter.changed.wait()
+
+            try:
+                await asyncio.wait_for(wait_for_all(), timeout=timeout)
+            except TimeoutError:
+                pass
+            acknowledged = dict(waiter.acknowledgements)
+            missing = tuple(sorted(expected.difference(acknowledged)))
+            return acknowledged, missing
+        finally:
+            self._command_waiters.pop(request_id, None)
+
+    async def _execute_adapter_command(self, request_id: bytes, envelope: bytes) -> None:
+        parsed = _control.unpack_adapter_command(envelope)
+        if parsed is None or self._on_adapter_command is None:
+            return
+        _request_id, _targets, command = parsed
+        try:
+            result = await self._on_adapter_command(command)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - return a per-worker failure
+            _log.warning("link: internal adapter command failed", exc_info=True)
+            result = f"failed:{type(exc).__name__}".encode("ascii", errors="replace")
+        ack = _control.pack_adapter_ack(request_id, self._index, result)
+        self._record_adapter_ack(request_id, self._index, result)
+        if self._link is not None:
+            try:
+                self._link.announce_sync(
+                    INTERNAL_CHANNEL,
+                    ack,
+                    key=_control.ADAPTER_COMMAND_ACK,
+                )
+            except Exception:  # noqa: BLE001 - ACK loss becomes a caller timeout
+                _log.warning("link: could not acknowledge internal adapter command", exc_info=True)
+
+    def _record_adapter_ack(self, request_id: bytes, index: int, result: bytes) -> None:
+        waiter = self._command_waiters.get(request_id)
+        if waiter is None or index not in waiter.expected:
+            return
+        waiter.acknowledgements.setdefault(index, result)
+        waiter.changed.set()
 
     # ------------------------------------------------------------------
     # Báo cho cha

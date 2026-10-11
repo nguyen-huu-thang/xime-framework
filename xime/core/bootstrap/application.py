@@ -106,6 +106,8 @@ class Application:
         self._config_module = config_module
         self._orchestrator: StartupOrchestrator | None = None
         self._adapters: list[Adapter] = []
+        self._internal_adapters: list[Adapter] = []
+        self._topology: ProcessTopology | None = None
         self._added_config: ModuleType | None = None
         self._share_load = False
         # Số đo của phép dò "code mức module phải nhẹ", đóng băng lúc
@@ -298,14 +300,21 @@ class Application:
         await self._orchestrator.start()
         self._register_framework_adapters()
         await self._cluster.listen(
-            self._orchestrator.link_handlers(), self._accept_promotion
+            self._orchestrator.link_handlers(),
+            self._accept_promotion,
+            self._dispatch_internal_adapter_control,
         )
         # `run_once()` SAU `post_construct` và TRƯỚC mọi adapter: nó là việc
         # *"chạy một lần cho cả cụm"*, và mọi thứ khác đợi nó.
         if self._is_primary:
-            await self._orchestrator.run_once()
+            run_once_needed = (
+                self._shared_handle is None
+                or self._shared_handle.run_once_needed
+            )
+            if run_once_needed:
+                await self._orchestrator.run_once()
+                self._cluster.report_run_once_done()
             self._run_once_done = True
-            self._cluster.report_run_once_done()
 
     def _open_refdata(self) -> RefDataArena:
         """Gắn vào kho tham chiếu cha đã cấp, hoặc tự cấp khi không có cha.
@@ -455,6 +464,22 @@ class Application:
         self._module_level_seconds = module_level_seconds()
         return self
 
+    def run_configured(self) -> None:
+        """Run using the process topology selected by the effective YAML config.
+
+        `process:` starts one process. `processes:` enables the supervisor and
+        its workers. The method reads the same cached RuntimeConfig as startup,
+        so the topology cannot change between selection and binding.
+
+        Chạy theo topology đã được loader chọn. Khối `process:` chạy một tiến
+        trình; `processes:` chạy supervisor/worker. Tất cả adapter dùng đúng
+        RuntimeConfig đã chọn, không tự đọc lại profile hay tự đổi topology.
+        """
+        runtime = self._load_runtime()
+        if runtime.get("processes") is not None:
+            self.share_load()
+        self.run()
+
     def run(self) -> None:
         """Start the application and all registered adapters, block until interrupted.
 
@@ -546,6 +571,48 @@ class Application:
         Hai phép kiểm dưới đây chỉ áp cho nhánh `share_load()`; phần chọn hình
         dạng cấu hình thì chung, và nằm ở `build_topology()`.
         """
+        # Replace any prior derived adapters before rebuilding topology (for
+        # start/stop/start on the same Application instance).
+        for adapter in self._internal_adapters:
+            if adapter in self._adapters:
+                self._adapters.remove(adapter)
+        self._internal_adapters.clear()
+
+        current_webserver = runtime.get("webserver")
+        legacy_server = runtime.get("server")
+        if current_webserver is not None and legacy_server is not None:
+            raise topology_error(
+                "Conflicting Web Server Configuration",
+                "Config : declare either `webserver:` or legacy `server:`, not both.",
+                "Detail: `environments.server` is a profile name and is unaffected.",
+            )
+
+        from xime.core.bootstrap._internal_adapters import (
+            apply_internal_adapters,
+            collect_internal_adapters,
+        )
+
+        contributions = collect_internal_adapters(runtime, tuple(self._adapters))
+        current_keys = {
+            (adapter_kind_of(adapter), adapter_id_of(adapter))
+            for adapter in self._adapters
+        }
+        for contribution in contributions:
+            key = (
+                adapter_kind_of(contribution.adapter),
+                adapter_id_of(contribution.adapter),
+            )
+            if key in current_keys:
+                raise topology_error(
+                    "Reserved Internal Adapter Id",
+                    f"Adapter: {key[0]}.{key[1]}",
+                    f"Config : {contribution.where}",
+                    "Detail: this id is reserved for a framework-owned listener.",
+                )
+            current_keys.add(key)
+            self._adapters.append(contribution.adapter)
+            self._internal_adapters.append(contribution.adapter)
+
         if self._share_load:
             if self._added_config is None:
                 raise topology_error(
@@ -568,10 +635,31 @@ class Application:
                     "process would sit idle forever. Register an adapter with "
                     "app.use(...), or drop share_load().",
                 )
+        internal_ids = {id(adapter) for adapter in self._internal_adapters}
         declared = [
-            (adapter_kind_of(a), adapter_id_of(a)) for a in self._adapters
+            (adapter_kind_of(adapter), adapter_id_of(adapter))
+            for adapter in self._adapters
+            if id(adapter) not in internal_ids
         ]
-        return build_topology(runtime.get, declared, share_load=self._share_load)
+
+        def read(key: str) -> Any:
+            if key == "webserver" or key.startswith("webserver."):
+                if current_webserver is not None:
+                    return runtime.get(key)
+                legacy_key = "server" + key[len("webserver"):]
+                return runtime.get(legacy_key)
+            return runtime.get(key)
+
+        topology = build_topology(read, declared, share_load=self._share_load)
+        if contributions:
+            topology = apply_internal_adapters(topology, contributions)
+        self._topology = topology
+        return topology
+
+    async def _dispatch_internal_adapter_control(self, payload: bytes) -> bytes:
+        from xime.core.bootstrap._internal_adapters import dispatch_internal_control
+
+        return await dispatch_internal_control(self, payload)
 
     # ------------------------------------------------------------------
     # Vòng đời adapter: start tuần tự, serve song song và CÔ LẬP
@@ -744,8 +832,8 @@ class Application:
         try:
             if run_once_needed and self._orchestrator is not None:
                 await self._orchestrator.run_once()
-                self._run_once_done = True
                 self._cluster.report_run_once_done()
+            self._run_once_done = True
             await self._start_standby_adapters()
         except (asyncio.CancelledError, KeyboardInterrupt):
             raise
@@ -770,11 +858,35 @@ class Application:
         vì ngữ nghĩa *"một task lỗi thì anh em bị huỷ"* sai với `serve()`).
         """
         waiting, self._standby = list(self._standby), []
-        for adapter in waiting:
-            await adapter.start(self)
+        started: list[Adapter] = []
+        try:
+            for adapter in waiting:
+                try:
+                    await adapter.start(self)
+                except Exception:
+                    # start() may have acquired a port before failing. Its
+                    # contract makes stop() idempotent even for partial starts.
+                    await self._stop_promotion_adapter(adapter)
+                    raise
+                started.append(adapter)
+        except Exception:
+            for adapter in reversed(started):
+                await self._stop_promotion_adapter(adapter)
+            self._standby = waiting
+            raise
+
+        for adapter in started:
             self._started.append(adapter)
             task = asyncio.ensure_future(self._serve_one(adapter))
             self._serving[task] = adapter
+
+    async def _stop_promotion_adapter(self, adapter: Adapter) -> None:
+        try:
+            await adapter.stop()
+        except Exception:  # noqa: BLE001 - keep the original promotion failure
+            _logger.exception(
+                "Error while rolling back promoted adapter %s", self._label(adapter)
+            )
 
     # ------------------------------------------------------------------
     # Sức khoẻ

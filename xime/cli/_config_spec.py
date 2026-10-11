@@ -170,11 +170,11 @@ SPEC: tuple[Block, ...] = (
         complete=True,
     ),
     Block(
-        name="server",
+        name="webserver",
         doc=(
-            "Network binding for the HTTP adapter. An empty `ssl` block means\n"
-            "plain HTTP. The certificate must come from a public CA (certbot):\n"
-            "browsers do not trust an internal CA."
+            "HTTP listener defaults, TLS certificate reload policy, and the optional "
+            "loopback-only management listener. The management listener follows "
+            "the current primary in a multi-process application."
         ),
         model="xime.adapters.web._server_config:WebServerConfig",
         complete=True,
@@ -191,6 +191,16 @@ SPEC: tuple[Block, ...] = (
                 "narrow side; widen it deliberately.",
             ),
         ),
+    ),
+    Block(
+        name="server",
+        doc=(
+            "Compatibility alias for the former HTTP server block. Prefer `webserver:`.\n"
+            "Do not declare `server:` and `webserver:` together."
+        ),
+        model="xime.adapters.web._server_config:WebServerConfig",
+        complete=True,
+        see="docs/configuration.md",
     ),
     Block(
         name="grpc",
@@ -350,6 +360,20 @@ SPEC: tuple[Block, ...] = (
                 "the copy you deploy from should leave this off."
             ),
         ),
+    ),
+    Block(
+        name="environments",
+        doc=(
+            "Optional local/server overrides in the same application.yml.\n"
+            "`xime.dev: true` selects local; false selects server. Do not\n"
+            "combine this block with XIME_ENV/APP_ENV profile files."
+        ),
+        keys=(
+            Key("local", doc="Values used only when xime.dev is true."),
+            Key("server", doc="Values used only when xime.dev is false."),
+        ),
+        complete=True,
+        see="docs/vn/configuration.md",
     ),
     # ------------------------------------------------------------------
     # Khối do starter/adapter đọc, CHƯA liệt kê đủ khoá ở đây.

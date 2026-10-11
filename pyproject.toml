@@ -124,7 +124,8 @@ xime = "xime.cli._main:main"
 
 [project.optional-dependencies]
 web = [
-    "uvicorn[standard]>=0.27",
+    # Public ssl_context_factory API for web TLS context configuration.
+    "uvicorn[standard]>=0.47.0",
     # Required by save_upload() and any multipart/form-data route. FastAPI ships
     # it only in its own `standard` extra, which xime does not pull in, so
     # without this line the documented upload helper fails at request time with

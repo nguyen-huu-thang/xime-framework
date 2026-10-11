@@ -167,6 +167,14 @@ class TestResolve:
         keys = {k.name for k in resolve(BY_NAME["logging"]).keys}
         assert keys == {"enabled", "level", "format", "datefmt"}
 
+    def test_webserver_model_describes_reload_and_management_fields(self) -> None:
+        keys = {key.name: key for key in resolve(BY_NAME["webserver"]).keys}
+        ssl = {key.name: key for key in keys["ssl"].children}
+        reload_keys = {key.name for key in ssl["reload"].children}
+        management_keys = {key.name for key in keys["management"].children}
+        assert reload_keys == {"mode", "interval_seconds"}
+        assert management_keys == {"enabled", "host", "port"}
+
     def test_defaults_come_from_the_model_not_from_a_copy(self) -> None:
         """⭐ Đây là lý do suy từ pydantic thay vì chép tay: đổi mặc định trong
         model thì bản mô tả đi theo, không có chỗ nào để lệch."""

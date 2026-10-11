@@ -21,6 +21,8 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -55,6 +57,17 @@ def _try_get(url: str, timeout: float = 2.0) -> dict | None:
         return None
 
 
+def _post_json(url: str, payload: dict, timeout: float = 30.0) -> dict:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
 def _wait_for(url: str, deadline: float) -> dict:
     last: Exception | None = None
     while time.monotonic() < deadline:
@@ -69,10 +82,12 @@ def _wait_for(url: str, deadline: float) -> dict:
 class Cluster:
     """Một app thật chạy bằng `python -m sample_cluster.main`."""
 
-    def __init__(self, workdir: Path, port: int) -> None:
+    def __init__(self, workdir: Path, port: int, management_port: int) -> None:
         self.port = port
+        self.management_port = management_port
         self.workdir = workdir
         self.url = f"http://127.0.0.1:{port}"
+        self.management_url = f"http://127.0.0.1:{management_port}"
         self._log_path = workdir / "app.log"
         self._log = self._log_path.open("w", encoding="utf-8")
         env = dict(os.environ)
@@ -117,15 +132,31 @@ class Cluster:
         return seen
 
     def roles(self, attempts: int = 40) -> dict[bool, dict]:
-        """Gom `/readyz` cho tới khi thấy cả primary lẫn con phụ trả lời."""
-        out: dict[bool, dict] = {}
+        """Combine public worker PIDs with the primary's loopback-only report."""
+        seen: set[int] = set()
+        deadline = time.monotonic() + _BOOT_TIMEOUT
+        primary_pid = self.primary_pid(deadline)
         for _ in range(attempts):
-            got = _try_get(f"{self.url}/readyz", 1.0)
+            got = _try_get(f"{self.url}/pid", 1.0)
             if got is not None:
-                out[bool(got["primary"])] = got
-            if len(out) == 2:
-                break
-        return out
+                seen.add(got["pid"])
+            others = seen - {primary_pid}
+            if primary_pid in seen and others:
+                detailed = _try_get(f"{self.management_url}/readyz", 1.0)
+                if detailed is not None and detailed.get("primary") is True:
+                    standby_pid = min(others)
+                    return {
+                        True: detailed,
+                        False: {
+                            "pid": standby_pid,
+                            "primary": False,
+                            "alive": True,
+                            "ready": True,
+                            "adapters": [],
+                        },
+                    }
+            time.sleep(0.05)
+        return {}
 
     def stamps_of(self, name: str) -> list[tuple[int, float]]:
         """Đọc một sổ `<pid> <mốc>` mà app ghi ra."""
@@ -181,8 +212,15 @@ class Cluster:
             os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
 
 
-def _yaml(port: int) -> str:
-    return (
+def _yaml(
+    port: int, management_port: int, tls: tuple[Path, Path] | None = None
+) -> str:
+    base = (
+        "webserver:\n"
+        "  management:\n"
+        "    enabled: true\n"
+        "    host: 127.0.0.1\n"
+        f"    port: {management_port}\n"
         "processes:\n"
         "  main:\n"
         "    primary: true\n"
@@ -193,21 +231,116 @@ def _yaml(port: int) -> str:
         f"    web: {{ default: {{ host: 127.0.0.1, port: {port}, shared: true }} }}\n"
         "    breakable: { default: {} }\n"
     )
+    if tls is None:
+        return base
+    certfile, keyfile = (json.dumps(str(path)) for path in tls)
+    return (
+        "webserver:\n"
+        "  ssl:\n"
+        f"    certfile: {certfile}\n"
+        f"    keyfile: {keyfile}\n"
+        "    reload:\n"
+        "      mode: both\n"
+        "      interval_seconds: 30\n"
+        + base[len("webserver:\n"):]
+    )
 
 
 @pytest.fixture
 def cluster(tmp_path):
     port = _free_port()
+    management_port = _free_port()
     resources = tmp_path / "resources"
     resources.mkdir(parents=True, exist_ok=True)
-    (resources / "application.yml").write_text(_yaml(port), encoding="utf-8")
-    node = Cluster(tmp_path, port)
+    (resources / "application.yml").write_text(
+        _yaml(port, management_port), encoding="utf-8"
+    )
+    node = Cluster(tmp_path, port, management_port)
     try:
         yield node
     finally:
         output = node.stop()
         if output.strip():
             print(f"\n--- app output ---\n{output}")
+
+
+@pytest.fixture
+def one_worker_cluster(tmp_path):
+    """`processes:` vẫn dùng supervisor, nhưng chỉ còn đúng một worker."""
+    port = _free_port()
+    management_port = _free_port()
+    resources = tmp_path / "resources"
+    resources.mkdir(parents=True, exist_ok=True)
+    only_main = _yaml(port, management_port).split("  api-2:", 1)[0]
+    (resources / "application.yml").write_text(only_main, encoding="utf-8")
+    node = Cluster(tmp_path, port, management_port)
+    try:
+        yield node
+    finally:
+        output = node.stop()
+        if output.strip():
+            print(f"\n--- one-worker app output ---\n{output}")
+
+
+def _make_reload_cert(directory: Path, label: str) -> tuple[Path, Path]:
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+    now = datetime.now(UTC)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=1))
+        .not_valid_after(now + timedelta(days=1))
+        .add_extension(
+            x509.SubjectAlternativeName([x509.DNSName("localhost")]), critical=False
+        )
+        .sign(key, hashes.SHA256())
+    )
+    cert_path = directory / f"{label}-cert.pem"
+    key_path = directory / f"{label}-key.pem"
+    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    key_path.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.TraditionalOpenSSL,
+            serialization.NoEncryption(),
+        )
+    )
+    return cert_path, key_path
+
+
+@pytest.fixture
+def tls_cluster(tmp_path):
+    cert_dir = tmp_path / "certificates"
+    cert_dir.mkdir()
+    pair_a = _make_reload_cert(cert_dir, "a")
+    pair_b = _make_reload_cert(cert_dir, "b")
+    active_cert, active_key = cert_dir / "active-cert.pem", cert_dir / "active-key.pem"
+    active_cert.write_bytes(pair_a[0].read_bytes())
+    active_key.write_bytes(pair_a[1].read_bytes())
+
+    port = _free_port()
+    management_port = _free_port()
+    resources = tmp_path / "resources"
+    resources.mkdir(parents=True, exist_ok=True)
+    (resources / "application.yml").write_text(
+        _yaml(port, management_port, (active_cert, active_key)), encoding="utf-8"
+    )
+    node = Cluster(tmp_path, port, management_port)
+    try:
+        yield node, active_cert, active_key, pair_b
+    finally:
+        output = node.stop()
+        if output.strip():
+            print(f"\n--- TLS cluster app output ---\n{output}")
 
 
 # ---------------------------------------------------------------------------
@@ -314,11 +447,9 @@ class TestTheRoleIsVisible:
         assert set(roles) == {True, False}, f"chỉ thấy {sorted(roles)}"
 
     def test_the_standby_process_stays_green(self, cluster: Cluster) -> None:
-        """⭐ Chốt 2026-08-19: `/readyz` của con phụ **VẪN XANH**.
+        """The standby worker serves HTTP; detailed management health is primary-only.
 
-        Nó vẫn nhận request được; thứ cụm mất khi thiếu primary là job nền. Trả
-        lời ngược lại thì LB rút hết con và cụm chết hoàn toàn vì một job nền
-        không chạy.
+        It still accepts requests; only primary-owned background work moves.
         """
         deadline = time.monotonic() + _BOOT_TIMEOUT
         _wait_for(f"{cluster.url}/readyz", deadline)
@@ -327,10 +458,58 @@ class TestTheRoleIsVisible:
             roles |= cluster.roles()
         assert roles[False]["ready"] is True
         assert roles[False]["alive"] is True
-        # Adapter đơn nhất ở con phụ nằm ở `standby`, và standby KHÔNG phải lỗi.
-        states = {a["kind"]: a["state"] for a in roles[False]["adapters"]}
-        assert states.get("fragile") == "standby"
-        assert states.get("web") == "serving"
+        standby_pid = roles[False]["pid"]
+        singleton_pids = {pid for pid, _ in cluster.stamps_of("singleton_started.log")}
+        assert standby_pid not in singleton_pids
+        public_probes = [
+            _try_get(f"{cluster.url}/readyz", 1.0),
+            _try_get(f"{cluster.url}/healthz", 1.0),
+        ]
+        assert all(
+            response is not None and response.get("status") == "ok"
+            for response in public_probes
+        )
+
+
+class TestTlsReloadCoordination:
+    def test_api_waits_for_each_worker_and_duplicate_requests_apply_once(
+        self, tls_cluster
+    ) -> None:
+        cluster, active_cert, active_key, pair_b = tls_cluster
+        deadline = time.monotonic() + _BOOT_TIMEOUT
+        _wait_for(f"{cluster.management_url}/readyz", deadline)
+        while time.monotonic() < deadline and "supervisor: api-2 is serving" not in cluster.output():
+            time.sleep(0.1)
+        assert "supervisor: api-2 is serving" in cluster.output()
+
+        active_cert.write_bytes(pair_b[0].read_bytes())
+        active_key.write_bytes(pair_b[1].read_bytes())
+        url = f"{cluster.management_url}/tls/reload"
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            responses = list(
+                pool.map(lambda _: _post_json(url, {"server_id": "default"}), range(2))
+            )
+
+        assert all(response["outcome"] in {"reloaded", "unchanged"} for response in responses)
+        by_worker: dict[int, list[str]] = {}
+        for response in responses:
+            assert response["missing_workers"] == []
+            assert len(response["workers"]) == 2
+            for worker in response["workers"]:
+                by_worker.setdefault(worker["worker_index"], []).append(worker["outcome"])
+                assert worker["certificate_fingerprint"] is not None
+        assert set(by_worker) == {0, 1}
+        assert all(
+            sorted(outcomes) == ["reloaded", "unchanged"]
+            for outcomes in by_worker.values()
+        ), f"each worker should apply the new pair once: {by_worker}; responses={responses}"
+
+        unchanged = _post_json(url, {"server_id": "default"})
+        assert unchanged["outcome"] == "unchanged"
+        assert [worker["outcome"] for worker in unchanged["workers"]] == [
+            "unchanged",
+            "unchanged",
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -440,6 +619,50 @@ class TestPromotion:
             "được dựng lại đã quay về với vai primary trong khi cha đã trao vai "
             "cho người khác - hai primary cùng chạy job nền"
         )
+
+    def test_only_worker_restart_regains_primary_without_repeating_run_once(
+        self, one_worker_cluster: Cluster
+    ) -> None:
+        """Khi không còn worker sống để thăng cấp, worker duy nhất được dựng lại
+        tiếp tục vai primary, và không chạy lại `run_once()` đã hoàn tất.
+        """
+        cluster = one_worker_cluster
+        deadline = time.monotonic() + _BOOT_TIMEOUT
+        _wait_for(f"{cluster.url}/readyz", deadline)
+        first_pid = cluster.primary_pid(deadline)
+        assert _try_get(f"{cluster.management_url}/readyz", 1.0)["primary"] is True
+        assert len(cluster.lines_of("run_once.log")) == 1
+        assert len(cluster.lines_of("singleton_started.log")) == 1
+
+        cluster.kill_pid(first_pid, deadline)
+
+        second_pid: int | None = None
+        report: dict | None = None
+        deadline = time.monotonic() + _BOOT_TIMEOUT
+        while time.monotonic() < deadline:
+            process = _try_get(f"{cluster.url}/pid", 1.0)
+            candidate = _try_get(f"{cluster.management_url}/readyz", 1.0)
+            if process and candidate and process["pid"] != first_pid:
+                second_pid = process["pid"]
+                report = candidate
+                break
+            time.sleep(0.2)
+
+        assert second_pid is not None, "supervisor did not restart its only worker"
+        assert report is not None and report["primary"] is True, (
+            f"the restarted worker must resume the primary role: {report}"
+        )
+        assert any(
+            adapter["kind"] == "scheduler" and adapter["state"] == "serving"
+            for adapter in report["adapters"]
+        ), "the primary-only scheduler must restart with the worker"
+        assert len(cluster.lines_of("run_once.log")) == 1, (
+            "run_once must not repeat after the supervisor has recorded success"
+        )
+        singleton_pids = {
+            pid for pid, _ in cluster.stamps_of("singleton_started.log")
+        }
+        assert singleton_pids == {first_pid, second_pid}
 
     def test_a_failing_start_refuses_the_role_without_dying(
         self, cluster: Cluster

@@ -263,7 +263,7 @@ tên, nhân bản khối, thêm `shared` ở cổng muốn dùng chung, và đ�
 | `host` | web, grpc | Để trống thì lấy mặc định của adapter |
 | `port` | web, grpc | |
 | `path` | socket | Thay cho `host`/`port`; để trống thì suy `<socket.dir>/<id>.sock` |
-| `ssl` / `tls` | web / grpc | Để trống thì **kế thừa khối chung** (`server.ssl` / `grpc.tls`) - xem dưới |
+| `ssl` / `tls` | web / grpc | Để trống thì **kế thừa khối chung** (`webserver.ssl` / `grpc.tls`) - xem dưới |
 | `shared` | web, grpc, socket | **Chỉ ở `processes:`** - xem ngay dưới |
 
 Khoá cấp tiến trình: `primary` (đúng **một** khối khai) và `count`.
@@ -289,7 +289,7 @@ trình không ai định gửi tới**.
 ### TLS: ô trước, khối chung sau
 
 Ô không khai `ssl` / `tls` thì điểm phục vụ **kế thừa khối chung** - web lấy
-`server.ssl`, gRPC lấy `grpc.tls`. Đó là một tính chất bảo mật chứ không phải
+`webserver.ssl`, gRPC lấy `grpc.tls`. Đó là một tính chất bảo mật chứ không phải
 tiện lợi: một server phụ **âm thầm chạy HTTP** trong khi server chính đã HTTPS là
 lỗ hổng không ai để ý, vì nó vẫn trả lời 200. Ở gRPC còn đắt hơn - một endpoint
 tụt xuống plaintext **vẫn nhận client không có cert**, nên bên gọi cũ không hề
@@ -300,7 +300,7 @@ Muốn một điểm phục vụ cố ý chạy không mã hoá thì khai rỗng
 ```yaml
 process:
   web:
-    public:   { port: 8086 }                # kế thừa server.ssl
+    public:   { port: 8086 }                # kế thừa webserver.ssl
     internal: { port: 8082, ssl: {} }       # cố ý HTTP thuần
   grpc:
     noi_bo:    { port: 9095 }               # kế thừa grpc.tls
@@ -319,14 +319,41 @@ process:
 ### Khoá phẳng cũ vẫn chạy nguyên
 
 ```yaml
-server:
+webserver:
   port: 8086
   ssl: { certfile: ..., keyfile: ... }
 ```
 
 Đây là **một phép dịch** thành `process.web.default`, không phải một nhánh xử lý
-thứ hai - dịch xong thì từ đó trở đi chỉ còn một đường code. App một cổng không
-phải sửa gì. Muốn cổng thứ hai thì viết `process:`.
+thứ hai - dịch xong thì từ đó trở đi chỉ còn một đường code. `server:` cũ vẫn
+được chấp nhận làm alias nếu không khai `webserver:`. App một cổng không phải sửa
+gì. Muốn cổng thứ hai thì viết `process:`.
+
+### Cổng management đi theo primary
+
+Management được khai một lần ngoài `processes:`; framework tự thêm listener
+singleton vào topology nội bộ của primary. Vì vậy khi primary chết, worker được
+thăng cấp bind lại cùng cổng loopback. Khối `processes:` của ứng dụng không đổi:
+
+```yaml
+webserver:
+  management:
+    enabled: true
+    host: 127.0.0.1
+    port: 9180
+
+processes:
+  main:
+    primary: true
+    web: { default: { host: 0.0.0.0, port: 8086, shared: true } }
+  worker:
+    web: { default: { host: 0.0.0.0, port: 8086, shared: true } }
+```
+
+Listener management không dùng socket public được supervisor giữ chung. Worker
+phụ giữ nó ở trạng thái `standby`; khi được thăng cấp, listener tự bind trên
+loopback. Nếu bind lỗi, các singleton đã khởi động trong lần promotion đó được
+dừng lại trước khi worker từ chối vai primary.
 
 ### Viết gọn N tiến trình giống hệt nhau
 
@@ -788,7 +815,15 @@ và cụm chết hoàn toàn vì một job nền không chạy.
 
 Adapter hạng đơn nhất đang chờ ở con phụ nằm ở trạng thái `standby`, và `standby`
 **không** làm `ready` đỏ. Thông tin *"cụm đang không có primary"* vẫn thấy được -
-ở trường `primary` của chính phản hồi đó.
+ở báo cáo chi tiết trên cổng management loopback nếu đã bật.
+
+```json
+{"status": "ok"}
+```
+
+Đó là thân public của cả hai endpoint: chỉ trạng thái, không lộ vai primary hoặc
+trạng thái từng adapter. Khi bật `webserver.management`, hai đường dẫn tương tự
+trên listener loopback mới trả báo cáo chi tiết như sau:
 
 ```json
 {
@@ -812,11 +847,11 @@ khai** - hai loại việc thật sự cần nó đều đã có lời giải s�
 
 Cố ý. Chúng phải trả lời được **khi mọi thứ khác đã hỏng**, kể cả khi không lấy
 nổi khoá verify - một `/healthz` đòi token là một `/healthz` im lặng đúng lúc cần
-nhất. Bù lại, thân phản hồi không mang gì nhạy cảm: không host, không cổng, không
-phiên bản, không thông điệp lỗi.
+nhất. Thân phản hồi public chỉ có `status: ok` hoặc `status: unavailable`.
 
-⭐ Hình dạng an toàn nhất ở prod: đặt chúng trên một **server phụ chỉ nghe
-`127.0.0.1`**. Người vận hành và systemd tới được, internet thì không.
+⭐ Muốn xem chi tiết thì bật `webserver.management` trên listener chỉ nghe
+`127.0.0.1`. Người vận hành và systemd tới được, đường đi từ internet không tới
+được cổng này.
 
 ### Middleware TỰ VIẾT thì hỏi `public_health_paths()`
 

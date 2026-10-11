@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from collections.abc import AsyncGenerator, Iterable
@@ -22,6 +23,7 @@ from ._health import add_health_routes, public_health_paths
 from ._markers import resolve_options
 from ._registry import registry
 from ._server_config import ServerTlsConfig, WebServerConfig
+from ._tls_reload import TlsContextReloader
 from .middleware import RequestContextMiddleware
 from .openapi._builder import build_custom_openapi
 
@@ -34,10 +36,10 @@ _log = logging.getLogger(__name__)
 
 # Spelled-out cert_reqs values mapped to the stdlib constants uvicorn expects.
 # Imported by name so the module-level `ssl` symbol stays free for the
-# WebAdapter(ssl=...) parameter, which mirrors the `server.ssl` config key.
+# WebAdapter(ssl=...) parameter, which mirrors the `webserver.ssl` config key.
 # Giá trị cert_reqs dạng chữ ánh xạ sang hằng stdlib mà uvicorn cần. Import theo
 # tên để tên `ssl` ở mức module còn trống cho tham số WebAdapter(ssl=...), vốn
-# đặt theo đúng key cấu hình `server.ssl`.
+# đặt theo đúng key cấu hình `webserver.ssl`.
 _CERT_REQS = {
     "none": CERT_NONE,
     "optional": CERT_OPTIONAL,
@@ -83,7 +85,7 @@ def _tls_kwargs(tls: ServerTlsConfig, server_id: str) -> dict[str, Any]:
     if not tls.enabled:
         return {}
 
-    where = f"server.ssl (WebAdapter server_id={server_id!r})"
+    where = f"webserver.ssl (WebAdapter server_id={server_id!r})"
 
     # Both halves are required: a certificate without its private key cannot
     # terminate TLS, and vice versa.
@@ -304,16 +306,16 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
     processes.<tiến trình>.web.<server_id>, và truyền chúng trong code là **lỗi
     khởi động**. Xem docs/{vn,en}/multi-process.md.
 
-    HTTPS bật bằng khối server.ssl trong application.yml (để trống = HTTP thuần
+    HTTPS bật bằng khối webserver.ssl trong application.yml (để trống = HTTP thuần
     như cũ):
 
-        server:
+        webserver:
           port: 8107
           ssl:
             certfile: "/etc/letsencrypt/live/example.com/fullchain.pem"
             keyfile: "/etc/letsencrypt/live/example.com/privkey.pem"
 
-    Mọi WebAdapter kế thừa server.ssl, kể cả server phụ - để server phụ không âm
+    Mọi WebAdapter kế thừa webserver.ssl, kể cả server phụ - để server phụ không âm
     thầm chạy HTTP khi server chính đã HTTPS. Muốn khác thì truyền tường minh:
 
         app.use(WebAdapter("admin", "0.0.0.0", 8081, ssl=ServerTlsConfig(...)))
@@ -372,6 +374,11 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         self._server: uvicorn.Server | None = None
         self._slot: AdapterSlot | None = None
         self._sockets: list[Any] | None = None
+        self._tls_reloader: TlsContextReloader | None = None
+        self._tls_watcher_task: asyncio.Task[None] | None = None
+        self._tls_listener_active = False
+        self._serve_active = False
+        self._shutdown_done = False
 
     # ------------------------------------------------------------------
     # Adapter protocol
@@ -383,9 +390,9 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
 
     @staticmethod
     def resolve_tls(slot: AdapterSlot, runtime: RuntimeConfig) -> ServerTlsConfig:
-        """TLS của một điểm phục vụ: ô trước, `server.ssl` sau.
+        """TLS của một điểm phục vụ: ô trước, `webserver.ssl` sau.
 
-        ⭐ **Kế thừa `server.ssl` khi ô không khai** là một tính chất bảo mật,
+        ⭐ **Kế thừa `webserver.ssl` khi ô không khai** là một tính chất bảo mật,
         không phải tiện lợi: một server phụ **âm thầm chạy HTTP** trong khi server
         chính đã HTTPS là lỗ hổng không ai để ý, vì nó vẫn trả lời 200.
 
@@ -394,7 +401,7 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         ```yaml
         process:
           web:
-            public:   { port: 8086 }                       # kế thừa server.ssl
+            public:   { port: 8086 }                       # kế thừa webserver.ssl
             internal: { port: 8082, ssl: {} }              # cố ý HTTP thuần
         ```
 
@@ -441,14 +448,21 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
             )
 
         tls = self.resolve_tls(slot, app.get(RuntimeConfig))  # type: ignore[arg-type]
+        reload_config = WebServerConfig.from_runtime(app.get(RuntimeConfig)).ssl.reload
         dev = _dev_mode(app)
         fastapi_app = self.build_app(app)
+        self._tls_listener_active = False
+        self._tls_reloader = None
+        tls_kwargs = _tls_kwargs(tls, self.adapter_id)
+        if tls.enabled:
+            self._tls_reloader = TlsContextReloader(tls, self.adapter_id)
+            tls_kwargs["ssl_context_factory"] = self._tls_reloader.ssl_context_factory
         config = uvicorn.Config(
             fastapi_app,
             host=host,
             port=port if port is not None else 0,
             access_log=dev,
-            **_tls_kwargs(tls, self.adapter_id),
+            **tls_kwargs,
         )
         _log.info(
             "web %s: process %s serving on %s:%s (%s)%s [%s]",
@@ -465,6 +479,15 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         # chính socket, không tốn gì.
         sock = boc_khoa_accept(slot.sock)
         await self._bind(uvicorn, config, [sock] if sock else None)
+        self._tls_listener_active = tls.enabled and self._tls_reloader is not None
+        if (
+            self._tls_reloader is not None
+            and reload_config.mode in {"watch", "both"}
+        ):
+            self._tls_watcher_task = asyncio.create_task(
+                self._watch_tls(reload_config.interval_seconds),
+                name=f"xime-tls-watch:{self.adapter_id}",
+            )
 
     async def _bind(
         self, uvicorn: Any, config: Any, sockets: list[Any] | None = None
@@ -481,6 +504,7 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         self._server = uvicorn.Server(config)
         self._server.lifespan = config.lifespan_class(config)
         self._sockets = sockets
+        self._shutdown_done = False
         await self._server.startup(sockets=sockets)
 
     async def serve(self) -> None:
@@ -492,16 +516,64 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         """
         if self._server is None:
             return
-        with self._server.capture_signals():
-            if not self._server.should_exit:
-                await self._server.main_loop()
-        if self._server.started:
-            await self._server.shutdown(sockets=self._sockets)
+        self._serve_active = True
+        try:
+            with self._server.capture_signals():
+                if not self._server.should_exit:
+                    await self._server.main_loop()
+        finally:
+            await self._stop_tls_watcher()
+            if not self._shutdown_done and hasattr(self._server, "servers"):
+                await self._server.shutdown(sockets=self._sockets)
+                self._shutdown_done = True
+            self._tls_listener_active = False
+            self._serve_active = False
 
     async def stop(self) -> None:
         """Signal uvicorn to shut down gracefully. No-op if start() was not called."""
         if self._server is not None:
             self._server.should_exit = True
+        self._tls_listener_active = False
+        await self._stop_tls_watcher()
+        if (
+            self._server is not None
+            and not self._serve_active
+            and not self._shutdown_done
+            and hasattr(self._server, "servers")
+        ):
+            await self._server.shutdown(sockets=self._sockets)
+            self._shutdown_done = True
+
+    async def _stop_tls_watcher(self) -> None:
+        task, self._tls_watcher_task = self._tls_watcher_task, None
+        if task is None:
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    async def _watch_tls(self, interval_seconds: int) -> None:
+        """Poll locally; an invalid replacement keeps the active context live."""
+        delays = (5, 10, 30)
+        while self._server is not None and not self._server.should_exit:
+            await asyncio.sleep(interval_seconds)
+            if self._server is None or self._server.should_exit:
+                return
+            manager = self._tls_reloader
+            if manager is None:
+                return
+            result = await manager.reload()
+            if result.outcome != "failed":
+                continue
+            for delay in delays:
+                await asyncio.sleep(delay)
+                if self._server is None or self._server.should_exit:
+                    return
+                result = await manager.reload()
+                if result.outcome != "failed":
+                    break
 
     # ------------------------------------------------------------------
     # FastAPI app builder (also used for testing)

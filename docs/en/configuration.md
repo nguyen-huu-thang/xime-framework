@@ -97,7 +97,7 @@ resources/
 
 ```yaml
 # resources/application.yml
-server:
+webserver:
   host: 0.0.0.0
   port: 8080
 
@@ -124,6 +124,50 @@ database:
 
 The env-specific file is **merged** on top of the base file. Keys not present in the env file keep their base values.
 
+### HTTPS, certificate reload, and management port
+
+```yaml
+webserver:
+  ssl:
+    certfile: /etc/letsencrypt/live/example/fullchain.pem
+    keyfile: /etc/letsencrypt/live/example/privkey.pem
+    reload:
+      mode: both                 # off, watch, api, both
+      interval_seconds: 300      # watcher; defaults to 300 seconds
+  management:
+    enabled: true
+    host: 127.0.0.1              # IPv4 or IPv6 loopback only
+    port: 9180
+```
+
+`webserver.ssl` supplies the default TLS settings for web listeners. Xime reads the cert/key files directly, including Certbot symlinks. If a replacement pair is incomplete or invalid, the active context stays in place and Xime retries; existing TLS connections keep their negotiated version, while new connections use the certificate after a successful load.
+
+`mode: watch` checks files in **every worker serving TLS**. `api` disables the watcher and enables immediate reload requests; `both` enables both; `off` neither watches nor exposes the HTTP reload endpoint. The 300-second default is only the fallback polling interval. It does not delay the Python function or HTTP API. Application code can always call:
+
+```python
+from xime.adapters.web import reload_tls
+
+result = await reload_tls(app, server_id="default")
+```
+
+The function does not need a management port and works with `mode: off`. Each worker reads its local files. If the watcher, API, or function reports the same file pair, a per-worker lock and in-memory version marker ensure that worker loads it only once. Certificate/private-key data never travels over `ProcessLink`.
+
+When `management` is enabled, Xime adds a plain-HTTP web listener bound only to loopback. Under `processes:`, this internal listener is a singleton: the current primary owns the port, and a promoted primary binds the same port after takeover. The application's `process`/`processes` YAML does not change. Management always serves detailed `/healthz` and `/readyz`; `/tls/reload` is added only when the mode is `api` or `both`, and accepts `{"server_id":"default"}`.
+
+A Certbot deploy hook can request an immediate reload after a successful renewal:
+
+```bash
+curl --fail-with-body -X POST http://127.0.0.1:9180/tls/reload \
+  -H 'Content-Type: application/json' \
+  -d '{"server_id":"default"}'
+```
+
+The response reports each worker; errors or missing workers give the hook a failing status. This version binds management to loopback but does not add API authentication yet. Management does not inherit the public certificate and does not serve business controllers or Swagger.
+
+`management.enabled` defaults to `false`. When enabled, `port` is required and `host` must be a loopback IP; API reload requires management to be enabled. Do not declare both `webserver:` and `server:`. The old `server:` block remains as a compatibility alias; `environments.server` remains the independent environment branch name.
+
+Public `/healthz` and `/readyz` still require `configure_health()`. Their bodies only contain `{"status":"ok"}` or `{"status":"unavailable"}`; detailed health is on the loopback management port when enabled.
+
 ### Active Environment
 
 Set the environment with an env var before starting:
@@ -134,7 +178,38 @@ XIME_ENV=prod python -m app.main
 APP_ENV=prod python -m app.main
 ```
 
-XIME checks `XIME_ENV` first, then falls back to `APP_ENV`. Defaults to `dev` if neither is set.
+XIME checks `XIME_ENV` first, then falls back to `APP_ENV`. If neither is set, only `application.yml` is loaded. This profile-based behavior remains supported for existing applications.
+
+### Select local/server from one file
+
+An application that carries both environments in one `application.yml` may declare `xime.dev` and two `environments` branches:
+
+```yaml
+xime:
+  dev: true # true = local; false = server/VPS
+
+server:
+  port: 8178
+
+environments:
+  local:
+    server:
+      host: 0.0.0.0
+    database:
+      url: postgresql+asyncpg://localhost/my_app
+  server:
+    server:
+      host: 127.0.0.1
+      ssl:
+        certfile: /etc/letsencrypt/live/example/fullchain.pem
+        keyfile: /etc/letsencrypt/live/example/privkey.pem
+    database:
+      url: postgresql+asyncpg://db.internal/my_app
+```
+
+The loader deeply merges the selected branch into common keys and removes `environments` from the runtime configuration. Mappings merge deeply; a list in the selected branch replaces the common list. Both branches must exist and be mappings. `xime.dev` must be explicitly set to a boolean and cannot be repeated in a branch. This mode cannot be combined with `XIME_ENV`/`APP_ENV`; conflicting selectors stop startup. `xime check config` validates the branch structure, while application-specific keys remain owned by each application. Applications without `environments` retain the existing behavior.
+
+An environment branch that declares `process:` or `processes:` replaces the common topology as a group; a branch without either key inherits the common topology. This lets local inherit the existing `processes:` while a low-memory server declares only `process:`. Use `app.run_configured()` so Xime enables the supervisor only when the effective config declares `processes:`. The effective config cannot declare both `process:` and `processes:`.
 
 ### Logging
 
@@ -231,9 +306,12 @@ at all is decided by a different switch, below.
 ## `xime.dev` - one switch for everything development-only
 
 ```yaml
-# resources/application-local.yml
+# resources/application.yml
 xime:
   dev: true
+environments:
+  local: { ... }
+  server: { ... }
 ```
 
 **Off by default; turn it on if you want it.** It decides two things, and both are

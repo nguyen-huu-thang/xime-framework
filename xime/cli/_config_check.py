@@ -21,6 +21,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from xime.core.config.loader import _load_single_file_environment
+from xime.core.exception.framework import StartupException
+
 from ._config_spec import BY_NAME, resolve
 
 
@@ -103,6 +106,15 @@ def check(path: Path) -> CheckResult:
     seen = tuple(str(k) for k in raw if isinstance(k, str))
     checked: list[str] = []
 
+    if "server" in raw and "webserver" in raw:
+        findings.append(
+            Finding(
+                "server/webserver",
+                "conflicting web server configuration",
+                "keep `webserver:` or the legacy `server:`, not both",
+            )
+        )
+
     for name in seen:
         block = BY_NAME.get(name)
         if block is None:
@@ -128,6 +140,14 @@ def check(path: Path) -> CheckResult:
                     Finding(name, "unknown block", f"did you mean {gan[0]!r}?")
                 )
             continue
+
+        if name == "environments":
+            try:
+                _load_single_file_environment(raw, profile=None)
+            except StartupException as exc:
+                # Loader errors contain key names/details only, never configured
+                # URLs, credentials, or certificate paths.
+                findings.append(Finding(name, "invalid environment overlay", str(exc)))
         resolved = resolve(block)
         if resolved.unavailable is not None or not block.complete:
             continue

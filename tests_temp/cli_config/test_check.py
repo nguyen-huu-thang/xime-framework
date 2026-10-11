@@ -29,6 +29,26 @@ class TestThreeOutcomes:
         assert result.verdict == "clean"
         assert result.findings == ()
 
+    def test_new_webserver_tls_and_management_shape_is_known(self, tmp_path: Path) -> None:
+        result = check(
+            _write(
+                tmp_path,
+                "webserver:\n"
+                "  ssl:\n"
+                "    certfile: /cert.pem\n"
+                "    keyfile: /key.pem\n"
+                "    reload: {mode: both, interval_seconds: 300}\n"
+                "  management: {enabled: true, host: 127.0.0.1, port: 9100}\n",
+            )
+        )
+        assert result.verdict == "clean"
+        assert result.blocks_checked == ("webserver",)
+
+    def test_legacy_alias_and_new_block_together_are_a_conflict(self, tmp_path: Path) -> None:
+        result = check(_write(tmp_path, "server: {}\nwebserver: {}\n"))
+        assert result.verdict == "findings"
+        assert any("conflicting" in finding.problem for finding in result.findings)
+
     def test_findings(self, tmp_path: Path) -> None:
         result = check(_write(tmp_path, "server:\n  prot: 8080\n"))
         assert result.verdict == "findings"

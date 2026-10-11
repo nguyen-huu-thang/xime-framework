@@ -34,8 +34,9 @@ Cả hai đường dẫn nằm trong `public_paths` mặc định của middlewa
 trả lời được **khi mọi thứ khác đã hỏng** - kể cả khi không lấy được khoá verify.
 Một `/healthz` đòi token là một `/healthz` im lặng đúng lúc cần nhất.
 
-Bù lại, thân phản hồi **không mang gì nhạy cảm**: id và hạng adapter, trạng thái,
-và một cờ primary. Không host, không cổng, không phiên bản, không thông điệp lỗi.
+Bề mặt public chỉ trả trạng thái `ok`/`unavailable`; không tiết lộ adapter, vai
+primary hay thông điệp lỗi. Khi bật `webserver.management`, hai route cùng tên
+trên listener loopback trả báo cáo chi tiết theo đúng tiến trình đang nhận request.
 
 ⭐ Câu *"nằm trong `public_paths` mặc định"* chỉ đúng cho middleware JWT **của
 framework**. Middleware tự viết - hàng rào IP, ghi log, hãm nhịp - thì tự hỏi
@@ -134,7 +135,7 @@ def public_health_paths(server_id: str = "default") -> tuple[str, ...]:
 def add_health_routes(
     fastapi_app: FastAPI, xime_app: Application, server_id: str = "default"
 ) -> None:
-    """Gắn route đã khai. Không khai thì không gắn gì."""
+    """Attach opt-in public probes with a minimal response body."""
     from fastapi.responses import JSONResponse
 
     config = registry.get_health(server_id)
@@ -146,7 +147,11 @@ def add_health_routes(
         # lần là mời một phản hồi tự mâu thuẫn: 200 kèm một thân nói `alive:
         # false`, vì một adapter chết đúng khoảng giữa hai lời gọi.
         report = xime_app.health()
-        return JSONResponse(report.as_dict(), status_code=200 if pick(report) else 503)
+        healthy = pick(report)
+        return JSONResponse(
+            {"status": "ok" if healthy else "unavailable"},
+            status_code=200 if healthy else 503,
+        )
 
     if config.healthz:
         fastapi_app.add_api_route(
@@ -164,3 +169,28 @@ def add_health_routes(
             include_in_schema=False,
             name="xime_readyz",
         )
+
+
+def add_management_health_routes(fastapi_app: FastAPI, xime_app: Application) -> None:
+    """Attach detailed local health probes to the loopback management app."""
+    from fastapi.responses import JSONResponse
+
+    def _respond(pick: Callable[[HealthReport], bool]) -> JSONResponse:
+        report = xime_app.health()
+        healthy = pick(report)
+        return JSONResponse(report.as_dict(), status_code=200 if healthy else 503)
+
+    fastapi_app.add_api_route(
+        DEFAULT_HEALTHZ,
+        lambda: _respond(lambda report: report.alive),
+        methods=["GET"],
+        include_in_schema=False,
+        name="xime_management_healthz",
+    )
+    fastapi_app.add_api_route(
+        DEFAULT_READYZ,
+        lambda: _respond(lambda report: report.ready),
+        methods=["GET"],
+        include_in_schema=False,
+        name="xime_management_readyz",
+    )

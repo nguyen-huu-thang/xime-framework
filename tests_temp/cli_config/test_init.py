@@ -216,7 +216,7 @@ class TestTheGeneratedProjectPassesTheFrameworksOwnChecks:
 class TestTheGeneratedProjectRunsEXACTLYAsShipped:
     """⛔⭐ Đo dự án **đúng như trình tạo xuất ra**, không thêm một dòng nào.
 
-    Nhóm ngay dưới (`...ActuallyRuns`) **ghi thêm một khối `server:`** vào
+    Nhóm ngay dưới (`...ActuallyRuns`) **ghi thêm một khối `webserver:`** vào
     `application.yml` trước khi chạy, để ghim một cổng trống. Nó chứng minh
     được việc nối dây, và **mù hoàn toàn** với câu hỏi *"file trình tạo vừa
     xuất ra có chạy được không"* - vì nó sửa chính cái file đang cần đo.
@@ -250,8 +250,8 @@ class TestTheGeneratedProjectRunsEXACTLYAsShipped:
         spec = topology.blocks[0].endpoints[("web", "default")]
         assert spec.port == 8080, (
             "file application.yml do trình tạo xuất ra phải phân giải được ra "
-            "cổng mặc định của framework; khối `server:` cố ý nằm ở dạng chú "
-            "thích vì cổng là thứ framework mặc định ĐƯỢC."
+            "cổng mặc định của framework; cổng không khai vì framework có mặc định "
+            "ĐƯỢC."
         )
 
     def test_the_shipped_project_does_not_die_at_startup(self, tmp_path: Path) -> None:
@@ -295,7 +295,7 @@ class TestTheGeneratedProjectActuallyRuns:
         root = _make(tmp_path)
         port = _free_port()
         with (root / "resources/application.yml").open("a", encoding="utf-8") as handle:
-            handle.write(f"\nserver:\n  host: 127.0.0.1\n  port: {port}\n")
+            handle.write(f"\nwebserver:\n  host: 127.0.0.1\n  port: {port}\n")
 
         process = subprocess.Popen(
             [sys.executable, "-u", "main.py"],

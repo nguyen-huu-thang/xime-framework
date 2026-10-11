@@ -9,9 +9,12 @@ framework chỉ phục vụ cho người phát triển đều treo vào đúng c
 người vận hành không phải đi tìm và gạt từng cái, cũng không phải nhớ có những cái
 nào.
 
-    # resources/application-local.yml
+    # resources/application.yml
     xime:
       dev: true
+    environments:
+      local: { ... }
+      server: { ... }
 
 **Mặc định TẮT, muốn thì phải bật lên.** A development-only surface that ships
 enabled is one nobody remembers to turn off, because nothing goes wrong when they

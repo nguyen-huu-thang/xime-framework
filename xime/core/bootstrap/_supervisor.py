@@ -955,7 +955,12 @@ class Supervisor:
         # primary đã chết, được dựng lại, sẽ quay về **vẫn tin mình là primary**
         # trong khi cha đã trao vai cho người khác. Hai primary cùng chạy job
         # nền, và không gì báo.
-        handle = self._shared.handle_for(index, primary=(process_id == self._primary_id))
+        is_primary = process_id == self._primary_id
+        handle = self._shared.handle_for(
+            index,
+            primary=is_primary,
+            run_once_needed=is_primary and not self._run_once_done,
+        )
         beats = self._shared.beats
         if beats is not None:
             # Xoá ô nhịp trước khi sinh: con mới thừa hưởng mốc của con vừa
@@ -1032,6 +1037,25 @@ class Supervisor:
             self._on_control(message.key, message.payload)
 
     def _on_control(self, key: str, payload: bytes) -> None:
+        if key == _control.ADAPTER_COMMAND_REQUEST:
+            parsed = _control.unpack_adapter_command(payload)
+            link = self._shared.link
+            if parsed is None or link is None:
+                _log.warning("supervisor: discarded malformed adapter command")
+                return
+            _request_id, targets, _command = parsed
+            if any(target >= len(self._topology.ids) for target in targets):
+                _log.warning("supervisor: discarded adapter command with invalid target")
+                return
+            try:
+                link.announce_sync(
+                    INTERNAL_CHANNEL,
+                    payload,
+                    key=_control.ADAPTER_COMMAND_BROADCAST,
+                )
+            except Exception:  # noqa: BLE001 - callers will surface the timeout
+                _log.warning("supervisor: could not relay internal adapter command", exc_info=True)
+            return
         index, _flag, extra = _control.unpack(payload)
         who = self._id_at(index)
         if key == _control.RUN_ONCE_DONE:
@@ -1179,8 +1203,16 @@ class Supervisor:
         ids = self._topology.ids
         return ids[index] if 0 <= index < len(ids) else f"#{index}"
 
-    def _promote_someone(self, *, exclude: str | None = None) -> None:
-        """Trao vai primary cho một con **đang sống**, có chống domino."""
+    def _promote_someone(
+        self,
+        *,
+        exclude: str | None = None,
+        restart_as_primary: str | None = None,
+    ) -> None:
+        """Trao vai cho worker sống hoặc dành vai cho worker đang dựng lại.
+
+        Cả hai đường đều đi qua cùng bộ đếm chống domino.
+        """
         link = self._shared.link
         if link is None or self._promotion_stopped:
             return
@@ -1207,7 +1239,7 @@ class Supervisor:
                 and pid in self._children
                 and self._children[pid].is_alive()
             ),
-            None,
+            restart_as_primary,
         )
         if candidate is None:
             self._primary_id = None
@@ -1215,6 +1247,13 @@ class Supervisor:
             return
         self._promotions.append(now)
         self._primary_id = candidate
+        if candidate == restart_as_primary:
+            _log.warning(
+                "supervisor: no live worker can take the primary role; "
+                "reserving it for %s when it restarts",
+                candidate,
+            )
+            return
         index = self._topology.ids.index(candidate)
         _log.warning("supervisor: promoting %s to primary", candidate)
         try:
@@ -1264,7 +1303,10 @@ class Supervisor:
         # "hai primary" - một tiến trình đã chết thật thì không tỉnh lại được.
         if process_id == self._primary_id:
             self._primary_id = None
-            self._promote_someone(exclude=process_id)
+            self._promote_someone(
+                exclude=process_id,
+                restart_as_primary=process_id,
+            )
         song_duoc = time.monotonic() - self._spawned_at.get(process_id, 0.0)
         if song_duoc >= _RESPAWN_RESET_AFTER:
             # Con này đã khởi động được và phục vụ một lúc; lần chết này không

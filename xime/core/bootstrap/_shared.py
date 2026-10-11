@@ -89,12 +89,15 @@ class SharedHandle:
             đã chết, được dựng lại, quay về **vẫn tin mình là primary** trong khi
             cha đã trao vai cho người khác - hai primary cùng chạy job nền, và
             không gì báo.
+        run_once_needed: primary lúc khởi động có còn phải chạy `run_once()`
+            không. Cha giữ trạng thái này xuyên qua lần dựng lại worker.
     """
 
     refdata_run_id: str | None = None
     index: int = 0
     slots: int = 1
     primary: bool = False
+    run_once_needed: bool = False
     link_id: str | None = None
     link_bells: tuple[synchronize.Semaphore, ...] = ()
     beat_run_id: str | None = None
@@ -140,13 +143,20 @@ class SharedMemoryOwner:
     def supervisor_index(self) -> int:
         return self._supervisor_index
 
-    def handle_for(self, index: int, *, primary: bool = False) -> SharedHandle:
+    def handle_for(
+        self,
+        index: int,
+        *,
+        primary: bool = False,
+        run_once_needed: bool = False,
+    ) -> SharedHandle:
         from xime.core.link import link_registry
 
         return SharedHandle(
             refdata_run_id=self._refdata.run_id if self._refdata else None,
             index=index,
             primary=primary,
+            run_once_needed=run_once_needed,
             slots=self._slots,
             link_id=self._link.link_id if self._link else None,
             link_bells=self._link.bells if self._link else (),

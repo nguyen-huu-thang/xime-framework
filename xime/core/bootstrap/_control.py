@@ -59,6 +59,14 @@ PROMOTE_FAILED: Final[str] = "promote-failed"
 #: Con -> cha: *"một adapter của tôi đã bị cô lập"*. Payload: `bytes([index]) + nhãn`.
 ADAPTER_ISOLATED: Final[str] = "adapter-isolated"
 
+# A child requests framework-owned adapter work; the supervisor relays the
+# opaque command to all workers; each target returns one opaque acknowledgement.
+# Core deliberately does not know whether that operation is TLS or something
+# else owned by an adapter package.
+ADAPTER_COMMAND_REQUEST: Final[str] = "adapter-command-request"
+ADAPTER_COMMAND_BROADCAST: Final[str] = "adapter-command-broadcast"
+ADAPTER_COMMAND_ACK: Final[str] = "adapter-command-ack"
+
 #: Giá trị `index` khi tin không nhắm vào ai cụ thể.
 BROADCAST: Final[int] = 255
 
@@ -78,3 +86,48 @@ def unpack(payload: bytes) -> tuple[int, int, bytes]:
     if len(payload) < 2:
         return BROADCAST, 0, b""
     return payload[0], payload[1], payload[2:]
+
+
+def pack_adapter_command(
+    request_id: bytes, targets: tuple[int, ...], command: bytes
+) -> bytes:
+    """`request id[16] + target count + target indices + opaque command`."""
+    if len(request_id) != 16:
+        raise ValueError("adapter command request_id must contain 16 bytes")
+    if len(targets) > 255 or any(not 0 <= target <= 254 for target in targets):
+        raise ValueError("adapter command targets must be worker indices 0..254")
+    unique = tuple(sorted(set(targets)))
+    if len(unique) != len(targets):
+        raise ValueError("adapter command targets must be unique")
+    if len(command) > 512 - 17 - len(unique):
+        raise ValueError("adapter command payload is too large")
+    return request_id + bytes([len(unique), *unique]) + command
+
+
+def unpack_adapter_command(
+    payload: bytes,
+) -> tuple[bytes, tuple[int, ...], bytes] | None:
+    if len(payload) < 17:
+        return None
+    count = payload[16]
+    end = 17 + count
+    if len(payload) < end:
+        return None
+    targets = tuple(payload[17:end])
+    if len(set(targets)) != len(targets):
+        return None
+    return payload[:16], targets, payload[end:]
+
+
+def pack_adapter_ack(request_id: bytes, index: int, result: bytes) -> bytes:
+    if len(request_id) != 16 or not 0 <= index <= 254:
+        raise ValueError("invalid adapter command acknowledgement header")
+    if len(result) > 512 - 17:
+        raise ValueError("adapter command acknowledgement is too large")
+    return request_id + bytes([index]) + result
+
+
+def unpack_adapter_ack(payload: bytes) -> tuple[bytes, int, bytes] | None:
+    if len(payload) < 17:
+        return None
+    return payload[:16], payload[16], payload[17:]

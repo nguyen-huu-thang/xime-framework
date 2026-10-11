@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 # người dùng viết. Lấy từ `._health` thì bộ test vẫn xanh kể cả ngày cái tên rơi
 # khỏi `__all__` - tức nó canh hàm, không canh thứ người dùng chạm tới.
 from xime.adapters.web import configure_health, public_health_paths
-from xime.adapters.web._health import add_health_routes
+from xime.adapters.web._health import add_health_routes, add_management_health_routes
 from xime.adapters.web._registry import registry
 from xime.core.bootstrap._health import (
     ISOLATED,
@@ -111,7 +111,12 @@ class TestTheStatusCodes:
         configure_health()
         client = _client(FakeApp(SERVING, STANDBY, primary=False))
         assert client.get("/readyz").status_code == 200
-        assert client.get("/readyz").json()["primary"] is False
+        assert client.get("/readyz").json() == {"status": "ok"}
+
+    def test_public_body_does_not_disclose_adapter_state_or_primary(self) -> None:
+        configure_health()
+        client = _client(FakeApp(SERVING, STANDBY, primary=False))
+        assert client.get("/healthz").json() == {"status": "ok"}
 
 
 class TestTheyAreAlwaysPublic:
@@ -209,4 +214,23 @@ class TestMiddlewareTuVietChoDuongSucKhoeDiQua:
         client = self._client_voi_hang_rao(cong_khai)
         assert cong_khai == ()
         assert client.get("/healthz").status_code == 403
+
+
+class TestManagementHealth:
+    def test_loopback_management_probe_returns_detailed_local_state(self) -> None:
+        fastapi_app = FastAPI()
+        add_management_health_routes(
+            fastapi_app, FakeApp(SERVING, STANDBY, primary=False)  # type: ignore[arg-type]
+        )
+        response = TestClient(fastapi_app).get("/readyz")
+        assert response.status_code == 200
+        assert response.json() == {
+            "alive": True,
+            "ready": True,
+            "primary": False,
+            "adapters": [
+                {"id": "a0", "kind": "web", "state": "serving"},
+                {"id": "a1", "kind": "web", "state": "standby"},
+            ],
+        }
 

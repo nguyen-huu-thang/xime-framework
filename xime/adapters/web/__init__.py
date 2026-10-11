@@ -11,12 +11,14 @@ Public API:
     from xime.adapters.web.openapi import configure_openapi, OpenApiConfig, JwtBearer, ApiKey
 """
 
+from . import _management as _management  # register the private listener provider
 from ._adapter import WebAdapter
 from ._config import configure_exception_handlers, configure_middleware
 from ._cors import configure_cors
 from ._health import configure_health, public_health_paths
 from ._markers import FromConfig, Inject
 from ._server_config import ServerTlsConfig, WebServerConfig
+from ._tls_reload import TlsReloadResult, TlsWorkerResult, reload_tls
 from .routing import configure_controllers, delete, get, patch, post, put
 from .ws import BEARER_SUBPROTOCOL_PREFIX, WS_UNAUTHORIZED, WebSocketHandler, ws
 
@@ -24,6 +26,9 @@ __all__ = [
     "WebAdapter",
     "ServerTlsConfig",
     "WebServerConfig",
+    "TlsReloadResult",
+    "TlsWorkerResult",
+    "reload_tls",
     "BEARER_SUBPROTOCOL_PREFIX",
     "WS_UNAUTHORIZED",
     "WebSocketHandler",

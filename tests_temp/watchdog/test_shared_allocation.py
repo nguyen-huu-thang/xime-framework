@@ -87,3 +87,10 @@ class TestThePrimaryFlagComesFromTheParent:
 
     def test_and_the_parent_can_hand_it_to_anyone(self, owner) -> None:
         assert owner.handle_for(2, primary=True).primary is True
+
+    def test_the_parent_carries_whether_cluster_run_once_is_still_needed(self, owner) -> None:
+        initial = owner.handle_for(0, primary=True, run_once_needed=True)
+        restarted = owner.handle_for(0, primary=True, run_once_needed=False)
+
+        assert initial.run_once_needed is True
+        assert restarted.run_once_needed is False

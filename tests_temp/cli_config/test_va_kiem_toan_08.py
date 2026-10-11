@@ -12,7 +12,6 @@ from xime.cli._config_check import check
 from xime.cli._config_render import render
 from xime.cli._init import build_plan, validate_name
 
-
 # ---------------------------------------------------------------------------
 # T8 - tên dự án không được sinh ra một dự án không chạy được
 # ---------------------------------------------------------------------------
@@ -125,4 +124,7 @@ class TestDuAnMoiNgheODauDuoc:
         """
         noi_dung = render("don-hang")
         assert '# host: "0.0.0.0"' in noi_dung
-        assert 'host: "127.0.0.1"' not in noi_dung
+        # Public web binding keeps its 0.0.0.0 framework default; only the
+        # disabled management listener defaults to loopback.
+        management = noi_dung.split("# management:", 1)[1].split("\n\n", 1)[0]
+        assert '# host: "127.0.0.1"' in management

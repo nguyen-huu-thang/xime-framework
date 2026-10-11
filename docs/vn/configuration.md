@@ -96,7 +96,7 @@ resources/
 
 ```yaml
 # resources/application.yml
-server:
+webserver:
   host: 0.0.0.0
   port: 8080
 
@@ -123,6 +123,50 @@ database:
 
 File env-specific được **merge** lên base file. Key không có trong env file giữ nguyên giá trị base.
 
+### HTTPS, reload chứng chỉ và cổng management
+
+```yaml
+webserver:
+  ssl:
+    certfile: /etc/letsencrypt/live/example/fullchain.pem
+    keyfile: /etc/letsencrypt/live/example/privkey.pem
+    reload:
+      mode: both                 # off, watch, api, both
+      interval_seconds: 300      # watcher; mặc định 300 giây
+  management:
+    enabled: true
+    host: 127.0.0.1              # chỉ nhận IP loopback, gồm IPv6 loopback
+    port: 9180
+```
+
+`webserver.ssl` là TLS mặc định cho các web listener. Cặp cert/key được đọc trực tiếp từ file (kể cả symlink Certbot). Khi file mới chưa hợp lệ hoặc cert/key chưa khớp, Xime giữ context cũ và thử lại; kết nối TLS đang mở tiếp tục dùng phiên bản đã bắt tay, còn kết nối mới dùng cert sau khi nạp thành công.
+
+`mode: watch` tự dò file trên **mỗi worker đang phục vụ TLS**. `api` tắt watcher và bật đường gọi tức thời; `both` bật cả hai; `off` không tự theo dõi và không mở endpoint HTTP reload. Mặc định 300 giây chỉ là nhịp dự phòng của watcher, không làm chậm hàm hoặc API. Lập trình viên vẫn có thể gọi trực tiếp:
+
+```python
+from xime.adapters.web import reload_tls
+
+result = await reload_tls(app, server_id="default")
+```
+
+Hàm này không cần cổng management và dùng được cả khi `mode: off`. Mỗi worker đọc file cục bộ; nếu watcher, API hoặc hàm cùng báo một bộ file, khóa và dấu phiên bản trong RAM làm cho mỗi worker chỉ nạp một lần. Dữ liệu chứng chỉ/private key không đi qua `ProcessLink`.
+
+Khi bật `management`, Xime tự thêm một web listener HTTP chỉ trên địa chỉ loopback. Trong `processes:`, listener này là singleton nội bộ: primary hiện tại giữ cổng, và primary mới bind lại cùng cổng sau khi được thăng cấp. Cấu hình `process`/`processes` của ứng dụng không phải thay đổi. Management luôn có `/healthz` và `/readyz` chi tiết; `/tls/reload` chỉ được thêm khi `mode` là `api` hoặc `both`, và nhận `{"server_id":"default"}`.
+
+Certbot deploy hook có thể yêu cầu nạp ngay sau khi gia hạn thành công:
+
+```bash
+curl --fail-with-body -X POST http://127.0.0.1:9180/tls/reload \
+  -H 'Content-Type: application/json' \
+  -d '{"server_id":"default"}'
+```
+
+HTTP trả kết quả của từng worker; lỗi hoặc worker không phản hồi làm hook nhận mã lỗi. Bản hiện tại chỉ giới hạn listener vào loopback, chưa thêm xác thực cho API management. Cổng management không dùng cert public, không có controller nghiệp vụ hoặc Swagger.
+
+`management.enabled` mặc định `false`. Khi bật, `port` bắt buộc và `host` phải là IP loopback; API reload yêu cầu management bật. Hai khối `webserver:` và `server:` không được khai đồng thời. `server:` cũ vẫn được chấp nhận làm alias tương thích; `environments.server` vẫn là tên nhánh môi trường riêng.
+
+Các endpoint public `/healthz` và `/readyz` vẫn phải bật riêng bằng `configure_health()`. Thân phản hồi public chỉ có `{"status":"ok"}` hoặc `{"status":"unavailable"}`; báo cáo chi tiết nằm trên cổng management loopback khi được bật.
+
 ### Môi trường hoạt động
 
 Set môi trường bằng env var trước khi khởi động:
@@ -133,7 +177,38 @@ XIME_ENV=prod python -m app.main
 APP_ENV=prod python -m app.main
 ```
 
-XIME kiểm tra `XIME_ENV` trước, sau đó fallback về `APP_ENV`. Mặc định là `dev` nếu không set.
+XIME kiểm tra `XIME_ENV` trước, sau đó fallback về `APP_ENV`. Nếu không set, chỉ `application.yml` được nạp. Cách dùng profile này tiếp tục hỗ trợ các ứng dụng hiện có.
+
+### Chọn local/server trong cùng một file
+
+Khi một ứng dụng cần mang cả hai bộ giá trị trong cùng `application.yml`, khai báo `xime.dev` và hai nhánh `environments`:
+
+```yaml
+xime:
+  dev: true # true = local; false = server/VPS
+
+server:
+  port: 8178
+
+environments:
+  local:
+    server:
+      host: 0.0.0.0
+    database:
+      url: postgresql+asyncpg://localhost/my_app
+  server:
+    server:
+      host: 127.0.0.1
+      ssl:
+        certfile: /etc/letsencrypt/live/example/fullchain.pem
+        keyfile: /etc/letsencrypt/live/example/privkey.pem
+    database:
+      url: postgresql+asyncpg://db.internal/my_app
+```
+
+Loader merge nhánh được chọn vào khóa chung rồi bỏ khối `environments` khỏi runtime config. Mapping được merge sâu; list ở nhánh được chọn thay list chung. Hai nhánh phải cùng có mặt và là mapping. `xime.dev` phải khai rõ kiểu boolean, không được khai lại bên trong một nhánh. Khối này không kết hợp với `XIME_ENV`/`APP_ENV`; trộn hai bộ chọn sẽ chặn startup. `xime check config` kiểm cấu trúc hai nhánh, còn khóa bên trong vẫn thuộc từng ứng dụng. Nếu không khai `environments`, hành vi cũ không đổi.
+
+Với cấu hình topology, nhánh có khai `process:` hoặc `processes:` sẽ thay cả nhóm topology chung; nhánh không khai thì kế thừa topology chung. Nhờ vậy có thể giữ `processes:` hiện tại ở phần chung cho local, rồi chỉ khai `process:` ở nhánh server RAM thấp. Dùng `app.run_configured()` để Xime tự gọi supervisor đúng khi cấu hình đang hoạt động có `processes:`. Không để đồng thời `process:` và `processes:` trong cấu hình có hiệu lực.
 
 ### Logging
 
@@ -230,9 +305,12 @@ do một công tắc khác quyết, xem ngay dưới.
 ## `xime.dev` - một công tắc cho mọi thứ chỉ dành cho môi trường phát triển
 
 ```yaml
-# resources/application-local.yml
+# resources/application.yml
 xime:
   dev: true
+environments:
+  local: { ... }
+  server: { ... }
 ```
 
 **Mặc định TẮT, muốn thì phải bật lên.** Nó quyết định hai chuyện, và cả hai đều

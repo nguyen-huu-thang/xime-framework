@@ -11,18 +11,20 @@ Bất đối xứng đó **không có lý do thiết kế nào** - nó là di s�
 phụ thuộc gì khái niệm ngoài cả"*), chỉ khác là lần đó core biết về **Xime**,
 lần này core biết về **một adapter cụ thể**.
 
-⚠ Gỡ ở đây là gỡ **thuộc tính Python trên `RuntimeConfig`**, không phải gỡ khoá
-YAML: khối `server:` giữ nguyên từng chữ, và 25 app không phải sửa một dòng cấu
-hình. Chỗ đổi là **AI đọc nó**.
+⚠ Cấu hình mới dùng `webserver:`. `server:` được giữ làm alias tương thích, để
+ứng dụng hiện có không phải đổi cấu hình ngay; khi khai cả hai root, startup báo
+lỗi thay vì tự chọn một nguồn.
 """
 
 from __future__ import annotations
 
+import ipaddress
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 from xime.core.config.runtime import RuntimeConfig
+from xime.core.exception.framework import StartupException
 
 
 class ServerTlsConfig(BaseModel):
@@ -66,6 +68,44 @@ class ServerTlsConfig(BaseModel):
         return bool(self.certfile or self.keyfile)
 
 
+class TlsReloadConfig(BaseModel):
+    """How certificate files are reloaded after the listener starts."""
+
+    mode: Literal["off", "watch", "api", "both"] = "off"
+    interval_seconds: int = Field(default=300, strict=True, gt=0)
+
+
+class WebServerTlsConfig(ServerTlsConfig):
+    """TLS defaults plus the framework's certificate-reload policy."""
+
+    reload: TlsReloadConfig = Field(default_factory=TlsReloadConfig)
+
+
+class ManagementServerConfig(BaseModel):
+    """Optional loopback-only management listener."""
+
+    enabled: bool = False
+    host: str = "127.0.0.1"
+    port: int | None = Field(default=None, strict=True, ge=1, le=65535)
+
+    @field_validator("host")
+    @classmethod
+    def _loopback_only(cls, value: str) -> str:
+        try:
+            address = ipaddress.ip_address(value)
+        except ValueError as exc:
+            raise ValueError("host must be an IPv4 or IPv6 loopback address") from exc
+        if not address.is_loopback:
+            raise ValueError("host must be an IPv4 or IPv6 loopback address")
+        return value
+
+    @model_validator(mode="after")
+    def _enabled_requires_port(self) -> ManagementServerConfig:
+        if self.enabled and self.port is None:
+            raise ValueError("port is required when management.enabled is true")
+        return self
+
+
 class ServerConfig(BaseModel):
     """Network binding for the HTTP adapter."""
 
@@ -75,16 +115,48 @@ class ServerConfig(BaseModel):
 
 
 class WebServerConfig(BaseModel):
-    """Khối `server:` trong `application.yml`, do chính web adapter đọc."""
+    """Khối `webserver:`; `server:` remains a compatibility alias."""
 
     host: str = "0.0.0.0"
     port: int = 8080
-    ssl: ServerTlsConfig = Field(default_factory=ServerTlsConfig)
+    ssl: WebServerTlsConfig = Field(default_factory=WebServerTlsConfig)
+    management: ManagementServerConfig = Field(default_factory=ManagementServerConfig)
+
+    @model_validator(mode="after")
+    def _management_needed_for_api(self) -> WebServerConfig:
+        if self.ssl.reload.mode in {"api", "both"} and not self.management.enabled:
+            raise ValueError(
+                "webserver.management.enabled must be true when TLS reload mode is api or both"
+            )
+        return self
 
     @classmethod
     def from_runtime(cls, runtime: RuntimeConfig) -> WebServerConfig:
-        """Đọc khối `server:`. Vắng hoặc sai kiểu thì về mặc định như cũ."""
-        raw = runtime.get("server")
-        if not isinstance(raw, dict):
+        """Read the new block or the legacy alias with path-aware errors."""
+        current = runtime.get("webserver")
+        legacy = runtime.get("server")
+        if current is not None and legacy is not None:
+            raise StartupException(
+                "\nConflicting Web Server Configuration\n"
+                "  Config : declare either `webserver:` or legacy `server:`, not both.\n"
+                "  Detail : `environments.server` is a profile name and is unaffected."
+            )
+        raw = current if current is not None else legacy
+        where = "webserver" if current is not None else "server"
+        if raw is None:
             return cls()
-        return cls.model_validate(raw)
+        if not isinstance(raw, dict):
+            raise StartupException(
+                f"\nInvalid Web Server Configuration\n  Config : {where}\n"
+                "  Detail : expected a YAML mapping."
+            )
+        try:
+            return cls.model_validate(raw)
+        except ValidationError as exc:
+            details = []
+            for error in exc.errors(include_input=False):
+                field = ".".join(str(part) for part in error["loc"])
+                details.append(f"  {where}.{field}: {error['msg']}")
+            raise StartupException(
+                "\nInvalid Web Server Configuration\n" + "\n".join(details)
+            ) from exc

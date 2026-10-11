@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Final
 
 from xime.core.exception.framework import StartupException
@@ -491,6 +491,49 @@ def _reject_conflicting_endpoints(blocks: list[ProcessBlock]) -> None:
             )
 
 
+def with_internal_endpoint(
+    topology: ProcessTopology,
+    *,
+    kind: str,
+    adapter_id: str,
+    host: str | None,
+    port: int | None,
+    options: Mapping[str, Any],
+    where: str,
+) -> ProcessTopology:
+    """Place a framework-owned listener on the topology's current primary.
+
+    This does not alter the input YAML. It applies after parsing so a singleton
+    framework listener can follow primary promotion while `process` and
+    `processes` remain application-owned schemas.
+    """
+    key = (kind, adapter_id)
+    if any(key in block.endpoints for block in topology.blocks):
+        raise topology_error(
+            "Reserved Internal Endpoint Is Declared",
+            f"Config: {where}",
+            f"Adapter: {kind}.{adapter_id}",
+            "Detail: this adapter id is reserved for a framework-owned listener; "
+            "remove the matching endpoint from `process`/`processes`.",
+        )
+
+    process_id = topology.primary_id
+    block = topology.by_id(process_id)
+    if block is None:
+        raise AssertionError("parsed topology has no primary block")
+    endpoint_options = dict(options)
+    endpoint_options["host"] = host
+    endpoint_options["port"] = port
+    spec = _parse_endpoint(kind, adapter_id, endpoint_options, where)
+    endpoints = dict(block.endpoints)
+    endpoints[key] = spec
+    updated = replace(block, endpoints=endpoints)
+    blocks = [updated if item.process_id == process_id else item for item in topology.blocks]
+    _reject_duplicate_endpoint_within_block(process_id, endpoints)
+    _reject_conflicting_endpoints(blocks)
+    return ProcessTopology(blocks=tuple(blocks))
+
+
 # ----------------------------------------------------------------------
 # Một tiến trình: khối `process:` (số ít), và phép dịch khoá phẳng cũ
 # ----------------------------------------------------------------------
@@ -548,11 +591,11 @@ def _why_multi_only(key: str) -> str:
     }[key]
 
 
-# Khoá phẳng cũ và ô tương ứng. 58/69 file cấu hình trong workspace dùng
-# `server:`, nên đây là hiện thực đông nhất - không bắt ai sửa.
+# Khoá phẳng cũ và ô tương ứng. `webserver:` là tên mới; `server:` vẫn được
+# đọc như alias trong khi các ứng dụng hiện có di chuyển.
 _FLAT_SOURCES: Final[dict[str, tuple[str, tuple[str, ...]]]] = {
     # loại adapter -> (khoá phẳng, các khoá con chép sang ô)
-    "web": ("server", ("host", "port", "ssl")),
+    "web": ("webserver", ("host", "port", "ssl")),
     "grpc": ("grpc", ("port", "tls")),
 }
 
@@ -566,7 +609,7 @@ _FLAT_SOURCES: Final[dict[str, tuple[str, tuple[str, ...]]]] = {
 # Bản dịch khoá phẳng của 0.8 làm rơi mất phần đó, nên một `application.yml`
 # không khai `server:` chết lúc khởi động với "Web Endpoint Without A Port".
 # Chính dự án do `xime init` sinh ra rơi vào đúng ca này - trình tạo cố ý để
-# `server:` ở dạng chú thích, vì cổng là thứ **framework mặc định được**.
+# webserver config ở dạng chú thích, vì cổng là thứ **framework mặc định được**.
 #
 # ⚠ Vì sao chỉ khôi phục ở ĐƯỜNG PHẲNG, không áp cho `process:`/`processes:`:
 # hai đường trả lời hai câu khác nhau. Vắng `server:` nghĩa là *"tôi không nói
@@ -588,7 +631,7 @@ _FLAT_DEFAULT_PORTS: Final[dict[str, int]] = {
 def synthesize_from_flat(
     read: Any, declared: Iterable[tuple[str, str]]
 ) -> ProcessTopology:
-    """Dựng một topology một-tiến-trình từ khoá phẳng cũ (`server:`, `grpc:`).
+    """Dựng topology một tiến trình từ flat config (`webserver:`/`server:`, `grpc:`).
 
     ⭐ Đây là một phép **DỊCH**, không phải một nhánh xử lý thứ hai. Dịch xong
     thì từ đó trở đi chỉ còn một đường code, và khoá phẳng **không thể trôi
@@ -617,6 +660,10 @@ def synthesize_from_flat(
                 )
             for field in fields:
                 value = read(f"{flat_key}.{field}")
+                # `server:` remains a compatibility alias while applications
+                # migrate to `webserver:`.
+                if value is None and kind == "web":
+                    value = read(f"server.{field}")
                 if value is not None:
                     options[field] = value
             if "port" not in options and kind in _FLAT_DEFAULT_PORTS:
