@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import grpc
 import grpc.aio
+from google.protobuf.message import Message
 
 from xime.core.contract import DownloadStream, UploadStream
 
@@ -38,7 +39,7 @@ class CodeFirstGrpcBuilder:
         self,
         app: Application,
         model: ContractModel,
-        messages: dict[str, type],
+        messages: dict[str, type[Message]],
     ) -> None:
         self._app = app
         self._model = model

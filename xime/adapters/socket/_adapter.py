@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import sys
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -146,6 +147,8 @@ class SocketAdapter(Adapter, scaling=SCALING_REPLICATED):
 
     async def start(self, app: Application) -> None:
         """Build the endpoint table, bind the socket, and serve until stopped."""
+        if sys.platform == "win32":
+            raise NotImplementedError("SocketAdapter requires POSIX asyncio Unix sockets")
         try:
             import msgpack  # noqa: F401
         except ImportError:
@@ -400,6 +403,7 @@ class SocketAdapter(Adapter, scaling=SCALING_REPLICATED):
         request_context.set("request_id", str(uuid.uuid4()))
         try:
             request = endpoint.request_type(**data)
+            assert endpoint.stream_param is not None
             kwargs = {"request": request, endpoint.stream_param: upload}
             response = await endpoint.bound(**kwargs)
             await conn.send(
@@ -426,6 +430,7 @@ class SocketAdapter(Adapter, scaling=SCALING_REPLICATED):
         request_context.set("request_id", str(uuid.uuid4()))
         try:
             request = endpoint.request_type(**data)
+            assert endpoint.stream_param is not None
             kwargs = {"request": request, endpoint.stream_param: download}
             await endpoint.bound(**kwargs)
             # Signal the client there are no more chunks.

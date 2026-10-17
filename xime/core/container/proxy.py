@@ -53,6 +53,9 @@ class DynamicProxy:
     """
 
     __slots__ = ("_interface", "_switcher", "_resolver")
+    _interface: type
+    _switcher: Switcher
+    _resolver: Callable[[type], object]
 
     def __init__(
         self,

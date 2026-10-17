@@ -272,7 +272,7 @@ class OpcuaServerAdapter(Adapter, scaling=SCALING_SINGLETON):
             namespace = served.info.namespace or DEFAULT_NAMESPACE
             await self._server.register_namespace(namespace)
             folder = await self._server.nodes.objects.add_folder(
-                ua.NodeId(served.info.cls.__name__, 0, ua.NodeIdType.String),
+                ua.NodeId(ua.String(served.info.cls.__name__), ua.Int16(0), ua.NodeIdType.String),
                 served.info.cls.__name__,
             )
             for name, node in served.info.nodes.items():

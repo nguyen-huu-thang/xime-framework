@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import itertools
+import sys
 from typing import Any
 
 from pydantic import BaseModel
@@ -49,6 +50,8 @@ class SocketClient:
     # ------------------------------------------------------------------
 
     async def connect(self) -> None:
+        if sys.platform == "win32":
+            raise NotImplementedError("SocketClient requires POSIX asyncio Unix sockets")
         reader, writer = await asyncio.open_unix_connection(self._path)
         self._conn = ConnectionWriter(writer)
         self._read_task = asyncio.create_task(self._read_loop(reader))

@@ -446,6 +446,8 @@ def _bind_tcp(spec: EndpointSpec) -> socket.socket:
 def _bind_unix(spec: EndpointSpec) -> socket.socket:
     from pathlib import Path
 
+    if sys.platform == "win32":
+        raise NotImplementedError("Shared Unix sockets require POSIX")
     assert spec.path is not None
     Path(spec.path).parent.mkdir(parents=True, exist_ok=True)
     # Dọn socket mồ côi của lần crash trước. ⚠ Nay CHA làm việc này, một lần,

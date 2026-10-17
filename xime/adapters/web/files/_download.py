@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from urllib.parse import quote
 
@@ -84,6 +85,8 @@ def _parse_range(header: str, total: int) -> _Range | None:
     start_s, sep, end_s = spec.partition("-")
     if sep == "":
         return None  # no '-' separator - malformed, ignore
+    if any(part and (not part.isascii() or not part.isdigit()) for part in (start_s, end_s)):
+        return None
 
     if start_s == "":
         # suffix form: bytes=-N  -> last N bytes
@@ -93,7 +96,7 @@ def _parse_range(header: str, total: int) -> _Range | None:
             suffix = int(end_s)
         except ValueError:
             return None  # non-numeric - malformed, ignore (serve full 200)
-        if suffix <= 0:
+        if suffix <= 0 or total == 0:
             raise ValueError("unsatisfiable")
         length = min(suffix, total)
         return _Range(offset=total - length, length=length)
@@ -102,10 +105,10 @@ def _parse_range(header: str, total: int) -> _Range | None:
         start = int(start_s)
     except ValueError:
         return None  # non-numeric - malformed, ignore
-    if start >= total:
-        raise ValueError("unsatisfiable")
     if end_s == "":
         # bytes=start-  -> start to end of object
+        if start >= total:
+            raise ValueError("unsatisfiable")
         return _Range(offset=start, length=total - start)
     try:
         end = int(end_s)
@@ -113,6 +116,8 @@ def _parse_range(header: str, total: int) -> _Range | None:
         return None  # non-numeric end - malformed, ignore
     if end < start:
         return None
+    if start >= total:
+        raise ValueError("unsatisfiable")
     end = min(end, total - 1)  # clamp to the last byte
     return _Range(offset=start, length=end - start + 1)
 
@@ -133,8 +138,13 @@ async def stream_object(
     response is 206 Partial Content with Content-Range; otherwise it is a full
     200 stream. Bytes are read lazily from storage.open_stream() so large objects
     never load fully into memory.
+    If-Range only permits a partial response when its strong ETag matches.
+    Date validators cannot be confirmed by StorageStat and receive a full 200.
+    This does not make stat() and open_stream() an atomic object snapshot.
     Stream object qua HTTP, tôn trọng Range; thiếu object -> 404; có Range hợp lệ
     -> 206, ngược lại 200 full. Đọc lười từ open_stream, không nạp hết vào RAM.
+    If-Range chỉ cho tải tiếp khi strong ETag khớp; dạng ngày/không xác nhận được
+    thì trả full 200. Không cam kết snapshot nguyên tử giữa stat và open_stream.
 
     Args:
         download: when True, force Content-Disposition: attachment. Types
@@ -170,6 +180,15 @@ async def stream_object(
         headers["ETag"] = f'"{stat.etag}"'
 
     range_header = request.headers.get("range") if request is not None else None
+    if request is not None and (validator := request.headers.get("if-range")) is not None:
+        validator = validator.strip()
+        if (
+            re.fullmatch(r'"[\x21\x23-\x7e\x80-\xff]*"', validator) is None
+            or validator != headers.get("ETag")
+        ):
+            # RFC 9110: discard Range BEFORE checking satisfiability.
+            # Bỏ Range trước khi xét 416 nếu phiên bản không được xác nhận.
+            range_header = None
     rng: _Range | None = None
     if range_header and total is not None:
         try:

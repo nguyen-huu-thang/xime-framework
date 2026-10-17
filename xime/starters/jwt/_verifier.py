@@ -142,6 +142,12 @@ class PyJwtTokenVerifier:
         # bộ có thể lặng lẽ xoá chuỗi ngầm đó.
         except jwt.ExpiredSignatureError as exc:
             raise TokenExpiredException("Token has expired") from exc
+        except RecursionError as exc:
+            # A token's JSON is untrusted and parsed before its signature. Some
+            # PyJWT versions leak the decoder's depth error instead of wrapping
+            # it in InvalidTokenError. Keep the authentication contract without
+            # hiding unrelated decoder or key-configuration failures.
+            raise AuthenticationException("Invalid token: JSON nesting limit exceeded") from exc
         except jwt.InvalidTokenError as exc:
             raise AuthenticationException(f"Invalid token: {exc}") from exc
 

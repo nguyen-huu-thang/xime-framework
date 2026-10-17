@@ -5,6 +5,7 @@ import logging
 import os
 import socket
 import struct
+import sys
 
 from xime.core.context import request_context
 
@@ -93,6 +94,8 @@ def secure_socket_file(path: str, permission: int, owner: str | None, group: str
 
     if owner is None and group is None:
         return
+    if sys.platform == "win32":
+        raise NotImplementedError("Socket ownership requires POSIX chown")
 
     # Resolve names to numeric ids. pwd/grp are POSIX-only - import lazily so the
     # module still imports on non-Linux (where chown by name is not used).

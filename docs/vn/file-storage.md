@@ -172,6 +172,19 @@ Tên file có dấu chạy đúng: header dựng theo RFC 6266 (`filename=` bả
 
 ---
 
+## Tải tiếp có điều kiện và object rỗng (Unreleased)
+
+`stream_object` xét `If-Range` trước `Range`. Strong ETag khớp cho phép trả
+206; validator cũ, weak, thiếu hoặc sai cú pháp nhận toàn bộ object hiện tại với
+200. Validator dạng ngày cũng nhận 200 vì `StorageStat` chưa có last-modified
+đáng tin để đối chiếu. Client tải tiếp khi nhận 200 phải thay phần đã tải bằng
+phản hồi mới. Validator cũ được xét trước cả Range không thỏa mãn.
+
+Object rỗng với byte range hợp lệ nhận 416 và `Content-Range: bytes */0`.
+Range sai cú pháp vẫn bị bỏ qua và nhận phản hồi full. Kiểm metadata vẫn giữ
+streaming, không tạo snapshot nguyên tử giữa `stat()` và `open_stream()` khi
+có ghi đồng thời.
+
 ## Đổi backend
 
 Vì business code (và controller) chỉ phụ thuộc `StorageService`, chuyển từ local sang S3 - hoặc sang fake in-memory khi test - chỉ là một dòng bind:

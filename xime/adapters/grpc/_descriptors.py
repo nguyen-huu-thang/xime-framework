@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
+from google.protobuf.message import Message
 
 """Shared FileDescriptorSet loading - used by both the code-first server
 (_pb2_loader) and generated client SDKs (SdkRuntime).
@@ -25,15 +25,13 @@ server/SDK trong một process không bao giờ đụng tên module pb2 (điểm
 DESCRIPTOR_SET_NAME = "_descriptors.binpb"
 
 
-def load_messages_from_descriptor_set(path: str | Path) -> dict[str, Any]:
+def load_messages_from_descriptor_set(path: str | Path) -> dict[str, type[Message]]:
     """Read a FileDescriptorSet and return {message short name → class}.
 
-    ⚠ Kiểu trả về là `Any`, không phải `type`, và đó là chú thích ĐÚNG chứ không
-    phải một chỗ bỏ qua: lớp ở đây do `descriptor_pool` **sinh lúc chạy**, nên
-    hệ thống kiểu tĩnh thật sự không nhìn thấy `FromString`, `DESCRIPTOR` hay
-    bất cứ thành viên nào của chúng. Khai `type` là hứa một điều không đúng, và
-    lời hứa đó biến chín lời gọi hợp lệ thành chín lỗi `attr-defined` - đủ ồn
-    để người ta thôi đọc kết quả của trình kiểm kiểu.
+    Generated classes share the protobuf Message API, including FromString
+    and DESCRIPTOR. Concrete generated fields remain dynamic.
+    Lớp sinh động vẫn kế thừa Message: FromString/DESCRIPTOR có kiểu chung;
+    các field riêng của message chỉ biết khi đọc descriptor lúc chạy.
     """
     data = Path(path).read_bytes()
     fds = descriptor_pb2.FileDescriptorSet.FromString(data)
@@ -43,7 +41,7 @@ def load_messages_from_descriptor_set(path: str | Path) -> dict[str, Any]:
     # single pass is enough; duplicates (well-known types) are tolerated.
     # protoc --include_imports ghi dependency trước nên một lượt là đủ;
     # trùng lặp (well-known types) được bỏ qua.
-    classes: dict[str, type] = {}
+    classes: dict[str, type[Message]] = {}
     for fd_proto in fds.file:
         try:
             pool.Add(fd_proto)

@@ -209,6 +209,76 @@ class TestDownload:
         assert r.headers["content-disposition"].startswith("attachment")
 
 
+class TestConditionalRanges:
+    @pytest.mark.asyncio
+    async def test_matching_strong_validator_allows_resume(self, client):
+        original = await client.get("/files/hello.txt")
+        response = await client.get(
+            "/files/hello.txt",
+            headers={"Range": "bytes=5-", "If-Range": original.headers["etag"]},
+        )
+        assert response.status_code == 206
+        assert response.content == b"56789"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("byte_range", ["bytes=5-", "bytes=99-"])
+    async def test_replaced_file_returns_full_new_version(self, client, storage, byte_range):
+        original = await client.get("/files/hello.txt")
+        await storage.put("hello.txt", b"ABCDEFGHIJK")
+        response = await client.get(
+            "/files/hello.txt",
+            headers={"Range": byte_range, "If-Range": original.headers["etag"]},
+        )
+        assert response.status_code == 200
+        assert response.content == b"ABCDEFGHIJK"
+        assert "content-range" not in response.headers
+        assert response.headers["etag"] != original.headers["etag"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("validator", [
+        'W/"version"', 'version', '"version", "other"',
+        "Sat, 17 Oct 2026 00:00:00 GMT", "",
+    ])
+    async def test_unconfirmed_validator_ignores_range(self, client, validator):
+        response = await client.get(
+            "/files/hello.txt", headers={"Range": "bytes=2-3", "If-Range": validator},
+        )
+        assert response.status_code == 200
+        assert response.content == b"0123456789"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("etag", [None, "s3-version"])
+    async def test_backend_metadata_controls_resume(self, s3like, s3like_client, monkeypatch, etag):
+        await s3like.put("object", b"0123456789", content_type="text/plain")
+
+        async def stat(key):
+            return StorageStat(size=10, content_type="text/plain", etag=etag)
+
+        monkeypatch.setattr(s3like, "stat", stat)
+        response = await s3like_client.get(
+            "/files/object", headers={"Range": "bytes=2-3", "If-Range": '"s3-version"'},
+        )
+        assert response.status_code == (200 if etag is None else 206)
+        assert response.content == (b"0123456789" if etag is None else b"23")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("byte_range", ["bytes=-1", "bytes=0-", "bytes=0-0"])
+    async def test_empty_file_has_no_satisfiable_range(self, client, storage, byte_range):
+        await storage.put("empty", b"")
+        response = await client.get("/files/empty", headers={"Range": byte_range})
+        assert response.status_code == 416
+        assert response.headers["content-range"] == "bytes */0"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("byte_range", ["bytes=0-oops", "bytes=-oops", "bytes=oops-"])
+    async def test_malformed_range_stays_ignored_on_empty_file(self, client, storage, byte_range):
+        await storage.put("empty", b"")
+        response = await client.get("/files/empty", headers={"Range": byte_range})
+        assert response.status_code == 200
+        assert response.content == b""
+        assert "content-range" not in response.headers
+
+
 class TestStoredXssDefences:
     """F2 - an uploaded file must never render as script on the app's origin.
 

@@ -66,7 +66,7 @@ class ConfigClassLoader:
 
     @staticmethod
     def _validate_no_constructor_params(config_class: type) -> None:
-        sig = inspect.signature(config_class.__init__)
+        sig = inspect.signature(getattr(config_class, "__init__"))
         params = [
             name
             for name, param in sig.parameters.items()

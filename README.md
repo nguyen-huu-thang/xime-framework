@@ -13,6 +13,9 @@
 
 </div>
 
+> **Release status (2026-10-15):** PyPI is at `0.8.3`. GitHub `main` contains later TLS-reload
+> and single-file environment changes from `2ad5274`; those changes require the source checkout.
+
 ---
 
 XIME is a convention layer for Python microservices. It sits **on top of** FastAPI, SQLAlchemy and gRPC - providing automatic dependency injection, startup-time graph validation, and architectural guardrails so you can focus on business logic instead of wiring.
@@ -216,11 +219,18 @@ from xime import Application
 from xime.adapters.web import WebAdapter
 
 app = Application()
-app.use(WebAdapter())                              # server_id="default", port from application.yml
-app.use(WebAdapter("admin", "127.0.0.1", 8081))   # server_id="admin", explicit host/port
+app.use(WebAdapter())          # server_id="default"
+app.use(WebAdapter("admin"))  # server_id="admin"
 app.run()
 ```
 
+```yaml
+# resources/application.yml
+process:
+  web:
+    default: {host: 0.0.0.0, port: 8080}
+    admin:   {host: 127.0.0.1, port: 8081}
+```
 </details>
 
 ---
@@ -260,7 +270,7 @@ The best way to learn XIME is to read real code. These open-source projects are 
 | **Class-Based Controllers** | Controllers are DI singletons, methods map to routes |
 | **Code-First gRPC** | Write Python DTOs, XIME generates `.proto` + stubs; field-number stability via lock file; typed server streaming with `@stream` + `yield` (no chunk wrapper, so a Java peer reads the `.proto` and understands it) |
 | **gRPC Client SDK** | Generate a typed Pydantic client from `.proto`, inject via DI; deadlines, typed errors, automatic retry |
-| **HTTPS** | TLS for the HTTP server via a `server.ssl` block in `application.yml`, including client-certificate verification; misconfiguration stops startup instead of silently serving plain HTTP |
+| **HTTPS** | TLS via `webserver.ssl` (`server:` remains an alias), client-certificate verification, and certificate reload by watcher, Python API, or loopback management endpoint. See [configuration guide](docs/en/configuration.md) for overlay validation and Uvicorn 0.47 TLS 1.2 compatibility notes. |
 | **Dynamic mTLS** | Certificate rotation without restart for both inbound servers and outbound clients |
 | **Peer Identity** | gRPC reads the verified client cert into request context (fail-soft): `current_caller()` gives the CN, `current_peer_sans()` every Subject Alternative Name - raw and uninterpreted, so you match your own scheme (SPIFFE IDs or otherwise) |
 | **Socket Adapter** | Unix Domain Socket IPC for same-host Native Engine calls (Linux); `@command` / `@stream` |
@@ -318,6 +328,8 @@ See the [CHANGELOG](CHANGELOG.md) for release history.
 ---
 
 ## Documentation
+
+[Documentation index](docs/README.md) · [API reference and ownership](docs/en/api-reference.md)
 
 | Document | Description |
 | --- | --- |

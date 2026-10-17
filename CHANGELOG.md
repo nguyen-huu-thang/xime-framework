@@ -5,6 +5,38 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/), phiên bản theo
 [Semantic Versioning](https://semver.org/lang/vi/).
 
+## [Unreleased]
+
+### Fixed
+
+- Web: nâng sàn Uvicorn lên 0.48.0 để cipher mặc định của OpenSSL dùng được
+  với client TLS 1.2 đã kiểm; giữ cipher do ứng dụng khai tường minh.
+- Config checker: rà khóa framework trong cả local/server và SSL của endpoint
+  tên động; xét field bắt buộc và xung đột alias trên cấu hình đã merge.
+- SQLAlchemy: luôn khôi phục ContextVar khi begin/commit/rollback/close lỗi;
+  giữ lỗi gốc kèm log/note của lỗi cleanup, tiếp tục truyền cancellation.
+- Download: kiểm If-Range trước Range; validator không khớp/không xác nhận được
+  trả toàn bộ phiên bản mới. Range hợp lệ trên object rỗng trả 416 thay vì
+  tạo Content-Range có điểm kết thúc âm; Range sai cú pháp tiếp tục được bỏ qua.
+- JWT: token có JSON lồng quá sâu được chuyển thành lỗi xác thực, thay vì để
+  `RecursionError` thoát ra và làm HTTP trả 500 ở nhánh khóa tĩnh. Giữ nguyên
+  phân loại token hết hạn và cách báo lỗi cấu hình/lỗi lập trình khác.
+
+### Security
+
+- Nâng sàn extra `jwt` lên `PyJWT>=2.15.0`.
+- Ràng buộc `AnyIO>=4.14.2` trong dependency runtime để bản cài framework cũng
+  nhận các bản vá process-pool stderr và IDNA khi xác thực TLS hostname.
+  Các package trong môi trường Python đang chạy cần được cập nhật qua quy
+  trình triển khai riêng; thay khai báo không tự cập nhật môi trường đã cài.
+
+### Maintenance
+
+- Trả nợ kiểm tra kiểu của DI/reflection, protobuf, adapter và API theo nền
+  tảng; giữ cấu hình mypy và bề mặt export hiện có.
+- Thêm mục lục tài liệu, API reference EN/VN với phân loại API/alias/hạ tầng
+  và ví dụ; cập nhật hướng dẫn Range, transaction và checker cấu hình.
+
 ## [0.8.3] - 2026-09-01
 
 Bản này có **hai đổi hành vi** và **hai lỗi im lặng** đáng đọc trước khi nâng.

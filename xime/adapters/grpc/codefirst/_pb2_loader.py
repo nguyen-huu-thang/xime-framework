@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import os
 
+from google.protobuf.message import Message
+
 from .._descriptors import DESCRIPTOR_SET_NAME, load_messages_from_descriptor_set
 
 
-def load_message_classes(output_dir: str, server_id: str) -> dict[str, type]:
+def load_message_classes(output_dir: str, server_id: str) -> dict[str, type[Message]]:
     """Load the generated message classes for a server, mapping name → class.
 
     Reads the FileDescriptorSet that `xime grpc generate` writes at

@@ -187,6 +187,20 @@ using `selectinload` explicitly as you already do.
 
 ---
 
+## Cleanup failures (Unreleased)
+
+SQLAlchemy managers restore the session context even if begin, commit, rollback
+or close fails. A close failure on its own is raised; if an earlier business or
+transaction error exists, it survives and cleanup failures are logged and added
+as exception notes. Cancellation and other process-control exceptions continue
+to propagate. A read-only block borrowing an outer session leaves its lifecycle
+to the owner. When the block owns a session, loaded entities are still detached
+before rollback.
+
+`ReadOnlyContext` is the context-manager Protocol returned by
+`ReadOnlyManager`; obtain contexts from the manager rather than constructing
+protocol instances.
+
 ## Nested Transactions
 
 The current design uses a single session per transaction scope. Nested `async with self.transaction():` blocks are possible but share the same underlying session - true nested transactions (savepoints) are not yet supported.

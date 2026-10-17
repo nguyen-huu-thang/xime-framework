@@ -56,7 +56,7 @@ class RouteBuilder:
         prefix: str = getattr(cls, "prefix", "")
         tags: list[str] = getattr(cls, "tags", [])
 
-        router = APIRouter(prefix=prefix, tags=tags)
+        router = APIRouter(prefix=prefix, tags=list(tags))
 
         # Use vars() + MRO traversal to preserve declaration order.
         # inspect.getmembers() returns alphabetically - routes would appear
@@ -95,7 +95,7 @@ class RouteBuilder:
                 description=route_info.description,
                 deprecated=route_info.deprecated,
                 include_in_schema=route_info.include_in_schema,
-                tags=route_info.tags,
+                tags=list(route_info.tags) if route_info.tags is not None else None,
                 name=route_info.name,
                 operation_id=route_info.operation_id,
             )

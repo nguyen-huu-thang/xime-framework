@@ -154,17 +154,17 @@ class Adapter(Protocol):
                 f"mean something for scaling=\"sharded\". Silently ignoring them "
                 f"would let you believe a check runs when it does not."
             )
-        cls.scaling = effective
+        setattr(cls, "scaling", effective)
         if scaling is not None:
             # Đổi hạng thì luật phân mảnh của lớp cha hết áp dụng - giữ lại là
             # chạy một phép kiểm cho một hạng không còn tồn tại.
-            cls.unique_per_process = tuple(unique_per_process)
-            cls.disjoint_per_process = tuple(disjoint_per_process)
+            setattr(cls, "unique_per_process", tuple(unique_per_process))
+            setattr(cls, "disjoint_per_process", tuple(disjoint_per_process))
         else:
             if unique_per_process:
-                cls.unique_per_process = tuple(unique_per_process)
+                setattr(cls, "unique_per_process", tuple(unique_per_process))
             if disjoint_per_process:
-                cls.disjoint_per_process = tuple(disjoint_per_process)
+                setattr(cls, "disjoint_per_process", tuple(disjoint_per_process))
 
     async def start(self, app: Application) -> None:
         """Chiếm tài nguyên rồi **TRẢ VỀ**. Không phục vụ ở đây.

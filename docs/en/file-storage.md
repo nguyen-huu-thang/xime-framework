@@ -175,6 +175,20 @@ HTTP 500.
 
 ---
 
+## Conditional resume and empty objects (Unreleased)
+
+`stream_object` evaluates `If-Range` before `Range`. A matching strong ETag
+permits 206; a changed, weak, missing or malformed validator produces the
+complete current object with 200. HTTP-date validators also produce 200 because
+`StorageStat` has no trustworthy last-modified field. A resuming client receiving
+200 must replace its old partial file. An outdated validator takes precedence
+over an otherwise unsatisfiable range.
+
+For an empty object, a valid byte range returns 416 and
+`Content-Range: bytes */0`. Malformed ranges are ignored and receive a full
+response. Checks keep streaming and do not make `stat()` and `open_stream()`
+an atomic snapshot during concurrent writes.
+
 ## Switching Backend
 
 Because business code (and the controller) depend only on `StorageService`, moving from local to S3 - or to an in-memory fake in tests - is a one-line binding change:

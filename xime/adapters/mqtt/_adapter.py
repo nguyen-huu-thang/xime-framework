@@ -73,7 +73,7 @@ class MqttAdapter(
         chặn là *chia tải*, không phải *nhận cấu hình*, nên phép chặn nằm ở
         framework (`_reject_sharded_under_share_load`).
         """
-        self._slot = slot
+        self._slot: object | None = slot
 
     def __init__(self, target_id: str = "default", path: str | None = None) -> None:
         # ⚠ `target_id`, không phải `client_id`. Chữ `client_id` đã mang HAI
@@ -89,7 +89,7 @@ class MqttAdapter(
         # MQTT chỉ cho MỘT phiên trên mỗi client id và đá phiên cũ ra, nên hai
         # adapter cùng id sẽ đánh nhau trong vòng lặp reconnect.
         self.adapter_id = target_id
-        self._slot: object | None = None
+        self._slot = None
         self._config: MqttConfig | None = None
         self._connection = mqtt_registry.connection(target_id)
         # Claim the client_id at construction (app.use time), well before any

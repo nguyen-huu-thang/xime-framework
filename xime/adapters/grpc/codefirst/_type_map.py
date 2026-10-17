@@ -158,8 +158,8 @@ def python_hint(py_type: Any) -> str | None:
         (elem,) = typing.get_args(py_type) or (Any,)
         return python_hint(elem)
     if origin in (dict, typing.Dict):  # noqa: UP006
-        args = typing.get_args(py_type)
-        return python_hint(args[1]) if len(args) == 2 else None
+        dict_args = typing.get_args(py_type)
+        return python_hint(dict_args[1]) if len(dict_args) == 2 else None
 
     if py_type is decimal.Decimal:
         return "decimal"

@@ -56,7 +56,7 @@ class SystemdNotifier:
         address: str | bytes = ("\0" + raw[1:]) if raw[0] == "@" else raw
         try:
             self._socket = socket.socket(
-                socket.AF_UNIX, socket.SOCK_DGRAM | socket.SOCK_CLOEXEC
+                socket.AF_UNIX, socket.SOCK_DGRAM | getattr(socket, "SOCK_CLOEXEC", 0)
             )
         except OSError:
             _log.debug("sd_notify: could not open the notify socket", exc_info=True)

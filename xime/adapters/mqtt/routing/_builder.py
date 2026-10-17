@@ -62,7 +62,7 @@ class MqttRouteBuilder:
 
         for cls in controllers:
             try:
-                instance = self._app.get(cls)
+                instance: object = self._app.get(cls)
             except KeyError:
                 raise RuntimeError(
                     f"MQTT controller '{cls.__name__}' is not registered in the "

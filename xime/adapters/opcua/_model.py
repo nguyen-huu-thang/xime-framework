@@ -152,9 +152,9 @@ def node_model(cls: type | None = None, *, namespace: str | None = None):
         setattr(target, NODE_MODEL_ATTR, info)
 
         if "__init__" not in target.__dict__:
-            target.__init__ = _make_init(nodes)  # type: ignore[method-assign]
+            setattr(target, "__init__", _make_init(nodes))
         if "__repr__" not in target.__dict__:
-            target.__repr__ = _make_repr(nodes)  # type: ignore[method-assign]
+            setattr(target, "__repr__", _make_repr(nodes))
         return target
 
     if cls is not None:          # used bare: @node_model

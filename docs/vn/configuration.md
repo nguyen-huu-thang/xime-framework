@@ -114,7 +114,7 @@ redis:
 
 ```yaml
 # resources/application-prod.yml
-server:
+webserver:
   port: 443
 
 database:
@@ -140,6 +140,8 @@ webserver:
 ```
 
 `webserver.ssl` là TLS mặc định cho các web listener. Cặp cert/key được đọc trực tiếp từ file (kể cả symlink Certbot). Khi file mới chưa hợp lệ hoặc cert/key chưa khớp, Xime giữ context cũ và thử lại; kết nối TLS đang mở tiếp tục dùng phiên bản đã bắt tay, còn kết nối mới dùng cert sau khi nạp thành công.
+
+**Tương thích cipher:** trên Uvicorn 0.47.0, phép đo Windows/Python 3.14.8/OpenSSL 3.5.9 cho thấy mặc định `TLSv1` không bắt tay được với client Python mặc định khi ép TLS 1.2; TLS 1.3 vẫn hoạt động. Uvicorn 0.48.0 đổi sang cipher mặc định của OpenSSL và đạt phép đo TLS 1.2 này. Nếu dùng Uvicorn 0.47.0 và cần TLS 1.2, hãy khai `ciphers` phía server (ví dụ `ECDHE+AESGCM`) hoặc nâng Uvicorn; kiểm chứng với các client thực tế của ứng dụng.
 
 `mode: watch` tự dò file trên **mỗi worker đang phục vụ TLS**. `api` tắt watcher và bật đường gọi tức thời; `both` bật cả hai; `off` không tự theo dõi và không mở endpoint HTTP reload. Mặc định 300 giây chỉ là nhịp dự phòng của watcher, không làm chậm hàm hoặc API. Lập trình viên vẫn có thể gọi trực tiếp:
 
@@ -187,17 +189,17 @@ Khi một ứng dụng cần mang cả hai bộ giá trị trong cùng `applicat
 xime:
   dev: true # true = local; false = server/VPS
 
-server:
+webserver:
   port: 8178
 
 environments:
   local:
-    server:
+    webserver:
       host: 0.0.0.0
     database:
       url: postgresql+asyncpg://localhost/my_app
   server:
-    server:
+    webserver:
       host: 127.0.0.1
       ssl:
         certfile: /etc/letsencrypt/live/example/fullchain.pem
@@ -206,7 +208,7 @@ environments:
       url: postgresql+asyncpg://db.internal/my_app
 ```
 
-Loader merge nhánh được chọn vào khóa chung rồi bỏ khối `environments` khỏi runtime config. Mapping được merge sâu; list ở nhánh được chọn thay list chung. Hai nhánh phải cùng có mặt và là mapping. `xime.dev` phải khai rõ kiểu boolean, không được khai lại bên trong một nhánh. Khối này không kết hợp với `XIME_ENV`/`APP_ENV`; trộn hai bộ chọn sẽ chặn startup. `xime check config` kiểm cấu trúc hai nhánh, còn khóa bên trong vẫn thuộc từng ứng dụng. Nếu không khai `environments`, hành vi cũ không đổi.
+Loader merge nhánh được chọn vào khóa chung rồi bỏ khối `environments` khỏi runtime config. Mapping được merge sâu; list ở nhánh được chọn thay list chung. Hai nhánh phải cùng có mặt và là mapping. `xime.dev` phải khai rõ kiểu boolean, không được khai lại bên trong một nhánh. Khối này không kết hợp với `XIME_ENV`/`APP_ENV`; trộn hai bộ chọn sẽ chặn startup. `xime check config` hiện chỉ kiểm cấu trúc nhánh, chưa kiểm schema các khóa framework nằm bên trong overlay. Một lỗi gõ sai TLS trong nhánh có thể khiến HTTPS không được cấu hình mà checker vẫn báo `clean`. Nếu overlay chứa TLS, hãy rà cấu hình hiệu lực và xác nhận bằng HTTPS handshake. Nếu không khai `environments`, hành vi cũ không đổi.
 
 Với cấu hình topology, nhánh có khai `process:` hoặc `processes:` sẽ thay cả nhóm topology chung; nhánh không khai thì kế thừa topology chung. Nhờ vậy có thể giữ `processes:` hiện tại ở phần chung cho local, rồi chỉ khai `process:` ở nhánh server RAM thấp. Dùng `app.run_configured()` để Xime tự gọi supervisor đúng khi cấu hình đang hoạt động có `processes:`. Không để đồng thời `process:` và `processes:` trong cấu hình có hiệu lực.
 
@@ -402,6 +404,21 @@ nginx, Caddy hay Traefik đều ghi cùng thông tin đó bằng mã C, không t
 phí nào của tiến trình Python.
 
 ---
+
+## Phạm vi checker và sàn dependency (Unreleased)
+
+`xime check config` kiểm khóa framework ở common và cả hai nhánh
+`environments.local/server`, gồm nhánh chưa được chọn. Field bắt buộc và xung
+đột server/webserver được xét sau khi merge để overlay có thể kế thừa giá trị.
+ID trong `process.web.<id>` hoặc `processes.<process_id>.web.<id>` là tên động;
+khóa SSL bên trong vẫn được kiểm. Khối riêng của app nằm ngoài schema framework.
+HTTP chủ ý và khối SSL rỗng vẫn hợp lệ. Checker báo đường dẫn khóa thay vì
+giá trị credential; file không đọc được có kết quả inconclusive.
+
+Sàn dependency của checkout phát triển: PyJWT 2.15.0 ở jwt, AnyIO 4.14.2 ở
+runtime và Uvicorn 0.48.0 ở web. Đổi metadata source không tự nâng môi trường đã
+cài; cập nhật dependency qua quy trình triển khai app. Cipher khai tường minh
+vẫn được tôn trọng.
 
 ## Truyền Config vào Application
 

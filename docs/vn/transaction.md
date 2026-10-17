@@ -186,6 +186,18 @@ Quan hệ chưa nạp thì vẫn lỗi, giống hệt async SQLAlchemy thông th
 
 ---
 
+## Lỗi khi cleanup (Unreleased)
+
+Manager SQLAlchemy luôn khôi phục context session khi begin, commit, rollback
+hoặc close lỗi. Lỗi close đơn lẻ được ném ra; nếu đã có lỗi nghiệp vụ hoặc
+transaction, giữ lỗi gốc và ghi lỗi cleanup vào log/note của exception.
+Cancellation và exception điều khiển tiến trình vẫn được truyền tiếp. Khối
+chỉ đọc mượn session bao ngoài để người sở hữu quản lý vòng đời; khi tự mở
+session, entity vẫn được detach trước rollback.
+
+`ReadOnlyContext` là Protocol context manager do `ReadOnlyManager` trả về;
+lấy context qua manager thay vì tự dựng instance của Protocol.
+
 ## Nested Transaction
 
 Thiết kế hiện tại dùng một session cho mỗi transaction scope. Các khối `async with self.transaction():` lồng nhau có thể dùng nhưng share cùng underlying session - nested transaction thực sự (savepoint) chưa được hỗ trợ.

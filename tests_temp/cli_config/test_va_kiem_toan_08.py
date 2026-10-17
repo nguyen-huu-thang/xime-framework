@@ -95,7 +95,8 @@ class TestGoSaiTenKhoi:
 
     def test_khoi_process_nay_la_HOP_LE(self, tmp_path: Path) -> None:
         """T10: `process:` từng không có trong bản mô tả, nên nó bị coi là lạ."""
-        assert not _kiem({"process": {"web": {"port": 8080}}}, tmp_path)
+        # Endpoint IDs are required by the current topology parser.
+        assert not _kiem({"process": {"web": {"default": {"port": 8080}}}}, tmp_path)
 
 
 # ---------------------------------------------------------------------------

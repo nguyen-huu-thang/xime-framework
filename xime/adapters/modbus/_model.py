@@ -490,9 +490,9 @@ def device(
                 field._owner_info = info
         setattr(cls, DEVICE_ATTR, info)
         if "__init__" not in cls.__dict__:
-            cls.__init__ = _make_init(fields)  # type: ignore[method-assign]
+            setattr(cls, "__init__", _make_init(fields))
         if "__repr__" not in cls.__dict__:
-            cls.__repr__ = _make_repr(fields)  # type: ignore[method-assign]
+            setattr(cls, "__repr__", _make_repr(fields))
         return cls
 
     return decorator

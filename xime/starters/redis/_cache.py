@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from xime.starters.redis._client import RedisClientProvider
 
 
@@ -31,7 +33,9 @@ class RedisCacheService:
         self._provider = provider
 
     async def get(self, key: str) -> bytes | None:
-        return await self._provider.client.get(key)
+        # RedisClientProvider fixes decode_responses=False; the upstream return
+        # union also covers clients configured to decode to str.
+        return cast(bytes | None, await self._provider.client.get(key))
 
     async def set(self, key: str, value: bytes, ttl: int | None = None) -> None:
         # redis-py maps ex=<seconds> to the SET ... EX option; None → no expiry.

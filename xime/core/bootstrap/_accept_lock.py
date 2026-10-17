@@ -80,7 +80,10 @@ import logging
 import socket
 import sys
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import ctypes
 
 _log = logging.getLogger("xime.bootstrap")
 
@@ -128,8 +131,14 @@ class _KhoaCoTen:
     """
 
     __slots__ = ("_h", "_k32", "_ten", "_da_bao_bo_roi")
+    _h: int
+    _k32: ctypes.CDLL
+    _ten: str
+    _da_bao_bo_roi: bool
 
     def __init__(self, ten: str) -> None:
+        if sys.platform != "win32":
+            raise NotImplementedError("Win32 accept mutex requires Windows")
         import ctypes
         import ctypes.wintypes as w
 

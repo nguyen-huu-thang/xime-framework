@@ -90,32 +90,55 @@ def _walk(
         children = known[name]
         if children and isinstance(value, dict):
             _walk(value, children, where, findings)
+        elif children and value is not None:
+            findings.append(Finding(where, "expected a mapping"))
 
 
 def _key_tree(keys: Any) -> dict[str, Any]:
     return {k.name: _key_tree(k.children) for k in keys}
 
 
-def check(path: Path) -> CheckResult:
-    """Soi một file `application.yml`."""
-    raw, problem = _load(path)
-    if raw is None:
-        return CheckResult((), (), (), unreadable=problem)
+def _web_endpoints(raw: dict[str, Any], prefix: str, findings: list[Finding]) -> None:
+    """Process/endpoint IDs are dynamic; only the web option schema is fixed."""
+    resolved = resolve(BY_NAME["webserver"])
+    if resolved.unavailable is not None:
+        return
+    tls = next(key for key in resolved.keys if key.name == "ssl")
+    known = {"host": {}, "port": {}, "path": {}, "shared": {}, "ssl": _key_tree(tls.children)}
+    processes = raw.get("processes")
+    blocks = [("process", raw["process"])] if "process" in raw else []
+    if isinstance(processes, dict):
+        blocks.extend((f"processes.{name}", value) for name, value in processes.items())
+    for name, block in blocks:
+        if not isinstance(block, dict) or not isinstance(block.get("web"), dict):
+            continue
+        for endpoint_id, options in block["web"].items():
+            where = f"{prefix}{name}.web.{endpoint_id}"
+            if isinstance(options, dict):
+                _walk(options, known, where, findings)
+            else:
+                findings.append(Finding(where, "expected a mapping"))
 
-    findings: list[Finding] = []
-    seen = tuple(str(k) for k in raw if isinstance(k, str))
-    checked: list[str] = []
 
-    if "server" in raw and "webserver" in raw:
+def _inspect_blocks(
+    raw: dict[str, Any], prefix: str, findings: list[Finding], checked: list[str],
+    *, keys: bool = True, required: bool = True,
+) -> None:
+    # Check raw overlays for spelling, effective configs for required fields.
+    # Kiểm tên trên overlay thô; field bắt buộc phải xét sau khi kế thừa common.
+    if required and "server" in raw and "webserver" in raw:
         findings.append(
             Finding(
-                "server/webserver",
+                f"{prefix}server/webserver",
                 "conflicting web server configuration",
                 "keep `webserver:` or the legacy `server:`, not both",
             )
         )
 
-    for name in seen:
+    for name, value in raw.items():
+        if not isinstance(name, str) or name == "environments":
+            continue
+        where = f"{prefix}{name}"
         block = BY_NAME.get(name)
         if block is None:
             # Khối của chính ứng dụng (`trust:`, `app:`, `shard:`...). Framework
@@ -135,32 +158,65 @@ def check(path: Path) -> CheckResult:
             # một dòng log nào. Đúng loại lỗi công cụ này sinh ra để bắt.
             # Phát hiện T9 của kiểm toán 0.8.
             gan = difflib.get_close_matches(name, list(BY_NAME), n=1, cutoff=0.7)
-            if gan:
+            if keys and gan:
                 findings.append(
-                    Finding(name, "unknown block", f"did you mean {gan[0]!r}?")
+                    Finding(where, "unknown block", f"did you mean {gan[0]!r}?")
                 )
             continue
 
-        if name == "environments":
-            try:
-                _load_single_file_environment(raw, profile=None)
-            except StartupException as exc:
-                # Loader errors contain key names/details only, never configured
-                # URLs, credentials, or certificate paths.
-                findings.append(Finding(name, "invalid environment overlay", str(exc)))
         resolved = resolve(block)
         if resolved.unavailable is not None or not block.complete:
             continue
-        checked.append(name)
+        checked.append(where)
         known = _key_tree(resolved.keys)
-        value = raw[name]
-        if isinstance(value, dict):
-            _walk(value, known, name, findings)
+        if keys and isinstance(value, dict):
+            _walk(value, known, where, findings)
 
         for key in resolved.keys:
-            if key.required and (not isinstance(value, dict) or key.name not in value):
+            if required and key.required and (not isinstance(value, dict) or key.name not in value):
                 findings.append(
-                    Finding(f"{name}.{key.name}", "required key is missing"),
+                    Finding(f"{where}.{key.name}", "required key is missing"),
                 )
+    if keys:
+        _web_endpoints(raw, prefix, findings)
 
-    return CheckResult(tuple(findings), seen, tuple(checked))
+
+def check(path: Path) -> CheckResult:
+    """Check common keys and BOTH local/server overlays without leaking values."""
+    raw, problem = _load(path)
+    if raw is None:
+        return CheckResult((), (), (), unreadable=problem)
+
+    findings: list[Finding] = []
+    seen = tuple(k for k in raw if isinstance(k, str))
+    checked: list[str] = []
+    has_environments = "environments" in raw
+    _inspect_blocks(raw, "", findings, checked, required=not has_environments)
+    if has_environments:
+        checked.append("environments")
+        valid = True
+        try:
+            _load_single_file_environment(raw, profile=None)
+        except StartupException as exc:
+            valid = False
+            findings.append(Finding("environments", "invalid environment overlay", str(exc)))
+        branches = raw.get("environments")
+        if isinstance(branches, dict):
+            for name in ("local", "server"):
+                branch = branches.get(name)
+                if not isinstance(branch, dict):
+                    continue
+                prefix = f"environments.{name}."
+                _inspect_blocks(branch, prefix, findings, checked, required=False)
+                if valid:
+                    # Reuse the loader's topology-replacement and merge rules;
+                    # switching dev here checks the unselected branch as well.
+                    selected = {**raw, "xime": {**raw["xime"], "dev": name == "local"}}
+                    try:
+                        effective = _load_single_file_environment(selected, profile=None)
+                    except StartupException as exc:
+                        findings.append(Finding(prefix[:-1], "invalid environment overlay", str(exc)))
+                    else:
+                        _inspect_blocks(effective, prefix, findings, checked, keys=False)
+
+    return CheckResult(tuple(dict.fromkeys(findings)), seen, tuple(dict.fromkeys(checked)))

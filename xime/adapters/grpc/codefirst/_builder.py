@@ -138,7 +138,7 @@ class _MessageRegistry:
                 # Pydantic v2 strips Annotated, moving extras to finfo.metadata.
                 # Re-wrap so map_type sees ProtoInt32 etc. again.
                 # Pydantic v2 tách Annotated, đẩy extras vào finfo.metadata - dựng lại.
-                annotation = finfo.annotation
+                annotation: object = finfo.annotation
                 if finfo.metadata:
                     annotation = Annotated[(annotation, *finfo.metadata)]
                 proto_type, optional = map_type(annotation, self)

@@ -68,7 +68,7 @@ class GraphValidator:
         self,
         resolved: ResolvedMap,
         graph: DependencyGraph,
-        bindings: dict[type, type],
+        bindings: dict[type, type | tuple[type, ...]],
         all_classes: list[type],
         instances: dict[type, object] | None = None,
         factory_provided: list[type] | None = None,

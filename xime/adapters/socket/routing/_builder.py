@@ -83,7 +83,7 @@ class SocketEndpointBuilder:
                 continue
 
             try:
-                instance = self._app.get(cls)
+                instance: object = self._app.get(cls)
             except KeyError:
                 raise RuntimeError(
                     f"Socket controller '{cls.__name__}' is not registered in the "

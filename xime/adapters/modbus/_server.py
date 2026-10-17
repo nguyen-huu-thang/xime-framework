@@ -325,7 +325,8 @@ class ModbusServerAdapter(Adapter, scaling=SCALING_SINGLETON):
             else:
                 blocks.append([SimData(0, values=[0] * size, datatype=DataType.REGISTERS)])
 
-        return SimDevice(unit, simdata=tuple(blocks), action=self._make_action(unit))
+        areas = (blocks[0], blocks[1], blocks[2], blocks[3])
+        return SimDevice(unit, simdata=areas, action=self._make_action(unit))
 
     def _area_size(self, unit: int, area: Area) -> int:
         highest = 0

@@ -37,5 +37,5 @@ class GrpcServiceBuilder:
         for handler_cls, add_fn in bindings.items():
             if getattr(handler_cls, "server_id", "default") != self._server_id:
                 continue
-            instance = self._application.get(handler_cls)
+            instance: object = self._application.get(handler_cls)
             add_fn(instance, server)

@@ -115,7 +115,7 @@ redis:
 
 ```yaml
 # resources/application-prod.yml
-server:
+webserver:
   port: 443
 
 database:
@@ -141,6 +141,8 @@ webserver:
 ```
 
 `webserver.ssl` supplies the default TLS settings for web listeners. Xime reads the cert/key files directly, including Certbot symlinks. If a replacement pair is incomplete or invalid, the active context stays in place and Xime retries; existing TLS connections keep their negotiated version, while new connections use the certificate after a successful load.
+
+**Cipher compatibility:** with Uvicorn 0.47.0, a Windows/Python 3.14.8/OpenSSL 3.5.9 measurement found that the default `TLSv1` string could not handshake with Python's default client when TLS 1.2 was forced; TLS 1.3 still worked. Uvicorn 0.48.0 changed to OpenSSL's default cipher list and passed that TLS 1.2 measurement. If you use Uvicorn 0.47.0 and need TLS 1.2, set a server-side `ciphers` value (for example, `ECDHE+AESGCM`) or upgrade Uvicorn, then test with your application's clients.
 
 `mode: watch` checks files in **every worker serving TLS**. `api` disables the watcher and enables immediate reload requests; `both` enables both; `off` neither watches nor exposes the HTTP reload endpoint. The 300-second default is only the fallback polling interval. It does not delay the Python function or HTTP API. Application code can always call:
 
@@ -188,17 +190,17 @@ An application that carries both environments in one `application.yml` may decla
 xime:
   dev: true # true = local; false = server/VPS
 
-server:
+webserver:
   port: 8178
 
 environments:
   local:
-    server:
+    webserver:
       host: 0.0.0.0
     database:
       url: postgresql+asyncpg://localhost/my_app
   server:
-    server:
+    webserver:
       host: 127.0.0.1
       ssl:
         certfile: /etc/letsencrypt/live/example/fullchain.pem
@@ -207,7 +209,7 @@ environments:
       url: postgresql+asyncpg://db.internal/my_app
 ```
 
-The loader deeply merges the selected branch into common keys and removes `environments` from the runtime configuration. Mappings merge deeply; a list in the selected branch replaces the common list. Both branches must exist and be mappings. `xime.dev` must be explicitly set to a boolean and cannot be repeated in a branch. This mode cannot be combined with `XIME_ENV`/`APP_ENV`; conflicting selectors stop startup. `xime check config` validates the branch structure, while application-specific keys remain owned by each application. Applications without `environments` retain the existing behavior.
+The loader deeply merges the selected branch into common keys and removes `environments` from the runtime configuration. Mappings merge deeply; a list in the selected branch replaces the common list. Both branches must exist and be mappings. `xime.dev` must be explicitly set to a boolean and cannot be repeated in a branch. This mode cannot be combined with `XIME_ENV`/`APP_ENV`; conflicting selectors stop startup. `xime check config` currently checks branch structure, but does not validate framework schemas inside an overlay. A misspelled TLS key in a branch can leave HTTPS unconfigured while the checker reports `clean`. If an overlay contains TLS, inspect the effective configuration and verify it with an HTTPS handshake. Applications without `environments` retain the existing behavior.
 
 An environment branch that declares `process:` or `processes:` replaces the common topology as a group; a branch without either key inherits the common topology. This lets local inherit the existing `processes:` while a low-memory server declares only `process:`. Use `app.run_configured()` so Xime enables the supervisor only when the effective config declares `processes:`. The effective config cannot declare both `process:` and `processes:`.
 
@@ -409,6 +411,22 @@ from there: nginx, Caddy and Traefik all record the same information in C, witho
 spending any of the Python process's budget on it.
 
 ---
+
+## Checker coverage and dependency floors (Unreleased)
+
+`xime check config` checks framework keys in common configuration and both
+`environments.local/server`, including the inactive branch. Required fields and
+server/webserver conflicts are checked after merging common values, so a partial
+overlay may inherit required settings. IDs under `process.web.<id>` or
+`processes.<process_id>.web.<id>` are dynamic; SSL keys within those endpoints
+are checked. Application-owned blocks remain outside the framework schema.
+Intentional HTTP and empty SSL blocks remain supported. Findings show key
+paths rather than credential values; unreadable files are inconclusive.
+
+Development dependency floors are PyJWT 2.15.0 for jwt, AnyIO 4.14.2 at runtime,
+and Uvicorn 0.48.0 for web. Updating source metadata does not upgrade an existing
+environment; update dependencies through the application's deployment workflow.
+Explicit cipher configuration still wins.
 
 ## Passing Config to Application
 

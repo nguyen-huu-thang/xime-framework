@@ -146,8 +146,11 @@ class MqttDispatcher:
         # handler ném lỗi - đó đúng là ca đáng nhìn nhất.
         if response_topic:
             self._check_reply_topic(response_topic, route)
+        request_type = route.request_type
         try:
-            request = route.request_type.model_validate_json(payload or b"{}")
+            if request_type is None:
+                raise RuntimeError("RPC route has no request model")
+            request = request_type.model_validate_json(payload or b"{}")
             kwargs: dict[str, Any] = {route.request_param: request}
             if route.wants_topic:
                 kwargs["topic"] = topic

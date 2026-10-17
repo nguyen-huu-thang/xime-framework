@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from xime.starters.sqlalchemy.session import AsyncSessionFactory, _current_session
 
+from ._cleanup import _close_session, _report_cleanup_failure
+
 
 class SqlAlchemyTransactionContext:
     """
@@ -27,11 +29,14 @@ class SqlAlchemyTransactionContext:
         self._token = _current_session.set(self._session)
         try:
             await self._session.begin()
-        except BaseException:
+        except BaseException as failure:
             # begin() raised before the transaction opened - __aexit__ will NOT
             # be called, so we must restore the ContextVar manually here.
-            _current_session.reset(self._token)
-            self._token = None
+            try:
+                await _close_session(self._session, failure)
+            finally:
+                _current_session.reset(self._token)
+                self._token = None
             raise
         return self
 
@@ -41,15 +46,25 @@ class SqlAlchemyTransactionContext:
         exc: BaseException | None,
         tb: Any,
     ) -> None:
+        primary = exc
         try:
-            if exc_type is None:
-                await self._session.commit()
-            else:
-                await self._session.rollback()
+            try:
+                if exc_type is None:
+                    await self._session.commit()
+                else:
+                    await self._session.rollback()
+            except BaseException as failure:
+                if primary is None or not isinstance(failure, Exception):
+                    primary = failure
+                    raise
+                _report_cleanup_failure(primary, failure, "rollback")
         finally:
-            await self._session.close()
-            if self._token is not None:
-                _current_session.reset(self._token)
+            try:
+                await _close_session(self._session, primary)
+            finally:
+                if self._token is not None:
+                    _current_session.reset(self._token)
+                self._token = None
 
 
 class SqlAlchemyTransactionManager:

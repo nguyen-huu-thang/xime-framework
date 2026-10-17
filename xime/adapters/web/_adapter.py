@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from collections.abc import AsyncGenerator, Iterable
+from collections.abc import AsyncGenerator, Callable, Iterable
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from ssl import CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import FastAPI
+from starlette.types import ASGIApp
 
 from xime.core.bootstrap._accept_lock import boc_khoa_accept
 from xime.core.bootstrap._slot import AdapterSlot
@@ -650,7 +651,10 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
             # Option CORS phần lớn đến từ YAML, và hai dạng sai ở đó là "mở
             # toang trong im lặng" chứ không phải hỏng - kiểm khi đã có giá trị thật.
             validate_cors_options(middleware, resolved)
-            fastapi_app.add_middleware(middleware, **resolved)
+            # Registry entries are middleware classes; Starlette expects the
+            # callable factory view of that dynamically configured class.
+            factory = cast(Callable[..., ASGIApp], middleware)
+            fastapi_app.add_middleware(factory, **resolved)
         fastapi_app.add_middleware(RequestContextMiddleware)
 
         # Global exception handlers registered via configure_exception_handlers().
@@ -664,7 +668,7 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
         add_health_routes(fastapi_app, xime_app, self.adapter_id)
 
         if openapi_config is not None:
-            fastapi_app.openapi = build_custom_openapi(fastapi_app, openapi_config)
+            setattr(fastapi_app, "openapi", build_custom_openapi(fastapi_app, openapi_config))
 
         if custom_swagger is not None:
             self._add_custom_swagger_ui(fastapi_app, *custom_swagger)
@@ -963,7 +967,7 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
             if getattr(cls, "server_id", "default") != server_id:
                 continue
             try:
-                instance = xime_app.get(cls)
+                instance: object = xime_app.get(cls)
             except KeyError:
                 raise RuntimeError(
                     f"Controller '{cls.__name__}' is not registered in the DI container. "

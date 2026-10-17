@@ -21,7 +21,7 @@ from __future__ import annotations
 from typing import Any
 
 from ._errors import ModbusCodecError
-from ._model import Area, DataType, DeviceInfo, ModbusField
+from ._model import Area, DataType, DeviceInfo, ModbusField, WordOrder
 
 # Xime data type -> pymodbus DATATYPE member name. BOOL never reaches pymodbus
 # (bit areas come back as booleans already), so it has no entry.
@@ -60,7 +60,7 @@ def _pymodbus_datatype(data_type: DataType):
     return ModbusClientMixin.DATATYPE[name]
 
 
-def _convert_from_registers(registers: list[int], data_type: DataType, word_order: str):
+def _convert_from_registers(registers: list[int], data_type: DataType, word_order: WordOrder):
     from pymodbus.client.mixin import ModbusClientMixin
 
     return ModbusClientMixin.convert_from_registers(
@@ -68,7 +68,7 @@ def _convert_from_registers(registers: list[int], data_type: DataType, word_orde
     )
 
 
-def _convert_to_registers(value: Any, data_type: DataType, word_order: str) -> list[int]:
+def _convert_to_registers(value: Any, data_type: DataType, word_order: WordOrder) -> list[int]:
     from pymodbus.client.mixin import ModbusClientMixin
 
     return ModbusClientMixin.convert_to_registers(

@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from xime.starters.sqlalchemy.session import AsyncSessionFactory, _current_session
 
+from ._cleanup import _close_session, _report_cleanup_failure
+
 
 class SqlAlchemyReadOnlyContext:
     """
@@ -68,15 +70,26 @@ class SqlAlchemyReadOnlyContext:
         if session is None:
             return  # borrowed session - nothing of ours to clean up
 
+        primary = exc
+        operation = "expunge_all"
         try:
-            session.expunge_all()
-            await session.rollback()
+            try:
+                session.expunge_all()
+                operation = "rollback"
+                await session.rollback()
+            except BaseException as failure:
+                if primary is None or not isinstance(failure, Exception):
+                    primary = failure
+                    raise
+                _report_cleanup_failure(primary, failure, operation)
         finally:
-            await session.close()
-            if self._token is not None:
-                _current_session.reset(self._token)
-            self._session = None
-            self._token = None
+            try:
+                await _close_session(session, primary)
+            finally:
+                if self._token is not None:
+                    _current_session.reset(self._token)
+                self._session = None
+                self._token = None
 
 
 class SqlAlchemyReadOnlyManager:

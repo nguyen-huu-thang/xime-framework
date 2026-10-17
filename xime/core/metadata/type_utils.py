@@ -12,7 +12,7 @@ def resolve_constructor_hints(cls: type) -> dict[str, type]:
     error rather than silently skipping the class.
     """
     try:
-        hints = typing.get_type_hints(cls.__init__)
+        hints = typing.get_type_hints(getattr(cls, "__init__"))
     except TypeError:
         # cls.__init__ is a built-in slot wrapper (e.g. object.__init__)
         # that get_type_hints cannot inspect - treat as no hints.
@@ -28,7 +28,7 @@ def get_init_parameters(cls: type) -> list[str]:
     Used to detect parameters that lack type hints.
     """
     try:
-        sig = inspect.signature(cls.__init__)
+        sig = inspect.signature(getattr(cls, "__init__"))
     except (ValueError, TypeError):
         return []
 

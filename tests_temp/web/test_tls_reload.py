@@ -132,8 +132,10 @@ def _serial(writer: asyncio.StreamWriter) -> int:
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("tls_version", [ssl.TLSVersion.TLSv1_2, ssl.TLSVersion.TLSv1_3])
+@pytest.mark.parametrize("cipher_policy", [None, "ECDHE+AESGCM"])
 async def test_reload_is_atomic_deduplicated_and_preserves_existing_connection(
-    certificate_set,
+    certificate_set, tls_version, cipher_policy,
 ) -> None:
     directory, ca_path, pairs = certificate_set
     active_cert, active_key = directory / "active-cert.pem", directory / "active-key.pem"
@@ -149,7 +151,7 @@ async def test_reload_is_atomic_deduplicated_and_preserves_existing_connection(
         ServerTlsConfig(
             certfile=str(active_cert),
             keyfile=str(active_key),
-            ciphers="ECDHE+AESGCM",
+            ciphers=cipher_policy,
         ),
         "default",
     )
@@ -161,8 +163,8 @@ async def test_reload_is_atomic_deduplicated_and_preserves_existing_connection(
         access_log=False,
         ssl_certfile=str(active_cert),
         ssl_keyfile=str(active_key),
-        ssl_ciphers="ECDHE+AESGCM",
         ssl_context_factory=reloader.ssl_context_factory,
+        **({"ssl_ciphers": cipher_policy} if cipher_policy is not None else {}),
     )
     config.load()
     server = uvicorn.Server(config)
@@ -171,13 +173,15 @@ async def test_reload_is_atomic_deduplicated_and_preserves_existing_connection(
     serving = asyncio.create_task(server.main_loop())
 
     client_context = ssl.create_default_context(cafile=str(ca_path))
-    client_context.minimum_version = ssl.TLSVersion.TLSv1_2
-    client_context.set_ciphers("ECDHE+AESGCM")
+    client_context.minimum_version = client_context.maximum_version = tls_version
+    if cipher_policy is not None:
+        client_context.set_ciphers(cipher_policy)
     host, port = "127.0.0.1", config.port
-    reader_a, writer_a = await asyncio.open_connection(
-        host, port, ssl=client_context, server_hostname="localhost"
-    )
+    writer_a = None
     try:
+        reader_a, writer_a = await asyncio.open_connection(
+            host, port, ssl=client_context, server_hostname="localhost"
+        )
         assert _serial(writer_a) == cert_a.serial_number
         await _request(reader_a, writer_a)
 
@@ -205,6 +209,7 @@ async def test_reload_is_atomic_deduplicated_and_preserves_existing_connection(
 
         no_sni_context = ssl.create_default_context(cafile=str(ca_path))
         no_sni_context.check_hostname = False
+        no_sni_context.minimum_version = no_sni_context.maximum_version = tls_version
         reader_no_sni, writer_no_sni = await asyncio.open_connection(
             host, port, ssl=no_sni_context, server_hostname=None
         )
@@ -219,6 +224,15 @@ async def test_reload_is_atomic_deduplicated_and_preserves_existing_connection(
         active_cert.write_bytes(cert_c_path.read_bytes())
         failed = await reloader.reload()
         assert failed.outcome == "failed"
+        reader_old, writer_old = await asyncio.open_connection(
+            host, port, ssl=client_context, server_hostname="localhost"
+        )
+        try:
+            assert _serial(writer_old) == cert_b.serial_number
+            await _request(reader_old, writer_old)
+        finally:
+            writer_old.close()
+            await writer_old.wait_closed()
         active_key.write_bytes(key_c_path.read_bytes())
         changed = await reloader.reload()
         assert changed.outcome == "reloaded"
@@ -233,13 +247,119 @@ async def test_reload_is_atomic_deduplicated_and_preserves_existing_connection(
         finally:
             writer_c.close()
             await writer_c.wait_closed()
+        with pytest.raises(ssl.SSLCertVerificationError):
+            await asyncio.open_connection(
+                host, port, ssl=client_context, server_hostname="wrong.invalid"
+            )
+        wrong_ca = ssl.create_default_context()
+        wrong_ca.minimum_version = wrong_ca.maximum_version = tls_version
+        with pytest.raises(ssl.SSLCertVerificationError):
+            await asyncio.open_connection(host, port, ssl=wrong_ca, server_hostname="localhost")
     finally:
-        writer_a.close()
-        await writer_a.wait_closed()
+        if writer_a is not None:
+            writer_a.close()
+            await writer_a.wait_closed()
         server.should_exit = True
         await asyncio.wait_for(serving, timeout=5)
         if server.started:
             await server.shutdown(sockets=None)
+
+
+def _client_identity(directory: Path, label: str):
+    key = ec.generate_private_key(ec.SECP256R1())
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, label)])
+    ca_name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, f"{label} CA")])
+    now = datetime.datetime.now(datetime.UTC)
+    ca = (
+        x509.CertificateBuilder().subject_name(ca_name).issuer_name(ca_name)
+        .public_key(key.public_key()).serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(minutes=1))
+        .not_valid_after(now + datetime.timedelta(days=1))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=0), True)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), False)
+        .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(key.public_key()), False)
+        .add_extension(x509.KeyUsage(
+            digital_signature=False, content_commitment=False, key_encipherment=False,
+            data_encipherment=False, key_agreement=False, key_cert_sign=True, crl_sign=True,
+            encipher_only=False, decipher_only=False,
+        ), True)
+        .sign(key, hashes.SHA256())
+    )
+    ca_path = directory / f"{label}-ca.pem"
+    ca_path.write_bytes(ca.public_bytes(serialization.Encoding.PEM))
+    client_key = ec.generate_private_key(ec.SECP256R1())
+    client = (
+        x509.CertificateBuilder().subject_name(name).issuer_name(ca_name)
+        .public_key(client_key.public_key()).serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(minutes=1))
+        .not_valid_after(now + datetime.timedelta(days=1))
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), True)
+        .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(key.public_key()), False)
+        .add_extension(x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH]), False)
+        .sign(key, hashes.SHA256())
+    )
+    cert_path, key_path = _write_pair(directory, label, client, client_key)
+    return ca_path, cert_path, key_path
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("tls_version", [ssl.TLSVersion.TLSv1_2, ssl.TLSVersion.TLSv1_3])
+async def test_mtls_ca_rotation_accepts_only_the_current_client_ca(certificate_set, tls_version):
+    directory, server_ca, pairs = certificate_set
+    identities = {name: _client_identity(directory, name) for name in ("client-a", "client-b")}
+    active_ca = directory / "active-client-ca.pem"
+    active_ca.write_bytes(identities["client-a"][0].read_bytes())
+    cert, key = pairs["a"]
+    tls = ServerTlsConfig(
+        certfile=str(cert), keyfile=str(key), ca_certs=str(active_ca), cert_reqs="required",
+    )
+    reloader = TlsContextReloader(tls, "default")
+    config = uvicorn.Config(
+        _asgi, host="127.0.0.1", port=0, lifespan="off", access_log=False,
+        ssl_certfile=str(cert), ssl_keyfile=str(key), ssl_ca_certs=str(active_ca),
+        ssl_cert_reqs=ssl.CERT_REQUIRED, ssl_context_factory=reloader.ssl_context_factory,
+    )
+    config.load()
+    server = uvicorn.Server(config)
+    server.lifespan = config.lifespan_class(config)
+    await server.startup()
+    port = server.servers[0].sockets[0].getsockname()[1]
+    serving = asyncio.create_task(server.main_loop())
+
+    async def accepted(identity):
+        context = ssl.create_default_context(cafile=str(server_ca))
+        context.minimum_version = context.maximum_version = tls_version
+        if identity is not None:
+            _, client_cert, client_key = identities[identity]
+            context.load_cert_chain(client_cert, client_key)
+        writer = None
+        try:
+            reader, writer = await asyncio.wait_for(asyncio.open_connection(
+                "127.0.0.1", port, ssl=context, server_hostname="localhost",
+            ), timeout=3)
+            await _request(reader, writer)
+            return True
+        except (OSError, asyncio.IncompleteReadError, TimeoutError):
+            return False
+        finally:
+            if writer is not None:
+                writer.close()
+                try:
+                    await writer.wait_closed()
+                except OSError:
+                    pass
+
+    try:
+        for current in ("client-a", "client-b"):
+            if current == "client-b":
+                active_ca.write_bytes(identities[current][0].read_bytes())
+                assert (await reloader.reload()).outcome == "reloaded"
+            for identity in ("client-a", "client-b", None):
+                assert await accepted(identity) is (identity == current)
+    finally:
+        server.should_exit = True
+        await asyncio.wait_for(serving, timeout=5)
+        await server.shutdown()
 
 
 @pytest.mark.anyio

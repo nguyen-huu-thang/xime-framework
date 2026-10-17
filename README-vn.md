@@ -13,6 +13,9 @@
 
 </div>
 
+> **Trạng thái phát hành (2026-10-15):** PyPI hiện ở `0.8.3`. GitHub `main` có các thay đổi
+> reload TLS và chọn môi trường trong một file ở commit `2ad5274`; cần dùng source checkout để có chúng.
+
 ---
 
 XIME là một tầng convention cho microservice Python. Nó nằm **phía trên** FastAPI, SQLAlchemy và gRPC - cung cấp dependency injection tự động, validation dependency graph ngay lúc startup và các guardrail kiến trúc để bạn tập trung vào nghiệp vụ thay vì dây nhợ cấu hình.
@@ -216,9 +219,17 @@ from xime import Application
 from xime.adapters.web import WebAdapter
 
 app = Application()
-app.use(WebAdapter())                              # server_id="default", port từ application.yml
-app.use(WebAdapter("admin", "127.0.0.1", 8081))   # server_id="admin", host/port tường minh
+app.use(WebAdapter())          # server_id="default"
+app.use(WebAdapter("admin"))  # server_id="admin"
 app.run()
+```
+
+```yaml
+# resources/application.yml
+process:
+  web:
+    default: {host: 0.0.0.0, port: 8080}
+    admin:   {host: 127.0.0.1, port: 8081}
 ```
 
 </details>
@@ -260,6 +271,7 @@ Cách tốt nhất để học XIME là đọc code thật. Các dự án mã ng
 | **Class-Based Controllers** | Controller là DI singleton, method ánh xạ thành route |
 | **Code-First gRPC** | Viết Python DTO, XIME sinh `.proto` + stub; ổn định field number qua lock file |
 | **gRPC Client SDK** | Sinh client Pydantic typed từ `.proto`, inject qua DI; deadline, lỗi typed, retry tự động |
+| **HTTPS** | TLS qua `webserver.ssl` (`server:` vẫn là alias), xác thực client cert, reload cert bằng watcher/API/cổng loopback. Xem [hướng dẫn cấu hình](docs/vn/configuration.md) về overlay môi trường và tương thích TLS 1.2 |
 | **mTLS động** | Xoay chứng chỉ không cần restart, cho cả server inbound lẫn client outbound |
 | **Danh tính peer** | gRPC đọc client cert đã verify vào request context (fail-soft): `current_caller()` cho CN, `current_peer_sans()` cho mọi Subject Alternative Name - thô và không diễn giải, nên bạn tự khớp scheme của mình (SPIFFE ID hay gì khác) |
 | **Socket Adapter** | IPC qua Unix Domain Socket cho Native Engine cùng máy (Linux); `@command` / `@stream` |
@@ -317,6 +329,8 @@ Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 ---
 
 ## Tài liệu
+
+[Mục lục tài liệu](docs/README.md) · [Tra cứu API và vòng đời](docs/vn/api-reference.md)
 
 | Tài liệu | Mô tả |
 | --- | --- |

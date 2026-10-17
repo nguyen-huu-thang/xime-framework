@@ -7,7 +7,7 @@ import os
 import pkgutil
 import sys
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from xime._startup import module_level_seconds, warn_if_module_level_is_heavy
 from xime.core.bootstrap._cluster import ClusterMember
@@ -724,7 +724,7 @@ class Application:
         from xime.core.bootstrap.adapter import SCALING_SINGLETON
 
         for adapter in self._adapters:
-            if adapter.scaling == SCALING_SINGLETON and not self._is_primary:
+            if getattr(adapter, "scaling") == SCALING_SINGLETON and not self._is_primary:
                 _logger.info(
                     "adapter %s is singleton - not started in this process",
                     self._label(adapter),
@@ -762,7 +762,7 @@ class Application:
         `/healthz` còn trả lời được, log còn đọc được, còn gỡ lỗi được. Thoát là
         mất hết, kể cả khả năng nói cho người khác biết vì sao mình chết.
         """
-        tasks = {
+        tasks: dict[asyncio.Future, Adapter] = {
             asyncio.ensure_future(self._serve_one(adapter)): adapter
             for adapter in self._started
         }
@@ -941,7 +941,8 @@ class Application:
                 "Application has not started. "
                 "Use as async context manager or call start() first."
             )
-        return self._orchestrator.get(cls)
+        # DI's heterogeneous registry stores object; this lookup is keyed by cls.
+        return cast(_T, self._orchestrator.get(cls))
 
     # ------------------------------------------------------------------
     # Internal helpers
