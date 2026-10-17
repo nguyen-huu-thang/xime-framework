@@ -11,7 +11,7 @@
 | Framework LÀ GÌ, kiến trúc ra sao | [`thiet-ke/01-tong-quan.md`](thiet-ke/01-tong-quan.md) |
 | Sửa mảng X thì dễ phá chỗ nào | [`thiet-ke/01-tong-quan.md`](thiet-ke/01-tong-quan.md) mục 16 |
 | Hôm nay đứng ở đâu, còn việc gì | [`../CLAUDE.md`](../CLAUDE.md) |
-| Kế hoạch vá kiểm toán đang làm | [`sap-toi/ke-hoach-va-loi-kiem-toan-framework.md`](sap-toi/ke-hoach-va-loi-kiem-toan-framework.md): F1–F6 và mypy/API đã vá; nghiệm thu tổng trước commit Bước 6; Bước 7 dừng trước phần Linux |
+| Kế hoạch vá kiểm toán | [`sap-toi/ke-hoach-va-loi-kiem-toan-framework.md`](sap-toi/ke-hoach-va-loi-kiem-toan-framework.md): Bước 0–6 đã commit e5a5b5c; Bước 7 Windows đã kiểm, dừng trước Linux |
 | Luật code của repo này | [`../rules/`](../rules/) |
 | ✅ Đợt đo uvloop 0.8.1 trên Linux (**đã xong**) | [`kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md); đề bài gốc ở [`ban-giao-cho-phien-linux-0.8.1.md`](nhap/ban-giao-cho-phien-linux-0.8.1.md) |
 | ✅ Chạy thử `0.8.2` trên Linux (**đã xong** 2026-08-25) | [`kiem-toan/0.8.2-ket-qua-do-tren-linux.md`](kiem-toan/0.8.2-ket-qua-do-tren-linux.md) - 1 lỗi framework đã vá + 1 lỗi bộ benchmark đã vá |
@@ -92,9 +92,12 @@ thuộc bản nào · thay cái gì · bị thay bởi cái gì*.
 | [`0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md) | ⭐ **Đợt uvloop đo trên Linux.** Ba phép đo ĐẠT; phép thứ tư **kết luận rõ, và nó lật một giả định của chính bản 0.8.1** (uvloop làm REST chậm ~10%). Sửa hai test lỗi thời - **ca thứ ba của "lỗi máy phát triển không thể thấy"** |
 | [`0.8.2-ket-qua-do-tren-linux.md`](kiem-toan/0.8.2-ket-qua-do-tren-linux.md) | ⭐ **Chuyến chạy thử `0.8.2` trước phát hành.** Bộ test khớp tổng Windows; tìm ra **một lỗi thật chưa ai thấy** - dòng log khởi động khai `0 HTTP route(s)` với **mọi** ứng dụng Xime, vì `include_router()` của fastapi 0.141 không còn trải route ra `app.routes`. **14 test canh đã có đều xanh y nguyên** vì chúng đi đường tắt `add_api_route()`. Kèm một lỗi trong chính bộ benchmark |
 | [`tls-web-va-cau-hinh-moi-truong.md`](kiem-toan/tls-web-va-cau-hinh-moi-truong.md) | Kiểm chứng 2026-10-15: hai vấn đề P2 được xác nhận; nhận định fingerprint được đính chính bằng cụm hai worker thật; 132 test ở Uvicorn 0.47.0 và 42 test TLS ở 0.48.0 |
-| [`kiem-toan-framework-va-dependency.md`](kiem-toan/kiem-toan-framework-va-dependency.md) | Kiểm toán 2026-10-17 và nghiệm thu F1–F6, 16 advisory, mypy/API; kết quả nhóm và giới hạn môi trường ghi riêng; đang nghiệm thu tổng Bước 6 |
+| [`kiem-toan-framework-va-dependency.md`](kiem-toan/kiem-toan-framework-va-dependency.md) | Kiểm toán 2026-10-17 và nghiệm thu F1–F6, 16 advisory, mypy/API; Bước 0–6 đã commit e5a5b5c; kết quả theo nhóm giữ riêng |
+| [`nghiem-thu-windows-framework.md`](kiem-toan/nghiem-thu-windows-framework.md) | Bước 7: hai bộ dependency full 2.881 passed mỗi bộ; 12 consumer 6.557 passed/8 skip; 24 nhánh config, 12 đồ thị DI, wheel/sdist/cài wheel trắng đạt; Linux chưa kiểm |
+| [`doi-chieu-nghiem-thu-ke-hoach.md`](kiem-toan/doi-chieu-nghiem-thu-ke-hoach.md) | Đối chiếu từng nhóm yêu cầu với source/test/log; hậu kiểm F4/F7, hai bộ full cuối 2.884 passed; các cổng Linux/tài nguyên thật vẫn ghi chưa kiểm |
+| [`jwt-extra-thieu-crypto.md`](kiem-toan/jwt-extra-thieu-crypto.md) | F7 phát hiện bằng wheel sạch: bổ sung crypto runtime cho extra jwt; wheel cũ 12/15 ca lỗi, wheel mới 15/15 đạt ở mỗi bộ sàn/resolver, không bị dev che khuất |
 | [`phan-loai-api-cong-khai.md`](kiem-toan/phan-loai-api-cong-khai.md) | 152 lượt export thiếu ở EN/VN: 94 API/kiểu, 54 hạ tầng, 4 alias; từng mục có vai trò/lý do; coverage thô sau bổ sung 0/317 thiếu mỗi ngôn ngữ |
-| [`backlog-sua-loi.md`](kiem-toan/backlog-sua-loi.md) | Sáu lỗi đã vá theo nhóm; mypy 0 lỗi và API đã phân loại; đang nghiệm thu tổng Windows, chưa kiểm Linux |
+| [`backlog-sua-loi.md`](kiem-toan/backlog-sua-loi.md) | F1–F6 đã vá/commit, mypy 0 lỗi và API đã phân loại; Windows/consumer đã kiểm, cổng Linux còn mở |
 
 ## `ghi-chep/` - một ca, một bài học
 
@@ -152,7 +155,7 @@ liệu **tạm**: đúng trong một chuyến đo rồi hết vai, và kết lu�
 | [`wishlist-tinh-nang.md`](sap-toi/wishlist-tinh-nang.md) | Danh sách ý tưởng, **không phải cam kết** |
 | [`yeu-cau-reload-tls-web.md`](sap-toi/yeu-cau-reload-tls-web.md) | Yêu cầu chủ dự án 2026-10-11: reload cert HTTPS từ file mà không restart toàn bộ ứng dụng; nghiên cứu cả tự theo dõi file và nhận thông báo từ chương trình khác; cách hiện thực để phiên framework quyết định |
 | [`ke-hoach-reload-tls-web-va-management.md`](sap-toi/ke-hoach-reload-tls-web-va-management.md) | Kế hoạch + nghiệm thu Windows cho commit `2ad5274`: reload TLS, listener quản lý loopback và cấu hình môi trường một file. PyPI vẫn ở 0.8.3; Linux/VPS chưa đo. Hậu kiểm: [TLS/config](kiem-toan/tls-web-va-cau-hinh-moi-truong.md) |
-| [`ke-hoach-va-loi-kiem-toan-framework.md`](sap-toi/ke-hoach-va-loi-kiem-toan-framework.md) | Đã duyệt 2026-10-17: bảy bước vá runtime, dependency, mypy/tài liệu và nghiệm thu; Bước 0/1 đã nghiệm thu Windows, bàn giao từng nhóm để chủ dự án commit |
+| [`ke-hoach-va-loi-kiem-toan-framework.md`](sap-toi/ke-hoach-va-loi-kiem-toan-framework.md) | Chỉ thị làm liền đã thi hành: Bước 0–6 commit e5a5b5c; Bước 7 Windows đã kiểm; dừng ở cổng Linux, không nâng số/phát hành |
 | [`lo-hong-tai-lieu-nguoi-dung.md`](sap-toi/lo-hong-tai-lieu-nguoi-dung.md) | Sổ thiếu tài liệu người dùng: đã có mục lục và API reference song ngữ, coverage 0/317 thiếu; giữ snapshot cũ và các đề xuất trang/chủ đề ngoài phạm vi Bước 6 |
 | [`tang-toc-uvicorn-uvloop.md`](sap-toi/tang-toc-uvicorn-uvloop.md) | ⛔ **NGOẠI LỆ của thư mục này: đã CODE và đã ĐO XONG** (0.8.1, 2026-08-22) - còn nằm ở `sap-toi/` vì dời file là quyết định cấu trúc thuộc chủ dự án. Đọc **mục 5b** cho kết quả bốn phép đo. ⚠ Mục 4.3 và việc số 3 của bảng mục 10 **đã hết đúng** (0.8.0 hợp nhất còn một đường vào `asyncio.run`) |
 | ⭐ [`bao-cao-loi-windows-accept-ra-ngoai.md`](sap-toi/bao-cao-loi-windows-accept-ra-ngoai.md) | **Bốn bên nên báo lỗi `accept()` Windows, xếp theo thứ tự nên làm**: nội bộ workspace (gửi được ngay) · uvicorn (đủ hồ sơ, thiếu xác nhận máy thứ hai) · CPython (cần tra issue cũ + bản tái hiện tối giản hơn) · Microsoft (chưa đủ, cần bản C phục vụ bằng thread). Có sẵn tiêu đề, dàn bài và bảng đo cho từng bên. ⛔ Mục 5 liệt kê **năm câu KHÔNG được viết** - đó là năm kết luận đã bị lật trong lúc điều tra, đừng chở lại ra ngoài |

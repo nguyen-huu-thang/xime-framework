@@ -2,7 +2,11 @@
 
 > **Trạng thái:** Bước 0–6 đã hoàn tất trên Windows ngày 2026-10-17: sáu lỗi
 > đã vá, 16 advisory có kết luận, mypy/API đã xử lý; nghiệm thu tổng 2.881 passed.
-> Bước 7 Windows tiếp tục sau commit; Linux dừng theo yêu cầu chủ dự án.
+> Commit **e5a5b5c**; Bước 7 Windows đã kiểm thêm resolver/consumer/artifact;
+> [nghiệm thu Windows](nghiem-thu-windows-framework.md). Linux dừng theo yêu cầu.
+> Hậu kiểm phát hiện [F7 thiếu crypto trong extra JWT](jwt-extra-thieu-crypto.md)
+> và bổ sung che credential trong lỗi YAML của F4; đã vá và full suite cuối
+> 2.884 passed trên mỗi bộ; [đối chiếu yêu cầu](doi-chieu-nghiem-thu-ke-hoach.md).
 > **Thuộc bản:** baseline `2ad5274`, metadata `0.8.3`; bản vá chưa chọn số phiên bản.
 > **Thay:** lưu bền báo cáo `bao-cao-kiem-toan.md` của lượt kiểm toán cùng ngày;
 > bổ sung bốn phát hiện mới ngoài hai mục TLS/config đã có.
@@ -467,3 +471,28 @@ Log mới trong `%TEMP%\xime-framework-fixes-20261017\`: `range-red.log`,
 venv sạch và consumer không cần dịch vụ ngoài, ghi riêng phần làm được trên
 Windows. Linux/Python 3.12/uvloop, Certbot/ACME/VPS và tài nguyên MQTT/S3 thật
 chưa được nghiệm thu; dừng trước phần cần chuyển Linux theo yêu cầu.
+
+**Cập nhật sau commit:** đã commit Bước 0–6 tại `e5a5b5c`. Bước 7 Windows đạt:
+resolver mới 2.881 passed/25 skipped/1 deselected; 12 consumer 6.557 passed/8
+skipped; 24 nhánh cấu hình và 12 đồ thị DI đạt; wheel/sdist và cài wheel trắng
+đạt. Chi tiết, giới hạn DI/hook và các cổng Linux ở
+[`nghiem-thu-windows-framework.md`](nghiem-thu-windows-framework.md).
+
+## Hậu kiểm hoàn thiện F4 và F7
+
+F7 là lỗi đóng gói được wheel sạch phát hiện: chỉ cài extra jwt thì thiếu
+cryptography dù tài liệu hướng dẫn RSA/EC/EdDSA. Đã bổ sung PyJWT[crypto] và
+sàn cryptography runtime, kiểm 15 ca trên từng venv resolver/sàn độc lập;
+[báo cáo và đối chứng](jwt-extra-thieu-crypto.md).
+
+Ở F4, `_load()` từng trả `str(YAMLError)`, mà PyYAML có thể chép dòng cấu hình
+vào thông báo. Các finding từ YAML hợp lệ đã che giá trị, nhưng parse failure
+chưa đạt invariant không echo credential. Đã chỉ giữ loại lỗi và dòng/cột.
+Đối chứng trực tiếp với source HEAD e5a5b5c: hai ca quoted password/secret tag
+echo credential; ca URL của fixture này vốn không echo. Bản mới không echo ở
+cả ba và vẫn trả inconclusive với vị trí lỗi; không biến parse lỗi thành clean.
+Ba test hồi quy mới đạt, toàn nhóm config đạt 267 ca. Kiểm 12 YAML consumer
+trước/sau cho kết quả tương đương hoàn toàn và đều clean; không sửa consumer.
+
+`yaml-redaction-controls.json` ghi boolean đối chứng, không lưu lại giá trị
+credential của ứng dụng. Secret trong fixture là dữ liệu thử tự tạo.

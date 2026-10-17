@@ -6,6 +6,15 @@
 > thêm chọn môi trường một file và reload TLS web. Các thay đổi source này chưa nằm trong
 > gói PyPI `0.8.3`.
 >
+> **Cập nhật source 2026-10-17:** commit `e5a5b5c` vá sáu phát hiện kiểm toán,
+> nâng sàn dependency, trả nợ mypy và API song ngữ; metadata vẫn 0.8.3, chưa
+> phát hành các thay đổi này. [Nghiệm thu Windows](kiem-toan/nghiem-thu-windows-framework.md)
+> có kết quả framework/consumer/artifact; Linux/uvloop/VPS chưa nghiệm thu.
+> Sau mốc e5a5b5c, hậu kiểm bổ sung backend crypto cho extra JWT và che giá trị
+> trong lỗi YAML của checker; hai bộ dependency cuối đều đạt 2.884 test.
+> [Đối chiếu yêu cầu](kiem-toan/doi-chieu-nghiem-thu-ke-hoach.md) giữ các bằng chứng
+> và cổng chưa kiểm, không coi các thay đổi này đã có trên PyPI.
+>
 > Không suy version phát hành từ source checkout. Kiểm bằng lệnh bên dưới:
 >
 > ```bash

@@ -166,6 +166,12 @@ configure_jwt(JwtMiddlewareConfig(
 | HMAC (`HS256`...) | `secret` |
 | RSA / EC / EdDSA (`RS256`, `ES256`, `EdDSA`...) | `private_key_pem` để ký, `public_key_pem` để verify |
 
+Trong checkout phát triển (Unreleased), `xime[jwt]` cài backend crypto của PyJWT
+với `cryptography>=50.0.0`; các họ khóa bất đối xứng trên dùng được mà không cần
+cài công cụ dev. Cập nhật dependency khi nâng môi trường đã cài từ trước.
+Khai báo cũ chỉ kéo PyJWT thường, nên runtime sạch có thể chỉ hỗ trợ HMAC dù
+bảng này hướng dẫn cả RSA/EC/EdDSA.
+
 **Nên đặt `audience`.** Bỏ trống thì token phát cho service khác nhưng ký bằng cùng khóa vẫn được chấp nhận.
 
 **Nên đặt `require=["exp"]`.** `exp` chỉ được kiểm khi claim có mặt, nên token cấp ra mà thiếu nó thì hợp lệ vĩnh viễn.

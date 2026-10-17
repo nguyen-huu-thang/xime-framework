@@ -58,7 +58,11 @@ def _load(path: Path) -> tuple[dict[str, Any] | None, str | None]:
     except OSError as exc:
         return None, f"cannot read {path}: {exc}"
     except Exception as exc:  # noqa: BLE001 - YAMLError và họ hàng
-        return None, f"cannot parse {path}: {exc}"
+        # PyYAML's exception text repeats source lines, including credentials.
+        # Keep the error type/location, never the configured scalar or tag.
+        mark = getattr(exc, "problem_mark", None)
+        location = f" (line {mark.line + 1}, column {mark.column + 1})" if mark is not None else ""
+        return None, f"cannot parse {path}: {type(exc).__name__}{location}"
     if raw is None:
         return {}, None
     if not isinstance(raw, dict):

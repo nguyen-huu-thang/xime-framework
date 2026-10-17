@@ -1,7 +1,8 @@
 # Backlog - Lỗi cần điều tra/sửa trong framework
 
 > **TRẠNG THÁI 2026-10-17: sáu lỗi F1–F6 đã vá và kiểm chứng theo nhóm trên
-> Windows; đang nghiệm thu tổng trước commit Bước 6.** Mypy và coverage tên API đã đạt.
+> Windows; đã commit Bước 0–6 tại e5a5b5c.** Hậu kiểm F7 và nhánh parse YAML của
+> F4 cũng đã vá/kiểm, lưu cùng commit bổ sung. Bước 7 Windows đạt; còn cổng Linux.
 > Baseline: `2ad5274`; kết quả bản vá thuộc worktree. Nhận định fingerprint
 > đã được rút lại như một lỗi chức năng. Mười một mục lịch sử phía dưới đã đóng.
 >
@@ -20,12 +21,13 @@ Kế hoạch đã được chủ dự án duyệt:
 
 | ID | Mức | Vấn đề | Trạng thái |
 |---|---|---|---|
-| F1 | P2 | JWT khóa tĩnh trả 500 khi JSON header lồng quá sâu | Đã vá trong worktree; 12 test mới đạt cả trên PyJWT cũ; hồi quy mục tiêu 2.815 passed |
+| F1 | P2 | JWT khóa tĩnh trả 500 khi JSON header lồng quá sâu | Đã vá; 12 test mới đạt cả trên PyJWT cũ; full 2.881 passed trên hai bộ dependency |
 | F2 | P2 | Download bỏ qua If-Range, có thể trộn hai phiên bản file | Đã vá; web_files/storage 95 passed, 6 skip |
 | F3 | P2 | Session ContextVar chưa reset nếu close lỗi/bị hủy | Đã vá; SQLAlchemy 43 passed, gồm fault injection và SQLite |
 | F4 | P2 | Checker bỏ sót typo trong nhánh environments | Đã vá; config/SQLAlchemy 307 passed; gồm endpoint tên động và kế thừa |
 | F5 | P2 | Uvicorn 0.47.0 mặc định không hợp một số client TLS 1.2 | Đã nâng sàn 0.48.0; 110 test TLS/management/health đạt, 1 skip |
 | F6 | P3 | Suffix Range trên object rỗng tạo Content-Range vô hiệu | Đã vá cùng F2; Range hợp lệ trên object rỗng trả 416 |
+| F7 | P2 | Extra jwt sạch thiếu crypto cho RSA/EC/EdDSA | Đã vá; 15/15 ca wheel runtime đạt ở mỗi bộ resolver/sàn; [báo cáo](jwt-extra-thieu-crypto.md) |
 
 Sàn khai báo mới: PyJWT >=2.15.0 trong extra jwt; AnyIO >=4.14.2 trong
 runtime; Uvicorn >=0.48.0 ở web. 14 advisory PyJWT và 2 AnyIO đã có kết luận từng mục. Bộ sàn và tập
@@ -38,6 +40,15 @@ cả kiểm Windows lẫn phân tích tĩnh `--platform linux` đều đạt. Ph
 không thay cho chạy Linux. Các tên thiếu trong EN/VN đã có mô tả và
 [phân loại từng mục](phan-loai-api-cong-khai.md): 152 lượt export, 94 API/kiểu,
 54 hạ tầng, 4 alias. Counter thô còn **0/317** ở mỗi ngôn ngữ; không đổi __all__.
+
+[Nghiệm thu Bước 7 Windows](nghiem-thu-windows-framework.md): 12 consumer đạt
+6.557 passed/8 skipped, config/DI và artifact đạt. Không còn mục F1–F6 mở theo
+bằng chứng Windows; Linux/uvloop/Certbot và nghiệm thu live consumer vẫn là cổng
+môi trường trước phát hành, không được đánh dấu đã kiểm.
+
+Hậu kiểm: F4 đã che giá trị cả ở parse failure; lỗi vẫn inconclusive, giữ
+loại lỗi/dòng/cột. Full suite cuối **2.884 passed, 25 skipped, 1 deselected**
+trên mỗi bộ dependency; [đối chiếu yêu cầu](doi-chieu-nghiem-thu-ke-hoach.md).
 
 ## Kết quả rà TLS và cấu hình môi trường (2026-10-15)
 

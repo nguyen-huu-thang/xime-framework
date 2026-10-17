@@ -86,6 +86,24 @@ def test_findings_do_not_echo_credentials_or_key_material(tmp_path):
     assert secret not in repr(result)
 
 
+@pytest.mark.parametrize("kind", ["quoted-password", "password-in-url", "secret-in-tag"])
+def test_yaml_parse_failures_do_not_echo_credentials(tmp_path, kind):
+    secret = "parser-secret-7x"
+    contents = {
+        "quoted-password": 'webserver:\n  ssl:\n    keyfile_password: "' + secret + '\n',
+        "password-in-url": 'database:\n  url: [postgresql://user:' + secret + '@example.invalid/db\n',
+        "secret-in-tag": 'webserver:\n  ssl:\n    keyfile_password: !' + secret + ' value\n',
+    }
+    path = tmp_path / "application.yml"
+    path.write_text(contents[kind], encoding="utf-8")
+    result = check(path)
+    assert result.verdict == "inconclusive"
+    assert secret not in repr(result)
+    assert result.unreadable is not None
+    assert "line" in result.unreadable and "column" in result.unreadable
+    assert str(path) in result.unreadable
+
+
 def test_endpoint_ssl_shape_is_checked(tmp_path: Path):
     result = _check(tmp_path, server={"process": {"web": {"http": {"ssl": "bad"}}}})
     assert any(f.where == "environments.server.process.web.http.ssl" for f in result.findings)

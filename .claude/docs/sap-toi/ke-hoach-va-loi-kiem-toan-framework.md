@@ -1,8 +1,10 @@
 # Kế hoạch vá lỗi kiểm toán framework và dependency
 
-> **Trạng thái:** ĐÃ DUYỆT ngày 2026-10-17; Bước 0 và nhóm Bước 1 đã nghiệm thu
-> trên Windows. Chủ dự án yêu cầu làm liền đến hết Bước 6, git add -A sau mỗi
-> nhóm, commit sau Bước 6; Bước 7 làm phần Windows và dừng trước phần Linux.
+> **Trạng thái:** Bước 0–6 đã hoàn tất và commit **e5a5b5c** ngày 2026-10-17.
+> Bước 7 đã làm phần kiểm được trên Windows; **dừng trước Linux** theo chỉ thị.
+> Tài liệu kết quả Bước 7 được git add -A, không tự tag/push/phát hành.
+> Hậu kiểm đã vá thêm F7 (crypto JWT runtime) và nhánh parse YAML của F4;
+> full suite cuối **2.884 passed** trên mỗi bộ dependency, lưu cùng commit bổ sung.
 > **Thuộc bản:** checkout phát triển sau `2ad5274`; chưa chọn số bản phát hành.
 > **Thay cái gì:** bản kế hoạch đầu tiên cho các phát hiện ngày 2026-10-17;
 > tiếp nối hai mục TLS/config đang mở trong `../kiem-toan/backlog-sua-loi.md`.
@@ -312,8 +314,23 @@ số phiên bản và công việc phát hành là bước sau do chủ dự án
 | 3 | Đạt: 14/15 ca fault injection đỏ trên mã cũ; SQLAlchemy sau vá 43 passed, gồm SQLite thật |
 | 4 | Đạt: 23/25 test mới đỏ trên mã cũ; fixture topology cũ được sửa đúng parser; config/SQLAlchemy hồi quy 307 passed |
 | 5 | Đạt: đối chứng Uvicorn 0.47 lỗi TLS 1.2; 0.48 đạt 110 test TLS/management/health, 1 skip; RSA/ECDSA, TLS 1.2/1.3, cipher mặc định/tường minh, mTLS CA A→B |
-| 6 | Đạt: mypy 0/250 file; EN/VN 0/317 tên thiếu; 152 lượt export phân loại đủ; full 2.881 passed, 25 skipped, 1 deselected; test tách riêng đạt 1; đủ điều kiện commit |
-| 7 | Tiếp tục sau commit: dependency resolver mới, consumer Windows; dừng trước phần Linux |
+| 6 | Đạt và commit e5a5b5c: mypy 0/250 file; EN/VN 0/317 tên thiếu; 152 lượt export phân loại đủ; full 2.881 passed, 25 skipped, 1 deselected; test tách riêng đạt 1 |
+| 7 | Windows đạt: resolver sạch full 2.881 passed; 12 consumer 6.557 passed/8 skipped; 24 nhánh config và 12 đồ thị DI đạt; wheel/sdist và cài wheel trắng đạt; dừng trước Linux |
+
+**Hậu kiểm completion audit:** bổ sung F7 trong phạm vi cài JWT/artifact và
+đóng nốt invariant che credential ở parse failure của F4. Wheel chỉ cài jwt
+đạt 15 ca trên mỗi bộ sàn/resolver; full suite cuối đạt 2.884 passed/25 skipped/
+1 deselected trên mỗi bộ, thêm đúng ba test YAML. Bằng chứng từng yêu cầu:
+[`doi-chieu-nghiem-thu-ke-hoach.md`](../kiem-toan/doi-chieu-nghiem-thu-ke-hoach.md).
+Không thay phạm vi dừng Linux hoặc tự triển khai consumer.
+
+Kết quả và cổng còn lại:
+[`nghiem-thu-windows-framework.md`](../kiem-toan/nghiem-thu-windows-framework.md).
+Bước 7 không chạy hook/startup dịch vụ consumer hoặc nghiệp vụ live; không coi
+đồ thị DI/SQLite đạt là bằng chứng DB/cert production. Linux/Python 3.12/uvloop,
+minimum của các extra còn lại và Certbot/VPS giữ nhãn CHƯA KIỂM CHỨNG.
+
+### Nhật ký nhóm 1 trước chỉ thị làm liền
 
 Nhóm 1 thay `_verifier.py`, `pyproject.toml`, thêm
 `tests_temp/jwt/test_untrusted_input.py`, ghi changelog và cập nhật tài liệu

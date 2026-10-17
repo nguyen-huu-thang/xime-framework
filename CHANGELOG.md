@@ -9,6 +9,10 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 
 ### Fixed
 
+- Config checker: lỗi phân tích YAML chỉ báo loại lỗi và dòng/cột, không lặp
+  lại dòng chứa mật khẩu, credential trong URL hoặc nội dung tag.
+- JWT packaging: extra `jwt` cài backend cryptography cho RSA/EC/EdDSA;
+  bản cài runtime sạch không còn chỉ hỗ trợ HMAC do crypto chỉ nằm trong dev.
 - Web: nâng sàn Uvicorn lên 0.48.0 để cipher mặc định của OpenSSL dùng được
   với client TLS 1.2 đã kiểm; giữ cipher do ứng dụng khai tường minh.
 - Config checker: rà khóa framework trong cả local/server và SSL của endpoint

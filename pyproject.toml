@@ -176,7 +176,14 @@ jwt = [
     # as an authentication failure as well. Advisory reachability and the
     # options-mutation record without a fixed event are documented in the audit;
     # do not infer that every advisory was reachable through Xime's verifier.
-    "pyjwt>=2.15.0",
+    "pyjwt[crypto]>=2.15.0",
+    # Runtime backend for the advertised RSA/EC/EdDSA algorithms. Keeping this
+    # only in dev made wheel[jwt] install cleanly but reject valid asymmetric
+    # tokens. The explicit floor also constrains existing crypto installations.
+    # Floor 50.0.0 already cleared the 9 advisories measured on 2026-08-18;
+    # re-check check_dep_advisories.py at each release rather than trusting this
+    # historical result. Dev obtains it via all -> jwt, including TLS fixtures.
+    "cryptography>=50.0.0",
 ]
 scheduler = [
     # SchedulerRunner dùng API APScheduler v4 (AsyncScheduler, run_until_stopped,
@@ -333,12 +340,6 @@ dev = [
     "asyncpg>=0.29",        # driver PostgreSQL cho test SQLAlchemy
     "aiosqlite>=0.20",      # driver SQLite cho test SQLAlchemy (nhẹ hơn asyncpg)
     "httpx>=0.27",          # test HTTP client (dùng với FastAPI TestClient async)
-    # Floor 42 -> 50.0.0 (2026-08-18): 9 advisory, moc va cao nhat la 50.0.0.
-    # Chi thuoc extra `dev` nen KHONG toi tay nguoi cai `pip install xime`.
-    # ⭐ Moc nay ban dau dat 49.0.0 theo mot lan doc truoc do trong cung buoi,
-    # va check_dep_advisories.py bat duoc ngay: advisory da di tiep. Do la ly do
-    # script chay MOI LAN phat hanh chu khong phai mot lan roi thoi.
-    "cryptography>=50.0.0", # sinh cert tự ký cho test TLS của web adapter
     # Stub cho starters/s3/_client.py (import dưới TYPE_CHECKING nên KHÔNG cần
     # lúc chạy) - thiếu nó thì mypy trên chính xime/ báo thiếu stub.
     # Sàn = đúng bản đã cài và chạy test ngày 2026-08-17, theo quy ước "mỗi mốc
