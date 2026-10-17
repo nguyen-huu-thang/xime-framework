@@ -1,0 +1,9 @@
+{
+  "start_utc": "2026-10-17T14:51:03.492580+00:00",
+  "seconds": 0.001,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "id"
+  ]
+}

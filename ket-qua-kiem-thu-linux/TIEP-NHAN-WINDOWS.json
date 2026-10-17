@@ -1,0 +1,195 @@
+{
+  "archive": "D:\\temp\\xime framework.zip",
+  "archive_sha256": "60d388265d657e35a56b6122934332ff0a9ce90ff1bfa1b9b00022b27b8d6e6c",
+  "extracted": "D:\\temp\\xime-framework-linux-return-20261017\\xime framework",
+  "incoming_manifest_files": 749,
+  "linux_changed_payload": [
+    "pyproject.toml"
+  ],
+  "linux_patched_source_hashes_verified": 749,
+  "result_hashes_verified": 735,
+  "imported_result_run": "20261017T144535Z",
+  "omitted_unlisted_files": [
+    "harness/__pycache__/run.cpython-312.pyc",
+    "harness/__pycache__/run.cpython-313.pyc"
+  ],
+  "source_after_sha256": "e50faccb2c190ee3ae221e61b8c3ff584dcd10fdbd7f738a144daa1347213ed2",
+  "windows_validation_directory": "D:\\temp\\xime-framework-windows-validation-20261017",
+  "windows_validation": {
+    "build": {
+      "exit": 0,
+      "seconds": 14.684,
+      "command": [
+        "C:\\Users\\NGUYNH~1\\AppData\\Local\\Temp\\xime-framework-fixes-20261017\\venv-resolved\\Scripts\\python.exe",
+        "-m",
+        "build",
+        "--outdir",
+        "D:\\temp\\xime-framework-windows-validation-20261017\\artifacts"
+      ]
+    },
+    "twine": {
+      "exit": 0,
+      "seconds": 0.831,
+      "command": [
+        "C:\\Users\\NGUYNH~1\\AppData\\Local\\Temp\\xime-framework-fixes-20261017\\venv-resolved\\Scripts\\python.exe",
+        "-m",
+        "twine",
+        "check",
+        "D:\\temp\\xime-framework-windows-validation-20261017\\artifacts\\xime-0.8.3-py3-none-any.whl",
+        "D:\\temp\\xime-framework-windows-validation-20261017\\artifacts\\xime-0.8.3.tar.gz"
+      ]
+    },
+    "pip-check": {
+      "exit": 0,
+      "seconds": 2.22,
+      "command": [
+        "C:\\Users\\NGUYNH~1\\AppData\\Local\\Temp\\xime-framework-fixes-20261017\\venv-resolved\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "check"
+      ]
+    },
+    "ruff": {
+      "exit": 0,
+      "seconds": 0.606,
+      "command": [
+        "C:\\Users\\NGUYNH~1\\AppData\\Local\\Temp\\xime-framework-fixes-20261017\\venv-resolved\\Scripts\\python.exe",
+        "-m",
+        "ruff",
+        "check",
+        "xime",
+        "--no-cache"
+      ]
+    },
+    "mypy": {
+      "exit": 0,
+      "seconds": 12.503,
+      "command": [
+        "C:\\Users\\NGUYNH~1\\AppData\\Local\\Temp\\xime-framework-fixes-20261017\\venv-resolved\\Scripts\\python.exe",
+        "-m",
+        "mypy",
+        "xime",
+        "--cache-dir",
+        "D:\\temp\\xime-framework-windows-validation-20261017\\mypy-cache"
+      ]
+    },
+    "grpc": {
+      "exit": 0,
+      "seconds": 1.744,
+      "command": [
+        "C:\\Users\\NGUYNH~1\\AppData\\Local\\Temp\\xime-framework-fixes-20261017\\venv-resolved\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "tests_temp/grpc",
+        "-q",
+        "-ra",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp",
+        "D:\\temp\\xime-framework-windows-validation-20261017\\pytest-grpc",
+        "--junitxml",
+        "D:\\temp\\xime-framework-windows-validation-20261017\\grpc.xml"
+      ]
+    },
+    "config": {
+      "exit": 0,
+      "seconds": 1.516,
+      "command": [
+        "C:\\Users\\NGUYNH~1\\AppData\\Local\\Temp\\xime-framework-fixes-20261017\\venv-resolved\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "tests_temp/config",
+        "-q",
+        "-ra",
+        "-p",
+        "no:cacheprovider",
+        "--basetemp",
+        "D:\\temp\\xime-framework-windows-validation-20261017\\pytest-config",
+        "--junitxml",
+        "D:\\temp\\xime-framework-windows-validation-20261017\\config.xml"
+      ]
+    },
+    "docs-import": {
+      "exit": 0,
+      "seconds": 1.512,
+      "command": [
+        "C:\\Users\\NGUYNH~1\\AppData\\Local\\Temp\\xime-framework-fixes-20261017\\venv-resolved\\Scripts\\python.exe",
+        ".claude/scripts/check_doc_imports.py"
+      ]
+    },
+    "docs-code": {
+      "exit": 0,
+      "seconds": 0.11,
+      "command": [
+        "C:\\Users\\NGUYNH~1\\AppData\\Local\\Temp\\xime-framework-fixes-20261017\\venv-resolved\\Scripts\\python.exe",
+        ".claude/scripts/check_doc_code.py"
+      ]
+    },
+    "advisory-floors": {
+      "exit": 0,
+      "seconds": 10.343,
+      "command": [
+        "C:\\Users\\NGUYNH~1\\AppData\\Local\\Temp\\xime-framework-fixes-20261017\\venv-resolved\\Scripts\\python.exe",
+        ".claude/scripts/check_dep_advisories.py"
+      ]
+    },
+    "wheel-install": {
+      "exit": 0,
+      "seconds": 77.245,
+      "command": [
+        "D:\\temp\\xime-framework-windows-validation-20261017\\runtime-grpc\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "D:\\temp\\xime-framework-windows-validation-20261017\\artifacts\\xime-0.8.3-py3-none-any.whl[grpc]"
+      ]
+    },
+    "wheel-pip-check": {
+      "exit": 0,
+      "seconds": 1.061,
+      "command": [
+        "D:\\temp\\xime-framework-windows-validation-20261017\\runtime-grpc\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "check"
+      ]
+    },
+    "wheel-import": {
+      "exit": 0,
+      "seconds": 0.921,
+      "command": [
+        "D:\\temp\\xime-framework-windows-validation-20261017\\runtime-grpc\\Scripts\\python.exe",
+        "-I",
+        "-c",
+        "\nimport importlib.metadata as m\nimport json\nfrom pathlib import Path\nimport sys\nimport xime\nfrom xime.adapters.grpc import GrpcAdapter\nfrom xime.core.config.runtime import RuntimeConfig\nassert Path(xime.__file__).is_relative_to(Path(sys.prefix))\nassert RuntimeConfig.from_dict({}).get('nonexistent') is None\nprint(json.dumps({'python':sys.version,'xime_file':xime.__file__,\n    'versions':{p:m.version(p) for p in ('xime','pydantic','grpcio','grpcio-tools','protobuf')}}))\n"
+      ]
+    },
+    "wheel-freeze": {
+      "exit": 0,
+      "seconds": 0.465,
+      "command": [
+        "D:\\temp\\xime-framework-windows-validation-20261017\\runtime-grpc\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "freeze",
+        "--all"
+      ]
+    }
+  },
+  "windows_tests": {
+    "grpc": {
+      "total": 172,
+      "passed": 172,
+      "failures": 0,
+      "errors": 0
+    },
+    "config": {
+      "total": 95,
+      "passed": 95,
+      "failures": 0,
+      "errors": 0
+    }
+  },
+  "runtime_python_files_changed": 0,
+  "sigterm_status": "open; SIGINT success does not verify SIGTERM cleanup"
+}

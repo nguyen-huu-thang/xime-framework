@@ -1,0 +1,34 @@
+INFO:xime.bootstrap:event loop: uvloop.Loop
+INFO:xime.adapters.web._adapter:web default: process main serving on 127.0.0.1:46149 (HTTPS) [access log off - set xime.dev: true]
+INFO:     Waiting for application startup.
+WARNING:xime.adapters.web._adapter:1 WebSocket route(s) registered but configure_jwt() was never called, so every one of them accepts unauthenticated connections: EchoHandler
+INFO:xime.adapters.web._adapter:web default: configure_jwt() not called - no middleware installed, 1 HTTP route(s)
+INFO:xime.adapters.web._adapter:web default: API docs off - set xime.dev: true to serve them
+INFO:     Application startup complete.
+INFO:     Uvicorn running on https://127.0.0.1:46149 (Press CTRL+C to quit)
+INFO:xime.adapters.web._adapter:web xime_management: process main serving on 127.0.0.1:38171 (HTTP) [access log off - set xime.dev: true]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:38171 (Press CTRL+C to quit)
+INFO:     127.0.0.1:55556 - "WebSocket /echo" [accepted]
+INFO:     connection open
+WARNING:xime.adapters.web._tls_reload:web default: TLS reload failed (SSLError)
+WARNING:xime.adapters.web._tls_reload:web default: TLS reload failed (PermissionError)
+WARNING:xime.adapters.web._tls_reload:web default: TLS reload failed (FileNotFoundError)
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+ERROR:    Traceback (most recent call last):
+  File "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/lib/python3.12/site-packages/starlette/routing.py", line 661, in lifespan
+    await receive()
+  File "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/lib/python3.12/site-packages/fastapi/telemetry/_runtime.py", line 214, in wrapped_receive
+    message = await receive()
+              ^^^^^^^^^^^^^^^
+  File "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/lib/python3.12/site-packages/uvicorn/lifespan/on.py", line 137, in receive
+    return await self.receive_queue.get()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/xime-linux-run-20261017T144535Z/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/asyncio/queues.py", line 158, in get
+    await getter
+asyncio.exceptions.CancelledError
+

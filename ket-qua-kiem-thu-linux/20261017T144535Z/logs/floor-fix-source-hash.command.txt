@@ -1,0 +1,1 @@
+sha256sum --check '/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/patches/SOURCE-SAU-NANG-SAN.sha256'

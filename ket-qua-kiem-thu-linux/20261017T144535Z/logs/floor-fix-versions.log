@@ -1,0 +1,2 @@
+/home/thang/code/xime/xime framework/xime/__init__.py
+{'pydantic': '2.7.0', 'fastapi': '0.133.0', 'grpcio': '1.72.1', 'grpcio-tools': '1.72.1', 'protobuf': '6.33.5'}

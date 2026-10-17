@@ -1,0 +1,11 @@
+{
+  "start_utc": "2026-10-17T15:18:46.877861+00:00",
+  "seconds": 0.016,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "sha256sum",
+    "--check",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/patches/SOURCE-SAU-NANG-SAN.sha256"
+  ]
+}

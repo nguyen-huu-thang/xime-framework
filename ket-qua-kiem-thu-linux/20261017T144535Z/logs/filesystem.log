@@ -1,0 +1,2 @@
+TARGET SOURCE         FSTYPE OPTIONS
+/      /dev/nvme0n1p6 ext4   rw,relatime,errors=remount-ro

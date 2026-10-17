@@ -1,0 +1,1 @@
+/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python -m venv /tmp/xime-linux-run-20261017T144535Z/min-core

@@ -1,0 +1,1706 @@
+{
+  "full-asyncio": {
+    "POSIX-LMDB": [
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestQuyenMacDinh::test_moi_thu_kho_tao_ra_deu_chi_chu_so_huu",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestQuyenMacDinh::test_dung_ba_loai_tep_va_ca_ba_deu_chat",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestNguoiVanHanhKhaiDuoc::test_gia_tri_khai_trong_cau_hinh_duoc_ton_trong",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestSuaKhoDoBanCuTao::test_tep_dang_rong_bi_ha_xuong_khi_mo_lai",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestSuaKhoDoBanCuTao::test_marker_parts_cung_duoc_sua_o_duong_THOAT_SOM",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestSuaKhoDoBanCuTao::test_tep_CHAT_hon_thi_khong_bi_noi_ra",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestSuaKhoDoBanCuTao::test_phep_sua_biet_lam_viec",
+        "status": "pass"
+      }
+    ],
+    "POSIX-storage": [
+      {
+        "id": "tests_temp.storage.test_local_storage.TestConstruction::test_missing_root_raises",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestConstruction::test_creates_root_dir",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestConstruction::test_satisfies_protocol",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_put_get",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_get_missing_returns_none",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_exists",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_delete_is_idempotent",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_stat",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_stat_on_directory_returns_none",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_put_stream_then_full_read",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_open_stream_range",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_open_stream_missing_raises",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_put_stream_leaves_no_part_file",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestSafety::test_traversal_rejected",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestSafety::test_backslash_and_nul_rejected",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestSafety::test_ordinary_keys_still_accepted",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestSafety::test_absolute_key_rejected",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestSafety::test_url_unsupported",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_concurrent_writes_to_same_key_do_not_share_a_temp_file",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_publish_retries_a_transient_permission_error",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_publish_gives_up_and_raises_on_permanent_error",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_put_is_atomic_like_put_stream",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_written_file_is_owner_only_by_default",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_file_mode_configurable_as_octal_string",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_unquoted_yaml_mode_is_read_as_decimal_int",
+        "status": "pass"
+      }
+    ],
+    "ProcessLink-cleanup-and-current-pid": [
+      {
+        "id": "tests_temp.link.test_cleanup.TestOwnerPid::test_it_reads_the_pid_out_of_the_block_name",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestOwnerPid::test_a_channel_name_with_dashes_does_not_confuse_it",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestOwnerPid::test_a_name_it_cannot_read_yields_nothing[xime-link-abc-x-y]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestOwnerPid::test_a_name_it_cannot_read_yields_nothing[xime-link--x]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestOwnerPid::test_a_name_it_cannot_read_yields_nothing[xime-link-]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestAlive::test_this_process_is_alive",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestAlive::test_a_pid_that_cannot_exist_is_not_alive",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestSweep::test_it_is_a_no_op_where_there_is_no_shm",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestSweep::test_it_removes_a_block_whose_owner_is_gone",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestSweep::test_it_leaves_a_block_whose_owner_is_still_running",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestSweep::test_it_never_touches_a_name_that_is_not_ours",
+        "status": "pass"
+      }
+    ],
+    "Unix-socket": [
+      {
+        "id": "tests_temp.socket.test_socket::test_frame_round_trip",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_frame_empty_payload",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_frame_bad_magic_raises",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_read_frame_eof_raises_incomplete",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_upload_stream_iterates_until_end",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_upload_stream_read_returns_none_at_end",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_session_reap_injects_timeout",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_session_destroy_cancels_task",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_builder_resolves_all_shapes",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_builder_filters_by_server_id",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_builder_rejects_command_with_stream",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_builder_rejects_missing_request",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_builder_rejects_duplicate_endpoint",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_config_auto_path_from_dir",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_config_path_override_wins",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_config_permission_parsed_as_octal",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_config_defaults_without_block",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_e2e_command_and_streams",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_e2e_concurrent_sessions",
+        "status": "pass"
+      }
+    ],
+    "Socket-inheritance": [
+      {
+        "id": "tests_temp.processes.test_socket_mode.TestChaChatTruocKhiListen::test_socket_chi_chu_so_huu_ngay_sau_bind",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.processes.test_socket_mode.TestChaChatTruocKhiListen::test_phep_do_biet_keu",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.processes.test_socket_mode.TestChaChatTruocKhiListen::test_tcp_khong_bi_dinh",
+        "status": "pass"
+      }
+    ],
+    "TLS": [
+      {
+        "id": "tests_temp.web.test_tls.TestTlsDisabled::test_empty_config_yields_no_kwargs",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsDisabled::test_default_server_config_has_tls_disabled",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsDisabled::test_enabled_property_follows_certfile_or_keyfile",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_certfile_without_keyfile_fails",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_keyfile_without_certfile_fails",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_missing_certfile_on_disk_fails_with_path",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_missing_keyfile_on_disk_fails_with_path",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_missing_ca_certs_on_disk_fails",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_directory_instead_of_file_fails",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_unreadable_keyfile_fails_with_permission_detail",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_error_names_the_server_id",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_invalid_cert_reqs_spelling_rejected_by_config",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_minimal_config_passes_cert_and_key_only",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_unset_optionals_are_not_forwarded",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_cert_reqs_spelling_maps_to_stdlib_constant[none-0]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_cert_reqs_spelling_maps_to_stdlib_constant[optional-1]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_cert_reqs_spelling_maps_to_stdlib_constant[required-2]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_cert_reqs_none_string_is_forwarded_not_dropped",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_mtls_options_forwarded",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_keyfile_password_forwarded",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestUvicornWiring::test_without_tls_config_is_not_ssl",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestUvicornWiring::test_with_tls_config_builds_ssl_context",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestUvicornWiring::test_mtls_options_survive_context_build",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls::test_real_https_request_succeeds",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestWebAdapterTlsResolution::test_a_cell_without_ssl_inherits_server_ssl",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestWebAdapterTlsResolution::test_a_secondary_endpoint_inherits_it_too",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestWebAdapterTlsResolution::test_a_cell_with_its_own_ssl_wins",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestWebAdapterTlsResolution::test_an_empty_ssl_block_opts_an_endpoint_out",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestWebAdapterTlsResolution::test_no_ssl_anywhere_stays_plain_http",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls::test_runtime_config_parses_ssl_block",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-None-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-None-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-ECDHE+AESGCM-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-ECDHE+AESGCM-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-None-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-None-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-ECDHE+AESGCM-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-ECDHE+AESGCM-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-rsa-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-rsa-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-ecdsa-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-ecdsa-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_web_adapter_watcher_reloads_without_an_external_hook[asyncio-rsa]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_web_adapter_watcher_reloads_without_an_external_hook[asyncio-ecdsa]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_watcher_uses_bounded_early_retry_backoff[asyncio]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[failed-workers0-missing0-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers1-missing1-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[unchanged-workers2-missing2-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[failed-workers3-missing3-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[partial-workers4-missing4-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[timeout-workers5-missing5-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers6-missing6-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers7-missing7-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers8-missing8-True]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[unchanged-workers9-missing9-True]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_missing_listener_is_a_failure_for_python_and_http[asyncio-before-start]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_missing_listener_is_a_failure_for_python_and_http[asyncio-unknown-listener]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-http-only]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-stopped-tls]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-invalid-certificate]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-reloaded]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-unchanged]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-all-reloaded]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-all-unchanged]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-mixed-success]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-all-failed]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-partial-failure]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-missing-ack]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-timeout]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-empty-response]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_rejects_truncated_success_ack[asyncio]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[empty]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[no-detail-length]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[truncated-detail]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[truncated-fingerprint]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[trailing-bytes]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[non-ascii-fingerprint]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[non-ascii-detail]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[unknown-status]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_valid_worker_ack_retains_its_result[reloaded]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_valid_worker_ack_retains_its_result[unchanged]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_valid_worker_ack_retains_its_result[failed]",
+        "status": "pass"
+      }
+    ],
+    "TLS-reload": [
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-None-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-None-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-ECDHE+AESGCM-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-ECDHE+AESGCM-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-None-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-None-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-ECDHE+AESGCM-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-ECDHE+AESGCM-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-rsa-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-rsa-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-ecdsa-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-ecdsa-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_web_adapter_watcher_reloads_without_an_external_hook[asyncio-rsa]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_web_adapter_watcher_reloads_without_an_external_hook[asyncio-ecdsa]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_watcher_uses_bounded_early_retry_backoff[asyncio]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[failed-workers0-missing0-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers1-missing1-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[unchanged-workers2-missing2-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[failed-workers3-missing3-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[partial-workers4-missing4-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[timeout-workers5-missing5-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers6-missing6-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers7-missing7-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers8-missing8-True]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[unchanged-workers9-missing9-True]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_missing_listener_is_a_failure_for_python_and_http[asyncio-before-start]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_missing_listener_is_a_failure_for_python_and_http[asyncio-unknown-listener]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-http-only]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-stopped-tls]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-invalid-certificate]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-reloaded]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-unchanged]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-all-reloaded]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-all-unchanged]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-mixed-success]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-all-failed]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-partial-failure]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-missing-ack]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-timeout]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-empty-response]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_rejects_truncated_success_ack[asyncio]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[empty]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[no-detail-length]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[truncated-detail]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[truncated-fingerprint]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[trailing-bytes]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[non-ascii-fingerprint]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[non-ascii-detail]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[unknown-status]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_valid_worker_ack_retains_its_result[reloaded]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_valid_worker_ack_retains_its_result[unchanged]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_valid_worker_ack_retains_its_result[failed]",
+        "status": "pass"
+      }
+    ],
+    "Cluster-TLS-ACK": [
+      {
+        "id": "tests_temp.processes.test_cluster_lifecycle.TestTlsReloadCoordination::test_api_waits_for_each_worker_and_duplicate_requests_apply_once",
+        "status": "pass"
+      }
+    ],
+    "Windows-accept-guard": [
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestBocDungNoiVaDungLuc::test_windows_co_socket_dung_chung_thi_boc",
+        "status": "skip"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestBocDungNoiVaDungLuc::test_ngoai_windows_tra_lai_CHINH_socket_do",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestBocDungNoiVaDungLuc::test_khong_co_socket_thi_khong_lam_gi",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestNhuongKhiNguoiKhacGiu::test_nguoi_khac_dang_giu_thi_nem_BlockingIOError",
+        "status": "skip"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestNhuongKhiNguoiKhacGiu::test_khong_ai_giu_thi_accept_chay_that",
+        "status": "skip"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestNhaKhoaSauMoiLanAccept::test_accept_nem_thi_van_nha_khoa",
+        "status": "skip"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestNhaKhoaSauMoiLanAccept::test_accept_thanh_cong_thi_van_nha_khoa",
+        "status": "skip"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestHongThiCHAY_KHONG_KHOA_chu_khong_chet::test_khoa_hong_thi_tra_lai_socket_goc",
+        "status": "pass"
+      }
+    ]
+  },
+  "full-uvloop": {
+    "POSIX-LMDB": [
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestQuyenMacDinh::test_moi_thu_kho_tao_ra_deu_chi_chu_so_huu",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestQuyenMacDinh::test_dung_ba_loai_tep_va_ca_ba_deu_chat",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestNguoiVanHanhKhaiDuoc::test_gia_tri_khai_trong_cau_hinh_duoc_ton_trong",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestSuaKhoDoBanCuTao::test_tep_dang_rong_bi_ha_xuong_khi_mo_lai",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestSuaKhoDoBanCuTao::test_marker_parts_cung_duoc_sua_o_duong_THOAT_SOM",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestSuaKhoDoBanCuTao::test_tep_CHAT_hon_thi_khong_bi_noi_ra",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.lmdb.test_file_mode.TestSuaKhoDoBanCuTao::test_phep_sua_biet_lam_viec",
+        "status": "pass"
+      }
+    ],
+    "POSIX-storage": [
+      {
+        "id": "tests_temp.storage.test_local_storage.TestConstruction::test_missing_root_raises",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestConstruction::test_creates_root_dir",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestConstruction::test_satisfies_protocol",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_put_get",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_get_missing_returns_none",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_exists",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_delete_is_idempotent",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_stat",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_stat_on_directory_returns_none",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_put_stream_then_full_read",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_open_stream_range",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_open_stream_missing_raises",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestRoundTrip::test_put_stream_leaves_no_part_file",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestSafety::test_traversal_rejected",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestSafety::test_backslash_and_nul_rejected",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestSafety::test_ordinary_keys_still_accepted",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestSafety::test_absolute_key_rejected",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestSafety::test_url_unsupported",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_concurrent_writes_to_same_key_do_not_share_a_temp_file",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_publish_retries_a_transient_permission_error",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_publish_gives_up_and_raises_on_permanent_error",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_put_is_atomic_like_put_stream",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_written_file_is_owner_only_by_default",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_file_mode_configurable_as_octal_string",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.storage.test_local_storage.TestLocalStorageHardening::test_unquoted_yaml_mode_is_read_as_decimal_int",
+        "status": "pass"
+      }
+    ],
+    "ProcessLink-cleanup-and-current-pid": [
+      {
+        "id": "tests_temp.link.test_cleanup.TestOwnerPid::test_it_reads_the_pid_out_of_the_block_name",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestOwnerPid::test_a_channel_name_with_dashes_does_not_confuse_it",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestOwnerPid::test_a_name_it_cannot_read_yields_nothing[xime-link-abc-x-y]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestOwnerPid::test_a_name_it_cannot_read_yields_nothing[xime-link--x]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestOwnerPid::test_a_name_it_cannot_read_yields_nothing[xime-link-]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestAlive::test_this_process_is_alive",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestAlive::test_a_pid_that_cannot_exist_is_not_alive",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestSweep::test_it_is_a_no_op_where_there_is_no_shm",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestSweep::test_it_removes_a_block_whose_owner_is_gone",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestSweep::test_it_leaves_a_block_whose_owner_is_still_running",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.link.test_cleanup.TestSweep::test_it_never_touches_a_name_that_is_not_ours",
+        "status": "pass"
+      }
+    ],
+    "Unix-socket": [
+      {
+        "id": "tests_temp.socket.test_socket::test_frame_round_trip",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_frame_empty_payload",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_frame_bad_magic_raises",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_read_frame_eof_raises_incomplete",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_upload_stream_iterates_until_end",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_upload_stream_read_returns_none_at_end",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_session_reap_injects_timeout",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_session_destroy_cancels_task",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_builder_resolves_all_shapes",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_builder_filters_by_server_id",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_builder_rejects_command_with_stream",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_builder_rejects_missing_request",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_builder_rejects_duplicate_endpoint",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_config_auto_path_from_dir",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_config_path_override_wins",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_config_permission_parsed_as_octal",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_config_defaults_without_block",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_e2e_command_and_streams",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.socket.test_socket::test_e2e_concurrent_sessions",
+        "status": "pass"
+      }
+    ],
+    "Socket-inheritance": [
+      {
+        "id": "tests_temp.processes.test_socket_mode.TestChaChatTruocKhiListen::test_socket_chi_chu_so_huu_ngay_sau_bind",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.processes.test_socket_mode.TestChaChatTruocKhiListen::test_phep_do_biet_keu",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.processes.test_socket_mode.TestChaChatTruocKhiListen::test_tcp_khong_bi_dinh",
+        "status": "pass"
+      }
+    ],
+    "TLS": [
+      {
+        "id": "tests_temp.web.test_tls.TestTlsDisabled::test_empty_config_yields_no_kwargs",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsDisabled::test_default_server_config_has_tls_disabled",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsDisabled::test_enabled_property_follows_certfile_or_keyfile",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_certfile_without_keyfile_fails",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_keyfile_without_certfile_fails",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_missing_certfile_on_disk_fails_with_path",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_missing_keyfile_on_disk_fails_with_path",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_missing_ca_certs_on_disk_fails",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_directory_instead_of_file_fails",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_unreadable_keyfile_fails_with_permission_detail",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_error_names_the_server_id",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsValidation::test_invalid_cert_reqs_spelling_rejected_by_config",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_minimal_config_passes_cert_and_key_only",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_unset_optionals_are_not_forwarded",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_cert_reqs_spelling_maps_to_stdlib_constant[none-0]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_cert_reqs_spelling_maps_to_stdlib_constant[optional-1]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_cert_reqs_spelling_maps_to_stdlib_constant[required-2]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_cert_reqs_none_string_is_forwarded_not_dropped",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_mtls_options_forwarded",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestTlsKwargs::test_keyfile_password_forwarded",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestUvicornWiring::test_without_tls_config_is_not_ssl",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestUvicornWiring::test_with_tls_config_builds_ssl_context",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestUvicornWiring::test_mtls_options_survive_context_build",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls::test_real_https_request_succeeds",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestWebAdapterTlsResolution::test_a_cell_without_ssl_inherits_server_ssl",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestWebAdapterTlsResolution::test_a_secondary_endpoint_inherits_it_too",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestWebAdapterTlsResolution::test_a_cell_with_its_own_ssl_wins",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestWebAdapterTlsResolution::test_an_empty_ssl_block_opts_an_endpoint_out",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls.TestWebAdapterTlsResolution::test_no_ssl_anywhere_stays_plain_http",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls::test_runtime_config_parses_ssl_block",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-None-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-None-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-ECDHE+AESGCM-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-ECDHE+AESGCM-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-None-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-None-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-ECDHE+AESGCM-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-ECDHE+AESGCM-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-rsa-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-rsa-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-ecdsa-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-ecdsa-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_web_adapter_watcher_reloads_without_an_external_hook[asyncio-rsa]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_web_adapter_watcher_reloads_without_an_external_hook[asyncio-ecdsa]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_watcher_uses_bounded_early_retry_backoff[asyncio]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[failed-workers0-missing0-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers1-missing1-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[unchanged-workers2-missing2-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[failed-workers3-missing3-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[partial-workers4-missing4-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[timeout-workers5-missing5-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers6-missing6-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers7-missing7-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers8-missing8-True]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[unchanged-workers9-missing9-True]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_missing_listener_is_a_failure_for_python_and_http[asyncio-before-start]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_missing_listener_is_a_failure_for_python_and_http[asyncio-unknown-listener]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-http-only]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-stopped-tls]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-invalid-certificate]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-reloaded]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-unchanged]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-all-reloaded]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-all-unchanged]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-mixed-success]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-all-failed]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-partial-failure]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-missing-ack]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-timeout]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-empty-response]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_rejects_truncated_success_ack[asyncio]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[empty]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[no-detail-length]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[truncated-detail]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[truncated-fingerprint]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[trailing-bytes]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[non-ascii-fingerprint]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[non-ascii-detail]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[unknown-status]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_valid_worker_ack_retains_its_result[reloaded]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_valid_worker_ack_retains_its_result[unchanged]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_valid_worker_ack_retains_its_result[failed]",
+        "status": "pass"
+      }
+    ],
+    "TLS-reload": [
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-None-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-None-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-ECDHE+AESGCM-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-rsa-ECDHE+AESGCM-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-None-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-None-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-ECDHE+AESGCM-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_reload_is_atomic_deduplicated_and_preserves_existing_connection[asyncio-ecdsa-ECDHE+AESGCM-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-rsa-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-rsa-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-ecdsa-771]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_mtls_ca_rotation_accepts_only_the_current_client_ca[asyncio-ecdsa-772]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_web_adapter_watcher_reloads_without_an_external_hook[asyncio-rsa]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_web_adapter_watcher_reloads_without_an_external_hook[asyncio-ecdsa]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload::test_watcher_uses_bounded_early_retry_backoff[asyncio]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[failed-workers0-missing0-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers1-missing1-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[unchanged-workers2-missing2-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[failed-workers3-missing3-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[partial-workers4-missing4-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[timeout-workers5-missing5-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers6-missing6-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers7-missing7-False]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[reloaded-workers8-missing8-True]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_success_requires_completed_nonempty_worker_results[unchanged-workers9-missing9-True]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_missing_listener_is_a_failure_for_python_and_http[asyncio-before-start]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_missing_listener_is_a_failure_for_python_and_http[asyncio-unknown-listener]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-http-only]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-stopped-tls]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-invalid-certificate]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-reloaded]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_local_listener_outcome[asyncio-unchanged]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-all-reloaded]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-all-unchanged]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-mixed-success]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-all-failed]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-partial-failure]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-missing-ack]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-timeout]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_preserves_cluster_outcome[asyncio-empty-response]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_management_rejects_truncated_success_ack[asyncio]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[empty]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[no-detail-length]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[truncated-detail]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[truncated-fingerprint]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[trailing-bytes]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[non-ascii-fingerprint]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[non-ascii-detail]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_malformed_worker_ack_is_never_successful[unknown-status]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_valid_worker_ack_retains_its_result[reloaded]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_valid_worker_ack_retains_its_result[unchanged]",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_tls_reload_results::test_valid_worker_ack_retains_its_result[failed]",
+        "status": "pass"
+      }
+    ],
+    "Cluster-TLS-ACK": [
+      {
+        "id": "tests_temp.processes.test_cluster_lifecycle.TestTlsReloadCoordination::test_api_waits_for_each_worker_and_duplicate_requests_apply_once",
+        "status": "pass"
+      }
+    ],
+    "Windows-accept-guard": [
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestBocDungNoiVaDungLuc::test_windows_co_socket_dung_chung_thi_boc",
+        "status": "skip"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestBocDungNoiVaDungLuc::test_ngoai_windows_tra_lai_CHINH_socket_do",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestBocDungNoiVaDungLuc::test_khong_co_socket_thi_khong_lam_gi",
+        "status": "pass"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestNhuongKhiNguoiKhacGiu::test_nguoi_khac_dang_giu_thi_nem_BlockingIOError",
+        "status": "skip"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestNhuongKhiNguoiKhacGiu::test_khong_ai_giu_thi_accept_chay_that",
+        "status": "skip"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestNhaKhoaSauMoiLanAccept::test_accept_nem_thi_van_nha_khoa",
+        "status": "skip"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestNhaKhoaSauMoiLanAccept::test_accept_thanh_cong_thi_van_nha_khoa",
+        "status": "skip"
+      },
+      {
+        "id": "tests_temp.web.test_khoa_accept.TestHongThiCHAY_KHONG_KHOA_chu_khong_chet::test_khoa_hong_thi_tra_lai_socket_goc",
+        "status": "pass"
+      }
+    ]
+  }
+}

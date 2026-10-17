@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="1.356" timestamp="2026-10-17T22:17:00.900902+07:00" hostname="debian"><testcase classname="" name="tests_temp.DI.test_02_happy_path" time="0.000"><error message="collection failure">ImportError while importing test module '/home/thang/code/xime/xime framework/tests_temp/DI/test_02_happy_path.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+tests_temp/DI/test_02_happy_path.py:9: in &lt;module&gt;
+    from sample.service.user_service import UserService
+E   ModuleNotFoundError: No module named 'sample.service'</error></testcase></testsuite></testsuites>

@@ -1,0 +1,3 @@
+/tmp/xime-linux-run-20261017T144535Z/floor-fix-wheel/lib/python3.12/site-packages/xime/__init__.py
+{'pydantic': '2.7.0', 'grpcio': '1.72.1', 'grpcio-tools': '1.72.1', 'protobuf': '6.33.5'}
+<class 'xime.adapters.grpc._adapter.GrpcAdapter'>

@@ -1,0 +1,11 @@
+{
+  "start_utc": "2026-10-17T14:56:48.368904+00:00",
+  "seconds": 3.976,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "bash",
+    "-c",
+    "cd /tmp/xime-linux-run-20261017T144535Z/services && apt-get download mosquitto libmosquitto1 libcjson1 libdlt2 libwebsockets19t64"
+  ]
+}

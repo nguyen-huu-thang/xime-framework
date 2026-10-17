@@ -1,0 +1,25 @@
+# Boi tai tao duoc hoac rieng may; van chep .claude/docs va .claude/scripts.
+# .git khong co dau /: bao ve ca thu muc va tep .git o moi cap.
+.git
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.venv*
+venv
+venv-*
+*.egg-info
+/build/
+/dist/
+/.claude/temp/
+/.claude/settings.local.json
+/.claude/.mcp.json
+/pypi_token.py
+/pypi_token.py.tmp
+*.token
+/.pypirc
+/.env
+/.env.*
+/ket-qua-kiem-thu-linux/

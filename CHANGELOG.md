@@ -9,6 +9,9 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 
 ### Fixed
 
+- Dependency floors: Pydantic >=2.7.0 để khớp FastAPI tối thiểu; grpcio và
+  grpcio-tools >=1.72.1 để cài cùng protobuf >=6.33.5. Tổ hợp sàn mới đã qua
+  full suite trên Linux/Python 3.12; không coi đó là exact-floor trên Python 3.14.
 - Config checker: lỗi phân tích YAML chỉ báo loại lỗi và dòng/cột, không lặp
   lại dòng chứa mật khẩu, credential trong URL hoặc nội dung tag.
 - JWT packaging: extra `jwt` cài backend cryptography cho RSA/EC/EdDSA;

@@ -1,0 +1,12 @@
+{
+  "start_utc": "2026-10-17T14:52:25.852808+00:00",
+  "seconds": 0.365,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    ".claude/scripts/check_doc_coverage.py",
+    "--docs",
+    "docs/en"
+  ]
+}

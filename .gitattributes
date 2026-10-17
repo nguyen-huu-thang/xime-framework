@@ -1,0 +1,3 @@
+# Preserve checksummed raw logs and CRLF snapshots without reformatting output.
+/ket-qua-kiem-thu-linux/** -text -whitespace
+/KIEM-THU-LINUX.sha256 -text

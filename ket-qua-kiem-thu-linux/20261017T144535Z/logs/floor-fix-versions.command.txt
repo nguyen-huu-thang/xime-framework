@@ -1,0 +1,1 @@
+/tmp/xime-linux-run-20261017T144535Z/approved-floor-fix/bin/python -c 'import xime,importlib.metadata as m; print(xime.__file__); print({p:m.version(p) for p in ("pydantic","fastapi","grpcio","grpcio-tools","protobuf")})'

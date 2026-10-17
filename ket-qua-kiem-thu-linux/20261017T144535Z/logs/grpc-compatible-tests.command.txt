@@ -1,0 +1,1 @@
+/tmp/xime-linux-run-20261017T144535Z/grpc-compatible/bin/python -m pytest tests_temp/grpc tests_temp/grpc_client tests_temp/grpc_codefirst -q -ra -p no:cacheprovider --basetemp /tmp/xime-linux-run-20261017T144535Z/pytest-grpc-compatible --junitxml '/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/xml/grpc-compatible.xml'

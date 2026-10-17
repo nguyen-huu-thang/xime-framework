@@ -1,0 +1,14 @@
+{
+  "start_utc": "2026-10-17T15:18:46.589423+00:00",
+  "seconds": 0.265,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    "-m",
+    "twine",
+    "check",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/artifacts-floor-fix/xime-0.8.3-py3-none-any.whl",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/artifacts-floor-fix/xime-0.8.3.tar.gz"
+  ]
+}

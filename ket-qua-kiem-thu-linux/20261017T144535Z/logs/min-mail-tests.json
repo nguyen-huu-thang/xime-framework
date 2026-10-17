@@ -1,0 +1,20 @@
+{
+  "start_utc": "2026-10-17T14:54:49.253543+00:00",
+  "seconds": 0.917,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/min-mail/bin/python",
+    "-m",
+    "pytest",
+    "tests_temp/mail",
+    "-q",
+    "-ra",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "/tmp/xime-linux-run-20261017T144535Z/pytest-min-mail",
+    "--junitxml",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/xml/min-mail.xml"
+  ]
+}

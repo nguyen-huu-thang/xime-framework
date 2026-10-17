@@ -1,0 +1,1 @@
+/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python -m twine check '/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/artifacts/xime-0.8.3-py3-none-any.whl' '/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/artifacts/xime-0.8.3.tar.gz'

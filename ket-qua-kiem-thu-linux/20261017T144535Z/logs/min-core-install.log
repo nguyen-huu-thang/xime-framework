@@ -1,0 +1,5 @@
+Using Python 3.12.15 environment at: /tmp/xime-linux-run-20261017T144535Z/min-core
+error: No solution found when resolving dependencies
+  cause: Because fastapi==0.133.0 depends on pydantic>=2.7.0 and xime==0.8.3 depends on fastapi==0.133.0, we can conclude that xime==0.8.3 depends on pydantic>=2.7.0.
+         And because xime==0.8.3 depends on pydantic==2.5, we can conclude that xime==0.8.3 cannot be used.
+         And because only xime[all]==0.8.3 is available and you require xime[all], we can conclude that your requirements are unsatisfiable.

@@ -1,0 +1,15 @@
+INFO:xime.bootstrap:event loop: uvloop.Loop
+INFO:xime.adapters.web._adapter:web default: process main serving on 127.0.0.1:50417 (HTTP) [access log off - set xime.dev: true]
+INFO:     Waiting for application startup.
+WARNING:xime.adapters.web._adapter:1 WebSocket route(s) registered but configure_jwt() was never called, so every one of them accepts unauthenticated connections: EchoHandler
+INFO:xime.adapters.web._adapter:web default: configure_jwt() not called - no middleware installed, 1 HTTP route(s)
+INFO:xime.adapters.web._adapter:web default: API docs off - set xime.dev: true to serve them
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:50417 (Press CTRL+C to quit)
+INFO:xime.socket:socket default: process main serving on /tmp/xime-probe-vwvhb0b9/default.sock (0600, uid 1000)
+INFO:     127.0.0.1:53926 - "WebSocket /echo" [accepted]
+INFO:     connection open
+/tmp/xime-linux-run-20261017T144535Z/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+/tmp/xime-linux-run-20261017T144535Z/python/cpython-3.12.15-linux-x86_64-gnu/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 1 leaked shared_memory objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

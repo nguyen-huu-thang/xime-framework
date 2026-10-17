@@ -1,5 +1,9 @@
 # Nghiệm thu Windows sau kiểm toán framework
 
+**Đã có kết quả Linux nhận về sau lượt Windows này:**
+[đánh giá tiếp nhận](nghiem-thu-linux-framework.md). Giữ số liệu và giới hạn bên
+dưới làm lịch sử phép đo Windows; không dùng chúng thay hiện trạng Linux mới.
+
 > **Trạng thái:** Bước 0–6 đã commit; phần Bước 7 thực hiện được trên Windows
 > đã đạt ngày 2026-10-17. **DỪNG trước Linux** theo chỉ thị chủ dự án.
 > **Thuộc bản:** nền commit `e5a5b5c` và bản vá bổ sung F4/F7; metadata vẫn 0.8.3,

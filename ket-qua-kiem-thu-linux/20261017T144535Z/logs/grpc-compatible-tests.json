@@ -1,0 +1,22 @@
+{
+  "start_utc": "2026-10-17T14:56:21.990771+00:00",
+  "seconds": 2.068,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/grpc-compatible/bin/python",
+    "-m",
+    "pytest",
+    "tests_temp/grpc",
+    "tests_temp/grpc_client",
+    "tests_temp/grpc_codefirst",
+    "-q",
+    "-ra",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "/tmp/xime-linux-run-20261017T144535Z/pytest-grpc-compatible",
+    "--junitxml",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/xml/grpc-compatible.xml"
+  ]
+}

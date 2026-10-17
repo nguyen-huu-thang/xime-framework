@@ -1,0 +1,1 @@
+{"python": "3.14.8 (tags/v3.14.8:8e6e75d, Sep 30 2026, 18:19:33) [MSC v.1944 64 bit (AMD64)]", "xime_file": "D:\\temp\\xime-framework-windows-validation-20261017\\runtime-grpc\\Lib\\site-packages\\xime\\__init__.py", "versions": {"xime": "0.8.3", "pydantic": "2.14.1", "grpcio": "1.84.0", "grpcio-tools": "1.84.0", "protobuf": "7.36.2"}}

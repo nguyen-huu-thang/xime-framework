@@ -1,0 +1,7 @@
+.........................ssss..............................              [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests_temp/storage/test_s3_integration.py:88: no S3 endpoint at http://127.0.0.1:58984
+SKIPPED [1] tests_temp/storage/test_s3_integration.py:94: no S3 endpoint at http://127.0.0.1:58984
+SKIPPED [1] tests_temp/storage/test_s3_integration.py:103: no S3 endpoint at http://127.0.0.1:58984
+SKIPPED [1] tests_temp/storage/test_s3_integration.py:120: no S3 endpoint at http://127.0.0.1:58984
+55 passed, 4 skipped in 1.00s

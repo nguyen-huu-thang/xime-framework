@@ -1,0 +1,17 @@
+{
+  "start_utc": "2026-10-17T14:52:43.295872+00:00",
+  "seconds": 39.071,
+  "exit": 1,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    "-m",
+    "pip_audit",
+    "--progress-spinner",
+    "off",
+    "--format",
+    "json",
+    "--output",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/advisory-resolver.json"
+  ]
+}

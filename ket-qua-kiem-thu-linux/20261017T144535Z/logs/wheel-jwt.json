@@ -1,0 +1,14 @@
+{
+  "start_utc": "2026-10-17T14:54:20.647099+00:00",
+  "seconds": 81.715,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    ".claude/scripts/check_wheel_jwt_runtime.py",
+    "--wheel",
+    "ket-qua-kiem-thu-linux/20261017T144535Z/artifacts/xime-0.8.3-py3-none-any.whl",
+    "--output",
+    "/tmp/xime-linux-run-20261017T144535Z/wheel-jwt"
+  ]
+}

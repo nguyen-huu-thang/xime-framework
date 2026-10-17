@@ -1,0 +1,1 @@
+/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python -c 'import sys,ssl,xime,importlib.metadata as m; print(sys.version); print(ssl.OPENSSL_VERSION); print(xime.__file__); print({p:m.version(p) for p in ("pytest","pytest-asyncio","uvloop","uvicorn","fastapi","starlette","pydantic","cryptography","pyjwt","anyio")})'

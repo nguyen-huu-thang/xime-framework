@@ -1,0 +1,25 @@
+{
+  "start_utc": "2026-10-17T15:00:05.707297+00:00",
+  "seconds": 1.517,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "env",
+    "PYTHONPATH=/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/harness",
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    "-m",
+    "pytest",
+    "-c",
+    "pyproject.toml",
+    "ket-qua-kiem-thu-linux/20261017T144535Z/harness/test_linux_runtime.py::test_application_http_ws_unix_and_actual_worker_loop",
+    "-q",
+    "-s",
+    "-ra",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "/tmp/xime-linux-run-20261017T144535Z/pytest-unix-v3",
+    "--junitxml",
+    "ket-qua-kiem-thu-linux/20261017T144535Z/xml/unix-peercred-v3.xml"
+  ]
+}

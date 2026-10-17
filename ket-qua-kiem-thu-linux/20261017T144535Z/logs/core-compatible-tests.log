@@ -1,0 +1,99 @@
+Added to sys.path: /home/thang/code/xime/xime framework, /home/thang/code/xime/xime framework/tests_temp/DI
+........................................................................ [  2%]
+........................................................................ [  4%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 14%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+........................................................................ [ 24%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 42%]
+........................................................................ [ 44%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+........................................................................ [ 51%]
+........................................................................ [ 54%]
+........................................................................ [ 56%]
+.............................ss......................................... [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 64%]
+....................................s................................... [ 66%]
+........................................................................ [ 69%]
+........................................................................ [ 71%]
+........................................................................ [ 74%]
+........................................................................ [ 76%]
+........................................................................ [ 79%]
+........................................................................ [ 81%]
+........................................................................ [ 84%]
+......ssss.............................................................. [ 86%]
+........................................................................ [ 89%]
+........................................................................ [ 91%]
+...............s..ssss.................................................. [ 94%]
+........................................................................ [ 96%]
+........................................................................ [ 98%]
+..............................                                           [100%]
+=============================== warnings summary ===============================
+../../../../../tmp/xime-linux-run-20261017T144535Z/core-compatible/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /tmp/xime-linux-run-20261017T144535Z/core-compatible/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests_temp/jwt/test_headers_and_options.py::TestExtraHeaders::test_alg_in_particular_would_have_overridden_the_key_context
+  /tmp/xime-linux-run-20261017T144535Z/core-compatible/lib/python3.12/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 32 bytes long, which is below the minimum recommended length of 64 bytes for SHA512. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+tests_temp/jwt/test_untrusted_input.py::test_real_http_listener_survives_an_untrusted_nested_header[httptools]
+  /tmp/xime-linux-run-20261017T144535Z/core-compatible/lib/python3.12/site-packages/websockets/legacy/__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
+    warnings.warn(  # deprecated in 14.0 - 2024-11-09
+
+tests_temp/jwt/test_untrusted_input.py::test_real_http_listener_survives_an_untrusted_nested_header[httptools]
+  /tmp/xime-linux-run-20261017T144535Z/core-compatible/lib/python3.12/site-packages/uvicorn/protocols/websockets/websockets_impl.py:17: DeprecationWarning: websockets.server.WebSocketServerProtocol is deprecated
+    from websockets.server import WebSocketServerProtocol
+
+tests_temp/ws/test_ws_auth.py::TestHandshakeAuthentication::test_a_valid_token_gets_in
+tests_temp/ws/test_ws_auth.py::TestHandshakeAuthentication::test_expired_token_is_refused
+tests_temp/ws/test_ws_auth.py::TestHandshakeAuthentication::test_token_without_the_identity_claim_is_refused
+tests_temp/ws/test_ws_auth.py::TestAuthCannotBeOverriddenAway::test_the_same_handler_works_with_a_token
+tests_temp/ws/test_ws_auth.py::TestNegotiatedSubprotocol::test_the_server_echoes_the_non_token_subprotocol
+tests_temp/ws/test_ws_auth.py::TestNegotiatedSubprotocol::test_nothing_to_echo_when_only_the_token_was_offered
+tests_temp/ws/test_ws_auth.py::TestTokenExpiryDuringTheConnection::test_the_connection_is_closed_when_the_token_expires
+  /tmp/xime-linux-run-20261017T144535Z/core-compatible/lib/python3.12/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 21 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+tests_temp/ws/test_ws_auth.py::TestHandshakeAuthentication::test_a_valid_token_gets_in
+tests_temp/ws/test_ws_auth.py::TestHandshakeAuthentication::test_expired_token_is_refused
+tests_temp/ws/test_ws_auth.py::TestHandshakeAuthentication::test_token_signed_by_another_key_is_refused
+tests_temp/ws/test_ws_auth.py::TestHandshakeAuthentication::test_token_without_the_identity_claim_is_refused
+tests_temp/ws/test_ws_auth.py::TestAuthCannotBeOverriddenAway::test_the_same_handler_works_with_a_token
+tests_temp/ws/test_ws_auth.py::TestNegotiatedSubprotocol::test_the_server_echoes_the_non_token_subprotocol
+tests_temp/ws/test_ws_auth.py::TestNegotiatedSubprotocol::test_nothing_to_echo_when_only_the_token_was_offered
+tests_temp/ws/test_ws_auth.py::TestTokenExpiryDuringTheConnection::test_the_connection_is_closed_when_the_token_expires
+  /tmp/xime-linux-run-20261017T144535Z/core-compatible/lib/python3.12/site-packages/jwt/api_jwt.py:370: InsecureKeyLengthWarning: The HMAC key is 21 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    decoded = self.decode_complete(
+
+tests_temp/ws/test_ws_auth.py::TestHandshakeAuthentication::test_token_signed_by_another_key_is_refused
+  /tmp/xime-linux-run-20261017T144535Z/core-compatible/lib/python3.12/site-packages/jwt/api_jwt.py:149: InsecureKeyLengthWarning: The HMAC key is 9 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests_temp/mqtt/test_integration.py:98: no MQTT broker at 127.0.0.1:58983
+SKIPPED [1] tests_temp/mqtt/test_integration.py:111: no MQTT broker at 127.0.0.1:58983
+SKIPPED [1] tests_temp/processes/test_orphan_guard.py:222: chỉ đúng trên Windows
+SKIPPED [1] tests_temp/storage/test_s3_integration.py:88: no S3 endpoint at http://127.0.0.1:58984
+SKIPPED [1] tests_temp/storage/test_s3_integration.py:94: no S3 endpoint at http://127.0.0.1:58984
+SKIPPED [1] tests_temp/storage/test_s3_integration.py:103: no S3 endpoint at http://127.0.0.1:58984
+SKIPPED [1] tests_temp/storage/test_s3_integration.py:120: no S3 endpoint at http://127.0.0.1:58984
+SKIPPED [1] tests_temp/web/test_khoa_accept.py:78: chi dung tren Windows
+SKIPPED [1] tests_temp/web/test_khoa_accept.py:107: chi dung tren Windows
+SKIPPED [1] tests_temp/web/test_khoa_accept.py:139: chi dung tren Windows
+SKIPPED [1] tests_temp/web/test_khoa_accept.py:162: chi dung tren Windows
+SKIPPED [1] tests_temp/web/test_khoa_accept.py:174: chi dung tren Windows
+2898 passed, 12 skipped, 20 warnings in 270.57s (0:04:30)

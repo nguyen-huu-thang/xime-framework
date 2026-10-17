@@ -1,0 +1,1 @@
+findmnt -T '/home/thang/code/xime/xime framework'

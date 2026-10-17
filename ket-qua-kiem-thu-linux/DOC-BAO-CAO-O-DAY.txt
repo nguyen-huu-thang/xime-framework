@@ -1,0 +1,3 @@
+Báo cáo tương đối trong ZIP: ket-qua-kiem-thu-linux/20261017T144535Z/BAO-CAO.md
+Báo cáo trên Linux: /home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/BAO-CAO.md
+Không đưa chuan-bi-2026-10-17 (backup riêng) vào ZIP.

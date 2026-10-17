@@ -1,0 +1,33 @@
+Cây source đã kiểm:
+/home/thang/code/xime/xime framework
+
+Báo cáo tuyệt đối:
+/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/BAO-CAO.md
+Báo cáo tương đối trong ZIP:
+ket-qua-kiem-thu-linux/20261017T144535Z/BAO-CAO.md
+
+Gửi source hiện tại cộng thư mục lượt 20261017T144535Z:
+BAO-CAO.md, logs/, xml/, harness/, artifacts/ (nếu cần), JSON summary/advisory,
+source-nhan.sha256, constraints minimum, SHA256-KET-QUA.txt.
+SAU BẢN VÁ ĐƯỢC DUYỆT: gửi thêm patches/ và artifacts-floor-fix/ nếu gửi artifact.
+Đọc BAO-CAO.md mục 8: pyproject.toml đã nâng ba floor; bản trên ổ D chưa được sửa.
+Artifact sau vá ở artifacts-floor-fix/; artifacts/ là bản đo trước vá.
+KIEM-THU-LINUX.sha256 giữ nguyên bản incoming, sau vá sẽ lệch đúng pyproject.toml.
+Manifest source sau vá: patches/SOURCE-SAU-NANG-SAN.sha256 (kiểm từ root source).
+Con trỏ chung: ket-qua-kiem-thu-linux/DOC-BAO-CAO-O-DAY.txt.
+
+KHÔNG đưa vào ZIP:
+.git ở mọi cấp; __pycache__; .pytest_cache/.mypy_cache/.ruff_cache;
+.venv*/venv*; .env*; pypi_token.py; *.token; .pypirc;
+.claude/settings.local.json; .claude/.mcp.json; .codex/.agents/.aws;
+private key/cert fixture bí mật; synthetic-vectors.json; pip-cache;
+ket-qua-kiem-thu-linux/chuan-bi-2026-10-17/ (backup toàn cây cũ có dữ liệu riêng).
+
+Backup bền giữ riêng, không gửi:
+/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/chuan-bi-2026-10-17/
+Workspace/interpreter/venv/key tạm (không gửi, mất khi reboot):
+/tmp/xime-linux-run-20261017T144535Z/
+
+Chủ dự án tự đóng ZIP và mang về D. Sau nghiệm thu, chủ dự án đã duyệt commit
+checkpoint Git Linux (BAO-CAO.md mục 9). Không tự đóng gói, copy ngược,
+tag/push/phát hành. Các script/harness cùng freeze cho phép dựng lại môi trường.

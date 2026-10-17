@@ -1,0 +1,1 @@
+/tmp/xime-linux-20261017-tools/bin/uv pip install --python /tmp/xime-linux-run-20261017T144535Z/grpc-compatible/bin/python --link-mode copy --resolution lowest-direct -e '.[all,dev]' 'grpcio>=1.60' 'grpcio-tools>=1.60' protobuf==6.33.5

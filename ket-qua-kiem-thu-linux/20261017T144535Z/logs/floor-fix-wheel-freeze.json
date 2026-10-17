@@ -1,0 +1,13 @@
+{
+  "start_utc": "2026-10-17T15:19:20.909160+00:00",
+  "seconds": 0.365,
+  "exit": 0,
+  "cwd": "/tmp/xime-linux-run-20261017T144535Z",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/floor-fix-wheel/bin/python",
+    "-m",
+    "pip",
+    "freeze",
+    "--all"
+  ]
+}

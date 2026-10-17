@@ -1,0 +1,7 @@
+  A                        -> (docs never show where to import it; skipped)
+  B                        -> (docs never show where to import it; skipped)
+  ModbusClient             -> OK
+  MqttPublisher            -> OK
+  OpcuaClient              -> OK
+
+5 class(es) documented for register(); 0 fail

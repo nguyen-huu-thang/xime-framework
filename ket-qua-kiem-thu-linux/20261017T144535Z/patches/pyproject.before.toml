@@ -1,0 +1,471 @@
+[build-system]
+# hatchling >= 1.27 is required for PEP 639 license metadata (license = "MIT"
+# + license-files) below.
+# hatchling >= 1.27 mới hiểu metadata license PEP 639 khai báo bên dưới.
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+# ---------------------------------------------------------------------------
+# Project metadata
+# ---------------------------------------------------------------------------
+
+[project]
+name = "xime"
+version = "0.8.3"
+description = "A Python backend framework with a built-in DI container: HTTP, WebSocket, gRPC, sockets, MQTT, Modbus TCP and OPC UA from one application, scaled across processes with no external process manager."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Nguyễn Hữu Thắng", email = "nguyen-huu-thang@outlook.com" },
+]
+# Keywords: PyPI dung chung cho tim kiem. Bo cu ("framework, dependency-injection,
+# fastapi, backend") la cua thoi Xime = "DI + FastAPI"; nay adapter da phu ca
+# gRPC, MQTT, Modbus TCP, OPC UA - do la cho khac biet that, khong phai HTTP.
+keywords = [
+    "framework",
+    "dependency-injection",
+    "backend",
+    "asyncio",
+    "microservices",
+    "fastapi",
+    "grpc",
+    "websocket",
+    "mqtt",
+    "modbus",
+    "opc-ua",
+    "iot",
+    "multiprocessing",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Framework :: FastAPI",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Information Technology",
+    # Modbus TCP + OPC UA - khong framework Python cung ho nao noi chuyen duoc
+    # voi thiet bi cong nghiep, nen hai dong nay la cho Xime de tim thay nhat.
+    "Intended Audience :: Manufacturing",
+    "Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator",
+    "Topic :: System :: Networking",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+
+# Core dependencies - luôn được cài khi `pip install xime`
+#
+# Each floor below was checked by installing it, not guessed. Proven on Python
+# 3.14 (2026-08-18): the exact floor set below installs and passes 1553 passed,
+# 11 skipped. Re-run before every release - a floor is a snapshot, and advisories
+# keep moving after it is stamped.
+#
+#   fastapi  0.110.1 used to be the floor (0.110.0 pins starlette 0.36.3, whose
+#            TestClient calls httpx.Client(app=...), removed in httpx 0.28).
+#            Raised to 0.133.0 for a different reason: EVERY fastapi from 0.115
+#            to 0.132 declares `starlette>=0.40.0` with a moving upper CAP, and
+#            that cap is what keeps starlette 1.x out. 0.133.0 is the first
+#            release with no cap. Measured, not assumed:
+#              0.115.3 -> starlette<0.42.0,>=0.40.0
+#              0.128.0 -> starlette<0.51.0,>=0.40.0
+#              0.133.0 -> starlette>=0.40.0          <- cap gone
+#   starlette DECLARED DIRECTLY even though xime imports nothing from it (every
+#            symbol it needs is re-exported by fastapi - see 2026-08-17). The
+#            declaration exists purely to constrain the resolver: pip-audit finds
+#            advisories in starlette that are fixed ONLY in the 1.x line
+#            (1.0.1 / 1.1.0 / 1.3.0 / 1.3.1), with no 0.x backport, so the whole
+#            0.x series stays vulnerable however high fastapi's floor is pushed.
+#            1.3.1 is the first version pip-audit reports as clean.
+#   pydantic 2.0-2.4 predate Python 3.12, our own requires-python floor, so no
+#            supported interpreter can install them. 2.5 is the first with 3.12
+#            support. (2.5-2.11 cannot be exercised here: they have no 3.14
+#            wheels and pydantic-core does not build from source on 3.14.)
+#   pyyaml   6.0 fails to build on any modern CPython ('build_ext' object has no
+#            attribute 'cython_sources'). 6.0.1 is the first that builds.
+#
+# Mỗi mốc dưới đây đều đã CÀI THỬ chứ không phỏng đoán - xem lý do từng dòng ở trên.
+dependencies = [
+    "fastapi>=0.133.0",
+    "starlette>=1.3.1",
+    # Runtime security constraint, including bare `pip install xime`:
+    # FastAPI/Starlette depend on AnyIO. 4.14.2 fixes PYSEC-2026-4024/4025
+    # (process-pool stderr deadlock and IDNA TLS hostname confusion).
+    "anyio>=4.14.2",
+    "pydantic>=2.5",
+    "pyyaml>=6.0.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/nguyen-huu-thang/xime-framework"
+Repository = "https://github.com/nguyen-huu-thang/xime-framework"
+Issues = "https://github.com/nguyen-huu-thang/xime-framework/issues"
+
+# CLI entry point: `xime grpc generate`, `xime grpc check`
+[project.scripts]
+xime = "xime.cli._main:main"
+
+# ---------------------------------------------------------------------------
+# Optional dependencies (starters)
+# Cài theo nhu cầu:
+#   pip install xime[sqlalchemy]
+#   pip install xime[jwt]
+#   pip install xime[scheduler]
+#   pip install xime[redis]
+#   pip install xime[s3]
+#   pip install xime[mqtt]
+#   pip install xime[mail]
+#   pip install xime[modbus]
+#   pip install xime[opcua]
+#   pip install xime[all]          # toàn bộ starters
+# ---------------------------------------------------------------------------
+
+[project.optional-dependencies]
+web = [
+    # ssl_context_factory plus OpenSSL default ciphers (0.48.0). The 0.47.0
+    # default TLSv1 list fails some default TLS 1.2 clients, including reload.
+    "uvicorn[standard]>=0.48.0",
+    # Required by save_upload() and any multipart/form-data route. FastAPI ships
+    # it only in its own `standard` extra, which xime does not pull in, so
+    # without this line the documented upload helper fails at request time with
+    # "Form data requires python-multipart to be installed".
+    # Cần cho save_upload() và mọi route multipart/form-data. FastAPI chỉ kéo nó
+    # trong extra `standard` của chính nó, mà xime không dùng extra đó.
+    #
+    # Floor raised 0.0.7 -> 0.0.31 on 2026-08-18: pip-audit reports 7 advisories
+    # against 0.0.7, fixed across five separate releases (0.0.18 / 0.0.22 /
+    # 0.0.26 / 0.0.30 / 0.0.31). 0.0.31 is the first that clears all of them.
+    "python-multipart>=0.0.31",
+]
+sqlalchemy = [
+    # ⭐⭐ Floor 2.0 -> 2.0.38 (2026-08-18). Not security - the declared floor was
+    # simply WRONG, and had been since the starter was written. Two separate
+    # walls, found by installing at the floor and running the suite:
+    #
+    #   1. Import wall (Python 3.13+). 3.13 added `__firstlineno__` /
+    #      `__static_attributes__` to classes; SQLAlchemy's `TypingOnly` guard
+    #      asserts no extra attributes exist, so `import sqlalchemy` dies:
+    #        <= 2.0.25  AssertionError: SQLCoreOperations ... additional attributes
+    #           2.0.30  TypeError: Can't replace canonical symbol '__firstlineno__'
+    #           2.0.31  import OK
+    #   2. Pool wall (all Pythons). The starter passes `pool_size` /
+    #      `max_overflow` to create_engine() unconditionally, and older SQLAlchemy
+    #      wires aiosqlite to NullPool, which rejects both:
+    #        TypeError: Invalid argument(s) 'pool_size','max_overflow' sent to
+    #        create_engine(), using ... SQLiteDialect_aiosqlite/NullPool/Engine
+    #      Measured on tests_temp/sqlalchemy: 2.0.36 / 2.0.37 fail, 2.0.38 passes.
+    #
+    # ⚠ Two lessons worth more than the number. First, this is WORSE than the
+    # "cannot build" floors (pydantic 2.5, grpcio 1.60, asyncpg 0.29): those fail
+    # loudly during `pip install`, this one installs clean and fails later.
+    # Second, nobody could ever notice it - a floor is `>=`, so pip installs the
+    # NEWEST by default. A wrong floor is invisible until somebody pins downward,
+    # and by then it is their problem, not ours.
+    "sqlalchemy[asyncio]>=2.0.38",
+]
+jwt = [
+    # Floor 2.13 -> 2.15.0 (2026-10-17): the older floor has 14 advisories.
+    # 2.14.0 fixes header-JSON recursion; 2.15.0 also fixes payload recursion
+    # and inconsistent OKP private JWKs. Xime normalizes leaked RecursionError
+    # as an authentication failure as well. Advisory reachability and the
+    # options-mutation record without a fixed event are documented in the audit;
+    # do not infer that every advisory was reachable through Xime's verifier.
+    "pyjwt[crypto]>=2.15.0",
+    # Runtime backend for the advertised RSA/EC/EdDSA algorithms. Keeping this
+    # only in dev made wheel[jwt] install cleanly but reject valid asymmetric
+    # tokens. The explicit floor also constrains existing crypto installations.
+    # Floor 50.0.0 already cleared the 9 advisories measured on 2026-08-18;
+    # re-check check_dep_advisories.py at each release rather than trusting this
+    # historical result. Dev obtains it via all -> jwt, including TLS fixtures.
+    "cryptography>=50.0.0",
+]
+scheduler = [
+    # SchedulerRunner dùng API APScheduler v4 (AsyncScheduler, run_until_stopped,
+    # add_schedule) - KHÔNG tương thích v3.x. v4 hiện mới có bản pre-release nên
+    # phải ghi floor là bản alpha tường minh để pip chấp nhận cài (để ">=4.0" thì
+    # pip ưu tiên 3.x stable -> ImportError lúc chạy). Bump khi v4 ra stable.
+    #
+    # ⚠ KNOWN, UNFIXED, ACCEPTED - re-check this note at every release.
+    # PYSEC-2026-282 / CVE-2026-31072: RCE via insecure deserialization in
+    # APScheduler's JSONSerializer and CBORSerializer. Affected range is
+    # 4.0.0a1 .. 4.0.0a6 with NO fixed version, and 4.0.0a6 is the newest
+    # release that exists - so there is no floor that clears it. It is listed
+    # here rather than silently ignored.
+    #
+    # Why xime is not exposed by default, measured 2026-08-18: SchedulerRunner
+    # calls `AsyncScheduler()` with no arguments, which wires MemoryDataStore +
+    # LocalEventBroker. Neither touches a serializer; the vulnerable path needs
+    # an EXTERNAL data store whose stored payload an attacker can influence.
+    #
+    # ⚠ That safety belongs to the DEFAULT WIRING, not to the dependency. An
+    # application that configures an external data store with JSONSerializer or
+    # CBORSerializer IS exposed, and nothing here will warn it.
+    "apscheduler>=4.0.0a6",
+]
+socket = [
+    # Floor 1.0 -> 1.2.1 (2026-08-18): PYSEC-2026-3625, va o 1.2.1.
+    "msgpack>=1.2.1",
+]
+grpc = [
+    # ⚠ The two grpcio floors CANNOT be verified on Python 3.14, our own newest
+    # supported interpreter: `pip download grpcio-tools==1.60.0` fails with
+    # "Failed to build ... when getting requirements to build wheel" (1.60 is
+    # from 2023, 3.14 did not exist). Same category as the pydantic 2.5 note
+    # above - kept as a floor for older interpreters, measured on none.
+    "grpcio>=1.60",
+    "grpcio-tools>=1.60",
+    # Floor 4.25 -> 6.33.5 (2026-08-18). Two advisories: PYSEC-2026-1806 (fixed
+    # in 4.25.8 / 5.29.5 / 6.31.1) and PYSEC-2026-1805 (fixed in 5.29.6 / 6.33.5
+    # only - NO 4.x backport exists). So 4.25.8 would look like a fix while
+    # leaving the second one open; 6.33.5 is the lowest that clears both.
+    #
+    # Not a real narrowing in practice: grpcio-tools 1.81 already declares
+    # `protobuf>=6.33.5,<7.0.0` itself, so anyone with an installable
+    # grpcio-tools was on this version already. We were merely declaring lower
+    # than the truth.
+    "protobuf>=6.33.5",
+]
+redis = [
+    "redis>=5.0",
+]
+# Kho liên tiến trình (0.8): xime/starters/lmdb - hãm nhịp, thử thách passkey,
+# chống lặp; thứ nhiều tiến trình của MỘT máy phải thống nhất và mất được sau
+# khi máy khởi động lại.
+#
+# Sàn 1.7.5 chọn theo một tiêu chí nói ra được, không phải "bản mới nhất lúc
+# viết": đó là bản ĐẦU TIÊN có wheel dựng sẵn cho ĐỦ dải Python của gói này
+# (`requires-python >= 3.12`), tức cp312 / cp313 / cp314. Các bản trước đó dừng
+# ở cp313, nên người ghim xuống sàn khi chạy 3.14 sẽ phải tự build từ nguồn -
+# một sàn đúng trên giấy mà hỏng lúc cài, đúng loại lỗi bước 1b của hướng dẫn
+# phát hành sinh ra để bắt.
+#
+# ⚠ Đo 2026-08-20: lmdb 1.7.5 và 1.8.1 CÓ wheel `cp314t` (free-threaded), còn
+# nhánh 2.x thì KHÔNG. Ghi lại vì tài liệu thiết kế cache ngày 2026-08-16 ghi
+# "lmdb chưa có wheel free-threaded" - câu đó nay đã cũ. Nó KHÔNG đổi kết luận
+# "đa tiến trình trước, đa luồng để sau": thứ chặn là `grpcio`, xương sống của
+# Xime, chứ không phải lmdb.
+#
+# ⚠⚠ **Bản người dùng thật sự nhận nay là 2.3.0** - qua một bản MAJOR so với
+# mọi con số đo ở trên. Bước 1b ghim `lmdb==1.7.5` để soi advisory ở SÀN, nên
+# không phép đo nào của đợt phát hành chạm tới nhánh 2.x. Đo lại 2026-08-21
+# trên Linux: 2.3.0 cài và chạy bình thường, 160 test của starter xanh.
+# Không phải lỗi; ghi ra vì một chú thích đo bản 1.x không còn nói về thứ người
+# dùng nhận. Phát hiện L7 của kiểm toán 0.8.
+lmdb = [
+    "lmdb>=1.7.5",
+]
+s3 = [
+    "aioboto3>=12",
+    # Framework imports botocore DIRECTLY (starters/s3/_client.py: botocore.config
+    # .Config). Declared on purpose WITHOUT a version, which is unusual and
+    # deliberate: aiobotocore pins botocore to a ~16-patch window that moves with
+    # every one of its releases (2.25.1 pins botocore<1.40.62,>=1.40.46, measured
+    # 2026-08-17). Any floor we write here is either redundant today or a
+    # resolver conflict tomorrow, while `botocore.config.Config` has been stable
+    # for years - so the honest statement is "we import this", and aiobotocore
+    # decides the version.
+    # Khai CỐ Ý KHÔNG có phiên bản: aiobotocore ghim botocore vào một dải ~16 bản
+    # patch và dải đó dịch theo mỗi lần nó ra bản mới, nên mọi sàn ta viết ở đây
+    # hoặc vô nghĩa hôm nay hoặc thành xung đột resolver ngày mai.
+    "botocore",
+]
+mqtt = [
+    # ⭐ Floor 2.0 -> 2.1.0 (2026-08-18). Not a security bump: the two floors in
+    # THIS extra contradicted each other, and `pip install xime[mqtt]` resolved
+    # at the declared floors was flatly impossible:
+    #     aiomqtt 2.0.0 requires paho-mqtt<2.0.0, we declare paho-mqtt>=2.1
+    # Measured - aiomqtt 2.1.0 is the first release to accept paho-mqtt 2.x:
+    #     2.0.0 / 2.0.1 -> paho-mqtt>=1.6.0,<2.0.0
+    #     2.1.0         -> paho-mqtt>=2.0.0,<3.0.0   <- first compatible one
+    #
+    # Nobody could see this on a dev machine: pip always picks the newest
+    # aiomqtt, which is fine. Only installing AT the floors surfaces it - which
+    # is the whole argument for doing that step rather than editing numbers.
+    "aiomqtt>=2.1.0",
+    # Framework imports paho DIRECTLY (adapters/mqtt/_adapter.py, _dispatcher.py):
+    # MQTT v5 needs Properties/PacketTypes for SubscriptionIdentifier and
+    # CorrelationData, and aiomqtt 2.x has no equivalent of its own - it hands
+    # paho's objects straight through. Declared here instead of relying on it
+    # arriving through aiomqtt: a transitive dependency is a promise aiomqtt made
+    # to itself, not to us. Floor 2.1 is what aiomqtt>=2.1 already requires
+    # (paho-mqtt<3.0.0,>=2.1.0, measured 2026-08-17) and the version installed
+    # and tested here, so it adds no new constraint.
+    # Framework import paho TRỰC TIẾP: MQTT v5 cần Properties/PacketTypes, mà
+    # aiomqtt 2.x không có lớp tương đương của riêng nó. Sàn 2.1 trùng khớp ràng
+    # buộc aiomqtt vốn đã đòi nên không siết thêm gì.
+    "paho-mqtt>=2.1",
+]
+mail = [
+    # Floor 3.0 -> 5.1.1 (2026-08-18): PYSEC-2026-2338, va o 5.1.1. Day la
+    # buoc qua HAI ban lon (3.x -> 5.x); da chay het bo test tren 5.1.x.
+    # Floor 5.1.1 -> 5.1.2 (2026-09-01): CVE-2026-55558 / GHSA-vxj7-4xrp-5vr4,
+    # STARTTLS response injection. TRUNG duong Xime dung: `_send_kwargs()` dat
+    # `start_tls=True` cho cong 587 va 25, tuc ca hai cong SMTP pho bien nhat.
+    # Ban va o 5.1.2, cung nhanh patch.
+    "aiosmtplib>=5.1.2",
+]
+# Fieldbus công nghiệp (0.7). Floor đặt ở 3.14 vì API decode đã đổi hẳn trong
+# nhánh 3.x: `pymodbus.payload.BinaryPayloadDecoder` bị xóa, thay bằng
+# `ModbusClientMixin.convert_from_registers`; tham số slave đổi tên thành
+# `device_id`. Bản thấp hơn sẽ ImportError/TypeError lúc chạy.
+modbus = [
+    "pymodbus>=3.14",
+]
+opcua = [
+    "asyncua>=2.0",
+]
+all = [
+    "xime[web,sqlalchemy,jwt,scheduler,socket,grpc,redis,lmdb,s3,mqtt,mail,modbus,opcua]",
+]
+
+# Dev: chạy test, lint, type-check, ASGI server
+dev = [
+    "xime[all]",
+    # Floor 8.0 -> 9.0.3 (2026-08-18): PYSEC-2026-1845. Dev-only.
+    "pytest>=9.0.3",
+    # ⭐ Floor 0.23 -> 1.3.0 (2026-08-18), forced by the pytest bump above.
+    # pytest-asyncio 0.23.0 declares `pytest>=7.0.0` with NO upper cap, so the
+    # resolver happily paired it with pytest 9 - and collection then died with
+    # `INTERNALERROR AttributeError: 'Package' object has no attribute 'obj'`.
+    # Metadata is a claim, not a proof; only installing and RUNNING found it.
+    # Measured: 0.24 / 0.25 / 1.0 / 1.1 / 1.2 all cap at pytest<9; 1.3.0 is the
+    # first to declare pytest<10.
+    "pytest-asyncio>=1.3.0",
+    "asyncpg>=0.29",        # driver PostgreSQL cho test SQLAlchemy
+    "aiosqlite>=0.20",      # driver SQLite cho test SQLAlchemy (nhẹ hơn asyncpg)
+    "httpx>=0.27",          # test HTTP client (dùng với FastAPI TestClient async)
+    # Stub cho starters/s3/_client.py (import dưới TYPE_CHECKING nên KHÔNG cần
+    # lúc chạy) - thiếu nó thì mypy trên chính xime/ báo thiếu stub.
+    # Sàn = đúng bản đã cài và chạy test ngày 2026-08-17, theo quy ước "mỗi mốc
+    # đều đã CÀI THỬ chứ không phỏng đoán" ở đầu file.
+    "types-aiobotocore-s3>=3.9",
+    # ⭐ Công cụ của BƯỚC 1b trong hướng dẫn phát hành
+    # (`.claude/scripts/check_dep_advisories.py`). Trước 2026-08-20 nó không
+    # được khai ở đâu cả - hướng dẫn phát hành phụ thuộc vào một chương trình
+    # mà không file nào nói là cần. Nó biến mất khỏi máy này lúc nào không ai
+    # biết, và script thì in "SACH" trong khi chưa hề soi được gì.
+    #
+    # ⚠ Khai ở đây KHÔNG làm script tự chạy được; nó chỉ khiến
+    # `pip install -e ".[dev]"` kéo công cụ về, tức biến một phụ thuộc ngầm
+    # thành một phụ thuộc nói ra được. Phần kêu lên khi thiếu thì nằm ở chính
+    # script (ba kết cục: SACH / CHUA KET LUAN DUOC / CON MUC CHUA XU LY).
+    "pip-audit>=2.7",
+    # ⭐ Cùng khuôn với `pip-audit` ngay trên, và đây là lần vá thứ HAI của
+    # CÙNG MỘT LỖI - lượt rà 2026-08-20 chẩn đoán đúng ("hướng dẫn phát hành
+    # phụ thuộc vào một chương trình mà không file nào nói là cần") rồi vá đúng
+    # MỘT CA thay vì cả một LOẠI. Phát hiện T11 của kiểm toán 0.8.
+    #
+    # `[tool.ruff]` và `[tool.mypy]` đã nằm trong chính file này từ lâu; công cụ
+    # thì không được khai ở đâu. Hậu quả đo được: mypy không có trên máy phát
+    # triển, nên phép kiểm kiểu chưa hề chạy cho 0.8. Và chính file này khai
+    # `types-aiobotocore-s3` với lý do "thiếu nó thì mypy báo thiếu stub" -
+    # tức nó khai một phụ thuộc CỦA mypy trong khi không khai mypy.
+    #
+    # Test canh `tests_temp/api_surface/test_dev_tools.py` chạy phép kiểm NGƯỢC:
+    # mọi công cụ mà `.claude/scripts/` hoặc hướng dẫn phát hành gọi tới đều
+    # phải có mặt ở đây.
+    "mypy>=1.11",
+    "ruff>=0.6",
+    # ⭐ Hai cai nay do CHINH phep quet nguoc cua T11 tim ra, khong phai do bao
+    # cao ke ten. `pypi_token.py --guide` day nguoi phat hanh chay `python -m
+    # build` roi `python -m twine check dist/*`, va ca hai chua bao gio duoc
+    # khai o dau. Vet chinh xac giong pip-audit va giong mypy/ruff - ba lan
+    # cung mot khuon trong cung mot file.
+    "build>=1.0",
+    "twine>=5.0",
+]
+
+# ---------------------------------------------------------------------------
+# Package discovery
+# Cấu trúc hiện tại: core/, adapters/, starters/, testing/ ở thư mục gốc.
+# Khi publish lên PyPI hoặc refactor sang src/xime/ layout thì cập nhật lại.
+# ---------------------------------------------------------------------------
+
+[tool.hatch.build.targets.wheel]
+packages = ["xime"]
+
+# sdist: whitelist tường minh, KHÔNG để mặc định.
+# Mặc định của hatchling là "mọi thứ không bị .gitignore che", nghĩa là mỗi thư
+# mục mới thêm vào repo đều tự động chui vào gói phát hành. Bản 0.7.0 vì thế
+# từng nuốt cả `.claude/` (tài liệu chiến lược nội bộ, đường dẫn máy cá nhân) và
+# `tests_temp/` - 400 file trong khi mã nguồn chỉ 190.
+# Whitelist thay vì blacklist: thư mục mới mặc định NẰM NGOÀI gói, phải khai mới
+# vào. Sai sót nghiêng về phía an toàn.
+#
+# sdist: explicit whitelist, never the default.
+# Hatchling's default is "everything not gitignored", so any new directory ends
+# up shipped. Whitelisting makes new files default to excluded instead.
+# Patterns are .gitignore-style: a bare name matches at ANY depth, so "docs"
+# also pulled in `.claude/docs/` (27 internal design documents). The leading
+# slash anchors each pattern to the project root - keep it.
+# Mẫu theo kiểu .gitignore: tên trần khớp ở MỌI độ sâu, nên "docs" kéo theo cả
+# `.claude/docs/` (27 tài liệu thiết kế nội bộ). Dấu / đầu neo mẫu vào gốc dự án.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/xime",
+    "/docs",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+    "/pyproject.toml",
+]
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+testpaths = ["tests_temp"]
+addopts = "--import-mode=importlib"
+
+# ---------------------------------------------------------------------------
+# Ruff (linter + formatter)
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501", # line too long - để ruff format xử lý
+    # UP046: "dùng cú pháp type parameter của PEP 695 thay cho Generic[T]".
+    #
+    # ⛔ CỐ Ý KHÔNG SỬA, và đây là một quyết định chứ không phải nợ. Ba lớp bị
+    # nhắc - `CrudRepository` (0.6.1), `Store` và `RefData` (0.8) - đều là
+    # **lớp nền công khai người dùng kế thừa**, và cả ba nhận cấu hình bằng
+    # THAM SỐ CLASS (`class X(Store[Y], name="...", ttl=...)`). Đổi sang
+    # `class Store[T]` là đổi cỗ máy dựng lớp của một API công khai để lấy về
+    # đúng một thứ: cú pháp mới hơn. Không người dùng nào được lợi.
+    #
+    # ⚠ Lý do ghi ra thay vì để nó đỏ mãi: `ruff check xime/` mà **không bao
+    # giờ xanh** là một phép dò không ai còn đọc - ba dòng quen thuộc dạy người
+    # ta lướt qua, và dòng thứ tư sẽ lướt cùng. Cùng nguyên tắc với "phép dò
+    # kêu oan là phép dò sẽ bị tắt".
+    #
+    # Xét lại khi: 0.9 lên Beta và có dịp đụng vào cả ba lớp cùng lúc.
+    "UP046",
+]
+
+# ---------------------------------------------------------------------------
+# Mypy (type checker) - tùy chọn
+# ---------------------------------------------------------------------------
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true

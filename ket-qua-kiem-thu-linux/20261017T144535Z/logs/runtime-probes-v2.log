@@ -1,0 +1,15 @@
+HTTP_WORKER {'pid': 24875, 'loop': 'uvloop.Loop'}
+WS_WORKER {'pid': 24875, 'loop': 'uvloop.Loop'}
+UNIX_WORKER_ALLOWED_UID 1000 {'pid': 24875, 'loop': 'uvloop.Loop', 'value': 'unix-credentials'}
+probe-single shutdown_exit= 0
+.SHARED_LISTENER_WORKERS {24888: 'uvloop.Loop', 24909: 'uvloop.Loop'}
+probe-cluster shutdown_exit= 0
+.HOOK 1792248847.950318 503 {'server_id': 'default', 'outcome': 'failed', 'workers': [{'worker_index': 0, 'outcome': 'failed', 'certificate_fingerprint': None, 'detail': 'SSLError'}], 'missing_workers': []}
+HOOK 1792248848.9723012 200 {'server_id': 'default', 'outcome': 'unchanged', 'workers': [{'worker_index': 0, 'outcome': 'unchanged', 'certificate_fingerprint': 'd978af63fa5f2394380ca0cba433b2104ccc9eff047f84a89f1f11ac9edfc7a4', 'detail': None}], 'missing_workers': []}
+HOOK 1792248848.9740736 503 {'server_id': 'default', 'outcome': 'failed', 'workers': [{'worker_index': 0, 'outcome': 'failed', 'certificate_fingerprint': None, 'detail': 'PermissionError'}], 'missing_workers': []}
+HOOK 1792248848.9779418 503 {'server_id': 'default', 'outcome': 'failed', 'workers': [{'worker_index': 0, 'outcome': 'failed', 'certificate_fingerprint': None, 'detail': 'FileNotFoundError'}], 'missing_workers': []}
+HOOK 1792248850.0000854 200 {'server_id': 'default', 'outcome': 'unchanged', 'workers': [{'worker_index': 0, 'outcome': 'unchanged', 'certificate_fingerprint': 'f98b9047ac08ae0aea842407a419a470826aa637343dbcb8b8c6c35d64015cc6', 'detail': None}], 'missing_workers': []}
+LINEAGE_A_B_C {'a': 155199227205413320842893353918701637117703103639, 'b': 150969629705859488094695913760815176275155806238, 'c': 537802656353131190038808227680278379092548357827}
+probe-lineage shutdown_exit= 0
+.
+3 passed in 5.78s

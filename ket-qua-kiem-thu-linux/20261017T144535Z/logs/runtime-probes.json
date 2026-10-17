@@ -1,0 +1,23 @@
+{
+  "start_utc": "2026-10-17T14:53:13.131105+00:00",
+  "seconds": 5.579,
+  "exit": 1,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    "-m",
+    "pytest",
+    "-c",
+    "/home/thang/code/xime/xime framework/pyproject.toml",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/harness/test_linux_runtime.py",
+    "-q",
+    "-s",
+    "-ra",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "/tmp/xime-linux-run-20261017T144535Z/pytest-probes",
+    "--junitxml",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/xml/runtime-probes.xml"
+  ]
+}

@@ -1,0 +1,18 @@
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+fastapi==0.143.3
+grpcio==1.84.0
+grpcio-tools==1.84.0
+idna==3.20
+opentelemetry-api==1.45.1
+pip==26.2.1
+protobuf==7.36.2
+pydantic==2.14.1
+pydantic_core==2.50.1
+PyYAML==6.0.3
+setuptools==84.0.0
+starlette==1.8.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+xime @ file:///D:/temp/xime-framework-windows-validation-20261017/artifacts/xime-0.8.3-py3-none-any.whl#sha256=99231a677e298e992c219170da7da46a2ca2c7d12ca047210d646ae794ace05f

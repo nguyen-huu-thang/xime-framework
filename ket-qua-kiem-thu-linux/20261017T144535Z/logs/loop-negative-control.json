@@ -1,0 +1,18 @@
+{
+  "start_utc": "2026-10-17T14:55:21.770569+00:00",
+  "seconds": 0.365,
+  "exit": 1,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    "-m",
+    "pytest",
+    "-c",
+    "/home/thang/code/xime/xime framework/pyproject.toml",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/harness/test_loop_thuc.py",
+    "-q",
+    "-s",
+    "-p",
+    "no:cacheprovider"
+  ]
+}

@@ -1,0 +1,1 @@
+/tmp/xime-linux-run-20261017T144535Z/approved-floor-fix/bin/python -m pytest tests_temp -q -ra -p no:cacheprovider --basetemp /tmp/xime-linux-run-20261017T144535Z/pytest-floor-fix-full --junitxml ket-qua-kiem-thu-linux/20261017T144535Z/xml/floor-fix-full.xml

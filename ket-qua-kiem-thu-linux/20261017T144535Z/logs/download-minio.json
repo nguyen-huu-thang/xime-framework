@@ -1,0 +1,16 @@
+{
+  "start_utc": "2026-10-17T14:56:49.529369+00:00",
+  "seconds": 0.867,
+  "exit": 22,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "curl",
+    "--fail",
+    "--location",
+    "--max-time",
+    "90",
+    "--output",
+    "/tmp/xime-linux-run-20261017T144535Z/services/minio",
+    "https://dl.min.io/server/minio/release/linux-amd64/minio"
+  ]
+}

@@ -11,7 +11,8 @@
 | Framework LÀ GÌ, kiến trúc ra sao | [`thiet-ke/01-tong-quan.md`](thiet-ke/01-tong-quan.md) |
 | Sửa mảng X thì dễ phá chỗ nào | [`thiet-ke/01-tong-quan.md`](thiet-ke/01-tong-quan.md) mục 16 |
 | Hôm nay đứng ở đâu, còn việc gì | [`../CLAUDE.md`](../CLAUDE.md) |
-| Kế hoạch vá kiểm toán | [`sap-toi/ke-hoach-va-loi-kiem-toan-framework.md`](sap-toi/ke-hoach-va-loi-kiem-toan-framework.md): Bước 0–6 đã commit e5a5b5c; Bước 7 Windows đã kiểm, dừng trước Linux |
+| Kế hoạch vá kiểm toán | [`sap-toi/ke-hoach-va-loi-kiem-toan-framework.md`](sap-toi/ke-hoach-va-loi-kiem-toan-framework.md): Bước 0–6 đã commit e5a5b5c; Windows/Linux đã kiểm theo phạm vi, còn SIGTERM và hạ tầng thật |
+| **Kết quả Linux Bước 7 đã nhận (2026-10-17)** | [`kiem-toan/nghiem-thu-linux-framework.md`](kiem-toan/nghiem-thu-linux-framework.md): bốn full suite 2.898/12/0, nhập ba sàn; còn SIGTERM/S3/Certbot/live. Con trỏ gốc: [`../../KIEM-THU-LINUX.md`](../../KIEM-THU-LINUX.md) |
 | Luật code của repo này | [`../rules/`](../rules/) |
 | ✅ Đợt đo uvloop 0.8.1 trên Linux (**đã xong**) | [`kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md); đề bài gốc ở [`ban-giao-cho-phien-linux-0.8.1.md`](nhap/ban-giao-cho-phien-linux-0.8.1.md) |
 | ✅ Chạy thử `0.8.2` trên Linux (**đã xong** 2026-08-25) | [`kiem-toan/0.8.2-ket-qua-do-tren-linux.md`](kiem-toan/0.8.2-ket-qua-do-tren-linux.md) - 1 lỗi framework đã vá + 1 lỗi bộ benchmark đã vá |

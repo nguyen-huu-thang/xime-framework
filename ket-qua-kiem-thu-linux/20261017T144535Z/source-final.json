@@ -1,0 +1,12 @@
+{
+  "payload_files": 750,
+  "source_differences": [],
+  "git_files_compared": 32,
+  "git_byte_identical": false,
+  "git_original_controls_unchanged": true,
+  "git_changed_original_controls": [],
+  "git_unexpected_additions": [],
+  "git_added_object_files": 166,
+  "git_codex_ref_changes": "refs/codex/turn-diffs and new object files observed; HEAD/index/ordinary refs untouched",
+  "manifest_sha256": "d665fe89092c0ab4132c7ceabf4525feb5a0d77cf145bd14c0b490b48340a0d1"
+}

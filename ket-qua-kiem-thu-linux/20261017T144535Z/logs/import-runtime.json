@@ -1,0 +1,11 @@
+{
+  "start_utc": "2026-10-17T14:51:03.518685+00:00",
+  "seconds": 0.265,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    "-c",
+    "import sys,ssl,xime,importlib.metadata as m; print(sys.version); print(ssl.OPENSSL_VERSION); print(xime.__file__); print({p:m.version(p) for p in (\"pytest\",\"pytest-asyncio\",\"uvloop\",\"uvicorn\",\"fastapi\",\"starlette\",\"pydantic\",\"cryptography\",\"pyjwt\",\"anyio\")})"
+  ]
+}

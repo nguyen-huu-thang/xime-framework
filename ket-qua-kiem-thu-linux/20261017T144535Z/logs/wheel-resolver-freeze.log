@@ -1,0 +1,18 @@
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+cffi==2.1.1
+cryptography==50.0.2
+fastapi==0.143.3
+idna==3.20
+opentelemetry-api==1.45.1
+pip==26.2.1
+pycparser==3.11
+pydantic==2.14.1
+pydantic_core==2.50.1
+PyJWT==2.15.1
+PyYAML==6.0.3
+starlette==1.8.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+xime @ file:///home/thang/code/xime/xime%20framework/ket-qua-kiem-thu-linux/20261017T144535Z/artifacts/xime-0.8.3-py3-none-any.whl#sha256=3a17003aac7200525be021b768612c8ec559beba4d802cd98c6c6ae68853d585

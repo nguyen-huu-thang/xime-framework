@@ -1,0 +1,21 @@
+{
+  "start_utc": "2026-10-17T14:54:13.878853+00:00",
+  "seconds": 0.916,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/min-redis/bin/python",
+    "-m",
+    "pytest",
+    "tests_temp/cache",
+    "tests_temp/redis",
+    "-q",
+    "-ra",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "/tmp/xime-linux-run-20261017T144535Z/pytest-min-redis",
+    "--junitxml",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/xml/min-redis.xml"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "start_utc": "2026-10-17T14:54:32.183096+00:00",
+  "seconds": 5.629,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-20261017-tools/bin/uv",
+    "pip",
+    "install",
+    "--python",
+    "/tmp/xime-linux-run-20261017T144535Z/min-s3/bin/python",
+    "--link-mode",
+    "copy",
+    "-e",
+    ".[all,dev]",
+    "-c",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/minimum-s3.txt"
+  ]
+}

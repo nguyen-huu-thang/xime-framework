@@ -1,0 +1,20 @@
+{
+  "start_utc": "2026-10-17T14:54:04.296436+00:00",
+  "seconds": 0.966,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/min-socket/bin/python",
+    "-m",
+    "pytest",
+    "tests_temp/socket",
+    "-q",
+    "-ra",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "/tmp/xime-linux-run-20261017T144535Z/pytest-min-socket",
+    "--junitxml",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/xml/min-socket.xml"
+  ]
+}

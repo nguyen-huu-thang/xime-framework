@@ -1,0 +1,1 @@
+/tmp/xime-linux-run-20261017T144535Z/wheel-jwt/jwt-floors/bin/python -m pip install --upgrade pip

@@ -1,0 +1,13 @@
+{
+  "start_utc": "2026-10-17T14:53:24.930593+00:00",
+  "seconds": 0.265,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/min-sqlalchemy/bin/python",
+    "-m",
+    "pip",
+    "freeze",
+    "--all"
+  ]
+}

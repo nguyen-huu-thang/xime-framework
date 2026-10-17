@@ -1,0 +1,10 @@
+{
+  "start_utc": "2026-10-17T14:54:44.304586+00:00",
+  "seconds": 0.164,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    "ket-qua-kiem-thu-linux/20261017T144535Z/harness/check_artifacts.py"
+  ]
+}

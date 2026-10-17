@@ -1,0 +1,16 @@
+{
+  "start_utc": "2026-10-17T14:47:55.067621+00:00",
+  "seconds": 163.671,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    "-m",
+    "pip",
+    "install",
+    "-e",
+    ".[all,dev]",
+    "build",
+    "twine"
+  ]
+}

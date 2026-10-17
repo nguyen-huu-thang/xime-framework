@@ -1,0 +1,10 @@
+{
+  "start_utc": "2026-10-17T15:16:55.191492+00:00",
+  "seconds": 11.308,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    ".claude/scripts/check_dep_advisories.py"
+  ]
+}

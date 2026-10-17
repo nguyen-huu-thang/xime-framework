@@ -1,0 +1,3 @@
+LOOP_THUC=asyncio.unix_events._UnixSelectorEventLoop
+.
+1 passed in 0.01s

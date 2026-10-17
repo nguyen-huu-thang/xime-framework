@@ -2,7 +2,8 @@
 
 > **TRẠNG THÁI 2026-10-17: sáu lỗi F1–F6 đã vá và kiểm chứng theo nhóm trên
 > Windows; đã commit Bước 0–6 tại e5a5b5c.** Hậu kiểm F7 và nhánh parse YAML của
-> F4 cũng đã vá/kiểm, lưu cùng commit bổ sung. Bước 7 Windows đạt; còn cổng Linux.
+> F4 cũng đã vá/kiểm, lưu cùng commit bổ sung. Đã nhận Bước 7 Linux, nhập sàn
+> Pydantic/gRPC; còn SIGTERM app đơn và hạ tầng thật, xem mục cập nhật dưới.
 > Baseline: `2ad5274`; kết quả bản vá thuộc worktree. Nhận định fingerprint
 > đã được rút lại như một lỗi chức năng. Mười một mục lịch sử phía dưới đã đóng.
 >
@@ -13,6 +14,16 @@
 > Các mục trong phần “Đã sửa” là lịch sử; những việc mới được ghi ở đầu file.
 
 ## Kiểm toán framework và dependency (2026-10-17)
+
+**Cập nhật sau nhận ZIP Linux:** [đánh giá bằng chứng và thay đổi đã nhập](nghiem-thu-linux-framework.md).
+Mỗi lượt trong bốn full suite Linux đạt 2.898 passed/12 skipped/0 failed,
+2.910 collected, không deselect. Không giảm skip thành pass để nghiệm thu.
+
+| ID Linux | Mức | Vấn đề | Trạng thái |
+|---|---|---|---|
+| F-LINUX-1 | P2 | Floor Pydantic 2.5 không khớp FastAPI floor | Đã nhập >=2.7.0, có full suite và wheel sạch |
+| F-LINUX-2 | P2 | grpcio-tools 1.60 đòi protobuf <5, trái floor 6.33.5 | Đã nhập grpcio/tools >=1.72.1, giữ protobuf; full suite sàn mới đạt |
+| F-LINUX-3 | P2 cần điều tra | App đơn để lại Unix socket sau SIGTERM; đổi harness sang SIGINT chưa chứng minh hết lỗi | MỞ; đối chiếu capture_signals có phát lại tín hiệu trước cleanup; cần tái hiện/kiểm native Linux |
 
 Báo cáo đầy đủ và kết quả nhóm vá đầu tiên:
 [`kiem-toan-framework-va-dependency.md`](kiem-toan-framework-va-dependency.md).
@@ -43,8 +54,9 @@ không thay cho chạy Linux. Các tên thiếu trong EN/VN đã có mô tả v�
 
 [Nghiệm thu Bước 7 Windows](nghiem-thu-windows-framework.md): 12 consumer đạt
 6.557 passed/8 skipped, config/DI và artifact đạt. Không còn mục F1–F6 mở theo
-bằng chứng Windows; Linux/uvloop/Certbot và nghiệm thu live consumer vẫn là cổng
-môi trường trước phát hành, không được đánh dấu đã kiểm.
+bằng chứng Windows; Linux/Python 3.12/uvloop/POSIX và lineage mô phỏng nay đã có
+bằng chứng. S3/MinIO thật, Certbot/ACME/VPS, consumer live và SIGTERM app đơn
+vẫn còn mở, không được đánh dấu đã nghiệm thu.
 
 Hậu kiểm: F4 đã che giá trị cả ở parse failure; lỗi vẫn inconclusive, giữ
 loại lỗi/dòng/cột. Full suite cuối **2.884 passed, 25 skipped, 1 deselected**

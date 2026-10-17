@@ -1,0 +1,1 @@
+/tmp/xime-linux-run-20261017T144535Z/min-web/bin/python -m pytest tests_temp/web tests_temp/ws tests_temp/routing -q -ra -p no:cacheprovider --basetemp /tmp/xime-linux-run-20261017T144535Z/pytest-min-web --junitxml '/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/xml/min-web.xml'

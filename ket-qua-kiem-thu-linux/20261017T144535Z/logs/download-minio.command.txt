@@ -1,0 +1,1 @@
+curl --fail --location --max-time 90 --output /tmp/xime-linux-run-20261017T144535Z/services/minio https://dl.min.io/server/minio/release/linux-amd64/minio

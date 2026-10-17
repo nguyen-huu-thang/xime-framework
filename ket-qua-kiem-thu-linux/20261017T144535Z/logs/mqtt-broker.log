@@ -1,0 +1,64 @@
+1792249041: mosquitto version 2.0.21 starting
+1792249041: Config loaded from /tmp/xime-linux-run-20261017T144535Z/services/mosquitto-test.conf.
+1792249041: Opening ipv4 listen socket on port 58983.
+1792249041: mosquitto version 2.0.21 running
+1792249041: New connection from 127.0.0.1:50434 on port 58983.
+1792249041: Client <unknown> closed its connection.
+1792249042: New connection from 127.0.0.1:50448 on port 58983.
+1792249042: Client <unknown> closed its connection.
+1792249042: New connection from 127.0.0.1:42755 on port 58983.
+1792249042: New client connected from 127.0.0.1:42755 as default (p5, c1, k60).
+1792249042: No will message specified.
+1792249042: Sending CONNACK to default (0, 0)
+1792249042: Received SUBSCRIBE from default
+1792249042: 	xime/it/+/data (QoS 1)
+1792249042: default 1 xime/it/+/data
+1792249042: Sending SUBACK to default
+1792249042: Received SUBSCRIBE from default
+1792249042: 	xime/it/echo (QoS 0)
+1792249042: default 0 xime/it/echo
+1792249042: Sending SUBACK to default
+1792249042: New connection from 127.0.0.1:41101 on port 58983.
+1792249042: New client connected from 127.0.0.1:41101 as xime-it-pub (p5, c1, k60).
+1792249042: No will message specified.
+1792249042: Sending CONNACK to xime-it-pub (0, 0)
+1792249042: Received PUBLISH from xime-it-pub (d0, q1, r0, m1, 'xime/it/sensorA/data', ... (2 bytes))
+1792249042: Sending PUBLISH to default (d0, q1, r0, m1, 'xime/it/sensorA/data', ... (2 bytes))
+1792249042: Sending PUBACK to xime-it-pub (m1, rc0)
+1792249042: Received PUBACK from default (Mid: 1, RC:0)
+1792249042: Received DISCONNECT from xime-it-pub
+1792249042: Client xime-it-pub disconnected.
+1792249042: Received DISCONNECT from default
+1792249042: Client default disconnected.
+1792249042: New connection from 127.0.0.1:34061 on port 58983.
+1792249042: New client connected from 127.0.0.1:34061 as default (p5, c1, k60).
+1792249042: No will message specified.
+1792249042: Sending CONNACK to default (0, 0)
+1792249042: Received SUBSCRIBE from default
+1792249042: 	xime/it/+/data (QoS 1)
+1792249042: default 1 xime/it/+/data
+1792249042: Sending SUBACK to default
+1792249042: Received SUBSCRIBE from default
+1792249042: 	xime/it/echo (QoS 0)
+1792249042: default 0 xime/it/echo
+1792249042: Sending SUBACK to default
+1792249043: New connection from 127.0.0.1:37137 on port 58983.
+1792249043: New client connected from 127.0.0.1:37137 as xime-it-rpc (p5, c1, k60).
+1792249043: No will message specified.
+1792249043: Sending CONNACK to xime-it-rpc (0, 0)
+1792249043: Received SUBSCRIBE from xime-it-rpc
+1792249043: 	xime/it/echo/reply (QoS 1)
+1792249043: xime-it-rpc 1 xime/it/echo/reply
+1792249043: Sending SUBACK to xime-it-rpc
+1792249043: Received PUBLISH from xime-it-rpc (d0, q1, r0, m2, 'xime/it/echo', ... (13 bytes))
+1792249043: Sending PUBLISH to default (d0, q0, r0, m0, 'xime/it/echo', ... (13 bytes))
+1792249043: Sending PUBACK to xime-it-rpc (m2, rc0)
+1792249043: Received PUBLISH from default (d0, q1, r0, m3, 'xime/it/echo/reply', ... (12 bytes))
+1792249043: Sending PUBLISH to xime-it-rpc (d0, q1, r0, m1, 'xime/it/echo/reply', ... (12 bytes))
+1792249043: Sending PUBACK to default (m3, rc0)
+1792249043: Received PUBACK from xime-it-rpc (Mid: 1, RC:0)
+1792249043: Received DISCONNECT from xime-it-rpc
+1792249043: Client xime-it-rpc disconnected.
+1792249043: Received DISCONNECT from default
+1792249043: Client default disconnected.
+1792249043: mosquitto version 2.0.21 terminating

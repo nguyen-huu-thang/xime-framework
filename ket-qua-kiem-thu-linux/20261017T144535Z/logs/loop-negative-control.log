@@ -1,0 +1,21 @@
+LOOP_THUC=asyncio.unix_events._UnixSelectorEventLoop
+F
+=================================== FAILURES ===================================
+________________________________ test_loop_thuc ________________________________
+
+    @pytest.mark.asyncio
+    async def test_loop_thuc():
+        loop = asyncio.get_running_loop()
+        name = type(loop).__module__ + '.' + type(loop).__qualname__
+        print('LOOP_THUC=' + name, flush=True)
+>       assert name.startswith('uvloop.') == (os.environ['LOOP_MONG_DOI'] == 'uvloop')
+E       AssertionError: assert False == ('uvloop' == 'uvloop'
+E        +  where False = <built-in method startswith of str object at 0x7fde973460d0>('uvloop.')
+E        +    where <built-in method startswith of str object at 0x7fde973460d0> = 'asyncio.unix_events._UnixSelectorEventLoop'.startswith
+E         
+E           uvloop)
+
+ket-qua-kiem-thu-linux/20261017T144535Z/harness/test_loop_thuc.py:10: AssertionError
+=========================== short test summary info ============================
+FAILED ket-qua-kiem-thu-linux/20261017T144535Z/harness/test_loop_thuc.py::test_loop_thuc
+1 failed in 0.02s

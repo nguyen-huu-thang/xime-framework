@@ -1,0 +1,11 @@
+{
+  "start_utc": "2026-10-17T14:51:03.498255+00:00",
+  "seconds": 0.016,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "sha256sum",
+    "--check",
+    "KIEM-THU-LINUX.sha256"
+  ]
+}

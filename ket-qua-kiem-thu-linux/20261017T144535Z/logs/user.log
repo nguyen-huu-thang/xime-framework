@@ -1,0 +1,1 @@
+uid=1000(thang) gid=1000(thang) groups=1000(thang),24(cdrom),25(floppy),29(audio),30(dip),44(video),46(plugdev),100(users),101(netdev),102(scanner),106(bluetooth),108(lpadmin)

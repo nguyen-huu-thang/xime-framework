@@ -1,0 +1,11 @@
+CERT_ONLY_LINK 1792249100.0328405
+HOOK 1792249100.0372639 503 {'server_id': 'default', 'outcome': 'failed', 'workers': [{'worker_index': 0, 'outcome': 'failed', 'certificate_fingerprint': None, 'detail': 'SSLError'}], 'missing_workers': []}
+MATCHING_KEY_LINK 1792249101.340788
+HOOK 1792249106.01468 200 {'server_id': 'default', 'outcome': 'unchanged', 'workers': [{'worker_index': 0, 'outcome': 'unchanged', 'certificate_fingerprint': '9009973b5d41eaf0b1d106740c482d306b1692fff1c27d008ca23791eaa259a7', 'detail': None}], 'missing_workers': []}
+HOOK 1792249106.0163918 503 {'server_id': 'default', 'outcome': 'failed', 'workers': [{'worker_index': 0, 'outcome': 'failed', 'certificate_fingerprint': None, 'detail': 'PermissionError'}], 'missing_workers': []}
+HOOK 1792249106.0201766 503 {'server_id': 'default', 'outcome': 'failed', 'workers': [{'worker_index': 0, 'outcome': 'failed', 'certificate_fingerprint': None, 'detail': 'FileNotFoundError'}], 'missing_workers': []}
+HOOK 1792249107.043148 200 {'server_id': 'default', 'outcome': 'unchanged', 'workers': [{'worker_index': 0, 'outcome': 'unchanged', 'certificate_fingerprint': 'f5baf2113b9667bc9db1d58acf71e50ab88772f7167adcb024885c55a0e6c469', 'detail': None}], 'missing_workers': []}
+LINEAGE_A_B_C {'a': 653038275080700286938993960103567503679457104672, 'b': 517577936022621126097683598594583987548101791406, 'c': 609587593156237030071561529580364342807464107414}
+probe-lineage shutdown_exit= 0
+.
+1 passed in 8.52s

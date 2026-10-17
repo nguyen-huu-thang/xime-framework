@@ -1,0 +1,1 @@
+sha256sum --check KIEM-THU-LINUX.sha256

@@ -1,0 +1,23 @@
+floor-fix-twine: exit=0, seconds=0.265, log=/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/logs/floor-fix-twine.log
+floor-fix-source-hash: exit=0, seconds=0.016, log=/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/logs/floor-fix-source-hash.log
+{
+  "version": "0.8.3",
+  "requirements": {
+    "pydantic": ">=2.7.0",
+    "grpcio": ">=1.72.1",
+    "grpcio-tools": ">=1.72.1"
+  },
+  "wheel_entries": 256,
+  "wheel_source_files_byte_identical": 251,
+  "sdist_files": 306,
+  "artifacts_sha256": {
+    "xime-0.8.3-py3-none-any.whl": "08004cea4f60cccd02ac79d372017244de3b4397ff154e0605c8b62d85cab0d8",
+    "xime-0.8.3.tar.gz": "4b0ea2e076b90105bb26c5fd2b3a7145da6ececf7ce2dd32a2f0b87c38e0bb04"
+  },
+  "changed_payload_files": [
+    "pyproject.toml"
+  ],
+  "source_before_sha256": "7a1be01ef4d3eac2205bceb1ab7f3c71ed8356df16b1dfe4cb9580573747103f",
+  "source_after_sha256": "e50faccb2c190ee3ae221e61b8c3ff584dcd10fdbd7f738a144daa1347213ed2",
+  "incoming_manifest_kept_unchanged": true
+}

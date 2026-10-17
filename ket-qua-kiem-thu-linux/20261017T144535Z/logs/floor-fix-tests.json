@@ -1,0 +1,30 @@
+{
+  "start_utc": "2026-10-17T15:17:00.016224+00:00",
+  "seconds": 2.471,
+  "exit": 2,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/approved-floor-fix/bin/python",
+    "-m",
+    "pytest",
+    "tests_temp/DI",
+    "tests_temp/config",
+    "tests_temp/bootstrap",
+    "tests_temp/grpc",
+    "tests_temp/grpc_client",
+    "tests_temp/grpc_codefirst",
+    "tests_temp/api_surface",
+    "tests_temp/xime_root",
+    "tests_temp/web",
+    "tests_temp/routing",
+    "tests_temp/ws",
+    "-q",
+    "-ra",
+    "-p",
+    "no:cacheprovider",
+    "--basetemp",
+    "/tmp/xime-linux-run-20261017T144535Z/pytest-floor-fix",
+    "--junitxml",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/xml/floor-fix.xml"
+  ]
+}

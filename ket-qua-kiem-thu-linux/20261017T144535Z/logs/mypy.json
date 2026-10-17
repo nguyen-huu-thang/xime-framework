@@ -1,0 +1,14 @@
+{
+  "start_utc": "2026-10-17T14:52:16.861281+00:00",
+  "seconds": 7.842,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    "-m",
+    "mypy",
+    "xime",
+    "--cache-dir",
+    "/tmp/xime-linux-run-20261017T144535Z/mypy-cache"
+  ]
+}

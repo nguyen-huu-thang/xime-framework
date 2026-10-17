@@ -1,0 +1,12 @@
+{
+  "start_utc": "2026-10-17T14:59:16.501144+00:00",
+  "seconds": 0.565,
+  "exit": 0,
+  "cwd": "/tmp/xime-linux-run-20261017T144535Z/wheel-jwt",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/wheel-jwt/jwt-floors/bin/python",
+    "-I",
+    "/tmp/xime-linux-run-20261017T144535Z/wheel-jwt/smoke.py",
+    "/tmp/xime-linux-run-20261017T144535Z/wheel-jwt/synthetic-vectors.json"
+  ]
+}

@@ -1,0 +1,5 @@
+..............................................ss..............           [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests_temp/mqtt/test_integration.py:98: no MQTT broker at 127.0.0.1:58983
+SKIPPED [1] tests_temp/mqtt/test_integration.py:111: no MQTT broker at 127.0.0.1:58983
+60 passed, 2 skipped in 0.19s

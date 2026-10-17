@@ -1,0 +1,13 @@
+{
+  "start_utc": "2026-10-17T15:17:57.971542+00:00",
+  "seconds": 6.93,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    "-m",
+    "build",
+    "--outdir",
+    "ket-qua-kiem-thu-linux/20261017T144535Z/artifacts-floor-fix"
+  ]
+}

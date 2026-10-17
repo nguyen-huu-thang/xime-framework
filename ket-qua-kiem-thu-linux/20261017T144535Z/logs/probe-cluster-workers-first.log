@@ -1,0 +1,17 @@
+INFO:xime.bootstrap:supervisor: bound shared tcp 43687 for web.default
+INFO:xime.bootstrap:link: allocated 1 channel(s) for run 24365-36b4246705ba8ef8 across 3 slot(s)
+INFO:xime.bootstrap:supervisor: starting 2 process(es): api-2, main (primary=main)
+INFO:xime.bootstrap:supervisor: started main (pid 24385) [primary]
+INFO:xime.bootstrap:event loop: uvloop.Loop
+INFO:xime.bootstrap:supervisor: main finished the cluster-wide run_once
+INFO:xime.adapters.web._adapter:web default: process main serving on 127.0.0.1:43687 (HTTP) (shared socket from supervisor) [access log off - set xime.dev: true]
+INFO:     Waiting for application startup.
+WARNING:xime.adapters.web._adapter:1 WebSocket route(s) registered but configure_jwt() was never called, so every one of them accepts unauthenticated connections: EchoHandler
+INFO:xime.adapters.web._adapter:web default: configure_jwt() not called - no middleware installed, 1 HTTP route(s)
+INFO:xime.adapters.web._adapter:web default: API docs off - set xime.dev: true to serve them
+INFO:     Application startup complete.
+INFO:xime.bootstrap:supervisor: started api-2 (pid 24397)
+INFO:xime.bootstrap:supervisor: signal 15 received - stopping
+INFO:xime.bootstrap:supervisor: main is serving
+INFO:xime.bootstrap:supervisor: api-2 exited with code -15 during shutdown
+INFO:xime.bootstrap:supervisor: stopping (1 process(es) still alive)

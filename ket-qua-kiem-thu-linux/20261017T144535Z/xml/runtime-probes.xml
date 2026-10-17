@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="3" time="5.036" timestamp="2026-10-17T21:53:13.503332+07:00" hostname="debian"><testcase classname="ket-qua-kiem-thu-linux.20261017T144535Z.harness.test_linux_runtime" name="test_application_http_ws_unix_and_actual_worker_loop" time="0.861"><failure message="AssertionError: assert not True&#10; +  where True = exists()&#10; +    where exists = (PosixPath('/tmp/xime-probe-vwvhb0b9') / 'default.sock').exists">tmp_path = PosixPath('/tmp/xime-linux-run-20261017T144535Z/pytest-probes/test_application_http_ws_unix_0')
+
+    @pytest.mark.asyncio
+    async def test_application_http_ws_unix_and_actual_worker_loop(tmp_path):
+        from xime.adapters.socket import SocketClient
+        from probeapp.api import ProbeRequest
+        import tempfile
+        import shutil
+        uds_dir = Path(tempfile.mkdtemp(prefix='xime-probe-'))
+        port = free_port()
+        config = {'webserver': {'host':'127.0.0.1', 'port':port},
+                  'socket': {'dir':str(uds_dir), 'allowed_uids':[os.getuid()], 'permission':'0600'}}
+        try:
+            with app(tmp_path, config, 'probe-single', unix=True) as proc:
+                row = await ready(f'http://127.0.0.1:{port}/probe', proc)
+                assert row['loop'].startswith('uvloop.')
+                print('HTTP_WORKER', row)
+                async with websockets.connect(f'ws://127.0.0.1:{port}/echo', proxy=None) as ws:
+                    hello = json.loads(await ws.recv())
+                    assert hello['loop'].startswith('uvloop.')
+                    await ws.send('linux-websocket')
+                    assert await ws.recv() == 'linux-websocket'
+                    print('WS_WORKER', hello)
+                client = SocketClient(str(uds_dir / 'default.sock'))
+                await client.connect()
+                try:
+                    result = await client.command('probe', ProbeRequest(value='unix-credentials'))
+                    assert result['loop'].startswith('uvloop.')
+                    assert result['value'] == 'unix-credentials'
+                    print('UNIX_WORKER_ALLOWED_UID', os.getuid(), result)
+                finally:
+                    await client.close()
+&gt;           assert not (uds_dir / 'default.sock').exists()
+E           AssertionError: assert not True
+E            +  where True = exists()
+E            +    where exists = (PosixPath('/tmp/xime-probe-vwvhb0b9') / 'default.sock').exists
+
+ket-qua-kiem-thu-linux/20261017T144535Z/harness/test_linux_runtime.py:98: AssertionError</failure></testcase><testcase classname="ket-qua-kiem-thu-linux.20261017T144535Z.harness.test_linux_runtime" name="test_application_two_workers_shared_listener" time="1.117"><failure message="AssertionError: assert 1 == 2&#10; +  where 1 = len({24385: 'uvloop.Loop'})">tmp_path = PosixPath('/tmp/xime-linux-run-20261017T144535Z/pytest-probes/test_application_two_workers_s0')
+
+    @pytest.mark.asyncio
+    async def test_application_two_workers_shared_listener(tmp_path):
+        port = free_port()
+        endpoint = {'web': {'default': {'host':'127.0.0.1', 'port':port, 'shared':True}}}
+        config = {'processes': {'main':dict(endpoint, primary=True), 'api-2':endpoint}}
+        with app(tmp_path, config, 'probe-cluster', cluster=True) as proc:
+            url = f'http://127.0.0.1:{port}/probe'
+            await ready(url, proc)
+            workers = {}
+            async with httpx.AsyncClient(trust_env=False, headers={'Connection':'close'}) as client:
+                for _ in range(120):
+                    row = (await client.get(url)).json()
+                    workers[row['pid']] = row['loop']
+                    if len(workers) == 2:
+                        break
+&gt;           assert len(workers) == 2
+E           AssertionError: assert 1 == 2
+E            +  where 1 = len({24385: 'uvloop.Loop'})
+
+ket-qua-kiem-thu-linux/20261017T144535Z/harness/test_linux_runtime.py:117: AssertionError</failure></testcase><testcase classname="ket-qua-kiem-thu-linux.20261017T144535Z.harness.test_linux_runtime" name="test_symlink_watcher_management_hook_and_wss" time="2.929" /></testsuite></testsuites>

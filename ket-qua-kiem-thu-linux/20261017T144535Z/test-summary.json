@@ -1,0 +1,212 @@
+{
+  "core-compatible": {
+    "total": 2910,
+    "passed": 2898,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 12,
+    "skip_reasons": {
+      "no MQTT broker at 127.0.0.1:58983": 2,
+      "chỉ đúng trên Windows": 1,
+      "no S3 endpoint at http://127.0.0.1:58984": 4,
+      "chi dung tren Windows": 5
+    }
+  },
+  "floor-fix-full": {
+    "total": 2910,
+    "passed": 2898,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 12,
+    "skip_reasons": {
+      "no MQTT broker at 127.0.0.1:58983": 2,
+      "chỉ đúng trên Windows": 1,
+      "no S3 endpoint at http://127.0.0.1:58984": 4,
+      "chi dung tren Windows": 5
+    }
+  },
+  "floor-fix": {
+    "total": 1,
+    "passed": 0,
+    "failed": 0,
+    "errors": 1,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "full-asyncio": {
+    "total": 2910,
+    "passed": 2898,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 12,
+    "skip_reasons": {
+      "no MQTT broker at 127.0.0.1:58983": 2,
+      "chỉ đúng trên Windows": 1,
+      "no S3 endpoint at http://127.0.0.1:58984": 4,
+      "chi dung tren Windows": 5
+    }
+  },
+  "full-uvloop": {
+    "total": 2910,
+    "passed": 2898,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 12,
+    "skip_reasons": {
+      "no MQTT broker at 127.0.0.1:58983": 2,
+      "chỉ đúng trên Windows": 1,
+      "no S3 endpoint at http://127.0.0.1:58984": 4,
+      "chi dung tren Windows": 5
+    }
+  },
+  "grpc-compatible": {
+    "total": 286,
+    "passed": 286,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "lineage-watcher-v3": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "min-jwt": {
+    "total": 179,
+    "passed": 179,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "min-lmdb": {
+    "total": 160,
+    "passed": 160,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "min-mail": {
+    "total": 18,
+    "passed": 18,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "min-modbus": {
+    "total": 161,
+    "passed": 161,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "min-mqtt": {
+    "total": 62,
+    "passed": 60,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 2,
+    "skip_reasons": {
+      "no MQTT broker at 127.0.0.1:58983": 2
+    }
+  },
+  "min-opcua": {
+    "total": 76,
+    "passed": 76,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "min-redis": {
+    "total": 19,
+    "passed": 19,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "min-s3": {
+    "total": 59,
+    "passed": 55,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 4,
+    "skip_reasons": {
+      "no S3 endpoint at http://127.0.0.1:58984": 4
+    }
+  },
+  "min-scheduler": {
+    "total": 64,
+    "passed": 64,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "min-socket": {
+    "total": 19,
+    "passed": 19,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "min-sqlalchemy": {
+    "total": 43,
+    "passed": 43,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "min-web": {
+    "total": 328,
+    "passed": 323,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 5,
+    "skip_reasons": {
+      "chi dung tren Windows": 5
+    }
+  },
+  "mqtt-live": {
+    "total": 2,
+    "passed": 2,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "runtime-probes-v2": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "runtime-probes": {
+    "total": 3,
+    "passed": 1,
+    "failed": 2,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  },
+  "unix-peercred-v3": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "skip_reasons": {}
+  }
+}

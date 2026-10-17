@@ -1,0 +1,74 @@
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -62,10 +62,10 @@
+ 
+ # Core dependencies - luôn được cài khi `pip install xime`
+ #
+-# Each floor below was checked by installing it, not guessed. Proven on Python
+-# 3.14 (2026-08-18): the exact floor set below installs and passes 1553 passed,
+-# 11 skipped. Re-run before every release - a floor is a snapshot, and advisories
+-# keep moving after it is stamped.
++# Floors are checked by installing them, not guessed. Historical Python 3.14
++# baseline (2026-08-18): 1553 passed, 11 skipped. Core/gRPC compatibility was
++# checked again on Linux/Python 3.12 (2026-10-17), as described below.
++# Re-run before every release - floors and advisories change over time.
+ #
+ #   fastapi  0.110.1 used to be the floor (0.110.0 pins starlette 0.36.3, whose
+ #            TestClient calls httpx.Client(app=...), removed in httpx 0.28).
+@@ -83,10 +83,11 @@
+ #            (1.0.1 / 1.1.0 / 1.3.0 / 1.3.1), with no 0.x backport, so the whole
+ #            0.x series stays vulnerable however high fastapi's floor is pushed.
+ #            1.3.1 is the first version pip-audit reports as clean.
+-#   pydantic 2.0-2.4 predate Python 3.12, our own requires-python floor, so no
+-#            supported interpreter can install them. 2.5 is the first with 3.12
+-#            support. (2.5-2.11 cannot be exercised here: they have no 3.14
+-#            wheels and pydantic-core does not build from source on 3.14.)
++#   pydantic Floor 2.5 -> 2.7.0 (2026-10-17): FastAPI 0.133.0 requires
++#            pydantic>=2.7.0, so the previous declared floors could not resolve
++#            together. The compatible core floors passed the full suite on
++#            Linux/Python 3.12.15. Exact-floor wheels on Python 3.14 were not
++#            tested; the resolver can select newer supported versions there.
+ #   pyyaml   6.0 fails to build on any modern CPython ('build_ext' object has no
+ #            attribute 'cython_sources'). 6.0.1 is the first that builds.
+ #
+@@ -98,7 +99,7 @@
+     # FastAPI/Starlette depend on AnyIO. 4.14.2 fixes PYSEC-2026-4024/4025
+     # (process-pool stderr deadlock and IDNA TLS hostname confusion).
+     "anyio>=4.14.2",
+-    "pydantic>=2.5",
++    "pydantic>=2.7.0",
+     "pyyaml>=6.0.1",
+ ]
+ 
+@@ -213,22 +214,20 @@
+     "msgpack>=1.2.1",
+ ]
+ grpc = [
+-    # ⚠ The two grpcio floors CANNOT be verified on Python 3.14, our own newest
+-    # supported interpreter: `pip download grpcio-tools==1.60.0` fails with
+-    # "Failed to build ... when getting requirements to build wheel" (1.60 is
+-    # from 2023, 3.14 did not exist). Same category as the pydantic 2.5 note
+-    # above - kept as a floor for older interpreters, measured on none.
+-    "grpcio>=1.60",
+-    "grpcio-tools>=1.60",
++    # Floors 1.60 -> 1.72.1 (2026-10-17): grpcio-tools 1.60 requires protobuf<5,
++    # conflicting with our protobuf>=6.33.5 floor. The 1.72.1 pair resolves
++    # with protobuf 6.33.5 and passed 286 gRPC tests on Linux/Python 3.12.15.
++    # Exact-floor wheels on Python 3.14 were not tested.
++    "grpcio>=1.72.1",
++    "grpcio-tools>=1.72.1",
+     # Floor 4.25 -> 6.33.5 (2026-08-18). Two advisories: PYSEC-2026-1806 (fixed
+     # in 4.25.8 / 5.29.5 / 6.31.1) and PYSEC-2026-1805 (fixed in 5.29.6 / 6.33.5
+     # only - NO 4.x backport exists). So 4.25.8 would look like a fix while
+     # leaving the second one open; 6.33.5 is the lowest that clears both.
+     #
+-    # Not a real narrowing in practice: grpcio-tools 1.81 already declares
+-    # `protobuf>=6.33.5,<7.0.0` itself, so anyone with an installable
+-    # grpcio-tools was on this version already. We were merely declaring lower
+-    # than the truth.
++    # grpcio-tools 1.81 already required this protobuf floor when measured on
++    # 2026-08-18. The explicit 1.72.1 pair was also checked with protobuf
++    # 6.33.5 on Linux/Python 3.12 on 2026-10-17.
+     "protobuf>=6.33.5",
+ ]
+ redis = [

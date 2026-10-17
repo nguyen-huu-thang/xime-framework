@@ -1,0 +1,1 @@
+/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python -m pytest tests_temp --collect-only -q -p no:cacheprovider

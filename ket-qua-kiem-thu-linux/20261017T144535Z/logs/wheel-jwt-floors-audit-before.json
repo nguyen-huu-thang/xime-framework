@@ -1,0 +1,19 @@
+{
+  "start_utc": "2026-10-17T14:59:12.531013+00:00",
+  "seconds": 0.615,
+  "exit": 1,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/venv-resolver/bin/python",
+    "-m",
+    "pip_audit",
+    "--path",
+    "/tmp/xime-linux-run-20261017T144535Z/wheel-jwt/jwt-floors/lib/python3.12/site-packages",
+    "--format",
+    "json",
+    "--progress-spinner",
+    "off",
+    "--output",
+    "/home/thang/code/xime/xime framework/ket-qua-kiem-thu-linux/20261017T144535Z/wheel-jwt-floors-audit-before.json"
+  ]
+}

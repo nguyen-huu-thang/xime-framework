@@ -10,6 +10,12 @@
 > tiếp nối hai mục TLS/config đang mở trong `../kiem-toan/backlog-sua-loi.md`.
 > **Bị thay bởi:** chưa có.
 
+**Cập nhật sau bàn giao Linux 2026-10-17:** đã nhận ZIP, kiểm manifest/XML và nhập
+ba sàn dependency. Bước 7 đạt các phép đo Linux có môi trường; còn SIGTERM app
+đơn, S3 thật, Certbot/ACME/VPS và consumer live. Xem
+[đánh giá tiếp nhận](../kiem-toan/nghiem-thu-linux-framework.md). Các chỉ thị dừng
+ở phần dưới mô tả giai đoạn Windows trước khi chủ dự án chuyển phiên Linux.
+
 ## 1. Mục tiêu và phạm vi xin duyệt
 
 Khắc phục sáu lỗi đã xác nhận; xử lý các advisory dependency có liên quan;
@@ -315,20 +321,23 @@ số phiên bản và công việc phát hành là bước sau do chủ dự án
 | 4 | Đạt: 23/25 test mới đỏ trên mã cũ; fixture topology cũ được sửa đúng parser; config/SQLAlchemy hồi quy 307 passed |
 | 5 | Đạt: đối chứng Uvicorn 0.47 lỗi TLS 1.2; 0.48 đạt 110 test TLS/management/health, 1 skip; RSA/ECDSA, TLS 1.2/1.3, cipher mặc định/tường minh, mTLS CA A→B |
 | 6 | Đạt và commit e5a5b5c: mypy 0/250 file; EN/VN 0/317 tên thiếu; 152 lượt export phân loại đủ; full 2.881 passed, 25 skipped, 1 deselected; test tách riêng đạt 1 |
-| 7 | Windows đạt: resolver sạch full 2.881 passed; 12 consumer 6.557 passed/8 skipped; 24 nhánh config và 12 đồ thị DI đạt; wheel/sdist và cài wheel trắng đạt; dừng trước Linux |
+| 7 | Windows cuối 2.884 pass/25 skip/1 deselect, 12 consumer 6.557 pass/8 skip; đã nhận bốn full suite Linux 2.898 pass/12 skip/0 fail; nhập ba floor; còn SIGTERM app đơn và hạ tầng thật |
 
 **Hậu kiểm completion audit:** bổ sung F7 trong phạm vi cài JWT/artifact và
 đóng nốt invariant che credential ở parse failure của F4. Wheel chỉ cài jwt
 đạt 15 ca trên mỗi bộ sàn/resolver; full suite cuối đạt 2.884 passed/25 skipped/
 1 deselected trên mỗi bộ, thêm đúng ba test YAML. Bằng chứng từng yêu cầu:
 [`doi-chieu-nghiem-thu-ke-hoach.md`](../kiem-toan/doi-chieu-nghiem-thu-ke-hoach.md).
-Không thay phạm vi dừng Linux hoặc tự triển khai consumer.
+Chỉ thị dừng Linux đã được tuân thủ ở giai đoạn Windows; sau đó chủ dự án tự
+chuyển phiên Linux và giao tiếp nhận ZIP/cập nhật/commit Windows. Không tự triển
+khai consumer. [Kết quả tiếp nhận](../kiem-toan/nghiem-thu-linux-framework.md).
 
 Kết quả và cổng còn lại:
 [`nghiem-thu-windows-framework.md`](../kiem-toan/nghiem-thu-windows-framework.md).
 Bước 7 không chạy hook/startup dịch vụ consumer hoặc nghiệp vụ live; không coi
 đồ thị DI/SQLite đạt là bằng chứng DB/cert production. Linux/Python 3.12/uvloop,
-minimum của các extra còn lại và Certbot/VPS giữ nhãn CHƯA KIỂM CHỨNG.
+minimum và MQTT nay đã đo theo phạm vi báo cáo. S3/MinIO thật, Certbot/ACME/VPS,
+consumer live và SIGTERM app đơn còn mở.
 
 ### Nhật ký nhóm 1 trước chỉ thị làm liền
 

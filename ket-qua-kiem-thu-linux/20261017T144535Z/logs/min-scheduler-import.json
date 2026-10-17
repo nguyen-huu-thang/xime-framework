@@ -1,0 +1,11 @@
+{
+  "start_utc": "2026-10-17T14:53:51.036851+00:00",
+  "seconds": 0.415,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/min-scheduler/bin/python",
+    "-c",
+    "import xime; print(xime.__file__)"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "start_utc": "2026-10-17T14:57:21.481466+00:00",
+  "seconds": 0.016,
+  "exit": 3,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/services/root/usr/sbin/mosquitto",
+    "-h"
+  ]
+}

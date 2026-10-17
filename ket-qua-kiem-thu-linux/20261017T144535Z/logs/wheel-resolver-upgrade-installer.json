@@ -1,0 +1,14 @@
+{
+  "start_utc": "2026-10-17T14:59:04.939842+00:00",
+  "seconds": 5.729,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/wheel-jwt/resolver/bin/python",
+    "-m",
+    "pip",
+    "install",
+    "--upgrade",
+    "pip"
+  ]
+}

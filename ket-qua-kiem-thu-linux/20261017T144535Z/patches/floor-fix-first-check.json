@@ -1,0 +1,35 @@
+{
+  "changed_requirements": [
+    {
+      "group": "core",
+      "name": "pydantic",
+      "before": "2.5",
+      "after": "2.7.0"
+    },
+    {
+      "group": "grpc",
+      "name": "grpcio",
+      "before": "1.60",
+      "after": "1.72.1"
+    },
+    {
+      "group": "grpc",
+      "name": "grpcio-tools",
+      "before": "1.60",
+      "after": "1.72.1"
+    }
+  ],
+  "pins": [
+    "fastapi==0.133.0",
+    "starlette==1.3.1",
+    "anyio==4.14.2",
+    "pydantic==2.7.0",
+    "pyyaml==6.0.1",
+    "grpcio==1.72.1",
+    "grpcio-tools==1.72.1",
+    "protobuf==6.33.5"
+  ],
+  "test_exit": 2,
+  "before_sha256": "7a1be01ef4d3eac2205bceb1ab7f3c71ed8356df16b1dfe4cb9580573747103f",
+  "after_sha256": "f2fa7ad4f61447245ecc17c6c9ddbf87c8ec1460203ecb0a71b568b0fa84ca1a"
+}

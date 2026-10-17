@@ -1,5 +1,9 @@
 # Đối chiếu yêu cầu kế hoạch và bằng chứng nghiệm thu
 
+**Cập nhật sau Linux 2026-10-17:** đã đối chiếu manifest/XML và nhập ba floor;
+[đánh giá tiếp nhận](nghiem-thu-linux-framework.md). Các hàng Windows dưới giữ
+phạm vi ban đầu, không còn nghĩa toàn bộ phần Linux chưa chạy.
+
 > **Trạng thái:** completion audit sau e5a5b5c ngày 2026-10-17; các mục Windows
 > đã có bằng chứng; cả hai full suite cuối đã đạt. Bản vá và bảng này được lưu
 > chung trong commit bổ sung sau e5a5b5c.
@@ -41,8 +45,10 @@ phạm vi sang sửa consumer, dịch vụ đang chạy, tag/push/nâng version/
 | 7: consumer tuần tự, không sửa repo/cài lại consumer; config/DI chỉ đúng phạm vi | 6.557 pass/8 skip; 5.709 file tracked không đổi; 24 nhánh/12 graph; consumer-config-equivalence 12 sau parser fix | Đạt; không suy thành startup/hook/DB/cert live |
 | Bàn giao: git add -A, commit sau 6, không tag/push/version | e5a5b5c; bản vá bổ sung F4/F7 và tài liệu được lưu chung sau nghiệm thu; chưa push, metadata 0.8.3 | Đạt; không thay lịch sử commit mốc 6 |
 | Dừng trước Linux theo chỉ thị | Không WSL/Linux/VPS; runtime Python 3.14 Windows; báo cáo giữ cổng chưa kiểm | Đã tuân thủ, không gắn nhãn Linux pass |
+| 7: Linux/Python 3.12/uvloop/POSIX và minimum | XML bốn lượt full 2.898 pass/12 skip, 2.910 ca, không deselect; probe loop/worker/peer PID/UID, TLS lineage và MQTT thật | Đạt phần thực đo; ba floor đã nhập; không suy thành S3/Certbot/live |
+| Hậu kiểm báo cáo Linux: SIGTERM app đơn | runtime-probes gốc còn Unix socket; v2 đổi SIGINT; thứ tự capture_signals/cleanup được đối chiếu | Còn mở F-LINUX-3, không hạ thành lỗi harness đã giải quyết |
 
-Các điều kiện chưa có môi trường test phù hợp: Python 3.12/Linux/uvloop/POSIX,
-minimum của extra còn lại, broker MQTT/MinIO thật, Certbot/ACME/VPS và nghiệp vụ
-consumer với DB/cert thật. Chúng được ghi ở cổng nghiệm thu tiếp theo, không
-biến số skip thành passed và không tự bật dịch vụ của phiên khác.
+Các điều kiện còn mở sau tiếp nhận: S3/MinIO thật, Certbot/ACME/DNS/VPS, nghiệp vụ
+consumer với DB/cert thật và shutdown SIGTERM app đơn. Python 3.12/uvloop/POSIX,
+minimum và MQTT thật đã có bằng chứng theo phạm vi báo cáo mới; không biến số
+skip của full suite thành passed và không tự bật dịch vụ của phiên khác.

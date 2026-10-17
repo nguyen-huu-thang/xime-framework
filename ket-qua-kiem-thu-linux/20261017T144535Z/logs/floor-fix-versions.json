@@ -1,0 +1,11 @@
+{
+  "start_utc": "2026-10-17T15:16:59.700418+00:00",
+  "seconds": 0.315,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-run-20261017T144535Z/approved-floor-fix/bin/python",
+    "-c",
+    "import xime,importlib.metadata as m; print(xime.__file__); print({p:m.version(p) for p in (\"pydantic\",\"fastapi\",\"grpcio\",\"grpcio-tools\",\"protobuf\")})"
+  ]
+}

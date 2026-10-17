@@ -1,0 +1,2 @@
+uvicorn==0.48.0
+python-multipart==0.0.31

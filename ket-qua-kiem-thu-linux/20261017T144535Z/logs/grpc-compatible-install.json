@@ -1,0 +1,22 @@
+{
+  "start_utc": "2026-10-17T14:56:01.089358+00:00",
+  "seconds": 20.269,
+  "exit": 0,
+  "cwd": "/home/thang/code/xime/xime framework",
+  "command": [
+    "/tmp/xime-linux-20261017-tools/bin/uv",
+    "pip",
+    "install",
+    "--python",
+    "/tmp/xime-linux-run-20261017T144535Z/grpc-compatible/bin/python",
+    "--link-mode",
+    "copy",
+    "--resolution",
+    "lowest-direct",
+    "-e",
+    ".[all,dev]",
+    "grpcio>=1.60",
+    "grpcio-tools>=1.60",
+    "protobuf==6.33.5"
+  ]
+}
