@@ -1,19 +1,17 @@
 # Lộ trình phiên bản Xime Framework
 
 > Chỉ mục tổng các mốc phiên bản đã chốt, để tra nhanh "việc X làm ở bản nào".
-> **Snapshot đã kiểm tra 2026-10-15:** PyPI mới nhất là `0.8.3` (phát hành 2026-09-01);
-> `pyproject.toml` cũng khai `0.8.3`. GitHub `main` đã có commit `2ad5274` sau lần phát hành,
-> thêm chọn môi trường một file và reload TLS web. Các thay đổi source này chưa nằm trong
-> gói PyPI `0.8.3`.
+> **Trạng thái 2026-10-19:** `0.8.4` đã phát hành trên PyPI. Source và repo phát hành
+> dùng `0.8.4`; wheel SHA-256 `b775dbfd410442406ea4d4c5f92707228a10a3de2d3034eca9982a05eb95d7f9`,
+> sdist SHA-256 `3d2a12855b487cc65b4a7e3ee9e772e9f8bb60a05cf76d1b77a2f0fdb2f0a669`.
 >
-> **Cập nhật source 2026-10-17:** commit `e5a5b5c` vá sáu phát hiện kiểm toán,
-> nâng sàn dependency, trả nợ mypy và API song ngữ; metadata vẫn 0.8.3, chưa
-> phát hành các thay đổi này. [Nghiệm thu Windows](kiem-toan/nghiem-thu-windows-framework.md)
-> có kết quả framework/consumer/artifact; Linux/uvloop/VPS chưa nghiệm thu.
-> Sau mốc e5a5b5c, hậu kiểm bổ sung backend crypto cho extra JWT và che giá trị
-> trong lỗi YAML của checker; hai bộ dependency cuối đều đạt 2.884 test.
-> [Đối chiếu yêu cầu](kiem-toan/doi-chieu-nghiem-thu-ke-hoach.md) giữ các bằng chứng
-> và cổng chưa kiểm, không coi các thay đổi này đã có trên PyPI.
+> Code đã qua nghiệm thu Linux ngày 2026-10-18: bốn full suite, mỗi lượt
+> 2.975 passed / 12 skipped / 0 failed. Wheel `0.8.3` trong bộ test chỉ là artifact kiểm thử;
+> hai artifact phát hành `0.8.4` đã được dựng lại, kiểm tra và khớp hash với PyPI.
+> VPS/ACME và kiểm thử consumer live vẫn là cổng riêng.
+> Xem [nghiệm thu Linux](kiem-toan/nghiem-thu-linux-framework.md),
+> [báo cáo candidate logging](../../NGHIEM-THU-LOGGING.md) và
+> [đối chiếu nghiệm thu](kiem-toan/doi-chieu-nghiem-thu-ke-hoach.md).
 >
 > Không suy version phát hành từ source checkout. Kiểm bằng lệnh bên dưới:
 >
@@ -42,19 +40,20 @@
 | 0.8.1 | **uvloop trên Linux** - bật vòng lặp sự kiện nhanh cho web/socket/MQTT | ✅ **ĐÃ PHÁT HÀNH 2026-08-22** (bản thứ 15, SHA256 khớp từng bit). Đo trên Linux đầy đủ; ⛔ phép đo lãi **lật giả định** - uvloop làm REST chậm ~10%, lãi nằm ở kết nối đã mở. Vẫn giữ. Xem [`kiem-toan/0.8.1-ket-qua-do-tren-linux.md`](kiem-toan/0.8.1-ket-qua-do-tren-linux.md) |
 | 0.8.2 | Bản sửa lỗi và cập nhật cấu hình, health, multi-process | **Đã phát hành PyPI 2026-08-26**; xem CHANGELOG.md |
 | 0.8.3 | Hardening multi-process, tắt mặc định tài liệu API/access log, nâng aiosmtplib | **Đã phát hành PyPI 2026-09-01**; xem CHANGELOG.md |
+| 0.8.4 | Web TLS reload và chọn môi trường một file; logging file và native gRPC handshake; hardening, dependency floors và sửa lỗi | **Đã phát hành PyPI 2026-10-19**; giữ `3 - Alpha`; xem CHANGELOG.md |
 | 0.9 | Beta - config nốt + bug fix + phản hồi người dùng | Mở |
 
-### Source sau bản PyPI 0.8.3
+### Bản phát hành v0.8.4 sau PyPI 0.8.3
 
-Commit 2ad5274 nằm trên GitHub main (ref từ xa đã được kiểm tra 2026-10-15), còn
-pyproject.toml và PyPI vẫn là 0.8.3. Commit này thêm webserver:/alias server:, nhánh
-environments.local/server, API công khai reload_tls() và HTTP management loopback. Người
-cài bằng pip install xime chưa nhận được các thay đổi đó.
+`0.8.4` đưa các thay đổi sau `0.8.3` lên PyPI: web TLS reload (`reload_tls()` và
+management loopback), chọn `environments.local/server` bằng `xime.dev`, logging file và
+native gRPC handshake diagnostics, cùng các bản vá/config/dependency floors. Các wheel
+`0.8.3` trong lượt Linux chỉ là artifact kiểm thử; gói phát hành `0.8.4` được dựng lại
+và hai SHA-256 ở đầu tài liệu khớp với PyPI.
 
-**Điểm cần thống nhất trước lần phát hành kế tiếp:** quy tắc phía dưới ghi 0.8.x không đổi
-API công khai, trong khi source main sau 0.8.3 đã thêm reload_tls(). Chưa có version mới
-hoặc changelog cho commit này. Không mô tả tính năng trên như thuộc gói PyPI 0.8.3; cần
-chốt ranh giới version/API khi chuẩn bị phát hành.
+**Quyết định version:** chủ dự án chọn `0.8.4`, giữ classifier Alpha. Dòng `0.8.x` vẫn là
+giai đoạn Alpha nên API có thể tiếp tục được hoàn thiện trước khi `0.9` đóng băng API ở
+Beta; các bổ sung của `0.8.4` được ghi trong CHANGELOG.
 
 ---
 
@@ -67,7 +66,8 @@ chốt ranh giới version/API khi chuẩn bị phát hành.
 | --- | --- | --- |
 | 0.7 | `3 - Alpha` | **Vẫn còn thêm tính năng lớn** (Fieldbus). API chưa đông cứng. |
 | 0.8 | `3 - Alpha` | **Vẫn còn thêm tính năng lớn** (Multi-process Runtime). API chưa đông cứng. |
-| 0.8.3 (bản PyPI hiện hành tại snapshot này) | `3 - Alpha` | Khai trong pyproject.toml |
+| 0.8.3 | `3 - Alpha` | Đã phát hành PyPI 2026-09-01 |
+| 0.8.4 (đã phát hành) | `3 - Alpha` | Giữ Alpha trong giai đoạn hoàn thiện API trước 0.9 |
 | 0.9 | `4 - Beta` | Chỉ sửa nhỏ + chờ feedback; API coi như đã chốt, hardening trước 1.0. |
 | 1.0 trở đi | `5 - Production/Stable` | Bản ổn định. |
 
@@ -96,7 +96,8 @@ nốt config + chờ feedback, 1.0 stable.
   metadata từng xếp vào đây - classifier `Typing :: Typed` + license PEP 639 -
   đã làm ở 0.6.3.)
 - **0.8:** giữ `Development Status :: 3 - Alpha`. ⭐ **Đây là bản Alpha cuối** - xem khối trên.
-- **0.8.x:** giữ Alpha, và **không đổi API công khai một dòng nào**.
+- **0.8.x:** giữ Alpha; API tiếp tục được hoàn thiện trước khi 0.9 chuyển sang Beta.
+  Các bổ sung public API của 0.8.4 được ghi nhận riêng trong CHANGELOG.
 - **0.9:** đổi `3 - Alpha` -> `4 - Beta`.
 - **1.0:** đổi `4 - Beta` -> `5 - Production/Stable`.
 

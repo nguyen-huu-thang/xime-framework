@@ -11,7 +11,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xime"
-version = "0.8.3"
+version = "0.8.4"
 description = "A Python backend framework with a built-in DI container: HTTP, WebSocket, gRPC, sockets, MQTT, Modbus TCP and OPC UA from one application, scaled across processes with no external process manager."
 readme = "README.md"
 requires-python = ">=3.12"

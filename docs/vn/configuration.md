@@ -393,7 +393,7 @@ phí nào của tiến trình Python.
 
 ---
 
-## Phạm vi checker và sàn dependency (Unreleased)
+## Phạm vi checker và sàn dependency (0.8.4)
 
 `xime check config` kiểm khóa framework ở common và cả hai nhánh
 `environments.local/server`, gồm nhánh chưa được chọn. Field bắt buộc và xung

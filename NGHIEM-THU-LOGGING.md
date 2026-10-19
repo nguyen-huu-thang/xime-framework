@@ -1,9 +1,9 @@
 # Nghiệm thu logging và tiếp nhận bản vá Linux
 
-> **Trạng thái:** ĐÃ TIẾP NHẬN VÀ KIỂM LẠI WINDOWS ngày 2026-10-19; đủ căn cứ chốt ứng viên phát hành trong phạm vi đã kiểm, còn điều kiện thử VPS trước PyPI.
-> **Thuộc bản:** working tree sau `c76b6cd`, G1–G4 và bản vá Linux; metadata vẫn 0.8.3, không phải bản 0.8.3 đã phát hành.
+> **Trạng thái:** ĐÃ TIẾP NHẬN VÀ KIỂM LẠI WINDOWS ngày 2026-10-19; source candidate đã phát hành thành `0.8.4` trên PyPI. VPS vẫn là cổng vận hành riêng; xem [lộ trình](.claude/docs/lo-trinh-phien-ban.md).
+> **Thuộc bản:** nghiệm thu code từ working tree sau `c76b6cd`, G1–G4 và bản vá Linux. Wheel kiểm thử mang metadata `0.8.3`; artifact phát hành `0.8.4` được dựng lại sau đó, không dùng wheel test.
 > **Thay cái gì:** trạng thái chờ Linux trong `BAN-GIAO-LINUX-LOGGING.md` và `KIEM-THU-GRPC-HANDSHAKE.md`.
-> **Bị thay bởi:** chưa có; kết quả phát hành cuối phải gắn với version và artifact dựng lại sau khi chủ dự án chốt.
+> **Bị thay bởi:** bản phát hành `0.8.4`; artifact và checksum được ghi trong [lộ trình phiên bản](.claude/docs/lo-trinh-phien-ban.md).
 
 ## 1. Nguồn đã tiếp nhận
 
@@ -163,10 +163,12 @@ Windows terminate cưỡng bức không tương đương CTRL_BREAK. Không dùn
 mypy Linux, wheel sạch hoặc soak 30 phút thay cho VPS chạy nhiều ngày.
 
 Trong phạm vi đo ở trên, không còn failure framework chưa xử lý; có thể chốt ứng
-viên bản mới. Trước upload cần chốt version, dựng lại artifact đúng version đó
-và kiểm hash/metadata/runtime sạch theo quy trình phát hành. Không upload
-candidate 0.8.3. Theo điều kiện chủ dự án đã đặt, cần thử VPS vài ngày và đánh
-giá ổn định trước PyPI; soak local 30 phút không thay cho điều kiện này.
+viên bản mới. Ghi chú tại thời điểm nghiệm thu: trước upload cần chốt version,
+dựng lại artifact đúng version đó và kiểm hash/metadata/runtime sạch; không upload
+candidate 0.8.3. Sau báo cáo này, chủ dự án đã phát hành `0.8.4` từ artifact dựng
+lại và xác minh checksum trên PyPI (xem [lộ trình phiên bản](.claude/docs/lo-trinh-phien-ban.md)).
+VPS chạy soak vài ngày vẫn là cổng vận hành riêng; soak local 30 phút không thay
+cho việc đó.
 
 ## 6. Bằng chứng và thao tác của phiên Windows
 

@@ -175,7 +175,7 @@ HTTP 500.
 
 ---
 
-## Conditional resume and empty objects (Unreleased)
+## Conditional resume and empty objects (0.8.4)
 
 `stream_object` evaluates `If-Range` before `Range`. A matching strong ETag
 permits 206; a changed, weak, missing or malformed validator produces the

@@ -1,7 +1,7 @@
 # Kế hoạch reload TLS web và cổng management theo primary
 
 > **Ngày:** 2026-10-11.
-> **Trạng thái cập nhật 2026-10-15:** implementation ở commit `2ad5274` có trên GitHub `main` (xác minh ref remote); PyPI vẫn ở `0.8.3` nên các thay đổi này chưa có trong bản cài qua `pip install xime`. Nghiệm thu Windows hoàn tất; Linux/uvloop và VPS/ACME thật chưa kiểm chứng.
+> **Trạng thái cập nhật 2026-10-19:** implementation ở commit `2ad5274` nằm trong `0.8.4`, đã phát hành PyPI. Nghiệm thu Windows và Linux hoàn tất; VPS/ACME thật chưa kiểm chứng.
 > **Yêu cầu gốc:** [yeu-cau-reload-tls-web.md](yeu-cau-reload-tls-web.md).
 > **Phạm vi:** Repo framework. Không sửa cấu hình hay code của Data Service, các Python consumer hoặc VPS; không commit/push/phát hành PyPI trong công việc này.
 
@@ -13,7 +13,7 @@
 - TLS thật chạy trên Windows, Python 3.14.8, Uvicorn 0.47.0, OpenSSL 3.5.9, asyncio. RUFF sạch; mypy còn **49 lỗi**, bằng baseline đã ghi trước triển khai.
 - Management listener loopback đã bind và trả health thật trên cả IPv4 (`127.0.0.1`) lẫn IPv6 (`::1`) của máy này.
 - TLS mặc định/cipher: không đổi chính sách cipher. TLS 1.2 đã kiểm thành công với cipher tường minh; phát hiện tương thích cipher mặc định Uvicorn 0.47.0 ở mục 3.4 vẫn phải được giữ rõ.
-- Linux/uvloop, DNS/ACME/Certbot thật trên VPS chưa được đo. Không sửa Data Service, consumer hay cấu hình triển khai.
+- Linux/uvloop đã được nghiệm thu ở candidate sau này. DNS/ACME/Certbot thật trên VPS vẫn chưa được đo. Không sửa Data Service, consumer hay cấu hình triển khai.
 
 ### Rà lại và vá kết quả reload ngày 2026-10-11
 

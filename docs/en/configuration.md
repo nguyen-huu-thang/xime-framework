@@ -401,7 +401,7 @@ spending any of the Python process's budget on it.
 
 ---
 
-## Checker coverage and dependency floors (Unreleased)
+## Checker coverage and dependency floors (0.8.4)
 
 `xime check config` checks framework keys in common configuration and both
 `environments.local/server`, including the inactive branch. Required fields and

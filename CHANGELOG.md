@@ -7,13 +7,23 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-10-19
+
 ### Added
 
-- Native gRPC TLS failure logging opt-in: bootstrap trước import grpc, pipe sống
-  suốt đời process, trường IP/port/cause chuẩn hóa vào Python logging/file G3,
-  trần queue/rate và counter mất log. Worker giữ PID riêng qua promotion/respawn;
-  cấu hình native chỉ đổi khi restart process. Đã kiểm Windows và Linux/Python
-  3.13.5; log ứng dụng và native chuẩn hóa dùng chung file của dịch vụ.
+- Nạp lại TLS cho web: `webserver.ssl.reload` hỗ trợ watcher và gọi theo yêu cầu;
+  `reload_tls()` cùng endpoint management loopback tùy chọn nạp lại chứng chỉ đã
+  cấu hình mà không restart ứng dụng. Kết quả nhiều worker được tổng hợp, ACK sai
+  định dạng bị từ chối, kết nối đang mở giữ nguyên TLS context đã thương lượng.
+- Chọn môi trường trong một file: `xime.dev` chọn `environments.local` hoặc
+  `environments.server` từ một `application.yml`; `webserver` là gốc cấu hình web
+  dùng chung, còn `server` tiếp tục là alias tương thích.
+
+- Bộ thu lỗi bắt tay gRPC TLS native là tùy chọn. Handshake thất bại ghi IP/port
+  peer/local cùng cause chuẩn hóa qua Python logging và file handler của ứng dụng.
+  Queue/rate có trần và counter ghi nhận log bị rơi; worker giữ capture theo PID
+  riêng qua promotion/respawn. Cấu hình native có hiệu lực sau khi restart process;
+  log ứng dụng và native dùng chung file của service.
 - Chuẩn hóa host IPv6 chưa có ngoặc khi GrpcAdapter bind, được phát hiện bởi test
   native IPv6 thật. Không đổi TLS/mTLS policy hoặc cipher.
 

@@ -13,9 +13,6 @@
 
 </div>
 
-> **Trạng thái phát hành (2026-10-15):** PyPI hiện ở `0.8.3`. GitHub `main` có các thay đổi
-> reload TLS và chọn môi trường trong một file ở commit `2ad5274`; cần dùng source checkout để có chúng.
-
 ---
 
 XIME là một tầng convention cho microservice Python. Nó nằm **phía trên** FastAPI, SQLAlchemy và gRPC - cung cấp dependency injection tự động, validation dependency graph ngay lúc startup và các guardrail kiến trúc để bạn tập trung vào nghiệp vụ thay vì dây nhợ cấu hình.
@@ -272,6 +269,7 @@ Cách tốt nhất để học XIME là đọc code thật. Các dự án mã ng
 | **Code-First gRPC** | Viết Python DTO, XIME sinh `.proto` + stub; ổn định field number qua lock file |
 | **gRPC Client SDK** | Sinh client Pydantic typed từ `.proto`, inject qua DI; deadline, lỗi typed, retry tự động |
 | **HTTPS** | TLS qua `webserver.ssl` (`server:` vẫn là alias), xác thực client cert, reload cert bằng watcher/API/cổng loopback. Xem [hướng dẫn cấu hình](docs/vn/configuration.md) về overlay môi trường và tương thích TLS 1.2 |
+| **Logging vận hành** | Bật/tắt log file riêng, mức log console/file độc lập, JSON hoặc text và xoay file theo dung lượng; tùy chọn ghi chẩn đoán bắt tay TLS gRPC native gồm IP, port và nguyên nhân lỗi. Xem [Logging](docs/vn/logging.md) và [log bắt tay gRPC](docs/vn/grpc-handshake-logging.md). |
 | **mTLS động** | Xoay chứng chỉ không cần restart, cho cả server inbound lẫn client outbound |
 | **Danh tính peer** | gRPC đọc client cert đã verify vào request context (fail-soft): `current_caller()` cho CN, `current_peer_sans()` cho mọi Subject Alternative Name - thô và không diễn giải, nên bạn tự khớp scheme của mình (SPIFFE ID hay gì khác) |
 | **Socket Adapter** | IPC qua Unix Domain Socket cho Native Engine cùng máy (Linux); `@command` / `@stream` |
@@ -322,7 +320,7 @@ XIME đang trong **giai đoạn phát triển tích cực**. Đã implement: cor
 
 **0.8 thêm phần chạy đa tiến trình**: `share_load()` kèm supervisor, watchdog và thăng cấp primary; `RefData` (bộ nhớ chung cho dữ liệu có nguồn bền vững); `Store` trên LMDB (cho dữ liệu không có nguồn); `ProcessLink` (bus liên tiến trình); `/healthz` và `/readyz` bật theo yêu cầu; cùng bộ lệnh `xime init` / `xime config` / `xime check`.
 
-Core được bao phủ bởi **2500+ test**.
+Core được bao phủ bởi **2.900+ test**.
 
 Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 
@@ -338,6 +336,8 @@ Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 | [Kiến trúc](docs/vn/architecture.md) | Cấu trúc nội bộ của XIME |
 | [Khái niệm cốt lõi](docs/vn/core-concepts.md) | DI, interface binding, scope |
 | [Cấu hình](docs/vn/configuration.md) | Framework config + runtime YAML |
+| [Logging](docs/vn/logging.md) | Ghi file có cấu trúc, tùy chọn và cấu hình console/file độc lập |
+| [Logging bắt tay gRPC](docs/vn/grpc-handshake-logging.md) | Chẩn đoán TLS native tùy chọn, gồm địa chỉ peer và nguyên nhân lỗi |
 | [Routing](docs/vn/routing.md) | Class-based controller, route decorator |
 | [Transaction](docs/vn/transaction.md) | Quản lý transaction tường minh + khối chỉ đọc |
 | [Code-First gRPC](docs/vn/grpc-codefirst.md) | Sinh `.proto` từ Python DTO; ổn định field number; `xime grpc generate/check`; mTLS động |
@@ -362,7 +362,7 @@ Xem [CHANGELOG](CHANGELOG.md) để biết lịch sử phiên bản.
 
 ## Đóng góp
 
-XIME là dự án cá nhân cần sự giúp đỡ của cộng đồng để phát triển. Còn việc cần làm: runtime đa tiến trình, CLI scaffolding, testing utilities và nhiều hơn nữa.
+XIME là dự án cá nhân luôn chào đón đóng góp từ cộng đồng. Xem roadmap hiện tại để biết việc còn mở; dùng issue tracker để thảo luận lỗi hoặc ý tưởng.
 
 **Cách đóng góp:**
 

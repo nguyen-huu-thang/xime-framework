@@ -166,11 +166,11 @@ configure_jwt(JwtMiddlewareConfig(
 | HMAC (`HS256`...) | `secret` |
 | RSA / EC / EdDSA (`RS256`, `ES256`, `EdDSA`...) | `private_key_pem` to sign, `public_key_pem` to verify |
 
-In the development checkout (Unreleased), `xime[jwt]` installs PyJWT's crypto
-backend with `cryptography>=50.0.0`; the extra supports these asymmetric key
-families without installing development tools. Reinstall dependencies when
-updating an existing environment. The previous declaration installed plain
-PyJWT, so a clean runtime could have only HMAC despite this table.
+`xime[jwt]` installs PyJWT's crypto backend with `cryptography>=50.0.0`; the
+extra supports these asymmetric key families without installing development
+tools. Reinstall dependencies when updating an existing environment. Earlier
+versions installed plain PyJWT, so a clean runtime could have only HMAC despite
+this table.
 
 **Set `audience`.** Left unset, a token minted for a different service but signed with the same key is still accepted.
 

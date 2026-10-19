@@ -187,7 +187,7 @@ using `selectinload` explicitly as you already do.
 
 ---
 
-## Cleanup failures (Unreleased)
+## Cleanup failures (0.8.4)
 
 SQLAlchemy managers restore the session context even if begin, commit, rollback
 or close fails. A close failure on its own is raised; if an earlier business or

@@ -186,7 +186,7 @@ Quan hệ chưa nạp thì vẫn lỗi, giống hệt async SQLAlchemy thông th
 
 ---
 
-## Lỗi khi cleanup (Unreleased)
+## Lỗi khi cleanup (0.8.4)
 
 Manager SQLAlchemy luôn khôi phục context session khi begin, commit, rollback
 hoặc close lỗi. Lỗi close đơn lẻ được ném ra; nếu đã có lỗi nghiệp vụ hoặc

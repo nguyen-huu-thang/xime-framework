@@ -13,9 +13,6 @@
 
 </div>
 
-> **Release status (2026-10-15):** PyPI is at `0.8.3`. GitHub `main` contains later TLS-reload
-> and single-file environment changes from `2ad5274`; those changes require the source checkout.
-
 ---
 
 XIME is a convention layer for Python microservices. It sits **on top of** FastAPI, SQLAlchemy and gRPC - providing automatic dependency injection, startup-time graph validation, and architectural guardrails so you can focus on business logic instead of wiring.
@@ -270,7 +267,8 @@ The best way to learn XIME is to read real code. These open-source projects are 
 | **Class-Based Controllers** | Controllers are DI singletons, methods map to routes |
 | **Code-First gRPC** | Write Python DTOs, XIME generates `.proto` + stubs; field-number stability via lock file; typed server streaming with `@stream` + `yield` (no chunk wrapper, so a Java peer reads the `.proto` and understands it) |
 | **gRPC Client SDK** | Generate a typed Pydantic client from `.proto`, inject via DI; deadlines, typed errors, automatic retry |
-| **HTTPS** | TLS via `webserver.ssl` (`server:` remains an alias), client-certificate verification, and certificate reload by watcher, Python API, or loopback management endpoint. See [configuration guide](docs/en/configuration.md) for overlay validation and Uvicorn 0.47 TLS 1.2 compatibility notes. |
+| **HTTPS** | TLS via `webserver.ssl` (`server:` remains an alias), client-certificate verification, and certificate reload by watcher, Python API, or loopback management endpoint. See [configuration guide](docs/en/configuration.md) for overlay validation and TLS 1.2 client compatibility. |
+| **Operational Logging** | Opt-in application file logs with independent console/file levels, JSON or text output and size-based rotation; optional native gRPC TLS handshake diagnostics include peer IP, port and failure cause. See [Logging](docs/en/logging.md) and [gRPC handshake logging](docs/en/grpc-handshake-logging.md). |
 | **Dynamic mTLS** | Certificate rotation without restart for both inbound servers and outbound clients |
 | **Peer Identity** | gRPC reads the verified client cert into request context (fail-soft): `current_caller()` gives the CN, `current_peer_sans()` every Subject Alternative Name - raw and uninterpreted, so you match your own scheme (SPIFFE IDs or otherwise) |
 | **Socket Adapter** | Unix Domain Socket IPC for same-host Native Engine calls (Linux); `@command` / `@stream` |
@@ -321,7 +319,7 @@ XIME is in **active development**. The following are implemented: core DI (hand-
 
 **0.8 adds a multi-process runtime**: `share_load()` with a supervisor, watchdog and primary promotion; `RefData` (shared memory for data that has a durable source); `Store` on LMDB (state that has none); `ProcessLink` (inter-process bus); opt-in `/healthz` and `/readyz`; and the `xime init` / `xime config` / `xime check` command-line tools.
 
-The core is covered by **2500+ tests**.
+The core is covered by **2,900+ tests**.
 
 See the [CHANGELOG](CHANGELOG.md) for release history.
 
@@ -337,6 +335,8 @@ See the [CHANGELOG](CHANGELOG.md) for release history.
 | [Architecture](docs/en/architecture.md) | How XIME is structured internally |
 | [Core Concepts](docs/en/core-concepts.md) | DI, interface binding, scopes |
 | [Configuration](docs/en/configuration.md) | Framework config + runtime YAML |
+| [Logging](docs/en/logging.md) | Optional structured file logging and independent console/file settings |
+| [gRPC handshake logging](docs/en/grpc-handshake-logging.md) | Optional native TLS handshake diagnostics with peer address and failure cause |
 | [Routing](docs/en/routing.md) | Class-based controllers, route decorators |
 | [Transaction](docs/en/transaction.md) | Explicit transaction management + read-only blocks |
 | [Code-First gRPC](docs/en/grpc-codefirst.md) | Generate `.proto` from Python DTOs; field-number stability; `xime grpc generate/check`; dynamic mTLS |
@@ -361,7 +361,7 @@ See the [CHANGELOG](CHANGELOG.md) for release history.
 
 ## Contributing
 
-XIME is a solo project that needs community help to grow. There is still ground to cover: multi-process runtime, CLI scaffolding, testing utilities, and more.
+XIME is a solo project that welcomes community contributions. See the current roadmap for open work and use the issue tracker to discuss bugs or ideas.
 
 **Ways to contribute:**
 

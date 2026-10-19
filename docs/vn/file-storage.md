@@ -172,7 +172,7 @@ Tên file có dấu chạy đúng: header dựng theo RFC 6266 (`filename=` bả
 
 ---
 
-## Tải tiếp có điều kiện và object rỗng (Unreleased)
+## Tải tiếp có điều kiện và object rỗng (0.8.4)
 
 `stream_object` xét `If-Range` trước `Range`. Strong ETag khớp cho phép trả
 206; validator cũ, weak, thiếu hoặc sai cú pháp nhận toàn bộ object hiện tại với
