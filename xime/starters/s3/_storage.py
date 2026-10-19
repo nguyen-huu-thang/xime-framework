@@ -75,7 +75,11 @@ class S3FileStorage:
             if _is_not_found(exc):
                 return None
             raise
-        async with resp["Body"] as body:
+        body = resp["Body"]
+        # StreamingBody.__aenter__ returns the raw aiohttp response, whose read
+        # has no size argument. Keep the wrapper for bounded, validated reads.
+        # Context trả response thô không có read(size); giữ wrapper để đọc chunk.
+        async with body:
             return await body.read()
 
     # ------------------------------------------------------------------
@@ -187,7 +191,8 @@ class S3FileStorage:
             if _is_not_found(exc):
                 raise ObjectNotFound(key) from None
             raise
-        async with resp["Body"] as body:
+        body = resp["Body"]
+        async with body:
             while True:
                 chunk = await body.read(_READ_CHUNK_SIZE)
                 if not chunk:

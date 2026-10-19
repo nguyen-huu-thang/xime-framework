@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from multiprocessing import synchronize
 
     from xime.core.link import ChannelSpec, ProcessLink
+    from xime.core.logging._file import LoggingTransport
     from xime.core.refdata import RefDataArena
 
     from ._watchdog import Heartbeats
@@ -91,6 +92,8 @@ class SharedHandle:
             không gì báo.
         run_once_needed: primary lúc khởi động có còn phải chạy `run_once()`
             không. Cha giữ trạng thái này xuyên qua lần dựng lại worker.
+        logging_transport: queue do supervisor cấp khi bật log file. Worker chỉ
+            gửi record; writer/khóa file do Application phía cha giữ và dọn.
     """
 
     refdata_run_id: str | None = None
@@ -102,6 +105,7 @@ class SharedHandle:
     link_bells: tuple[synchronize.Semaphore, ...] = ()
     beat_run_id: str | None = None
     channels: dict[str, ChannelSpec] = field(default_factory=dict)
+    logging_transport: LoggingTransport | None = None
 
 
 class SharedMemoryOwner:
@@ -129,6 +133,7 @@ class SharedMemoryOwner:
         self._slots = slots
         self._supervisor_index = supervisor_index
         self._beat_run_id = beat_run_id
+        self.logging_transport: LoggingTransport | None = None
 
     @property
     def link(self) -> ProcessLink | None:
@@ -162,6 +167,7 @@ class SharedMemoryOwner:
             link_bells=self._link.bells if self._link else (),
             beat_run_id=self._beat_run_id if self._beats else None,
             channels=link_registry.channels() if self._link else {},
+            logging_transport=self.logging_transport,
         )
 
     def close(self) -> None:

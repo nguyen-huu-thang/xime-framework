@@ -474,6 +474,14 @@ Cha **không được chết**: con chết thì không ai dựng lại, và `Ctr
 điều phối thứ tự tắt. Nó bắt `SIGINT`, `SIGTERM` (thứ `systemd` gửi) và
 `SIGBREAK` trên Windows.
 
+Worker do `Application.run()`/`run_as_worker()` chạy có một chủ sở hữu tín hiệu
+cho toàn lifecycle. Trên POSIX, SIGINT/SIGTERM hủy task chính một lần để dọn
+mọi adapter, hook `PreDestroy` rồi logging; web server không phát lại tín hiệu
+giữa chừng. Handler cũ được khôi phục sau đó. Cơ chế này cũng áp dụng app đơn;
+embedding `start()`/`stop()` vẫn để chương trình chủ quản lý tín hiệu. Tín hiệu
+lặp không ngắt cleanup lần hai; quá deadline supervisor vẫn có thể kill.
+Không suy bảo đảm POSIX sang `terminate()` cưỡng bức trên Windows.
+
 ⭐ Lợi ích phụ: **cổng bị chiếm thì cha nổ ngay lúc khởi động**, thay vì bốn con
 lần lượt nổ và bạn đọc bốn stack trace giống nhau.
 

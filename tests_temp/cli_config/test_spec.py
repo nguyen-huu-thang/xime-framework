@@ -165,7 +165,10 @@ class TestShape:
 class TestResolve:
     def test_a_pydantic_block_takes_its_keys_from_the_model(self) -> None:
         keys = {k.name for k in resolve(BY_NAME["logging"]).keys}
-        assert keys == {"enabled", "level", "format", "datefmt"}
+        assert keys == {"enabled", "level", "format", "datefmt", "service_name", "console", "file"}
+        nested = {key.name: {child.name for child in key.children} for key in resolve(BY_NAME["logging"]).keys}
+        assert nested["console"] == {"enabled", "level"}
+        assert {"enabled", "level", "path", "max_bytes", "backup_count", "queue_capacity"} <= nested["file"]
 
     def test_webserver_model_describes_reload_and_management_fields(self) -> None:
         keys = {key.name: key for key in resolve(BY_NAME["webserver"]).keys}

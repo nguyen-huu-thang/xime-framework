@@ -484,6 +484,15 @@ The parent **must not exit**: nothing would restart a dead child, and `Ctrl+C`
 would have no place to sequence shutdown. It handles `SIGINT`, `SIGTERM` (what
 `systemd` sends) and `SIGBREAK` on Windows.
 
+Workers entered through `Application.run()`/`run_as_worker()` have one signal
+owner for the whole lifecycle. On POSIX, SIGINT/SIGTERM cancel the main task
+once so every adapter, PreDestroy hook and logging sink can close; web servers
+do not replay a signal midway through cleanup. Previous handlers are restored
+afterwards. This also covers a single-process app; embedded `start()`/`stop()`
+leaves host signal ownership unchanged. Repeated signals do not interrupt
+cleanup again; the supervisor can still kill after its deadline. Windows forced
+`terminate()` does not carry the same POSIX cleanup guarantee.
+
 ⭐ A useful side effect: **a port already in use fails in the parent at startup**,
 instead of four children failing one by one and you reading four identical
 stack traces.

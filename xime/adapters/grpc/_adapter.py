@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -20,6 +21,7 @@ from .tls._credentials import build_server_credentials
 
 if TYPE_CHECKING:
     from xime.core.bootstrap.application import Application
+    from xime.observability._grpc_native import NativeLoggingLease
 
 _log = logging.getLogger(__name__)
 
@@ -147,6 +149,7 @@ class GrpcAdapter(Adapter, scaling=SCALING_REPLICATED):
         self._server: grpc.aio.Server | None = None
         self._app: Application | None = None
         self._slot: AdapterSlot | None = None
+        self._native_registration: tuple[NativeLoggingLease, int] | None = None
 
     def assign_slot(self, slot: AdapterSlot) -> None:
         """Nhận ô `process.grpc.<id>` hoặc `processes.<p>.grpc.<id>`."""
@@ -217,6 +220,8 @@ class GrpcAdapter(Adapter, scaling=SCALING_REPLICATED):
                 f"  Config: {slot.where}\n"
                 "  Detail: a gRPC endpoint must declare a port."
             )
+        if "handshake_logging" in slot.spec.options:
+            raise StartupException("Declare native logging only at grpc.handshake_logging, not in a process/listener cell")
         config = GrpcServerConfig.model_validate(
             {
                 "port": slot.spec.port,
@@ -225,6 +230,8 @@ class GrpcAdapter(Adapter, scaling=SCALING_REPLICATED):
             }
         )
         bind_host = slot.spec.host or "[::]"
+        if ":" in bind_host and not bind_host.startswith("["):
+            bind_host = f"[{bind_host}]"
 
         interceptors = self._build_interceptors()
 
@@ -251,7 +258,11 @@ class GrpcAdapter(Adapter, scaling=SCALING_REPLICATED):
         # được ưu tiên hơn đọc file tĩnh.
         credentials = self._build_credentials(app, config)
         if credentials is not None:
-            self._server.add_secure_port(f"{bind_host}:{config.port}", credentials)
+            bound_port = self._server.add_secure_port(f"{bind_host}:{config.port}", credentials)
+            lease = getattr(app, "_native_logging", None)
+            if lease is not None:
+                token = lease.register_listener(self.adapter_id, bind_host, bound_port)
+                self._native_registration = (lease, token)
         else:
             self._server.add_insecure_port(f"{bind_host}:{config.port}")
         _log.info(
@@ -279,9 +290,15 @@ class GrpcAdapter(Adapter, scaling=SCALING_REPLICATED):
         Waits up to 5 seconds for in-flight RPCs to complete before forcing
         a shutdown. No-op if start() was never called.
         """
-        if self._server is not None:
-            await self._server.stop(grace=5)
-            self._server = None
+        try:
+            if self._server is not None:
+                await self._server.stop(grace=5)
+                self._server = None
+        finally:
+            if self._native_registration is not None:
+                lease, token = self._native_registration
+                await asyncio.to_thread(lease.unregister_listener, token)
+                self._native_registration = None
 
     # ------------------------------------------------------------------
     # Internal helpers

@@ -10,6 +10,8 @@ Bắt đầu từ Getting Started, rồi Core Concepts và Configuration. Trang 
 | [Architecture and boundaries](en/architecture.md) | [Kiến trúc và ranh giới](vn/architecture.md) |
 | [Dependency injection](en/core-concepts.md) | [Dependency injection](vn/core-concepts.md) |
 | [Runtime and framework configuration](en/configuration.md) | [Cấu hình runtime và framework](vn/configuration.md) |
+| [Console and rotating file logging](en/logging.md) | [Log terminal và file xoay vòng](vn/logging.md) |
+| [Native gRPC handshake failures](en/grpc-handshake-logging.md) | [Lỗi bắt tay TLS native gRPC](vn/grpc-handshake-logging.md) |
 | [HTTP routing and middleware](en/routing.md) | [Routing HTTP và middleware](vn/routing.md) |
 | [Transactions and read-only blocks](en/transaction.md) | [Transaction và khối chỉ đọc](vn/transaction.md) |
 | [Database, JWT, scheduler, cache and mail](en/starters.md) | [Database, JWT, scheduler, cache và mail](vn/starters.md) |

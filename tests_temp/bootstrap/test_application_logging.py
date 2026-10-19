@@ -1,98 +1,51 @@
-"""Framework cấu hình root logging mặc định từ khối logging: trong application.yml.
+"""Legacy logging behavior, checked on an isolated root without spying on calls."""
 
-Trước khi thêm, app chạy im lặng (root logger mức WARNING, không handler) ->
-mọi log INFO bị nuốt. Application._configure_logging() áp dụng default an toàn:
-chỉ khi enabled VÀ root chưa có handler (app/pytest tự cấu hình luôn thắng).
-
-Test truyền root giả (seam `root=`) + spy logging.basicConfig, nên không đụng
-root logger thật (pytest gắn handler riêng lên root suốt thân test).
-"""
 import logging
 
 import pytest
 
-from xime.core.bootstrap import Application
 from xime.core.config import LoggingConfig, RuntimeConfig
+from xime.core.logging._runtime import LoggingRuntime
 
 
-class _FakeRoot:
-    """Root logger giả với hasHandlers() điều khiển được."""
+@pytest.mark.parametrize(
+    "name,expected", [("DEBUG", 10), ("INFO", 20), ("NONSENSE", 20), ("warning", 30)]
+)
+def test_legacy_levels(name, expected):
+    root = logging.RootLogger(logging.WARNING)
+    runtime = LoggingRuntime(LoggingConfig(level=name), service="test", root=root)
+    try:
+        assert root.level == expected
+        assert len(root.handlers) == 1
+        assert root.handlers[0].level == expected
+    finally:
+        runtime.close()
+    assert not root.handlers
+    assert root.level == logging.WARNING
 
-    def __init__(self, has_handlers: bool) -> None:
-        self._has_handlers = has_handlers
 
-    def hasHandlers(self) -> bool:  # noqa: N802 - khớp API logging
-        return self._has_handlers
-
-
-@pytest.fixture
-def spy_basicconfig(monkeypatch):
-    """Ghi lại tham số của logging.basicConfig (None nếu không được gọi)."""
-    recorded: dict = {"kwargs": None}
-    monkeypatch.setattr(
-        logging, "basicConfig", lambda **kw: recorded.__setitem__("kwargs", kw)
+@pytest.mark.parametrize("enabled", [False, True])
+def test_existing_app_root_keeps_formatter_and_levels(enabled):
+    root = logging.RootLogger(logging.ERROR)
+    handler = logging.NullHandler()
+    root.addHandler(handler)
+    runtime = LoggingRuntime(
+        LoggingConfig(enabled=enabled, level="DEBUG"), service="test", root=root
     )
-    return recorded
+    assert root.handlers == [handler]
+    assert root.level == logging.ERROR
+    runtime.close()
 
 
-def _apply(spy_basicconfig, cfg: LoggingConfig, has_handlers: bool) -> dict:
-    Application._configure_logging(
-        RuntimeConfig(logging=cfg), root=_FakeRoot(has_handlers)
-    )
-    return spy_basicconfig
-
-
-def test_configures_root_when_no_handler(spy_basicconfig):
-    recorded = _apply(spy_basicconfig, LoggingConfig(level="DEBUG"), has_handlers=False)
-    assert recorded["kwargs"] is not None
-    assert recorded["kwargs"]["level"] == logging.DEBUG
-
-
-def test_default_level_is_info(spy_basicconfig):
-    recorded = _apply(spy_basicconfig, LoggingConfig(), has_handlers=False)
-    assert recorded["kwargs"]["level"] == logging.INFO
-
-
-def test_disabled_does_not_call_basicconfig(spy_basicconfig):
-    recorded = _apply(spy_basicconfig, LoggingConfig(enabled=False), has_handlers=False)
-    assert recorded["kwargs"] is None
-
-
-def test_does_not_override_existing_handler(spy_basicconfig):
-    """App tự cấu hình logging (root đã có handler) -> framework không gọi basicConfig."""
-    recorded = _apply(spy_basicconfig, LoggingConfig(level="DEBUG"), has_handlers=True)
-    assert recorded["kwargs"] is None
-
-
-def test_unknown_level_falls_back_to_info(spy_basicconfig):
-    recorded = _apply(spy_basicconfig, LoggingConfig(level="NONSENSE"), has_handlers=False)
-    assert recorded["kwargs"]["level"] == logging.INFO
-
-
-def test_level_name_is_case_insensitive(spy_basicconfig):
-    recorded = _apply(spy_basicconfig, LoggingConfig(level="warning"), has_handlers=False)
-    assert recorded["kwargs"]["level"] == logging.WARNING
-
-
-def test_passes_format_and_datefmt(spy_basicconfig):
-    cfg = LoggingConfig(format="%(message)s", datefmt="%Y")
-    recorded = _apply(spy_basicconfig, cfg, has_handlers=False)
-    assert recorded["kwargs"]["format"] == "%(message)s"
-    assert recorded["kwargs"]["datefmt"] == "%Y"
-
-
-def test_logging_config_parsed_from_yaml():
-    """Khối logging: trong YAML được parse vào RuntimeConfig.logging."""
-    runtime = RuntimeConfig.from_dict(
-        {"logging": {"enabled": False, "level": "DEBUG", "format": "%(message)s"}}
-    )
-    assert runtime.logging.enabled is False
-    assert runtime.logging.level == "DEBUG"
-    assert runtime.logging.format == "%(message)s"
-
-
-def test_logging_config_defaults_when_absent():
-    """Không khai báo logging: -> default enabled INFO."""
-    runtime = RuntimeConfig()
-    assert runtime.logging.enabled is True
-    assert runtime.logging.level == "INFO"
+def test_legacy_format_and_yaml_defaults():
+    cfg = RuntimeConfig.from_dict({"logging": {"format": "%(message)s", "datefmt": "%Y"}})
+    root = logging.RootLogger(logging.WARNING)
+    runtime = LoggingRuntime(cfg.logging, service="test", root=root)
+    try:
+        formatter = root.handlers[0].formatter
+        assert formatter._fmt == "%(message)s"
+        assert formatter.datefmt == "%Y"
+        assert cfg.logging.enabled
+        assert not cfg.logging.file.enabled
+    finally:
+        runtime.close()

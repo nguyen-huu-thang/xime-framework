@@ -4,7 +4,7 @@ import asyncio
 import logging
 import os
 from collections.abc import AsyncGenerator, Callable, Iterable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from dataclasses import replace
 from ssl import CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED
 from typing import TYPE_CHECKING, Any, cast
@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from starlette.types import ASGIApp
 
 from xime.core.bootstrap._accept_lock import boc_khoa_accept
+from xime.core.bootstrap._signals import worker_signals_owned
 from xime.core.bootstrap._slot import AdapterSlot
 from xime.core.bootstrap.adapter import SCALING_REPLICATED, Adapter
 from xime.core.config import is_dev_mode
@@ -511,15 +512,18 @@ class WebAdapter(Adapter, scaling=SCALING_REPLICATED):
     async def serve(self) -> None:
         """Nửa sau: phục vụ tới khi `stop()` được gọi, rồi tắt êm.
 
-        `capture_signals()` giữ nguyên hành vi của `Server.serve()`: uvicorn bắt
-        `SIGINT`/`SIGTERM` để tắt êm. Bỏ nó là mất tắt êm dưới `systemd`, và cái
-        mất đó **không có triệu chứng** cho tới lần deploy đầu tiên.
+        Application.run() owns worker signals so all adapters and lifecycle
+        hooks finish before process exit. Embedded/direct use retains uvicorn's
+        own capture when no Application worker owns the process handlers.
+
+        Application.run() sở hữu tín hiệu worker để dọn mọi adapter và hook,
+        không để uvicorn phát lại SIGTERM trước khi lifecycle hoàn tất.
         """
         if self._server is None:
             return
         self._serve_active = True
         try:
-            with self._server.capture_signals():
+            with nullcontext() if worker_signals_owned() else self._server.capture_signals():
                 if not self._server.should_exit:
                     await self._server.main_loop()
         finally:

@@ -1,7 +1,12 @@
 from xime.core.config._dev import DEV_KEY, is_dev_mode
 from xime.core.config.binding import BindingConfig
 from xime.core.config.loader import YamlConfigLoader, detect_env
-from xime.core.config.runtime import LoggingConfig, RuntimeConfig
+from xime.core.config.runtime import (
+    ConsoleLoggingConfig,
+    FileLoggingConfig,
+    LoggingConfig,
+    RuntimeConfig,
+)
 
 # ⚠ `ServerConfig` và `ServerTlsConfig` ĐÃ RỜI core ở 0.8 - chúng mô tả cấu hình
 # của **web adapter**, không của framework. Nhà mới:
@@ -18,4 +23,6 @@ __all__ = [
     "detect_env",
     "RuntimeConfig",
     "LoggingConfig",
+    "ConsoleLoggingConfig",
+    "FileLoggingConfig",
 ]

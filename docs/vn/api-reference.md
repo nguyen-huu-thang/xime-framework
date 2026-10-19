@@ -216,6 +216,10 @@ Hướng dẫn: [multi-process.md](multi-process.md).
 |---|---|---|
 | `StartupOrchestrator` | **Hạ tầng framework**. Pipeline bootstrap DI/vòng đời/primary do Application sở hữu; không tự khởi chạy orchestrator thứ hai. | — |
 
+`Application.use_logging_console(handler: logging.Handler) -> Application` bàn giao
+console trước startup; YAML quản lý công tắc/mức khai riêng, giữ formatter/filter.
+Xem [logging](logging.md).
+
 ## `xime.core.config`
 
 Hướng dẫn: [configuration.md](configuration.md).
@@ -224,7 +228,9 @@ Hướng dẫn: [configuration.md](configuration.md).
 |---|---|---|
 | `YamlConfigLoader` | **API ứng dụng hoặc kiểu cấu hình/kết quả**. load() đọc application.yml và overlay được chọn; không trộn biến profile với environments trong một file. | `YamlConfigLoader(resources_dir: 'str \| Path' = 'resources') -> 'None'` |
 | `detect_env` | **API ứng dụng hoặc kiểu cấu hình/kết quả**. Đọc XIME_ENV trước APP_ENV, trả None nếu chưa đặt; chúng chọn file profile, không chọn nhánh local/server. | `() -> 'str \| None'` |
-| `LoggingConfig` | **API ứng dụng hoặc kiểu cấu hình/kết quả**. Mặc định root log: enabled, level, format, datefmt; bootstrap tôn trọng app đã cấu hình handler. | `LoggingConfig(*, enabled: bool = True, level: str = 'INFO', format: str = '%(asctime)s \| %(levelname)-7s \| %(name)s \| %(message)s', datefmt: str = '%H:%M:%S') -> None` |
+| `LoggingConfig` | Cấu hình console/file, level/format/datefmt cũ, service_name và hai sink độc lập. Xem [logging](logging.md). | `LoggingConfig(...)` |
+| `ConsoleLoggingConfig` | Công tắc console và mức kế thừa logging.level nếu bỏ trống. | `ConsoleLoggingConfig(enabled=True, level=None)` |
+| `FileLoggingConfig` | File opt-in, path/format, xoay, trần queue/record và timeout dừng. | `FileLoggingConfig(enabled=False, ...)` |
 
 ## `xime.core.container`
 
@@ -494,3 +500,14 @@ async def start_or_report(app, report):
 ```
 
 Startup lỗi phải tiếp tục là lỗi. Ghi lỗi phù hợp vào log được bảo vệ rồi sửa cấu hình/DI; không tiếp tục phục vụ app khởi tạo dở. Lỗi xác thực, phân quyền, protocol và kết nối có chính sách phục hồi khác nhau; không gộp mọi XimeException vào một vòng retry chung.
+
+## `xime.observability`
+
+Guide: [grpc-handshake-logging.md](grpc-handshake-logging.md).
+
+| Name | Contract | Signature |
+|---|---|---|
+| `GrpcHandshakeLoggingConfig` | Process-start native tracing switch, level, rate/queue/record limits. Default disabled. | `GrpcHandshakeLoggingConfig(...)` |
+| `GrpcHandshakeLoggingStats` | Immutable cumulative process counters, including loss and parse/flush errors. | `GrpcHandshakeLoggingStats(...)` |
+| `prepare_grpc_handshake_logging` | Call before grpc imports in every process; off allocates nothing; on has process lifetime. | `(*, resources_dir: str = "resources", runtime: RuntimeConfig \| None = None) -> None` |
+| `grpc_handshake_logging_stats` | Snapshot of local counters; off returns zeros without setup. | `() -> GrpcHandshakeLoggingStats` |

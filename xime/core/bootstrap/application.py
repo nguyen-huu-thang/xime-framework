@@ -24,11 +24,13 @@ from xime.core.bootstrap._processes import (
     build_topology,
     topology_error,
 )
+from xime.core.bootstrap._signals import run_with_signals
 from xime.core.bootstrap._slot import adapter_id_of, adapter_kind_of
 from xime.core.bootstrap.orchestrator import StartupOrchestrator
 from xime.core.config.binding import BindingConfig
 from xime.core.config.loader import YamlConfigLoader, detect_env
 from xime.core.config.runtime import RuntimeConfig
+from xime.core.logging._runtime import LoggingRuntime
 
 if TYPE_CHECKING:
     import socket
@@ -36,6 +38,7 @@ if TYPE_CHECKING:
     from xime.core.bootstrap._shared import SharedHandle
     from xime.core.bootstrap.adapter import Adapter
     from xime.core.refdata import RefDataArena
+    from xime.observability._grpc_native import NativeLoggingLease
 
 _logger = logging.getLogger("xime.bootstrap")
 
@@ -130,6 +133,9 @@ class Application:
         self._cluster: ClusterMember | None = None
         # Cha đã bảo chạy `run_once()` chưa. `None` = chưa ai hỏi tới.
         self._run_once_done = False
+        self._logging: LoggingRuntime | None = None
+        self._logging_console: logging.Handler | None = None
+        self._native_logging: NativeLoggingLease | None = None
 
     # ------------------------------------------------------------------
     # Config
@@ -285,7 +291,14 @@ class Application:
 
         binding = self._resolve_binding()
         runtime = self._load_runtime()
-        self._configure_logging(runtime)
+        self._start_logging(runtime)
+        try:
+            await self._start_runtime(binding, runtime)
+        except BaseException:
+            await asyncio.to_thread(self._stop_logging)
+            raise
+
+    async def _start_runtime(self, binding: BindingConfig, runtime: RuntimeConfig) -> None:
         # Kho tham chiếu mở **trước** DI: nó là hạ tầng của framework, và
         # `RefData` được inject nên arena phải có mặt lúc container dựng.
         self._refdata = self._open_refdata()
@@ -388,6 +401,12 @@ class Application:
         Shut down the application. No-op if start() was never called.
         Resets internal state so start() can be called again.
         """
+        try:
+            await self._stop_runtime()
+        finally:
+            await asyncio.to_thread(self._stop_logging)
+
+    async def _stop_runtime(self) -> None:
         # Dừng vòng đọc bus và nhịp vỗ TRƯỚC khi dọn DI: handler bus là
         # instance của container, và để nó chạy trên một container đang bị dọn
         # là mời một lỗi không ai đọc nổi.
@@ -490,22 +509,22 @@ class Application:
         from xime.core.bootstrap._supervisor import run_supervisor
 
         runtime = self._load_runtime()
-        self._configure_logging(runtime)
         topology = self._resolve_topology(runtime)
-
-        if not self._share_load:
-            self._run_worker(topology, topology.ids[0], {})
-            return
-
         process_id = os.environ.get(PROCESS_ID_ENV)
-        if process_id is None:
-            if self._module_level_seconds is not None:
-                warn_if_module_level_is_heavy(
-                    self._module_level_seconds, len(topology.ids)
-                )
-            run_supervisor(self, topology, self._adapters)
-        else:
-            self._run_worker(topology, process_id, {})
+        self._start_logging(runtime, multiprocess=self._share_load and process_id is None)
+        try:
+            if not self._share_load:
+                self._run_worker(topology, topology.ids[0], {})
+            elif process_id is None:
+                if self._module_level_seconds is not None:
+                    warn_if_module_level_is_heavy(
+                        self._module_level_seconds, len(topology.ids)
+                    )
+                run_supervisor(self, topology, self._adapters)
+            else:
+                self._run_worker(topology, process_id, {})
+        finally:
+            self._stop_logging()
 
     def run_as_worker(
         self,
@@ -527,9 +546,12 @@ class Application:
         self._share_load = True
         self._shared_handle = shared
         runtime = self._load_runtime()
-        self._configure_logging(runtime)
-        topology = self._resolve_topology(runtime)
-        self._run_worker(topology, process_id, sockets)
+        self._start_logging(runtime)
+        try:
+            topology = self._resolve_topology(runtime)
+            self._run_worker(topology, process_id, sockets)
+        finally:
+            self._stop_logging()
 
     def _run_worker(
         self,
@@ -563,7 +585,7 @@ class Application:
             topology, self._adapters, process_id, sockets,
             single=not self._share_load,
         )
-        asyncio.run(self._run_async(), loop_factory=worker_loop_factory(sockets))
+        asyncio.run(run_with_signals(self._run_async), loop_factory=worker_loop_factory(sockets))
 
     def _resolve_topology(self, runtime: RuntimeConfig) -> ProcessTopology:
         """Một cửa duy nhất, cho cả ba nhánh của `run()`.
@@ -1128,34 +1150,45 @@ class Application:
             self._runtime = RuntimeConfig.from_dict(loader.load(env=detect_env()))
         return self._runtime
 
-    @staticmethod
-    def _configure_logging(
-        runtime: RuntimeConfig, root: logging.Logger | None = None
-    ) -> None:
-        """Apply a sane default root logging config from the `logging:` block.
+    def use_logging_console(self, handler: logging.Handler) -> Application:
+        """Hand a custom console formatter/filter to Xime's logging lifecycle.
 
-        Skips entirely when disabled, or when the root logger already has a
-        handler - so an app (or a test harness like pytest) that configured
-        logging itself is never overridden. Without this, INFO logs from the
-        framework and app are swallowed and the app appears to start silently.
-
-        `root` is injectable for testing; production passes None → the real root.
-
-        Bỏ qua khi tắt hoặc khi root đã có handler (app/pytest tự cấu hình luôn
-        được ưu tiên). Không có bước này, log INFO bị nuốt, app tưởng như treo.
+        Call before startup. YAML owns levels/switches; the app owns the handler
+        and formatter. Existing unrelated root handlers are never replaced.
         """
-        import logging
+        if self._logging is not None:
+            raise RuntimeError("Register the logging console before startup")
+        if not isinstance(handler, logging.Handler):
+            raise TypeError("console must be a Python logging.Handler")
+        self._logging_console = handler
+        return self
 
-        cfg = runtime.logging
-        if not cfg.enabled:
+    def _start_logging(self, runtime: RuntimeConfig, *, multiprocess: bool = False) -> None:
+        if self._logging is not None:
             return
+        main = sys.modules.get("__main__")
+        spec = getattr(main, "__spec__", None)
+        service = getattr(spec, "parent", None) or "application"
+        transport = self._shared_handle.logging_transport if self._shared_handle is not None else None
+        from xime.observability._grpc import native_runtime
+        native = native_runtime(runtime)
+        self._logging = LoggingRuntime(
+            runtime.logging, service=service, console_handler=self._logging_console,
+            transport=transport, multiprocess=multiprocess,
+            stderr_stream=native.console_stream if native is not None else None,
+        )
+        try:
+            if native is not None:
+                self._native_logging = native.attach()
+        except BaseException:
+            self._logging.close()
+            self._logging = None
+            raise
 
-        root = root if root is not None else logging.getLogger()
-        if root.hasHandlers():
-            return
-
-        level = logging.getLevelName(cfg.level.upper())
-        if not isinstance(level, int):
-            level = logging.INFO  # unknown level name → safe default
-
-        logging.basicConfig(level=level, format=cfg.format, datefmt=cfg.datefmt)
+    def _stop_logging(self) -> None:
+        if self._native_logging is not None:
+            self._native_logging.close()
+            self._native_logging = None
+        if self._logging is not None:
+            self._logging.close()
+            self._logging = None

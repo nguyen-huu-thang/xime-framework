@@ -209,27 +209,16 @@ environments:
       url: postgresql+asyncpg://db.internal/my_app
 ```
 
-The loader deeply merges the selected branch into common keys and removes `environments` from the runtime configuration. Mappings merge deeply; a list in the selected branch replaces the common list. Both branches must exist and be mappings. `xime.dev` must be explicitly set to a boolean and cannot be repeated in a branch. This mode cannot be combined with `XIME_ENV`/`APP_ENV`; conflicting selectors stop startup. `xime check config` currently checks branch structure, but does not validate framework schemas inside an overlay. A misspelled TLS key in a branch can leave HTTPS unconfigured while the checker reports `clean`. If an overlay contains TLS, inspect the effective configuration and verify it with an HTTPS handshake. Applications without `environments` retain the existing behavior.
+The loader deeply merges the selected branch into common keys and removes `environments` from the runtime configuration. Mappings merge deeply; a list in the selected branch replaces the common list. Both branches must exist and be mappings. `xime.dev` must be explicitly set to a boolean and cannot be repeated in a branch. This mode cannot be combined with `XIME_ENV`/`APP_ENV`; conflicting selectors stop startup. `xime check config` checks known framework key names in both branches and validates effective logging settings. Overlay checks do not replace inspecting the effective TLS configuration and verifying it with an HTTPS handshake. Applications without `environments` retain the existing behavior.
 
 An environment branch that declares `process:` or `processes:` replaces the common topology as a group; a branch without either key inherits the common topology. This lets local inherit the existing `processes:` while a low-memory server declares only `process:`. Use `app.run_configured()` so Xime enables the supervisor only when the effective config declares `processes:`. The effective config cannot declare both `process:` and `processes:`.
 
 ### Logging
 
-Python's root logger defaults to `WARNING` with no handler, so every `INFO` log (including the framework's own startup messages) is swallowed - the app runs correctly but silently, which is easily mistaken for a hang.
-
-To avoid this, XIME configures the root logger at bootstrap, reading an optional `logging:` block from `application.yml`:
-
-```yaml
-logging:
-  enabled: true        # set false to make the framework leave logging untouched
-  level: INFO          # DEBUG / INFO / WARNING / ERROR ... (case-insensitive)
-  format: "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
-  datefmt: "%H:%M:%S"
-```
-
-The whole block is optional - omit it to get the defaults above (enabled, `INFO`).
-
-**Safety rule:** the framework configures logging **only** when `enabled: true` **and** the root logger has no handler yet. If your app calls `logging.basicConfig`/`dictConfig` itself (or runs under a harness that already set up logging, such as pytest), the framework does **not** override it - your setup always wins. To take full control, set `enabled: false`.
+Xime supports independent console and rotating file handlers. File logging is
+opt-in and defaults to off. Existing console-only configuration stays compatible.
+See [logging.md](logging.md) for YAML, custom console handover, multi-process
+ownership, redaction, queue limits and shutdown behavior.
 
 ### DI options
 

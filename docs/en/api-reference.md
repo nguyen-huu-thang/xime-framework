@@ -216,6 +216,10 @@ Guide: [multi-process.md](multi-process.md).
 |---|---|---|
 | `StartupOrchestrator` | **Framework infrastructure**. Application-owned DI/lifecycle/primary bootstrap pipeline; use Application rather than starting a second orchestrator. | — |
 
+`Application.use_logging_console(handler: logging.Handler) -> Application` registers
+a custom console before startup; YAML owns switches/explicit levels and Xime
+retains the formatter/filters. See [logging](logging.md).
+
 ## `xime.core.config`
 
 Guide: [configuration.md](configuration.md).
@@ -224,7 +228,9 @@ Guide: [configuration.md](configuration.md).
 |---|---|---|
 | `YamlConfigLoader` | **Application API or configuration/result type**. load() reads application.yml and selected overlays; do not combine profile environment variables with single-file environments. | `YamlConfigLoader(resources_dir: 'str \| Path' = 'resources') -> 'None'` |
 | `detect_env` | **Application API or configuration/result type**. Read XIME_ENV before APP_ENV, returning None when unset; these select legacy profile files, not local/server branches. | `() -> 'str \| None'` |
-| `LoggingConfig` | **Application API or configuration/result type**. Root logging defaults: enabled, level, format, datefmt; bootstrap respects an application that already configured handlers. | `LoggingConfig(*, enabled: bool = True, level: str = 'INFO', format: str = '%(asctime)s \| %(levelname)-7s \| %(name)s \| %(message)s', datefmt: str = '%H:%M:%S') -> None` |
+| `LoggingConfig` | Root console/file ownership, legacy level/format/datefmt, optional service_name and independent sink models. See [logging](logging.md). | `LoggingConfig(...)` |
+| `ConsoleLoggingConfig` | Console switch and optional level inheriting logging.level. | `ConsoleLoggingConfig(enabled=True, level=None)` |
+| `FileLoggingConfig` | Opt-in file path/format, rotation, bounded queue/record size and shutdown limits. | `FileLoggingConfig(enabled=False, ...)` |
 
 ## `xime.core.container`
 
@@ -494,3 +500,14 @@ async def start_or_report(app, report):
 ```
 
 Startup failures must remain failures. Log the relevant error securely and fix configuration/DI; do not continue serving a partly initialized app. Runtime authentication, authorization, protocol and connectivity subclasses have different recovery policies; avoid one broad retry loop for all XimeException values.
+
+## `xime.observability`
+
+Guide: [grpc-handshake-logging.md](grpc-handshake-logging.md).
+
+| Name | Contract | Signature |
+|---|---|---|
+| `GrpcHandshakeLoggingConfig` | Process-start native tracing switch, level, rate/queue/record limits. Default disabled. | `GrpcHandshakeLoggingConfig(...)` |
+| `GrpcHandshakeLoggingStats` | Immutable cumulative process counters, including loss and parse/flush errors. | `GrpcHandshakeLoggingStats(...)` |
+| `prepare_grpc_handshake_logging` | Call before grpc imports in every process; off allocates nothing; on has process lifetime. | `(*, resources_dir: str = "resources", runtime: RuntimeConfig \| None = None) -> None` |
+| `grpc_handshake_logging_stats` | Snapshot of local counters; off returns zeros without setup. | `() -> GrpcHandshakeLoggingStats` |

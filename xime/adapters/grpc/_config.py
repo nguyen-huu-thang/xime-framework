@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from xime.core.config.runtime import RuntimeConfig
+from xime.observability import GrpcHandshakeLoggingConfig
 
 
 class GrpcTlsConfig(BaseModel):
@@ -100,6 +101,7 @@ class GrpcServerConfig(BaseModel):
     max_workers: int = 10
     tls: GrpcTlsConfig = Field(default_factory=GrpcTlsConfig)
     keepalive: GrpcServerKeepaliveConfig = Field(default_factory=GrpcServerKeepaliveConfig)
+    handshake_logging: GrpcHandshakeLoggingConfig = Field(default_factory=GrpcHandshakeLoggingConfig)
 
     @classmethod
     def from_runtime(cls, runtime: RuntimeConfig) -> GrpcServerConfig:

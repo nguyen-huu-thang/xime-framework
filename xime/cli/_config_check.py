@@ -128,6 +128,37 @@ def _inspect_blocks(
     raw: dict[str, Any], prefix: str, findings: list[Finding], checked: list[str],
     *, keys: bool = True, required: bool = True,
 ) -> None:
+    grpc_raw = raw.get("grpc")
+    process_blocks = [("process", raw["process"])] if "process" in raw else []
+    if isinstance(raw.get("processes"), dict):
+        process_blocks.extend((f"processes.{name}", value) for name, value in raw["processes"].items())
+    if keys:
+        for block_name, block in process_blocks:
+            grpc_cells = block.get("grpc") if isinstance(block, dict) else None
+            if isinstance(grpc_cells, dict):
+                for listener, options in grpc_cells.items():
+                    if isinstance(options, dict) and "handshake_logging" in options:
+                        findings.append(Finding(f"{prefix}{block_name}.grpc.{listener}.handshake_logging", "native logging is process-level", "declare grpc.handshake_logging at the root"))
+    if keys and isinstance(grpc_raw, dict):
+        for name in grpc_raw:
+            if isinstance(name, str) and name != "handshake_logging" and difflib.get_close_matches(name, ["handshake_logging"], cutoff=0.8):
+                findings.append(Finding(f"{prefix}grpc.{name}", "unknown key", "did you mean 'handshake_logging'?"))
+    if isinstance(grpc_raw, dict) and "handshake_logging" in grpc_raw:
+        from pydantic import ValidationError
+
+        from xime.observability import GrpcHandshakeLoggingConfig
+
+        native = grpc_raw["handshake_logging"]
+        where = f"{prefix}grpc.handshake_logging"
+        if keys and isinstance(native, dict):
+            _walk(native, {name: {} for name in GrpcHandshakeLoggingConfig.model_fields}, where, findings)
+        if required and native is not None:
+            try:
+                GrpcHandshakeLoggingConfig.model_validate(native)
+            except ValidationError as exc:
+                for error in exc.errors(include_input=False, include_url=False):
+                    location = ".".join(str(part) for part in error["loc"])
+                    findings.append(Finding(f"{where}.{location}".rstrip("."), "invalid gRPC handshake logging configuration", str(error["type"])))
     # Check raw overlays for spelling, effective configs for required fields.
     # Kiểm tên trên overlay thô; field bắt buộc phải xét sau khi kế thừa common.
     if required and "server" in raw and "webserver" in raw:
@@ -175,6 +206,17 @@ def _inspect_blocks(
         known = _key_tree(resolved.keys)
         if keys and isinstance(value, dict):
             _walk(value, known, where, findings)
+        if required and name == "logging":
+            from pydantic import ValidationError
+
+            from xime.core.config import LoggingConfig
+
+            try:
+                LoggingConfig.model_validate(value)
+            except ValidationError as exc:
+                for error in exc.errors(include_input=False, include_url=False):
+                    location = ".".join(str(part) for part in error["loc"])
+                    findings.append(Finding(f"{where}.{location}".rstrip("."), "invalid logging configuration", str(error["type"])))
 
         for key in resolved.keys:
             if required and key.required and (not isinstance(value, dict) or key.name not in value):

@@ -7,7 +7,41 @@ Tất cả thay đổi đáng chú ý của Xime Framework được ghi ở đâ
 
 ## [Unreleased]
 
+### Added
+
+- Native gRPC TLS failure logging opt-in: bootstrap trước import grpc, pipe sống
+  suốt đời process, trường IP/port/cause chuẩn hóa vào Python logging/file G3,
+  trần queue/rate và counter mất log. Worker giữ PID riêng qua promotion/respawn;
+  cấu hình native chỉ đổi khi restart process. Đã kiểm Windows và Linux/Python
+  3.13.5; log ứng dụng và native chuẩn hóa dùng chung file của dịch vụ.
+- Chuẩn hóa host IPv6 chưa có ngoặc khi GrpcAdapter bind, được phát hiện bởi test
+  native IPv6 thật. Không đổi TLS/mTLS policy hoặc cipher.
+
+- Logging file opt-in với level/công tắc độc lập console, JSON/text, append và
+  xoay theo size. Một writer ở supervisor cho cụm nhiều process, queue có trần,
+  deadline flush, khóa OS chống hai instance tranh file, context và che credential.
+- `Application.use_logging_console(handler)` phối hợp formatter/filter console
+  riêng; model `ConsoleLoggingConfig`/`FileLoggingConfig`, checker và tài liệu EN/VN.
+  Bộ thu native gRPC được bật riêng và dùng chung file sink này; đã kiểm POSIX.
+
 ### Fixed
+
+- S3: giữ wrapper StreamingBody trong context khi đọc object/stream, thay vì
+  dùng response thô do __aenter__ trả về. Sửa read(size) lỗi TypeError khi tải
+  file/range từ MinIO thật; giữ đọc chunk, kiểm độ dài và cleanup khi lỗi/hủy.
+
+- Native gRPC: hỗ trợ tiền tố trace cũ của grpcio 1.72.1 bên cạnh định dạng mới,
+  giữ nguyên sàn dependency. Framer nhận record chia từng byte; trace thành công
+  không tăng unparsed, IP/port chỉ lấy từ metadata cùng record, không từ reason.
+  Nhận cả pointer hex cố định không có `0x` của Windows legacy; giữ kiểm pointer
+  sai, listener và metadata, không suy địa chỉ từ raw reason.
+
+- Shutdown: Application quản lý SIGINT/SIGTERM của toàn worker, tránh uvicorn
+  phát lại tín hiệu trước khi mọi adapter/PreDestroy/logging được dọn. Áp dụng
+  app đơn và worker POSIX, handler cũ được khôi phục; embedding giữ quyền quản
+  lý tín hiệu của host. Bản vá được duyệt và kiểm hồi quy Linux/Python 3.13.5;
+  Windows CTRL_BREAK đã kiểm riêng với/không WebAdapter; terminate cưỡng bức
+  trên Windows không bảo đảm cleanup.
 
 - Dependency floors: Pydantic >=2.7.0 để khớp FastAPI tối thiểu; grpcio và
   grpcio-tools >=1.72.1 để cài cùng protobuf >=6.33.5. Tổ hợp sàn mới đã qua

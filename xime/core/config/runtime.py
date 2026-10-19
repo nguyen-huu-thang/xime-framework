@@ -1,8 +1,16 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, PrivateAttr, TypeAdapter, ValidationError
+from pydantic import (
+    BaseModel,
+    Field,
+    PrivateAttr,
+    TypeAdapter,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from xime.core.exception.framework import StartupException
 
@@ -26,26 +34,79 @@ _SENSITIVE_KEY_FRAGMENTS = ("secret", "password", "passwd", "token", "key", "cre
 _MASK = "***"
 
 
+class ConsoleLoggingConfig(BaseModel):
+    """Console switch and optional level; None inherits logging.level."""
+
+    enabled: bool = True
+    level: str | None = None
+
+    @field_validator("level")
+    @classmethod
+    def valid_level(cls, value: str | None) -> str | None:
+        if value is not None and value.upper() not in (
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "WARN",
+            "ERROR",
+            "CRITICAL",
+            "FATAL",
+            "NOTSET",
+        ):
+            raise ValueError("expected a Python logging level name")
+        return value
+
+
+class FileLoggingConfig(ConsoleLoggingConfig):
+    """Opt-in append/rotation sink. Limits apply per application, not per worker."""
+
+    enabled: bool = False
+    path: str = "runtime/logs/application.jsonl"
+    format: Literal["json", "text"] = "json"
+    max_bytes: int = Field(default=10_485_760, gt=0)
+    backup_count: int = Field(default=5, ge=1, le=100)
+    queue_capacity: int = Field(default=4096, ge=1, le=100_000)
+    max_record_bytes: int = Field(default=65_536, ge=1024, le=1_048_576)
+    shutdown_timeout: float = Field(default=5.0, gt=0, le=30)
+
+    @field_validator("path")
+    @classmethod
+    def valid_path(cls, value: str) -> str:
+        if not value.strip() or "\x00" in value:
+            raise ValueError("expected a nonempty file path without NUL")
+        return value
+
+
 class LoggingConfig(BaseModel):
     """Default root logging applied at bootstrap.
 
     Without this, Python's root logger defaults to WARNING with no handler, so
     every INFO log the framework and app emit is swallowed - the app appears to
     start silently and is easily mistaken for hung. The framework configures
-    root logging only when `enabled` is true AND no handler is already installed
-    (so an app that calls logging.basicConfig/dictConfig itself always wins).
-    Set `enabled: false` to opt out entirely.
+    root logging only when enabled and root has no handlers, or when the app
+    explicitly hands over its console through Application.use_logging_console.
+    File logging is opt-in, bounded, and owned by one writer per application.
+    Set enabled=false to leave application logging untouched.
 
     Không có khối này, root logger mặc định mức WARNING, không handler -> mọi log
     INFO bị nuốt, app tưởng như treo. Framework chỉ cấu hình khi enabled=true VÀ
     root chưa có handler (app tự cấu hình logging luôn được ưu tiên). Đặt
-    enabled: false để tắt hẳn.
+    enabled: false để nhường cấu hình. File opt-in; console riêng có API bàn giao.
     """
 
     enabled: bool = True
     level: str = "INFO"
     format: str = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
     datefmt: str = "%H:%M:%S"
+    service_name: str | None = None
+    console: ConsoleLoggingConfig = Field(default_factory=ConsoleLoggingConfig)
+    file: FileLoggingConfig = Field(default_factory=FileLoggingConfig)
+
+    @model_validator(mode="after")
+    def consistent_ownership(self) -> LoggingConfig:
+        if not self.enabled and self.file.enabled:
+            raise ValueError("logging.file.enabled requires logging.enabled=true")
+        return self
 
 
 class RuntimeConfig(BaseModel):

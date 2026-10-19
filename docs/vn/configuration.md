@@ -208,27 +208,15 @@ environments:
       url: postgresql+asyncpg://db.internal/my_app
 ```
 
-Loader merge nhánh được chọn vào khóa chung rồi bỏ khối `environments` khỏi runtime config. Mapping được merge sâu; list ở nhánh được chọn thay list chung. Hai nhánh phải cùng có mặt và là mapping. `xime.dev` phải khai rõ kiểu boolean, không được khai lại bên trong một nhánh. Khối này không kết hợp với `XIME_ENV`/`APP_ENV`; trộn hai bộ chọn sẽ chặn startup. `xime check config` hiện chỉ kiểm cấu trúc nhánh, chưa kiểm schema các khóa framework nằm bên trong overlay. Một lỗi gõ sai TLS trong nhánh có thể khiến HTTPS không được cấu hình mà checker vẫn báo `clean`. Nếu overlay chứa TLS, hãy rà cấu hình hiệu lực và xác nhận bằng HTTPS handshake. Nếu không khai `environments`, hành vi cũ không đổi.
+Loader merge nhánh được chọn vào khóa chung rồi bỏ khối `environments` khỏi runtime config. Mapping được merge sâu; list ở nhánh được chọn thay list chung. Hai nhánh phải cùng có mặt và là mapping. `xime.dev` phải khai rõ kiểu boolean, không được khai lại bên trong một nhánh. Khối này không kết hợp với `XIME_ENV`/`APP_ENV`; trộn hai bộ chọn sẽ chặn startup. `xime check config` rà tên khóa framework đã biết ở cả hai nhánh và kiểm cấu hình logging sau merge. Kiểm overlay không thay cho rà cấu hình TLS hiệu lực và xác nhận bằng HTTPS handshake. Nếu không khai `environments`, hành vi cũ không đổi.
 
 Với cấu hình topology, nhánh có khai `process:` hoặc `processes:` sẽ thay cả nhóm topology chung; nhánh không khai thì kế thừa topology chung. Nhờ vậy có thể giữ `processes:` hiện tại ở phần chung cho local, rồi chỉ khai `process:` ở nhánh server RAM thấp. Dùng `app.run_configured()` để Xime tự gọi supervisor đúng khi cấu hình đang hoạt động có `processes:`. Không để đồng thời `process:` và `processes:` trong cấu hình có hiệu lực.
 
 ### Logging
 
-Python mặc định để root logger ở mức `WARNING` và không gắn handler, nên mọi log `INFO` (kể cả thông điệp startup của chính framework) đều bị nuốt - app chạy đúng nhưng im lặng, dễ tưởng bị treo.
-
-Để tránh điều này, XIME tự cấu hình root logger lúc bootstrap, đọc khối `logging:` (tùy chọn) trong `application.yml`:
-
-```yaml
-logging:
-  enabled: true        # đặt false để framework không đụng tới logging
-  level: INFO          # DEBUG / INFO / WARNING / ERROR ... (không phân biệt hoa thường)
-  format: "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
-  datefmt: "%H:%M:%S"
-```
-
-Toàn bộ khối là tùy chọn - không khai báo thì dùng mặc định ở trên (enabled, `INFO`).
-
-**Quy tắc an toàn:** framework **chỉ** cấu hình khi `enabled: true` **và** root logger chưa có handler nào. Nếu app tự gọi `logging.basicConfig`/`dictConfig` (hoặc chạy dưới một harness đã cấu hình logging như pytest), framework **không** ghi đè - setup của app luôn được ưu tiên. Muốn tự lo hoàn toàn thì đặt `enabled: false`.
+Xime hỗ trợ console và file xoay vòng với công tắc/mức chi tiết riêng. File mặc
+định tắt; cấu hình console cũ tiếp tục dùng được. Xem [logging.md](logging.md) để
+khai YAML, bàn giao console riêng, dùng nhiều process, che bí mật và giới hạn queue.
 
 ### Tùy chọn DI
 

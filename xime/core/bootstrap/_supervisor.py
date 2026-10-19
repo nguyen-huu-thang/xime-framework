@@ -1401,6 +1401,9 @@ def run_supervisor(
     # `+ 1` ô cho chính cha: nó là một hàng trong bảng bus như mọi tiến trình
     # khác, vì kênh điều khiển `__xime__` đi hai chiều.
     shared = allocate_shared_memory(len(topology.ids))
+    logging_runtime = app._logging
+    if logging_runtime is not None:
+        shared.logging_transport = logging_runtime.transport
     try:
         Supervisor(app, topology, bound, shared).run()
     finally:

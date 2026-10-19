@@ -161,10 +161,10 @@ SPEC: tuple[Block, ...] = (
     Block(
         name="logging",
         doc=(
-            "Root logging applied at bootstrap. Without this block the root\n"
-            "logger sits at WARNING with no handler, so every INFO line is\n"
-            "swallowed and a healthy app looks hung. An app that configures\n"
-            "logging itself always wins."
+            "Console and opt-in rotating file logging, with independent levels.\n"
+            "One file writer per application (supervisor-owned for a cluster).\n"
+            "Application-owned root logging requires explicit console handover\n"
+            "before file logging can be enabled."
         ),
         model="xime.core.config.runtime:LoggingConfig",
         complete=True,
