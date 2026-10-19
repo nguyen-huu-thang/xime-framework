@@ -131,7 +131,7 @@ kiện cho MemoryDataStore/LocalEventBroker mặc định; kho ngoài hoặc ser
 JSON/CBOR cần đánh giá riêng. Nguồn: [OSV](https://osv.dev/vulnerability/PYSEC-2026-282).
 Đã kiểm metadata PyPI: 4.0.0a6 vẫn là bản v4 mới nhất tại lúc kiểm.
 
-Các nợ consumer được Linux xác định riêng, chưa sửa trong repo framework:
+Các nợ consumer được Linux xác định riêng ở thời điểm tiếp nhận:
 
 - Dental thiếu khai Pillow: tám ca nén ảnh lỗi; cài chẩn đoán riêng thì qua.
 - Dental YAML mẫu thiếu public path của route yêu cầu tư vấn; cần repo ứng dụng
@@ -139,9 +139,23 @@ Các nợ consumer được Linux xác định riêng, chưa sửa trong repo fr
 - Dental/Shop Hoa có guard báo khai cryptography trùng framework. Đây không
   phải resolver conflict; không bỏ assertion để gọi tất cả consumer xanh.
 
+**Đã xử lý tại mã nguồn Dental/Shop Hoa ngày 2026-10-19:** bỏ khai cryptography
+trùng, dùng dependency từ extra JWT của framework mới; khai Pillow runtime cho
+Dental và đồng bộ sàn Pillow hai app lên 12.3.0. Đã kiểm OSV của 12.3.0 tại thời
+điểm sửa không có advisory trả về, và chạy test với đúng phiên bản này. YAML mẫu
+Dental bổ sung `/api/v1/cong-khai/yeu-cau-tu-van/*`; YAML local đã có đúng tiền tố,
+không mở rộng toàn bộ nhánh công khai. Không đổi handler hoặc cơ chế hãm nhịp.
+
+Full backend Windows/Python 3.14.8 sau sửa: **Dental 1578 passed**, **Shop Hoa
+1083 passed/2 skipped**, không failure/error. Kiểm các dependency runtime đã khai
+và pip check đạt. Bằng chứng tại `%TEMP%/xime-app-debts-20261019-l4d7557g/`.
+Thay đổi mới nằm ở hai `backend/pyproject.toml` và YAML mẫu Dental; chưa đồng bộ
+các thay đổi ứng dụng này sang build/VPS và chưa commit chúng.
+
 Linux đã chạy Data 695, Notification 462, Kho 238/5 skip, Sổ thu chi 246/8 skip;
-PostgreSQL riêng Kho bốn ca và Sổ thu chi bảy ca đều đạt. Dental/Shop Hoa vẫn
-giữ kết quả lỗi đã phân loại trong báo cáo gốc, không trộn vào tổng framework.
+PostgreSQL riêng Kho bốn ca và Sổ thu chi bảy ca đều đạt. Kết quả lỗi Dental/Shop
+Hoa trong báo cáo Linux gốc được giữ làm lịch sử; lượt Windows sửa consumer phía
+trên là bằng chứng mới, không trộn vào tổng framework.
 
 Chưa chứng minh: Linux/Python 3.12 với source cuối; Windows forced termination
 thực hiện cleanup; VPS/systemd/ACME/DNS thật, AWS S3 cloud và nghiệp vụ live.
@@ -167,5 +181,7 @@ Bản sao bằng chứng Linux chọn lọc được giữ tại
 `.claude/temp/windows-logging-accept-20261019/`. Hai vùng này bị Git bỏ qua;
 không stage raw log, fixture private key, venv hoặc wheel vào repo.
 
-Lượt này chỉ cập nhật repo framework và tài liệu. Không thay build VPS, source
-consumer, version hay dependency; không commit/push/tag/upload PyPI.
+Đợt tiếp nhận framework chỉ cập nhật repo framework và tài liệu, giữ version và
+dependency framework. Lượt consumer bổ sung ngày 2026-10-19 sửa metadata của hai
+app và YAML mẫu Dental như mục 5; chưa đổi build/VPS hoặc commit phần bổ sung này.
+Không push/tag/upload PyPI trong các lượt nghiệm thu.
